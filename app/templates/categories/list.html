@@ -1,0 +1,347 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="p-6 max-w-7xl mx-auto">
+    <!-- Page Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-800">Categories</h2>
+            <p class="text-gray-600 mt-1">Manage income and expense categories</p>
+        </div>
+        <button onclick="openAddModal()" class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition flex items-center">
+            <i class="fas fa-plus mr-2"></i>Add Category
+        </button>
+    </div>
+    
+    <!-- Tabs -->
+    <div class="bg-white rounded-xl shadow-md mb-6">
+        <div class="flex border-b">
+            <button onclick="switchTab('expense')" id="tab-expense" class="flex-1 py-4 px-6 text-center font-medium text-primary border-b-2 border-primary bg-blue-50">
+                <i class="fas fa-arrow-up mr-2"></i>Expense Categories
+            </button>
+            <button onclick="switchTab('income')" id="tab-income" class="flex-1 py-4 px-6 text-center font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700">
+                <i class="fas fa-arrow-down mr-2"></i>Income Categories
+            </button>
+        </div>
+    </div>
+    
+    <!-- Categories Grid -->
+    <div id="categories-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Dynamic content -->
+    </div>
+</div>
+
+<!-- Add/Edit Category Modal -->
+<div id="category-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
+        <div class="p-6 border-b flex justify-between items-center">
+            <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Category</h3>
+            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        
+        <form id="category-form" class="p-6 space-y-4">
+            <input type="hidden" id="category-id">
+            <input type="hidden" id="category-type" value="expense">
+            
+            <!-- Name -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Category Name</label>
+                <input type="text" id="name" required
+                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                       placeholder="Enter category name">
+            </div>
+            
+            <!-- Type -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                <select id="type-select" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <option value="expense">Expense</option>
+                    <option value="income">Income</option>
+                </select>
+            </div>
+            
+            <!-- Color -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Color</label>
+                <div class="flex gap-2 flex-wrap">
+                    {% set colors = ['#EF4444', '#F59E0B', '#10B981', '#3B82F6', '#6366F1', '#8B5CF6', '#EC4899', '#78350F', '#6B7280'] %}
+                    {% for color in colors %}
+                    <label class="cursor-pointer">
+                        <input type="radio" name="color" value="{{ color }}" class="hidden peer" {% if loop.first %}checked{% endif %}>
+                        <div class="w-10 h-10 rounded-full peer-checked:ring-4 peer-checked:ring-offset-2 peer-checked:ring-gray-400 transition"
+                             style="background-color: {{ color }}"></div>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Icon -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Icon</label>
+                <select id="icon" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <option value="circle">Circle</option>
+                    <option value="utensils">Food</option>
+                    <option value="car">Transport</option>
+                    <option value="shopping-bag">Shopping</option>
+                    <option value="film">Entertainment</option>
+                    <option value="bolt">Utilities</option>
+                    <option value="heartbeat">Healthcare</option>
+                    <option value="graduation-cap">Education</option>
+                    <option value="home">Housing</option>
+                    <option value="shield-alt">Insurance</option>
+                    <option value="money-bill-wave">Salary</option>
+                    <option value="gift">Bonus</option>
+                    <option value="chart-line">Investment</option>
+                    <option value="laptop-code">Freelance</option>
+                    <option value="building">Rental</option>
+                    <option value="ellipsis-h">Other</option>
+                </select>
+            </div>
+            
+            <!-- Submit -->
+            <div class="flex gap-4 pt-4">
+                <button type="button" onclick="closeModal()"
+                        class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="flex-1 px-4 py-3 bg-primary text-white rounded-lg hover:bg-blue-600 transition">
+                    Save Category
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    let currentTab = 'expense';
+    let categories = [];
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        loadCategories();
+    });
+    
+    // Switch tab
+    function switchTab(type) {
+        currentTab = type;
+        
+        // Update tab styles
+        document.getElementById('tab-expense').className = 
+            type === 'expense' 
+                ? 'flex-1 py-4 px-6 text-center font-medium text-primary border-b-2 border-primary bg-blue-50'
+                : 'flex-1 py-4 px-6 text-center font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700';
+        
+        document.getElementById('tab-income').className = 
+            type === 'income'
+                ? 'flex-1 py-4 px-6 text-center font-medium text-primary border-b-2 border-primary bg-blue-50'
+                : 'flex-1 py-4 px-6 text-center font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700';
+        
+        renderCategories();
+    }
+    
+    // Load categories
+    async function loadCategories() {
+        try {
+            const response = await fetch('/api/categories/');
+            categories = await response.json();
+            renderCategories();
+        } catch (error) {
+            console.error('Error loading categories:', error);
+        }
+    }
+    
+    // Render categories
+    function renderCategories() {
+        const grid = document.getElementById('categories-grid');
+        while (grid.firstChild) grid.removeChild(grid.firstChild);
+
+        const filtered = categories.filter(function(c) { return c.type === currentTab; });
+
+        filtered.forEach(function(category) {
+            const card = document.createElement('div');
+            card.className = 'bg-white rounded-xl shadow-md p-6' + (!category.is_active ? ' opacity-60' : '');
+
+            const row = document.createElement('div');
+            row.className = 'flex items-start justify-between';
+
+            // Left: icon + info
+            const left = document.createElement('div');
+            left.className = 'flex items-center';
+            const iconWrap = document.createElement('div');
+            iconWrap.className = 'w-12 h-12 rounded-full flex items-center justify-center mr-4';
+            iconWrap.style.backgroundColor = category.color + '20';
+            const ico = document.createElement('i');
+            ico.className = 'fas fa-' + category.icon;
+            ico.style.color = category.color;
+            ico.style.fontSize = '1.25rem';
+            iconWrap.appendChild(ico);
+
+            const info = document.createElement('div');
+            const nameEl = document.createElement('h3');
+            nameEl.className = 'font-semibold text-gray-800';
+            nameEl.textContent = category.name;
+            const typeEl = document.createElement('p');
+            typeEl.className = 'text-sm text-gray-500 capitalize';
+            typeEl.textContent = category.type;
+            const countEl = document.createElement('p');
+            countEl.className = 'text-xs text-gray-400';
+            countEl.textContent = (category.transaction_count || 0) + ' transactions';
+            info.appendChild(nameEl);
+            info.appendChild(typeEl);
+            info.appendChild(countEl);
+            if (!category.is_active) {
+                const inactiveEl = document.createElement('span');
+                inactiveEl.className = 'text-xs text-gray-400';
+                inactiveEl.textContent = '(Inactive)';
+                info.appendChild(inactiveEl);
+            }
+
+            left.appendChild(iconWrap);
+            left.appendChild(info);
+
+            // Right: actions
+            const actions = document.createElement('div');
+            actions.className = 'flex gap-2';
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'text-blue-600 hover:text-blue-800 p-2';
+            const editIco = document.createElement('i');
+            editIco.className = 'fas fa-edit';
+            editBtn.appendChild(editIco);
+            editBtn.addEventListener('click', function() { editCategory(category.id); });
+
+            const toggleBtn = document.createElement('button');
+            toggleBtn.className = 'text-gray-600 hover:text-gray-800 p-2';
+            toggleBtn.title = category.is_active ? 'Deactivate' : 'Activate';
+            const toggleIco = document.createElement('i');
+            toggleIco.className = 'fas fa-' + (category.is_active ? 'eye-slash' : 'eye');
+            toggleBtn.appendChild(toggleIco);
+            toggleBtn.addEventListener('click', function() { toggleCategory(category.id); });
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'text-red-600 hover:text-red-800 p-2';
+            delBtn.title = 'Delete';
+            const delIco = document.createElement('i');
+            delIco.className = 'fas fa-trash';
+            delBtn.appendChild(delIco);
+            delBtn.addEventListener('click', function() {
+                deleteWithUndo(card, '/api/categories/' + category.id, loadCategories, category.name);
+            });
+
+            actions.appendChild(editBtn);
+            actions.appendChild(toggleBtn);
+            actions.appendChild(delBtn);
+
+            row.appendChild(left);
+            row.appendChild(actions);
+            card.appendChild(row);
+            grid.appendChild(card);
+        });
+    }
+    
+    // Modal functions
+    function openAddModal() {
+        document.getElementById('modal-title').textContent = 'Add Category';
+        document.getElementById('category-form').reset();
+        document.getElementById('category-id').value = '';
+        document.getElementById('category-type').value = currentTab;
+        document.getElementById('type-select').value = currentTab;
+        document.getElementById('category-modal').classList.remove('hidden');
+    }
+    
+    function closeModal() {
+        document.getElementById('category-modal').classList.add('hidden');
+    }
+    
+    // Form submission
+    document.getElementById('category-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const categoryId = document.getElementById('category-id').value;
+        const data = {
+            name: document.getElementById('name').value,
+            type: document.getElementById('type-select').value,
+            color: document.querySelector('input[name="color"]:checked').value,
+            icon: document.getElementById('icon').value,
+            is_active: true
+        };
+        
+        try {
+            const url = categoryId ? `/api/categories/${categoryId}` : '/api/categories/';
+            const method = categoryId ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            if (response.ok) {
+                closeModal();
+                loadCategories();
+            } else {
+                const error = await response.json();
+                const errorMessage = typeof error.detail === 'object' ? JSON.stringify(error.detail) : error.detail;
+                showToast('Error: ' + errorMessage, 'error');
+            }
+        } catch (error) {
+            console.error('Error saving category:', error);
+            showToast('Failed to save category', 'error');
+        }
+    });
+    
+    // Edit category
+    async function editCategory(id) {
+        const category = categories.find(c => c.id === id);
+        if (!category) return;
+        
+        document.getElementById('modal-title').textContent = 'Edit Category';
+        document.getElementById('category-id').value = category.id;
+        document.getElementById('name').value = category.name;
+        document.getElementById('type-select').value = category.type;
+        
+        // Set color radio
+        const colorRadio = document.querySelector(`input[name="color"][value="${category.color}"]`);
+        if (colorRadio) colorRadio.checked = true;
+        
+        document.getElementById('icon').value = category.icon;
+        document.getElementById('category-modal').classList.remove('hidden');
+    }
+    
+    // Toggle category active status
+    async function toggleCategory(id) {
+        try {
+            const response = await fetch(`/api/categories/${id}/toggle-active`, {
+                method: 'PATCH'
+            });
+            
+            if (response.ok) {
+                loadCategories();
+            }
+        } catch (error) {
+            console.error('Error toggling category:', error);
+        }
+    }
+    
+    // deleteCategory kept for compatibility (now wired via deleteWithUndo in card)
+    async function deleteCategory(id) {
+        showConfirm('Delete this category?', async function() {
+            try {
+                const response = await fetch('/api/categories/' + id, { method: 'DELETE' });
+                if (response.ok) {
+                    loadCategories();
+                } else {
+                    const error = await response.json();
+                    const msg = typeof error.detail === 'object' ? JSON.stringify(error.detail) : error.detail;
+                    showToast('Error: ' + msg, 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting category:', error);
+            }
+        });
+    }
+</script>
+{% endblock %}

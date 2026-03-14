@@ -1,0 +1,882 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="p-6 max-w-7xl mx-auto">
+    <!-- Page Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-800">Transactions</h2>
+            <p class="text-gray-600 mt-1">Manage your daily income and expenses</p>
+        </div>
+        <div class="flex gap-3">
+            <button onclick="openBulkUploadModal()" class="bg-purple-100 text-purple-700 px-6 py-3 rounded-lg hover:bg-purple-200 transition flex items-center">
+                <i class="fas fa-file-upload mr-2"></i>Bulk Upload
+            </button>
+            <button onclick="openAddModal()" class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition flex items-center">
+                <i class="fas fa-plus mr-2"></i>Add Transaction
+            </button>
+        </div>
+    </div>
+    
+    <!-- Filters -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-6">
+        <div class="flex flex-wrap gap-4">
+            <select id="filter-type" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary">
+                <option value="">All Types</option>
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+            </select>
+            
+            <select id="filter-category" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary">
+                <option value="">All Categories</option>
+            </select>
+            
+            <input type="date" id="filter-start-date" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary" placeholder="Start Date">
+            <input type="date" id="filter-end-date" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary" placeholder="End Date">
+            
+            <input type="text" id="filter-search" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary" placeholder="Search description...">
+
+            <button onclick="applyFilters()" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition">
+                <i class="fas fa-filter mr-2"></i>Filter
+            </button>
+            
+            <button onclick="exportCSV()" class="bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-green-200 transition">
+                <i class="fas fa-download mr-2"></i>Export CSV
+            </button>
+        </div>
+    </div>
+    
+    <!-- Monthly Summary -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-green-50 rounded-lg p-4">
+            <p class="text-sm text-green-600 mb-1">Income This Month</p>
+            <p class="text-2xl font-bold text-green-700" id="monthly-income">0 VND</p>
+        </div>
+        <div class="bg-red-50 rounded-lg p-4">
+            <p class="text-sm text-red-600 mb-1">Expense This Month</p>
+            <p class="text-2xl font-bold text-red-700" id="monthly-expense">0 VND</p>
+        </div>
+        <div class="bg-indigo-50 rounded-lg p-4">
+            <p class="text-sm text-indigo-600 mb-1">Savings This Month</p>
+            <p class="text-2xl font-bold text-indigo-700" id="monthly-savings">0 VND</p>
+        </div>
+        <div class="bg-blue-50 rounded-lg p-4">
+            <p class="text-sm text-blue-600 mb-1">Cash on Hand</p>
+            <p class="text-2xl font-bold text-blue-700" id="cash-on-hand">0 VND</p>
+        </div>
+    </div>
+    
+    <!-- Transactions Table -->
+    <div class="bg-white rounded-xl shadow-md overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b">
+                    <tr>
+                        <th class="text-left py-4 px-6 text-sm font-semibold text-gray-700">Date</th>
+                        <th class="text-left py-4 px-6 text-sm font-semibold text-gray-700">Category</th>
+                        <th class="text-left py-4 px-6 text-sm font-semibold text-gray-700">Description</th>
+                        <th class="text-left py-4 px-6 text-sm font-semibold text-gray-700">Payment</th>
+                        <th class="text-right py-4 px-6 text-sm font-semibold text-gray-700">Amount</th>
+                        <th class="text-center py-4 px-6 text-sm font-semibold text-gray-700">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="transactions-table-body">
+                    <!-- Dynamic content -->
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Totals row (#9) -->
+        <div id="totals-row" class="hidden bg-gray-50 border-t px-6 py-3 flex gap-6 text-sm font-semibold">
+            <span class="text-gray-600">Filtered totals:</span>
+            <span class="text-green-600">Income: <span id="total-income">0</span></span>
+            <span class="text-red-600">Expense: <span id="total-expense">0</span></span>
+            <span class="text-blue-600">Net: <span id="total-net">0</span></span>
+        </div>
+
+        <!-- Pagination -->
+        <div class="flex justify-between items-center p-4 border-t">
+            <p class="text-sm text-gray-600" id="pagination-info">Showing 0 of 0 transactions</p>
+            <div class="flex gap-2">
+                <button onclick="prevPage()" id="prev-btn" class="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50" disabled>Previous</button>
+                <button onclick="nextPage()" id="next-btn" class="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50" disabled>Next</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Transaction Modal -->
+<div id="transaction-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b flex justify-between items-center">
+            <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Transaction</h3>
+            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        
+        <form id="transaction-form" class="p-6 space-y-4">
+            <input type="hidden" id="transaction-id">
+            
+            <!-- Type -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                <div class="flex gap-4">
+                    <label class="flex-1 cursor-pointer">
+                        <input type="radio" name="type" value="income" class="hidden peer" onchange="loadCategories()">
+                        <div class="text-center py-3 border-2 rounded-lg peer-checked:border-green-500 peer-checked:bg-green-50 transition">
+                            <i class="fas fa-arrow-down text-green-600 text-xl mb-1"></i>
+                            <p class="text-sm font-medium">Income</p>
+                        </div>
+                    </label>
+                    <label class="flex-1 cursor-pointer">
+                        <input type="radio" name="type" value="expense" class="hidden peer" checked onchange="loadCategories()">
+                        <div class="text-center py-3 border-2 rounded-lg peer-checked:border-red-500 peer-checked:bg-red-50 transition">
+                            <i class="fas fa-arrow-up text-red-600 text-xl mb-1"></i>
+                            <p class="text-sm font-medium">Expense</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Amount -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Amount (VND)</label>
+                <input type="number" id="amount" required min="0" step="1"
+                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                       placeholder="Enter exact amount">
+            </div>
+            
+            <!-- Date -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                <input type="date" id="date" required
+                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+            
+            <!-- Category -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                <select id="category" required
+                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <option value="">Select Category</option>
+                </select>
+            </div>
+            
+            <!-- Description -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <input type="text" id="description"
+                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                       placeholder="Optional description">
+            </div>
+
+            <!-- Is Savings Related -->
+            <div class="flex items-center">
+                <input type="checkbox" id="is-savings-related" class="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary"
+                       onchange="toggleSavingsSection()">
+                <label for="is-savings-related" class="ml-3 text-sm font-medium text-gray-700">
+                    Is Savings Related
+                </label>
+            </div>
+
+            <!-- Savings Bundle Section (hidden by default) -->
+            <div id="savings-section" class="hidden space-y-4 border-t pt-4 mt-4">
+                <h4 class="text-lg font-semibold text-gray-800 flex items-center">
+                    <i class="fas fa-piggy-bank text-purple-600 mr-2"></i>
+                    Savings Bundle Details
+                </h4>
+
+                <!-- Bundle Name -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Bundle Name <span class="text-red-500">*</span></label>
+                    <input type="text" id="savings-name"
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                           placeholder="e.g., Techcombank Fixed Deposit">
+                </div>
+
+                <!-- Bank Name -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Bank Name <span class="text-red-500">*</span></label>
+                    <input type="text" id="savings-bank-name"
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                           placeholder="e.g., Techcombank">
+                </div>
+
+                <!-- Interest Rate -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Annual Interest Rate (%)</label>
+                    <input type="number" id="savings-interest-rate" step="0.01" min="0"
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                           placeholder="e.g., 6.5">
+                </div>
+
+                <!-- Maturity Date -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Maturity Date</label>
+                    <input type="date" id="savings-maturity-date"
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+
+                <!-- Future Amount (auto-calculated or manual) -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Expected Future Amount (VND)</label>
+                    <input type="number" id="savings-future-amount" step="1" min="0"
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent bg-gray-50"
+                           placeholder="Amount at maturity">
+                    <p class="text-xs text-gray-500 mt-1">Leave blank to use transaction amount</p>
+                </div>
+
+                <!-- Notes -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                    <textarea id="savings-notes" rows="2"
+                              class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                              placeholder="Optional notes about this savings"></textarea>
+                </div>
+            </div>
+
+            <!-- Submit -->
+            <div class="flex gap-4 pt-4">
+                <button type="button" onclick="closeModal()"
+                        class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="flex-1 px-4 py-3 bg-primary text-white rounded-lg hover:bg-blue-600 transition">
+                    Save Transaction
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    let currentPage = 0;
+    const pageSize = 20;
+    let totalTransactions = 0;
+    let categories = [];
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        loadCategories();
+        restoreFilters();
+        loadTransactions();
+        loadMonthlySummary();
+        document.getElementById('date').valueAsDate = new Date();
+        checkForTemplate();
+
+        // Listen for amount changes to update savings future amount
+        document.getElementById('amount').addEventListener('input', function() {
+            updateSavingsFutureAmount();
+        });
+    });
+
+    // Toggle savings section visibility
+    function toggleSavingsSection() {
+        const checkbox = document.getElementById('is-savings-related');
+        const section = document.getElementById('savings-section');
+
+        if (checkbox.checked) {
+            section.classList.remove('hidden');
+            updateSavingsFutureAmount();
+            // Set default maturity date to 1 year from now
+            const oneYearFromNow = new Date();
+            oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+            document.getElementById('savings-maturity-date').valueAsDate = oneYearFromNow;
+        } else {
+            section.classList.add('hidden');
+        }
+    }
+
+    // Update savings future amount based on transaction amount
+    function updateSavingsFutureAmount() {
+        const amount = parseFloat(document.getElementById('amount').value) || 0;
+        const futureAmountInput = document.getElementById('savings-future-amount');
+        if (!futureAmountInput.value) {
+            futureAmountInput.value = amount;
+        }
+    }
+    
+    // Load categories
+    async function loadCategories() {
+        try {
+            const response = await fetch('/api/categories/');
+            categories = await response.json();
+            
+            const type = document.querySelector('input[name="type"]:checked')?.value;
+            const categorySelect = document.getElementById('category');
+            const filterCategorySelect = document.getElementById('filter-category');
+            
+            // Save current filter value
+            const currentFilterCategory = filterCategorySelect.value;
+            
+            // Update form category select
+            categorySelect.innerHTML = '<option value="">Select Category</option>';
+            categories.filter(c => c.type === type && c.is_active).forEach(cat => {
+                categorySelect.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+            });
+            
+            // Update filter category select
+            filterCategorySelect.innerHTML = '<option value="">All Categories</option>';
+            categories.filter(c => c.is_active).forEach(cat => {
+                const typeLabel = cat.type === 'income' ? '(Income)' : '(Expense)';
+                filterCategorySelect.innerHTML += `<option value="${cat.id}">${typeLabel} ${cat.name}</option>`;
+            });
+            
+            // Restore filter value if it still exists in the new options
+            if (currentFilterCategory) {
+                const optionExists = Array.from(filterCategorySelect.options).some(opt => opt.value === currentFilterCategory);
+                if (optionExists) {
+                    filterCategorySelect.value = currentFilterCategory;
+                }
+            }
+        } catch (error) {
+            console.error('Error loading categories:', error);
+        }
+    }
+    
+    // Load transactions
+    async function loadTransactions() {
+        try {
+            const params = new URLSearchParams({
+                skip: currentPage * pageSize,
+                limit: pageSize
+            });
+
+            const type = document.getElementById('filter-type').value;
+            const categoryId = document.getElementById('filter-category').value;
+            const startDate = document.getElementById('filter-start-date').value;
+            const endDate = document.getElementById('filter-end-date').value;
+            const search = document.getElementById('filter-search').value;
+
+            if (type) params.append('type', type);
+            if (categoryId) params.append('category_id', categoryId);
+            if (startDate) params.append('start_date', startDate);
+            if (endDate) params.append('end_date', endDate);
+            if (search) params.append('search', search);
+
+            const response = await fetch('/api/transactions/?' + params);
+            const transactions = await response.json();
+
+            const tbody = document.getElementById('transactions-table-body');
+            while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+
+            let totalIncome = 0, totalExpense = 0;
+
+            transactions.forEach(function(t) {
+                if (t.type === 'income') totalIncome += t.amount;
+                else totalExpense += t.amount;
+
+                const row = document.createElement('tr');
+                row.className = 'border-b hover:bg-gray-50';
+
+                const dateCell = document.createElement('td');
+                dateCell.className = 'py-4 px-6';
+                dateCell.textContent = formatDate(t.date);
+                row.appendChild(dateCell);
+
+                const catCell = document.createElement('td');
+                catCell.className = 'py-4 px-6';
+                const catBadge = document.createElement('span');
+                catBadge.className = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium';
+                catBadge.style.backgroundColor = t.category.color + '20';
+                catBadge.style.color = t.category.color;
+                catBadge.textContent = t.category.name;
+                catCell.appendChild(catBadge);
+                row.appendChild(catCell);
+
+                const descCell = document.createElement('td');
+                descCell.className = 'py-4 px-6 text-gray-600';
+                descCell.textContent = t.description || '-';
+                row.appendChild(descCell);
+
+                const payCell = document.createElement('td');
+                payCell.className = 'py-4 px-6 text-gray-500 text-sm capitalize';
+                payCell.textContent = (t.payment_method || '-').replace('_', ' ');
+                row.appendChild(payCell);
+
+                const amtCell = document.createElement('td');
+                amtCell.className = 'py-4 px-6 text-right font-semibold ' + (t.type === 'income' ? 'text-green-600' : 'text-red-600');
+                amtCell.textContent = (t.type === 'income' ? '+' : '-') + formatVND(t.amount);
+                row.appendChild(amtCell);
+
+                const actCell = document.createElement('td');
+                actCell.className = 'py-4 px-6 text-center';
+                const editBtn = document.createElement('button');
+                editBtn.className = 'text-blue-600 hover:text-blue-800 mr-2';
+                const editIco = document.createElement('i');
+                editIco.className = 'fas fa-edit';
+                editBtn.appendChild(editIco);
+                editBtn.addEventListener('click', function() { editTransaction(t.id); });
+                const delBtn = document.createElement('button');
+                delBtn.className = 'text-red-600 hover:text-red-800';
+                const delIco = document.createElement('i');
+                delIco.className = 'fas fa-trash';
+                delBtn.appendChild(delIco);
+                delBtn.addEventListener('click', function() {
+                    deleteWithUndo(row, '/api/transactions/' + t.id, function() {
+                        saveFilters(); loadTransactions(); loadMonthlySummary();
+                    }, formatDate(t.date) + ' ' + t.category.name);
+                });
+                actCell.appendChild(editBtn);
+                actCell.appendChild(delBtn);
+                row.appendChild(actCell);
+
+                tbody.appendChild(row);
+            });
+
+            // Totals row (#9)
+            const totalsRow = document.getElementById('totals-row');
+            if (transactions.length > 0) {
+                totalsRow.classList.remove('hidden');
+                document.getElementById('total-income').textContent = formatVND(totalIncome);
+                document.getElementById('total-expense').textContent = formatVND(totalExpense);
+                const net = totalIncome - totalExpense;
+                const netEl = document.getElementById('total-net');
+                netEl.textContent = (net >= 0 ? '+' : '') + formatVND(net);
+                netEl.className = net >= 0 ? 'text-green-700' : 'text-red-700';
+            } else {
+                totalsRow.classList.add('hidden');
+            }
+
+            totalTransactions = transactions.length;
+            document.getElementById('pagination-info').textContent =
+                'Page ' + (currentPage + 1) + ' - Showing ' + transactions.length + ' transactions';
+            document.getElementById('prev-btn').disabled = currentPage === 0;
+            document.getElementById('next-btn').disabled = transactions.length < pageSize;
+
+        } catch (error) {
+            console.error('Error loading transactions:', error);
+        }
+    }
+    
+    // Load monthly summary
+    async function loadMonthlySummary() {
+        try {
+            const response = await fetch('/api/transactions/stats/monthly-summary');
+            const data = await response.json();
+
+            document.getElementById('monthly-income').textContent = formatVND(data.income);
+            document.getElementById('monthly-expense').textContent = formatVND(data.expense);
+            document.getElementById('monthly-savings').textContent = formatVND(data.savings);
+            document.getElementById('cash-on-hand').textContent = formatVND(data.cash_on_hand);
+        } catch (error) {
+            console.error('Error loading monthly summary:', error);
+        }
+    }
+    
+    // Modal functions
+    function openAddModal() {
+        document.getElementById('modal-title').textContent = 'Add Transaction';
+        document.getElementById('transaction-form').reset();
+        document.getElementById('transaction-id').value = '';
+        document.getElementById('date').valueAsDate = new Date();
+        document.getElementById('transaction-modal').classList.remove('hidden');
+    }
+    
+    function closeModal() {
+        document.getElementById('transaction-modal').classList.add('hidden');
+    }
+    
+    // Form submission
+    document.getElementById('transaction-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const transactionId = document.getElementById('transaction-id').value;
+        const isSavingsRelated = document.getElementById('is-savings-related').checked;
+
+        // Validate savings fields if checkbox is checked
+        if (isSavingsRelated && !transactionId) {
+            const savingsName = document.getElementById('savings-name').value.trim();
+            const savingsBankName = document.getElementById('savings-bank-name').value.trim();
+
+            if (!savingsName || !savingsBankName) {
+                showToast('Please fill in Bundle Name and Bank Name', 'error');
+                return;
+            }
+        }
+
+        const data = {
+            date: document.getElementById('date').value,
+            amount: parseFloat(document.getElementById('amount').value),
+            type: document.querySelector('input[name="type"]:checked').value,
+            category_id: parseInt(document.getElementById('category').value),
+            description: document.getElementById('description').value,
+            payment_method: 'cash',
+            is_savings_related: isSavingsRelated
+        };
+
+        // Add savings bundle data if checkbox is checked and creating new transaction
+        if (isSavingsRelated && !transactionId) {
+            const amount = parseFloat(document.getElementById('amount').value) || 0;
+            const futureAmount = parseFloat(document.getElementById('savings-future-amount').value) || amount;
+
+            data.savings_bundle = {
+                name: document.getElementById('savings-name').value.trim(),
+                bank_name: document.getElementById('savings-bank-name').value.trim(),
+                type: 'fixed_deposit',  // Default to Fixed Deposit
+                initial_deposit: amount,
+                future_amount: futureAmount,
+                interest_rate: parseFloat(document.getElementById('savings-interest-rate').value) || null,
+                start_date: document.getElementById('date').value,
+                maturity_date: document.getElementById('savings-maturity-date').value || null,
+                notes: document.getElementById('savings-notes').value.trim() || null
+            };
+        }
+
+        try {
+            const url = transactionId ? `/api/transactions/${transactionId}` : '/api/transactions/';
+            const method = transactionId ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                closeModal();
+                saveFilters();
+                loadTransactions();
+                loadMonthlySummary();
+            } else {
+                const error = await response.json();
+                const errorMessage = typeof error.detail === 'object' ? JSON.stringify(error.detail) : error.detail;
+                showToast('Error: ' + errorMessage, 'error');
+            }
+        } catch (error) {
+            console.error('Error saving transaction:', error);
+            showToast('Failed to save transaction', 'error');
+        }
+    });
+    
+    // Edit transaction
+    async function editTransaction(id) {
+        try {
+            const response = await fetch(`/api/transactions/${id}`);
+            const transaction = await response.json();
+
+            document.getElementById('modal-title').textContent = 'Edit Transaction';
+            document.getElementById('transaction-id').value = transaction.id;
+            document.getElementById('date').value = transaction.date;
+            document.getElementById('amount').value = transaction.amount;
+            document.querySelector(`input[name="type"][value="${transaction.type}"]`).checked = true;
+            loadCategories();
+            setTimeout(() => {
+                document.getElementById('category').value = transaction.category_id;
+            }, 100);
+            document.getElementById('description').value = transaction.description || '';
+
+            // Handle savings related checkbox and section
+            const isSavingsRelated = transaction.is_savings_related;
+            document.getElementById('is-savings-related').checked = isSavingsRelated;
+            toggleSavingsSection();
+
+            // Note: When editing, we don't allow changing savings bundle details
+            // The savings section is shown but disabled for editing
+            if (isSavingsRelated) {
+                const savingsSection = document.getElementById('savings-section');
+                savingsSection.classList.add('opacity-50', 'pointer-events-none');
+                savingsSection.title = 'Savings bundle details can only be modified from the Savings page';
+            }
+
+            document.getElementById('transaction-modal').classList.remove('hidden');
+        } catch (error) {
+            console.error('Error loading transaction:', error);
+        }
+    }
+    
+    // deleteTransaction kept for backward-compat (now wired via deleteWithUndo in row)
+    async function deleteTransaction(id) {
+        showConfirm('Delete this transaction?', async function() {
+            try {
+                const response = await fetch('/api/transactions/' + id, { method: 'DELETE' });
+                if (response.ok) {
+                    saveFilters();
+                    loadTransactions();
+                    loadMonthlySummary();
+                }
+            } catch (error) {
+                console.error('Error deleting transaction:', error);
+            }
+        });
+    }
+    
+    // Pagination
+    function prevPage() {
+        if (currentPage > 0) {
+            currentPage--;
+            loadTransactions();
+        }
+    }
+    
+    function nextPage() {
+        currentPage++;
+        loadTransactions();
+    }
+    
+    // Filters
+    function applyFilters() {
+        currentPage = 0;
+        saveFilters();
+        loadTransactions();
+    }
+    
+    // Save filters to sessionStorage
+    function saveFilters() {
+        const filters = {
+            type: document.getElementById('filter-type').value,
+            category_id: document.getElementById('filter-category').value,
+            start_date: document.getElementById('filter-start-date').value,
+            end_date: document.getElementById('filter-end-date').value,
+            search: document.getElementById('filter-search').value
+        };
+        sessionStorage.setItem('transactionFilters', JSON.stringify(filters));
+    }
+
+    // Restore filters from sessionStorage
+    function restoreFilters() {
+        const savedFilters = sessionStorage.getItem('transactionFilters');
+        if (savedFilters) {
+            const filters = JSON.parse(savedFilters);
+            document.getElementById('filter-type').value = filters.type || '';
+            document.getElementById('filter-category').value = filters.category_id || '';
+            document.getElementById('filter-start-date').value = filters.start_date || '';
+            document.getElementById('filter-end-date').value = filters.end_date || '';
+            document.getElementById('filter-search').value = filters.search || '';
+        }
+    }
+    
+    // Check if a template should be used
+    function checkForTemplate() {
+        const templateData = sessionStorage.getItem('useTemplate');
+        if (templateData) {
+            const template = JSON.parse(templateData);
+            // Clear the template from storage
+            sessionStorage.removeItem('useTemplate');
+            
+            // Open modal and populate with template data
+            openAddModal();
+            document.getElementById('amount').value = template.amount;
+            document.querySelector(`input[name="type"][value="${template.type}"]`).checked = true;
+            loadCategories();
+            setTimeout(() => {
+                document.getElementById('category').value = template.category_id;
+                document.getElementById('description').value = template.description || '';
+                
+                // Auto-submit the form after populating fields
+                // Set today's date as default
+                document.getElementById('date').valueAsDate = new Date();
+                
+                // Submit the form automatically
+                document.getElementById('transaction-form').requestSubmit();
+            }, 300);
+        }
+    }
+    
+    // Export CSV
+    async function exportCSV() {
+        try {
+            // Get all transactions (without pagination limit)
+            const params = new URLSearchParams({ limit: 10000 });
+            
+            const type = document.getElementById('filter-type').value;
+            const categoryId = document.getElementById('filter-category').value;
+            const startDate = document.getElementById('filter-start-date').value;
+            const endDate = document.getElementById('filter-end-date').value;
+            
+            if (type) params.append('type', type);
+            if (categoryId) params.append('category_id', categoryId);
+            if (startDate) params.append('start_date', startDate);
+            if (endDate) params.append('end_date', endDate);
+            
+            const response = await fetch(`/api/transactions/?${params}`);
+            const transactions = await response.json();
+            
+            if (transactions.length === 0) {
+                showToast('No transactions to export', 'error');
+                return;
+            }
+            
+            // Build CSV content
+            const headers = ['Date', 'Type', 'Category', 'Description', 'Amount'];
+            const rows = transactions.map(t => [
+                t.date,
+                t.type,
+                t.category.name,
+                t.description || '',
+                t.type === 'income' ? t.amount : -t.amount
+            ]);
+            
+            const csvContent = [
+                headers.join(','),
+                ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+            ].join('\n');
+            
+            // Download file
+            const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `carange_transactions_${new Date().toISOString().split('T')[0]}.csv`;
+            link.click();
+            
+        } catch (error) {
+            console.error('Error exporting CSV:', error);
+            alert('Failed to export CSV');
+        }
+    }
+    
+    // Bulk Upload Modal
+    function openBulkUploadModal() {
+        document.getElementById('bulk-upload-modal').classList.remove('hidden');
+    }
+    
+    function closeBulkUploadModal() {
+        document.getElementById('bulk-upload-modal').classList.add('hidden');
+        document.getElementById('csv-file').value = '';
+        document.getElementById('upload-result').classList.add('hidden');
+        document.getElementById('upload-status').classList.remove('hidden');
+    }
+    
+    async function submitBulkUpload() {
+        const fileInput = document.getElementById('csv-file');
+        const file = fileInput.files[0];
+        
+        if (!file) {
+            showToast('Please select a CSV file', 'error');
+            return;
+        }
+        if (!file.name.endsWith('.csv')) {
+            showToast('Please select a CSV file', 'error');
+            return;
+        }
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        // Show loading
+        document.getElementById('upload-status').innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Uploading and processing...';
+        
+        try {
+            const response = await fetch('/api/transactions/bulk-upload', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            document.getElementById('upload-status').classList.add('hidden');
+            document.getElementById('upload-result').classList.remove('hidden');
+            
+            if (result.success) {
+                document.getElementById('upload-result').innerHTML = `
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <p class="text-green-800 font-medium"><i class="fas fa-check-circle mr-2"></i>${result.message}</p>
+                        <div class="mt-3 text-sm text-green-700">
+                            <p>✅ Income: ${result.stats.income}</p>
+                            <p>✅ Expense: ${result.stats.expense}</p>
+                            ${result.stats.skipped > 0 ? `<p>⚠️ Skipped: ${result.stats.skipped}</p>` : ''}
+                        </div>
+                        ${result.stats.errors && result.stats.errors.length > 0 ? `
+                        <details class="mt-2">
+                            <summary class="cursor-pointer text-red-600">Show errors (${result.stats.errors.length})</summary>
+                            <ul class="mt-2 text-xs text-red-600 max-h-32 overflow-y-auto">
+                                ${result.stats.errors.map(e => `<li>• ${e}</li>`).join('')}
+                            </ul>
+                        </details>
+                        ` : ''}
+                    </div>
+                `;
+                // Refresh data after successful upload
+                setTimeout(() => {
+                    loadTransactions();
+                    loadMonthlySummary();
+                }, 1500);
+            } else {
+                document.getElementById('upload-result').innerHTML = `
+                    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                        <p class="text-red-800 font-medium"><i class="fas fa-exclamation-circle mr-2"></i>${result.error}</p>
+                    </div>
+                `;
+            }
+        } catch (error) {
+            document.getElementById('upload-status').innerHTML = `
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p class="text-red-800"><i class="fas fa-exclamation-circle mr-2"></i>Upload failed: ${error.message}</p>
+                </div>
+            `;
+        }
+    }
+    
+    function downloadTemplate() {
+        // English template
+        const csvContent = `date,amount,type,category,description,payment_method
+2024-01-15,5000000,expense,Food & Dining,Lunch with team,cash
+2024-01-15,2500000,expense,Transportation,Grab ride,cash
+2024-01-16,15000000,income,Salary,January salary,bank_transfer
+2024-01-20,500000,expense,Shopping,Clothes,credit_card
+2024-02-01,3000000,expense,Utilities,Electricity bill,bank_transfer`;
+        
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'carange_template.csv';
+        link.click();
+    }
+</script>
+
+<!-- Bulk Upload Modal -->
+<div id="bulk-upload-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-lg w-full">
+        <div class="p-6 border-b flex justify-between items-center">
+            <h3 class="text-xl font-bold text-gray-800">Bulk Upload Transactions</h3>
+            <button onclick="closeBulkUploadModal()" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        
+        <div class="p-6 space-y-4">
+            <!-- Download Template -->
+            <div class="bg-blue-50 rounded-lg p-4">
+                <p class="text-sm text-blue-700 mb-2"><i class="fas fa-info-circle mr-1"></i> <strong>CSV Format:</strong></p>
+                <p class="text-xs text-blue-600 mb-3">date (YYYY-MM-DD), amount, type (income/expense), category, description (optional)</p>
+                <button onclick="downloadTemplate()" class="text-sm text-blue-600 hover:text-blue-800 underline">
+                    <i class="fas fa-download mr-1"></i>Download English Template
+                </button>
+            </div>
+            
+            <!-- Alternative Format Info -->
+            <div class="bg-purple-50 rounded-lg p-4">
+                <p class="text-sm text-purple-700"><i class="fas fa-exchange-alt mr-1"></i> <strong>Alternative Vietnamese Format:</strong></p>
+                <p class="text-xs text-purple-600 mt-1">Năm (Year), Tháng (Month), Thu (Income), Chi (Expense), Loại (Category), Ghi chú (Description)</p>
+            </div>
+            
+            <!-- File Upload -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Select CSV File</label>
+                <input type="file" id="csv-file" accept=".csv"
+                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+            
+            <!-- Upload Status -->
+            <div id="upload-status"></div>
+            
+            <!-- Upload Result -->
+            <div id="upload-result" class="hidden"></div>
+            
+            <!-- Actions -->
+            <div class="flex gap-4 pt-4">
+                <button type="button" onclick="closeBulkUploadModal()"
+                        class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition">
+                    Close
+                </button>
+                <button type="button" onclick="submitBulkUpload()"
+                        class="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                    Upload & Import
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

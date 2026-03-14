@@ -1,0 +1,504 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="p-6 max-w-7xl mx-auto">
+    <!-- Page Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-800">Transaction Templates</h2>
+            <p class="text-gray-600 mt-1">Manage predefined income and expense templates for quick entry</p>
+        </div>
+        <button onclick="openAddModal()" class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition flex items-center">
+            <i class="fas fa-plus mr-2"></i>Add Template
+        </button>
+    </div>
+    
+    <!-- Filters -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-6">
+        <div class="flex flex-wrap gap-4">
+            <select id="filter-type" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary" onchange="loadTemplates()">
+                <option value="">All Types</option>
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+            </select>
+            
+            <select id="filter-category" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary" onchange="loadTemplates()">
+                <option value="">All Categories</option>
+            </select>
+            
+            <select id="filter-status" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary" onchange="loadTemplates()">
+                <option value="">All Status</option>
+                <option value="true" selected>Active</option>
+                <option value="false">Inactive</option>
+            </select>
+        </div>
+    </div>
+    
+    <!-- Templates Table -->
+    <div class="bg-white rounded-xl shadow-md overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-gray-50 border-b">
+                    <tr>
+                        <th class="text-left py-4 px-6 text-sm font-semibold text-gray-700">Name</th>
+                        <th class="text-left py-4 px-6 text-sm font-semibold text-gray-700">Type</th>
+                        <th class="text-left py-4 px-6 text-sm font-semibold text-gray-700">Category</th>
+                        <th class="text-left py-4 px-6 text-sm font-semibold text-gray-700">Description</th>
+                        <th class="text-right py-4 px-6 text-sm font-semibold text-gray-700">Amount</th>
+                        <th class="text-center py-4 px-6 text-sm font-semibold text-gray-700">Status</th>
+                        <th class="text-center py-4 px-6 text-sm font-semibold text-gray-700">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="templates-table-body">
+                    <!-- Dynamic content -->
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        <div class="flex justify-between items-center p-4 border-t">
+            <p class="text-sm text-gray-600" id="pagination-info">Showing 0 of 0 templates</p>
+            <div class="flex gap-2">
+                <button onclick="prevPage()" id="prev-btn" class="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50" disabled>Previous</button>
+                <button onclick="nextPage()" id="next-btn" class="px-4 py-2 border rounded-lg hover:bg-gray-50 disabled:opacity-50" disabled>Next</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add/Edit Template Modal -->
+<div id="template-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b flex justify-between items-center">
+            <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Template</h3>
+            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        
+        <form id="template-form" class="p-6 space-y-4">
+            <input type="hidden" id="template-id">
+            
+            <!-- Name -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Template Name *</label>
+                <input type="text" id="name" required
+                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                       placeholder="e.g., Monthly Salary, Grocery Shopping">
+            </div>
+            
+            <!-- Type -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                <div class="flex gap-4">
+                    <label class="flex-1 cursor-pointer">
+                        <input type="radio" name="type" value="income" class="hidden peer" onchange="loadCategories()">
+                        <div class="text-center py-3 border-2 rounded-lg peer-checked:border-green-500 peer-checked:bg-green-50 transition">
+                            <i class="fas fa-arrow-down text-green-600 text-xl mb-1"></i>
+                            <p class="text-sm font-medium">Income</p>
+                        </div>
+                    </label>
+                    <label class="flex-1 cursor-pointer">
+                        <input type="radio" name="type" value="expense" class="hidden peer" checked onchange="loadCategories()">
+                        <div class="text-center py-3 border-2 rounded-lg peer-checked:border-red-500 peer-checked:bg-red-50 transition">
+                            <i class="fas fa-arrow-up text-red-600 text-xl mb-1"></i>
+                            <p class="text-sm font-medium">Expense</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            
+            <!-- Amount -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Amount (VND) *</label>
+                <input type="number" id="amount" required min="0" step="1"
+                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                       placeholder="Enter amount">
+            </div>
+            
+            <!-- Category -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Category *</label>
+                <select id="category" required
+                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <option value="">Select Category</option>
+                </select>
+            </div>
+            
+            <!-- Description -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <input type="text" id="description"
+                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                       placeholder="Optional description">
+            </div>
+            
+            <!-- Payment Method -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
+                <select id="payment-method"
+                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <option value="cash">Cash</option>
+                    <option value="credit_card">Credit Card</option>
+                    <option value="debit_card">Debit Card</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="mobile_payment">Mobile Payment</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            
+            <!-- Active Status -->
+            <div class="flex items-center">
+                <input type="checkbox" id="is-active" class="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary" checked>
+                <label for="is-active" class="ml-3 text-sm font-medium text-gray-700">
+                    Active
+                </label>
+            </div>
+
+            <!-- Submit -->
+            <div class="flex gap-4 pt-4">
+                <button type="button" onclick="closeModal()"
+                        class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="flex-1 px-4 py-3 bg-primary text-white rounded-lg hover:bg-blue-600 transition">
+                    Save Template
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    let currentPage = 0;
+    const pageSize = 20;
+    let totalTemplates = 0;
+    let categories = [];
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        loadCategories();
+        loadTemplates();
+    });
+    
+    // Load categories
+    async function loadCategories() {
+        try {
+            const response = await fetch('/api/categories/');
+            categories = await response.json();
+            
+            const type = document.querySelector('input[name="type"]:checked').value;
+            const categorySelect = document.getElementById('category');
+            const filterCategorySelect = document.getElementById('filter-category');
+            
+            // Update form category select
+            categorySelect.innerHTML = '<option value="">Select Category</option>';
+            categories.filter(c => c.type === type && c.is_active).forEach(cat => {
+                categorySelect.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+            });
+            
+            // Update filter category select
+            filterCategorySelect.innerHTML = '<option value="">All Categories</option>';
+            categories.filter(c => c.is_active).forEach(cat => {
+                filterCategorySelect.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+            });
+        } catch (error) {
+            console.error('Error loading categories:', error);
+        }
+    }
+    
+    // Load templates
+    async function loadTemplates() {
+        try {
+            const params = new URLSearchParams({
+                skip: currentPage * pageSize,
+                limit: pageSize
+            });
+
+            const type = document.getElementById('filter-type').value;
+            const categoryId = document.getElementById('filter-category').value;
+            const status = document.getElementById('filter-status').value;
+
+            if (type) params.append('type', type);
+            if (categoryId) params.append('category_id', categoryId);
+            if (status) params.append('is_active', status);
+
+            const response = await fetch('/api/templates/?' + params);
+            const templates = await response.json();
+
+            const tbody = document.getElementById('templates-table-body');
+            while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+
+            templates.forEach(function(t) {
+                const row = document.createElement('tr');
+                row.className = 'border-b hover:bg-gray-50';
+
+                const nameCell = document.createElement('td');
+                nameCell.className = 'py-4 px-6 font-medium text-gray-800';
+                nameCell.textContent = t.name;
+                row.appendChild(nameCell);
+
+                const typeCell = document.createElement('td');
+                typeCell.className = 'py-4 px-6';
+                const typeBadge = document.createElement('span');
+                typeBadge.className = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ' +
+                    (t.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700');
+                const typeIco = document.createElement('i');
+                typeIco.className = 'fas fa-' + (t.type === 'income' ? 'arrow-down' : 'arrow-up') + ' mr-1';
+                typeBadge.appendChild(typeIco);
+                typeBadge.appendChild(document.createTextNode(t.type.charAt(0).toUpperCase() + t.type.slice(1)));
+                typeCell.appendChild(typeBadge);
+                row.appendChild(typeCell);
+
+                const catCell = document.createElement('td');
+                catCell.className = 'py-4 px-6';
+                const catBadge = document.createElement('span');
+                catBadge.className = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium';
+                catBadge.style.backgroundColor = t.category.color + '20';
+                catBadge.style.color = t.category.color;
+                catBadge.textContent = t.category.name;
+                catCell.appendChild(catBadge);
+                row.appendChild(catCell);
+
+                const descCell = document.createElement('td');
+                descCell.className = 'py-4 px-6 text-gray-600';
+                descCell.textContent = t.description || '-';
+                row.appendChild(descCell);
+
+                const amtCell = document.createElement('td');
+                amtCell.className = 'py-4 px-6 text-right font-semibold ' + (t.type === 'income' ? 'text-green-600' : 'text-red-600');
+                amtCell.textContent = formatVND(t.amount);
+                row.appendChild(amtCell);
+
+                const statusCell = document.createElement('td');
+                statusCell.className = 'py-4 px-6 text-center';
+                const statusBadge = document.createElement('span');
+                statusBadge.className = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ' +
+                    (t.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600');
+                statusBadge.textContent = t.is_active ? 'Active' : 'Inactive';
+                statusCell.appendChild(statusBadge);
+                row.appendChild(statusCell);
+
+                const actCell = document.createElement('td');
+                actCell.className = 'py-4 px-6 text-center';
+                const useBtn = document.createElement('button');
+                useBtn.className = 'text-green-600 hover:text-green-800 mr-2';
+                useBtn.title = 'Use Template';
+                const useIco = document.createElement('i');
+                useIco.className = 'fas fa-play';
+                useBtn.appendChild(useIco);
+                useBtn.addEventListener('click', function() { useTemplate(t.id); });
+                const editBtn = document.createElement('button');
+                editBtn.className = 'text-blue-600 hover:text-blue-800 mr-2';
+                editBtn.title = 'Edit';
+                const editIco = document.createElement('i');
+                editIco.className = 'fas fa-edit';
+                editBtn.appendChild(editIco);
+                editBtn.addEventListener('click', function() { editTemplate(t.id); });
+                const delBtn = document.createElement('button');
+                delBtn.className = 'text-red-600 hover:text-red-800';
+                delBtn.title = 'Delete';
+                const delIco = document.createElement('i');
+                delIco.className = 'fas fa-trash';
+                delBtn.appendChild(delIco);
+                delBtn.addEventListener('click', function() {
+                    deleteWithUndo(row, '/api/templates/' + t.id, loadTemplates, t.name);
+                });
+                actCell.appendChild(useBtn);
+                actCell.appendChild(editBtn);
+                actCell.appendChild(delBtn);
+                row.appendChild(actCell);
+
+                tbody.appendChild(row);
+            });
+
+            totalTemplates = templates.length;
+            document.getElementById('pagination-info').textContent =
+                'Page ' + (currentPage + 1) + ' - Showing ' + templates.length + ' templates';
+            document.getElementById('prev-btn').disabled = currentPage === 0;
+            document.getElementById('next-btn').disabled = templates.length < pageSize;
+
+        } catch (error) {
+            console.error('Error loading templates:', error);
+        }
+    }
+    
+    // Modal functions
+    function openAddModal() {
+        document.getElementById('modal-title').textContent = 'Add Template';
+        document.getElementById('template-form').reset();
+        document.getElementById('template-id').value = '';
+        document.getElementById('template-modal').classList.remove('hidden');
+        loadCategories();
+    }
+    
+    function closeModal() {
+        document.getElementById('template-modal').classList.add('hidden');
+    }
+    
+    // Form submission
+    document.getElementById('template-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const templateId = document.getElementById('template-id').value;
+        
+        const data = {
+            name: document.getElementById('name').value,
+            amount: parseFloat(document.getElementById('amount').value),
+            type: document.querySelector('input[name="type"]:checked').value,
+            category_id: parseInt(document.getElementById('category').value),
+            description: document.getElementById('description').value,
+            payment_method: document.getElementById('payment-method').value,
+            is_active: document.getElementById('is-active').checked
+        };
+
+        try {
+            const url = templateId ? `/api/templates/${templateId}` : '/api/templates/';
+            const method = templateId ? 'PUT' : 'POST';
+
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (response.ok) {
+                closeModal();
+                loadTemplates();
+            } else {
+                const error = await response.json();
+                const errorMessage = typeof error.detail === 'object' ? JSON.stringify(error.detail) : error.detail;
+                showToast('Error: ' + errorMessage, 'error');
+            }
+        } catch (error) {
+            console.error('Error saving template:', error);
+            showToast('Failed to save template', 'error');
+        }
+    });
+    
+    // Use template — ask for date first (#7), then create with correct payment_method (#1)
+    async function useTemplate(id) {
+        try {
+            const response = await fetch('/api/templates/' + id);
+            const template = await response.json();
+
+            // Build a small date-picker dialog
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4';
+            const box = document.createElement('div');
+            box.className = 'bg-white rounded-xl shadow-xl p-6 w-80 space-y-4';
+            const title = document.createElement('h3');
+            title.className = 'text-lg font-semibold text-gray-800';
+            title.textContent = 'Use Template: ' + template.name;
+            const label = document.createElement('label');
+            label.className = 'block text-sm font-medium text-gray-700';
+            label.textContent = 'Transaction Date';
+            const dateInput = document.createElement('input');
+            dateInput.type = 'date';
+            dateInput.className = 'w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary';
+            dateInput.value = new Date().toISOString().split('T')[0];
+            const btnRow = document.createElement('div');
+            btnRow.className = 'flex gap-3';
+            const cancelBtn = document.createElement('button');
+            cancelBtn.className = 'flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.addEventListener('click', function() { document.body.removeChild(overlay); });
+            const applyBtn = document.createElement('button');
+            applyBtn.className = 'flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600';
+            applyBtn.textContent = 'Apply';
+            applyBtn.addEventListener('click', async function() {
+                const chosenDate = dateInput.value;
+                if (!chosenDate) { showToast('Please pick a date', 'error'); return; }
+                document.body.removeChild(overlay);
+                const transactionData = {
+                    date: chosenDate,
+                    amount: template.amount,
+                    type: template.type,
+                    category_id: template.category_id,
+                    description: template.description || '',
+                    payment_method: template.payment_method || 'cash',
+                    is_savings_related: false
+                };
+                try {
+                    const createResponse = await fetch('/api/transactions/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(transactionData)
+                    });
+                    if (createResponse.ok) {
+                        showToast('Transaction created from template: ' + template.name, 'success');
+                    } else {
+                        const err = await createResponse.json();
+                        showToast('Error: ' + (err.detail || 'Failed to create transaction'), 'error');
+                    }
+                } catch (err) {
+                    showToast('Failed to create transaction', 'error');
+                }
+            });
+            btnRow.appendChild(cancelBtn);
+            btnRow.appendChild(applyBtn);
+            box.appendChild(title);
+            box.appendChild(label);
+            box.appendChild(dateInput);
+            box.appendChild(btnRow);
+            overlay.appendChild(box);
+            document.body.appendChild(overlay);
+        } catch (error) {
+            console.error('Error loading template:', error);
+            showToast('Failed to load template', 'error');
+        }
+    }
+    
+    // Edit template
+    async function editTemplate(id) {
+        try {
+            const response = await fetch(`/api/templates/${id}`);
+            const template = await response.json();
+
+            document.getElementById('modal-title').textContent = 'Edit Template';
+            document.getElementById('template-id').value = template.id;
+            document.getElementById('name').value = template.name;
+            document.getElementById('amount').value = template.amount;
+            document.querySelector(`input[name="type"][value="${template.type}"]`).checked = true;
+            document.getElementById('description').value = template.description || '';
+            document.getElementById('payment-method').value = template.payment_method;
+            document.getElementById('is-active').checked = template.is_active;
+            
+            loadCategories();
+            setTimeout(() => {
+                document.getElementById('category').value = template.category_id;
+            }, 100);
+
+            document.getElementById('template-modal').classList.remove('hidden');
+        } catch (error) {
+            console.error('Error loading template:', error);
+        }
+    }
+    
+    // deleteTemplate kept for compatibility (rows now use deleteWithUndo)
+    async function deleteTemplate(id) {
+        showConfirm('Delete this template?', async function() {
+            try {
+                const response = await fetch('/api/templates/' + id, { method: 'DELETE' });
+                if (response.ok) loadTemplates();
+            } catch (error) {
+                console.error('Error deleting template:', error);
+            }
+        });
+    }
+    
+    // Pagination
+    function prevPage() {
+        if (currentPage > 0) {
+            currentPage--;
+            loadTemplates();
+        }
+    }
+    
+    function nextPage() {
+        currentPage++;
+        loadTemplates();
+    }
+</script>
+{% endblock %}

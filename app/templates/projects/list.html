@@ -1,0 +1,760 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="p-6 max-w-7xl mx-auto">
+    <!-- Page Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-800">Financial Projects</h2>
+            <p class="text-gray-600 mt-1">Track your family's financial goals and projects</p>
+        </div>
+        <button onclick="openAddModal()" class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition flex items-center">
+            <i class="fas fa-plus mr-2"></i>Add Project
+        </button>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8" id="projects-summary"></div>
+
+    <!-- Filters -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-6">
+        <div class="flex flex-wrap gap-4">
+            <select id="filter-status" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary" onchange="loadProjects()">
+                <option value="">All Status</option>
+                <option value="planning">Planning</option>
+                <option value="in_progress">In Progress</option>
+                <option value="completed">Completed</option>
+            </select>
+            <select id="filter-type" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary" onchange="loadProjects()">
+                <option value="">All Types</option>
+                <option value="real_estate">Real Estate</option>
+                <option value="investment">Investment</option>
+                <option value="vehicle">Vehicle</option>
+                <option value="education">Education</option>
+                <option value="vacation">Vacation</option>
+                <option value="custom">Custom</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Projects Grid -->
+    <div id="projects-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-6"></div>
+</div>
+
+<!-- ===== Add/Edit Project Modal ===== -->
+<div id="project-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b flex justify-between items-center">
+            <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Financial Project</h3>
+            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700"><i class="fas fa-times text-xl"></i></button>
+        </div>
+        <form id="project-form" class="p-6 space-y-4">
+            <input type="hidden" id="project-id">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Project Name</label>
+                <input type="text" id="name" required class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="e.g., Buy an Apartment">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Project Type</label>
+                <select id="project-type" required class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <option value="real_estate">Real Estate</option>
+                    <option value="investment">Investment (DCA, Stocks, etc.)</option>
+                    <option value="vehicle">Vehicle</option>
+                    <option value="education">Education</option>
+                    <option value="vacation">Vacation</option>
+                    <option value="custom">Custom</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <textarea id="description" rows="2" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Brief description..."></textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+                    <select id="priority" required class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <option value="high">High</option>
+                        <option value="medium" selected>Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Deadline (Optional)</label>
+                    <input type="date" id="deadline" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Default Category (for auto-transaction)</label>
+                <select id="default-category-id" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <option value="">None (skip auto-transaction)</option>
+                </select>
+            </div>
+            <div class="flex gap-4 pt-4">
+                <button type="button" onclick="closeModal()" class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition">Cancel</button>
+                <button type="submit" class="flex-1 px-4 py-3 bg-primary text-white rounded-lg hover:bg-blue-600 transition">Save Project</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ===== Payment Timeline Modal ===== -->
+<div id="timeline-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[95vh] flex flex-col">
+        <div class="p-6 border-b flex justify-between items-center shrink-0">
+            <h3 class="text-xl font-bold text-gray-800" id="timeline-title">Payment Timeline</h3>
+            <button onclick="closeTimelineModal()" class="text-gray-500 hover:text-gray-700"><i class="fas fa-times text-xl"></i></button>
+        </div>
+
+        <div class="overflow-y-auto flex-1 p-6 space-y-6">
+            <!-- Payments Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="bg-gray-50 text-gray-600 text-left">
+                            <th class="px-3 py-2">#</th>
+                            <th class="px-3 py-2">Due Date</th>
+                            <th class="px-3 py-2">Amount</th>
+                            <th class="px-3 py-2">Notes</th>
+                            <th class="px-3 py-2">Status</th>
+                            <th class="px-3 py-2">Tx</th>
+                            <th class="px-3 py-2">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="payments-table-body"></tbody>
+                </table>
+            </div>
+
+            <!-- Footer Totals -->
+            <div class="bg-gray-50 rounded-lg p-4 text-sm grid grid-cols-2 md:grid-cols-4 gap-3" id="payments-totals"></div>
+
+            <!-- Add Single Payment -->
+            <div class="border rounded-lg p-4">
+                <h4 class="font-semibold text-gray-700 mb-3">Add Single Payment</h4>
+                <form id="add-payment-form" class="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+                    <div>
+                        <label class="block text-xs text-gray-600 mb-1">Due Date (optional)</label>
+                        <input type="date" id="new-payment-date" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-600 mb-1">Amount (VND) *</label>
+                        <input type="number" id="new-payment-amount" required min="1" step="1" placeholder="Amount" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-600 mb-1">Notes</label>
+                        <input type="text" id="new-payment-notes" placeholder="Optional notes" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                    </div>
+                    <div>
+                        <button type="submit" class="w-full bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition text-sm">
+                            <i class="fas fa-plus mr-1"></i>Add Payment
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Generate Recurring Schedule -->
+            <div class="border rounded-lg p-4">
+                <button onclick="toggleRecurring()" class="font-semibold text-gray-700 flex items-center gap-2 w-full">
+                    <i id="recurring-chevron" class="fas fa-chevron-right text-xs"></i>
+                    Generate Recurring Schedule (DCA)
+                </button>
+                <div id="recurring-section" class="hidden mt-4">
+                    <form id="recurring-form" class="grid grid-cols-2 md:grid-cols-3 gap-3 items-end">
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Amount per installment *</label>
+                            <input type="number" id="rec-amount" required min="1" step="1" placeholder="Amount" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Start Date *</label>
+                            <input type="date" id="rec-start-date" required class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Interval *</label>
+                            <select id="rec-interval" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                                <option value="weekly">Weekly</option>
+                                <option value="biweekly">Biweekly</option>
+                                <option value="monthly" selected>Monthly</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Number of installments *</label>
+                            <input type="number" id="rec-occurrences" required min="1" max="120" placeholder="e.g. 12" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-600 mb-1">Notes (all rows)</label>
+                            <input type="text" id="rec-notes" placeholder="Optional" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                        </div>
+                        <div>
+                            <button type="submit" class="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition text-sm">
+                                <i class="fas fa-magic mr-1"></i>Generate Schedule
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== Mark Paid Pop-over ===== -->
+<div id="mark-paid-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-30 z-[60] flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+        <h4 class="font-semibold text-gray-800 mb-4">Mark as Paid</h4>
+        <input type="hidden" id="mark-paid-payment-id">
+        <div class="space-y-3">
+            <div>
+                <label class="block text-xs text-gray-600 mb-1">Category (required for auto-transaction)</label>
+                <select id="mark-paid-category" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                    <option value="">— skip transaction —</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-gray-600 mb-1">Date Paid</label>
+                <input type="date" id="mark-paid-date" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+            </div>
+        </div>
+        <div class="flex gap-3 mt-5">
+            <button onclick="closeMarkPaidModal()" class="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm">Cancel</button>
+            <button onclick="confirmMarkPaid()" class="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm">Confirm Paid</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let projects = [];
+    let allCategories = [];
+    let currentTimelineProjectId = null;
+
+    const todayStr = () => new Date().toISOString().split('T')[0];
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadProjects();
+        loadSummary();
+        loadCategories();
+    });
+
+    async function loadCategories() {
+        try {
+            const res = await fetch('/api/categories/');
+            allCategories = await res.json();
+            populateCategorySelects();
+        } catch(e) { console.error(e); }
+    }
+
+    function populateCategorySelects() {
+        const expCats = allCategories.filter(c => c.type === 'expense' && c.is_active);
+        const defSel = document.getElementById('default-category-id');
+        defSel.innerHTML = '<option value="">None (skip auto-transaction)</option>';
+        expCats.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.name;
+            defSel.appendChild(opt);
+        });
+        const mpSel = document.getElementById('mark-paid-category');
+        mpSel.innerHTML = '<option value="">— skip transaction —</option>';
+        expCats.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.name;
+            mpSel.appendChild(opt);
+        });
+    }
+
+    async function loadSummary() {
+        try {
+            const res = await fetch('/api/projects/stats/summary');
+            const data = await res.json();
+            const el = document.getElementById('projects-summary');
+            el.innerHTML = '';
+            const cards = [
+                { label: 'Active Projects', value: data.active_projects_count, color: 'text-primary' },
+                { label: 'Completed', value: data.completed_projects_count, color: 'text-green-600' },
+                { label: 'Current Amount', value: formatVND(data.total_current_amount), color: 'text-blue-600' },
+                { label: 'Progress', value: data.progress_percentage + '%', color: 'text-purple-600' },
+            ];
+            cards.forEach(c => {
+                const div = document.createElement('div');
+                div.className = 'bg-white rounded-lg shadow p-4';
+                const p1 = document.createElement('p');
+                p1.className = 'text-sm text-gray-500';
+                p1.textContent = c.label;
+                const p2 = document.createElement('p');
+                p2.className = 'text-2xl font-bold ' + c.color;
+                p2.textContent = c.value;
+                div.appendChild(p1);
+                div.appendChild(p2);
+                el.appendChild(div);
+            });
+        } catch(e) { console.error(e); }
+    }
+
+    async function loadProjects() {
+        try {
+            const status = document.getElementById('filter-status').value;
+            const type   = document.getElementById('filter-type').value;
+            let url = '/api/projects/';
+            const params = [];
+            if (status) params.push('status=' + status);
+            if (type)   params.push('project_type=' + type);
+            if (params.length) url += '?' + params.join('&');
+            const res = await fetch(url);
+            projects = await res.json();
+            renderProjects();
+        } catch(e) { console.error(e); }
+    }
+
+    function renderProjects() {
+        const grid = document.getElementById('projects-grid');
+        grid.innerHTML = '';
+        projects.forEach(project => {
+            const progress = project.target_amount > 0
+                ? Math.round((project.current_amount / project.target_amount) * 100)
+                : 0;
+
+            const priorityColors = { high:'bg-red-100 text-red-800', medium:'bg-yellow-100 text-yellow-800', low:'bg-green-100 text-green-800' };
+            const statusColors   = { planning:'bg-gray-100 text-gray-800', in_progress:'bg-blue-100 text-blue-800', completed:'bg-green-100 text-green-800', cancelled:'bg-red-100 text-red-800' };
+
+            const nextDue = (project.payments || [])
+                .filter(p => p.status === 'pending' && p.due_date)
+                .sort((a,b) => a.due_date.localeCompare(b.due_date))[0];
+
+            const remaining = project.target_amount - project.current_amount;
+            const payCount  = (project.payments || []).length;
+
+            const card = document.createElement('div');
+            card.className = 'bg-white rounded-xl shadow-md p-6';
+
+            // Header
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'flex justify-between items-start mb-3';
+            const nameDiv = document.createElement('div');
+            const h3 = document.createElement('h3');
+            h3.className = 'text-lg font-semibold text-gray-800';
+            h3.textContent = project.name;
+            const typeP = document.createElement('p');
+            typeP.className = 'text-sm text-gray-500 capitalize';
+            typeP.textContent = project.type.replace('_', ' ');
+            nameDiv.appendChild(h3);
+            nameDiv.appendChild(typeP);
+
+            const badgesDiv = document.createElement('div');
+            badgesDiv.className = 'flex gap-2 flex-wrap justify-end';
+            const priSpan = document.createElement('span');
+            priSpan.className = 'px-2 py-1 text-xs font-medium rounded-full ' + (priorityColors[project.priority] || '');
+            priSpan.textContent = project.priority;
+            const stSpan = document.createElement('span');
+            stSpan.className = 'px-2 py-1 text-xs font-medium rounded-full ' + (statusColors[project.status] || '');
+            stSpan.textContent = project.status.replace('_', ' ');
+            badgesDiv.appendChild(priSpan);
+            badgesDiv.appendChild(stSpan);
+            headerDiv.appendChild(nameDiv);
+            headerDiv.appendChild(badgesDiv);
+            card.appendChild(headerDiv);
+
+            // Description
+            if (project.description) {
+                const descP = document.createElement('p');
+                descP.className = 'text-sm text-gray-600 mb-3';
+                descP.textContent = project.description;
+                card.appendChild(descP);
+            }
+
+            // Progress bar
+            const progWrap = document.createElement('div');
+            progWrap.className = 'mb-3';
+            const progHeader = document.createElement('div');
+            progHeader.className = 'flex justify-between text-sm mb-1';
+            const progLabel = document.createElement('span');
+            progLabel.className = 'text-gray-600';
+            progLabel.textContent = 'Progress';
+            const progVal = document.createElement('span');
+            progVal.className = 'font-medium';
+            progVal.textContent = progress + '%';
+            progHeader.appendChild(progLabel);
+            progHeader.appendChild(progVal);
+            const barBg = document.createElement('div');
+            barBg.className = 'w-full bg-gray-200 rounded-full h-3';
+            const barFill = document.createElement('div');
+            barFill.className = 'bg-primary h-3 rounded-full transition-all duration-500';
+            barFill.style.width = Math.min(progress, 100) + '%';
+            barBg.appendChild(barFill);
+            progWrap.appendChild(progHeader);
+            progWrap.appendChild(barBg);
+            card.appendChild(progWrap);
+
+            // Stats line
+            const statsP = document.createElement('div');
+            statsP.className = 'text-sm text-gray-600 mb-2';
+            statsP.textContent = payCount + ' payment' + (payCount !== 1 ? 's' : '') + '  |  Paid: ';
+            const paidSpan = document.createElement('span');
+            paidSpan.className = 'font-semibold text-green-700';
+            paidSpan.textContent = formatVND(project.current_amount);
+            statsP.appendChild(paidSpan);
+            const remTxt = document.createTextNode('  |  Remaining: ');
+            statsP.appendChild(remTxt);
+            const remSpan = document.createElement('span');
+            remSpan.className = 'font-semibold text-red-600';
+            remSpan.textContent = formatVND(remaining);
+            statsP.appendChild(remSpan);
+            card.appendChild(statsP);
+
+            // Next due
+            if (nextDue) {
+                const ndP = document.createElement('div');
+                ndP.className = 'text-sm text-blue-600 mb-2';
+                ndP.textContent = 'Next due: ' + formatDate(nextDue.due_date) + ' — ' + formatVND(nextDue.amount);
+                card.appendChild(ndP);
+            }
+
+            // Deadline
+            if (project.deadline) {
+                const dlP = document.createElement('div');
+                dlP.className = 'text-sm text-gray-500 mb-2';
+                dlP.textContent = 'Deadline: ' + formatDate(project.deadline);
+                card.appendChild(dlP);
+            }
+
+            // Actions
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'flex gap-2 pt-3 border-t';
+
+            const tlBtn = document.createElement('button');
+            tlBtn.className = 'flex-1 bg-blue-50 text-blue-700 py-2 rounded-lg hover:bg-blue-100 transition text-sm';
+            tlBtn.textContent = 'View Timeline';
+            tlBtn.onclick = () => openTimelineModal(project.id);
+            actionsDiv.appendChild(tlBtn);
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'px-3 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition';
+            editBtn.title = 'Edit';
+            editBtn.innerHTML = '<i class="fas fa-edit"></i>';
+            editBtn.onclick = () => editProject(project.id);
+            actionsDiv.appendChild(editBtn);
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition';
+            delBtn.title = 'Delete';
+            delBtn.innerHTML = '<i class="fas fa-trash"></i>';
+            delBtn.onclick = () => deleteProject(project.id);
+            actionsDiv.appendChild(delBtn);
+
+            card.appendChild(actionsDiv);
+            grid.appendChild(card);
+        });
+    }
+
+    // ---- Project modal ----
+    function openAddModal() {
+        document.getElementById('modal-title').textContent = 'Add Financial Project';
+        document.getElementById('project-form').reset();
+        document.getElementById('project-id').value = '';
+        document.getElementById('project-modal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+        document.getElementById('project-modal').classList.add('hidden');
+    }
+
+    function editProject(id) {
+        const project = projects.find(p => p.id === id);
+        if (!project) return;
+        document.getElementById('modal-title').textContent = 'Edit Project';
+        document.getElementById('project-id').value = project.id;
+        document.getElementById('name').value = project.name;
+        document.getElementById('project-type').value = project.type;
+        document.getElementById('description').value = project.description || '';
+        document.getElementById('priority').value = project.priority;
+        document.getElementById('deadline').value = project.deadline || '';
+        document.getElementById('default-category-id').value = project.default_category_id || '';
+        document.getElementById('project-modal').classList.remove('hidden');
+    }
+
+    document.getElementById('project-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const projectId = document.getElementById('project-id').value;
+        const defCat    = document.getElementById('default-category-id').value;
+        const data = {
+            name:                document.getElementById('name').value,
+            type:                document.getElementById('project-type').value,
+            description:         document.getElementById('description').value,
+            priority:            document.getElementById('priority').value,
+            deadline:            document.getElementById('deadline').value || null,
+            default_category_id: defCat ? parseInt(defCat) : null,
+        };
+        try {
+            const url    = projectId ? '/api/projects/' + projectId : '/api/projects/';
+            const method = projectId ? 'PUT' : 'POST';
+            const res = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
+            if (res.ok) {
+                const saved = await res.json();
+                closeModal();
+                await loadProjects();
+                loadSummary();
+                if (!projectId) openTimelineModal(saved.id);
+            } else {
+                const err = await res.json();
+                alert('Error: ' + (typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail));
+            }
+        } catch(e) { console.error(e); alert('Failed to save project'); }
+    });
+
+    async function deleteProject(id) {
+        if (!confirm('Are you sure you want to delete this project?')) return;
+        try {
+            const res = await fetch('/api/projects/' + id, { method:'DELETE' });
+            if (res.ok) { loadProjects(); loadSummary(); }
+        } catch(e) { console.error(e); }
+    }
+
+    // ---- Timeline modal ----
+    async function openTimelineModal(projectId) {
+        currentTimelineProjectId = projectId;
+        const project = projects.find(p => p.id === projectId);
+        document.getElementById('timeline-title').textContent =
+            'Payment Timeline' + (project ? ' — ' + project.name : '');
+        document.getElementById('add-payment-form').reset();
+        document.getElementById('recurring-form').reset();
+        document.getElementById('timeline-modal').classList.remove('hidden');
+        await loadPayments();
+    }
+
+    function closeTimelineModal() {
+        document.getElementById('timeline-modal').classList.add('hidden');
+        currentTimelineProjectId = null;
+        loadProjects();
+        loadSummary();
+    }
+
+    async function loadPayments() {
+        if (!currentTimelineProjectId) return;
+        try {
+            const res = await fetch('/api/projects/' + currentTimelineProjectId + '/payments');
+            const payments = await res.json();
+            renderPaymentsTable(payments);
+        } catch(e) { console.error(e); }
+    }
+
+    function renderPaymentsTable(payments) {
+        const tbody = document.getElementById('payments-table-body');
+        tbody.innerHTML = '';
+
+        let totalAmt = 0, paidAmt = 0;
+        payments.forEach((p, idx) => {
+            totalAmt += p.amount;
+            if (p.status === 'paid') paidAmt += p.amount;
+
+            const tr = document.createElement('tr');
+            tr.className = 'border-b hover:bg-gray-50';
+
+            // #
+            const tdIdx = document.createElement('td');
+            tdIdx.className = 'px-3 py-2 text-gray-500';
+            tdIdx.textContent = idx + 1;
+            tr.appendChild(tdIdx);
+
+            // Due date
+            const tdDate = document.createElement('td');
+            tdDate.className = 'px-3 py-2';
+            if (p.due_date) {
+                tdDate.textContent = formatDate(p.due_date);
+            } else {
+                const tbd = document.createElement('span');
+                tbd.className = 'text-gray-400';
+                tbd.textContent = 'TBD';
+                tdDate.appendChild(tbd);
+            }
+            tr.appendChild(tdDate);
+
+            // Amount
+            const tdAmt = document.createElement('td');
+            tdAmt.className = 'px-3 py-2 font-medium';
+            tdAmt.textContent = formatVND(p.amount);
+            tr.appendChild(tdAmt);
+
+            // Notes
+            const tdNotes = document.createElement('td');
+            tdNotes.className = 'px-3 py-2 text-gray-500 max-w-xs truncate';
+            tdNotes.textContent = p.notes || '';
+            tr.appendChild(tdNotes);
+
+            // Status badge
+            const tdStatus = document.createElement('td');
+            tdStatus.className = 'px-3 py-2';
+            const badge = document.createElement('span');
+            badge.className = p.status === 'paid'
+                ? 'px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium'
+                : 'px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium';
+            badge.textContent = p.status === 'paid' ? 'Paid' : 'Pending';
+            tdStatus.appendChild(badge);
+            tr.appendChild(tdStatus);
+
+            // Transaction link
+            const tdTx = document.createElement('td');
+            tdTx.className = 'px-3 py-2';
+            if (p.transaction_id) {
+                const a = document.createElement('a');
+                a.href = '/transactions?highlight=' + p.transaction_id;
+                a.className = 'text-blue-500 hover:text-blue-700';
+                a.title = 'View transaction';
+                a.innerHTML = '<i class="fas fa-link text-xs"></i>';
+                tdTx.appendChild(a);
+            }
+            tr.appendChild(tdTx);
+
+            // Actions
+            const tdAct = document.createElement('td');
+            tdAct.className = 'px-3 py-2 flex gap-1';
+            if (p.status === 'paid') {
+                const undoBtn = document.createElement('button');
+                undoBtn.className = 'text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100';
+                undoBtn.textContent = 'Undo';
+                undoBtn.onclick = () => undoPayment(p.id);
+                tdAct.appendChild(undoBtn);
+            } else {
+                const paidBtn = document.createElement('button');
+                paidBtn.className = 'text-xs text-green-600 hover:text-green-800 px-2 py-1 rounded hover:bg-green-50';
+                paidBtn.textContent = 'Mark Paid';
+                paidBtn.onclick = () => openMarkPaidModal(p.id, p.due_date, p.amount);
+                tdAct.appendChild(paidBtn);
+            }
+            const delBtn = document.createElement('button');
+            delBtn.className = 'text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50';
+            delBtn.textContent = 'Del';
+            delBtn.onclick = () => deletePayment(p.id);
+            tdAct.appendChild(delBtn);
+            tr.appendChild(tdAct);
+
+            tbody.appendChild(tr);
+        });
+
+        // Totals
+        const remaining = totalAmt - paidAmt;
+        const pct = totalAmt > 0 ? Math.round(paidAmt / totalAmt * 100) : 0;
+        const totalsEl = document.getElementById('payments-totals');
+        totalsEl.innerHTML = '';
+        [
+            { label: 'Total',     value: formatVND(totalAmt),   cls: '' },
+            { label: 'Paid',      value: formatVND(paidAmt),    cls: 'text-green-700' },
+            { label: 'Remaining', value: formatVND(remaining),  cls: 'text-red-600' },
+            { label: 'Progress',  value: pct + '%',             cls: 'text-blue-600' },
+        ].forEach(item => {
+            const div = document.createElement('div');
+            const lbl = document.createElement('p');
+            lbl.className = 'text-xs text-gray-500';
+            lbl.textContent = item.label;
+            const val = document.createElement('p');
+            val.className = 'font-semibold ' + item.cls;
+            val.textContent = item.value;
+            div.appendChild(lbl);
+            div.appendChild(val);
+            totalsEl.appendChild(div);
+        });
+    }
+
+    // ---- Add single payment ----
+    document.getElementById('add-payment-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const dueDateVal = document.getElementById('new-payment-date').value;
+        const data = {
+            amount:   parseFloat(document.getElementById('new-payment-amount').value),
+            due_date: dueDateVal || null,
+            notes:    document.getElementById('new-payment-notes').value || null,
+        };
+        try {
+            const res = await fetch('/api/projects/' + currentTimelineProjectId + '/payments', {
+                method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)
+            });
+            if (res.ok) {
+                document.getElementById('add-payment-form').reset();
+                await loadPayments();
+            } else {
+                const err = await res.json();
+                alert('Error: ' + (typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail));
+            }
+        } catch(e) { console.error(e); alert('Failed to add payment'); }
+    });
+
+    async function deletePayment(paymentId) {
+        if (!confirm('Delete this payment? Any linked transaction will remain in history.')) return;
+        try {
+            const res = await fetch('/api/projects/' + currentTimelineProjectId + '/payments/' + paymentId, { method:'DELETE' });
+            if (res.ok) await loadPayments();
+        } catch(e) { console.error(e); }
+    }
+
+    // ---- Mark Paid modal ----
+    function openMarkPaidModal(paymentId, dueDate, amount) {
+        document.getElementById('mark-paid-payment-id').value = paymentId;
+        document.getElementById('mark-paid-date').value = dueDate || todayStr();
+        const project = projects.find(p => p.id === currentTimelineProjectId);
+        const defCat  = project && project.default_category_id ? String(project.default_category_id) : '';
+        document.getElementById('mark-paid-category').value = defCat;
+        document.getElementById('mark-paid-modal').classList.remove('hidden');
+    }
+
+    function closeMarkPaidModal() {
+        document.getElementById('mark-paid-modal').classList.add('hidden');
+    }
+
+    async function confirmMarkPaid() {
+        const paymentId  = document.getElementById('mark-paid-payment-id').value;
+        const categoryId = document.getElementById('mark-paid-category').value;
+        const paidDate   = document.getElementById('mark-paid-date').value;
+        const body = { status: 'paid', payment_date: paidDate || null };
+        if (categoryId) body.category_id = parseInt(categoryId);
+        try {
+            const res = await fetch('/api/projects/' + currentTimelineProjectId + '/payments/' + paymentId, {
+                method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+            });
+            if (res.ok) {
+                closeMarkPaidModal();
+                await loadPayments();
+            } else {
+                const err = await res.json();
+                alert('Error: ' + (typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail));
+            }
+        } catch(e) { console.error(e); alert('Failed to update payment'); }
+    }
+
+    async function undoPayment(paymentId) {
+        try {
+            const res = await fetch('/api/projects/' + currentTimelineProjectId + '/payments/' + paymentId, {
+                method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({status:'pending'})
+            });
+            if (res.ok) await loadPayments();
+        } catch(e) { console.error(e); }
+    }
+
+    // ---- Recurring schedule ----
+    function toggleRecurring() {
+        const section  = document.getElementById('recurring-section');
+        const chevron  = document.getElementById('recurring-chevron');
+        const isHidden = section.classList.contains('hidden');
+        section.classList.toggle('hidden', !isHidden);
+        chevron.className = isHidden ? 'fas fa-chevron-down text-xs' : 'fas fa-chevron-right text-xs';
+    }
+
+    document.getElementById('recurring-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const data = {
+            amount:      parseFloat(document.getElementById('rec-amount').value),
+            start_date:  document.getElementById('rec-start-date').value,
+            interval:    document.getElementById('rec-interval').value,
+            occurrences: parseInt(document.getElementById('rec-occurrences').value),
+            notes:       document.getElementById('rec-notes').value || null,
+        };
+        try {
+            const res = await fetch('/api/projects/' + currentTimelineProjectId + '/payments/bulk', {
+                method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)
+            });
+            if (res.ok) {
+                document.getElementById('recurring-form').reset();
+                await loadPayments();
+            } else {
+                const err = await res.json();
+                alert('Error: ' + (typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail));
+            }
+        } catch(e) { console.error(e); alert('Failed to generate schedule'); }
+    });
+</script>
+{% endblock %}

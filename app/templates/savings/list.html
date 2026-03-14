@@ -1,0 +1,525 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="p-6 max-w-7xl mx-auto">
+    <!-- Page Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-800">Savings Bundles</h2>
+            <p class="text-gray-600 mt-1">Track your family's savings information</p>
+        </div>
+        <button onclick="openAddModal()" class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition flex items-center">
+            <i class="fas fa-plus mr-2"></i>Add Savings Bundle
+        </button>
+    </div>
+    
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        <div class="bg-white rounded-lg shadow p-4">
+            <p class="text-sm text-gray-500">Active Bundles</p>
+            <p class="text-2xl font-bold text-primary" id="sum-active-count">-</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4">
+            <p class="text-sm text-gray-500">Total Deposited</p>
+            <p class="text-2xl font-bold text-blue-600" id="sum-deposited">-</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4">
+            <p class="text-sm text-gray-500">Future Amount</p>
+            <p class="text-2xl font-bold text-green-600" id="sum-future">-</p>
+        </div>
+        <div class="bg-white rounded-lg shadow p-4">
+            <p class="text-sm text-gray-500">Total Interest</p>
+            <p class="text-2xl font-bold text-purple-600" id="sum-interest">-</p>
+        </div>
+    </div>
+    
+    <!-- Filters -->
+    <div class="bg-white rounded-xl shadow-md p-4 mb-6">
+        <div class="flex flex-wrap gap-4">
+            <select id="filter-status" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary" onchange="loadSavings()">
+                <option value="">All Status</option>
+                <option value="active">Active</option>
+                <option value="completed">Completed</option>
+            </select>
+        </div>
+    </div>
+    
+    <!-- Savings Grid -->
+    <div id="savings-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Dynamic content -->
+    </div>
+</div>
+
+<!-- Add/Edit Savings Modal -->
+<div id="savings-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b flex justify-between items-center">
+            <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Savings Bundle</h3>
+            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        
+        <form id="savings-form" class="p-6 space-y-4">
+            <input type="hidden" id="savings-id">
+            
+            <!-- Name -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Bundle Name</label>
+                <input type="text" id="name" required
+                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                       placeholder="e.g., Vietcombank Fixed Deposit">
+            </div>
+            
+            <!-- Bank Name -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Bank Name</label>
+                <input type="text" id="bank-name" required
+                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                       placeholder="e.g., Vietcombank">
+            </div>
+
+            <!-- Savings Type (#3) -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Savings Type</label>
+                <select id="savings-type"
+                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <option value="fixed_deposit">Fixed Deposit</option>
+                    <option value="recurring_deposit">Recurring Deposit</option>
+                    <option value="savings_goal">Savings Goal</option>
+                </select>
+            </div>
+
+            <!-- Amounts -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Initial Deposit (VND)</label>
+                    <input type="number" id="initial-deposit" required min="0" step="1"
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                           placeholder="Amount deposited">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Future Amount (VND)</label>
+                    <input type="number" id="future-amount" required min="0" step="1"
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                           placeholder="Amount at maturity">
+                </div>
+            </div>
+
+            <!-- Current Amount (#4) -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Current Amount (VND)</label>
+                <input type="number" id="current-amount" min="0" step="1"
+                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                       placeholder="Leave blank to use Initial Deposit">
+                <p class="text-xs text-gray-400 mt-1">Actual current value (may differ from initial if partially withdrawn/added)</p>
+            </div>
+            
+            <!-- Interest Rate -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Interest Rate (% per year)</label>
+                <input type="number" id="interest-rate" min="0" max="100" step="0.1"
+                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                       placeholder="Optional - e.g., 6.5">
+            </div>
+            
+            <!-- Dates -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Start Date</label>
+                    <input type="date" id="start-date" required
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Maturity Date</label>
+                    <input type="date" id="maturity-date"
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+            </div>
+            
+            <!-- Notes -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                <textarea id="notes" rows="3"
+                          class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                          placeholder="Optional notes..."></textarea>
+            </div>
+            
+            <!-- Submit -->
+            <div class="flex gap-4 pt-4">
+                <button type="button" onclick="closeModal()"
+                        class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="flex-1 px-4 py-3 bg-primary text-white rounded-lg hover:bg-blue-600 transition">
+                    Save Bundle
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    let savingsBundles = [];
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadSavings();
+        loadSummary();
+        document.getElementById('start-date').valueAsDate = new Date();
+    });
+
+    async function loadSummary() {
+        try {
+            const response = await fetch('/api/savings/stats/summary');
+            const data = await response.json();
+            document.getElementById('sum-active-count').textContent = data.active_bundles_count;
+            document.getElementById('sum-deposited').textContent = formatVND(data.total_initial_deposit);
+            document.getElementById('sum-future').textContent = formatVND(data.total_future_amount);
+            document.getElementById('sum-interest').textContent = formatVND(data.total_interest_earned);
+        } catch (error) {
+            console.error('Error loading summary:', error);
+        }
+    }
+
+    async function loadSavings() {
+        try {
+            const status = document.getElementById('filter-status').value;
+            const url = status ? '/api/savings/?status=' + status : '/api/savings/';
+            const response = await fetch(url);
+            savingsBundles = await response.json();
+            renderSavings();
+        } catch (error) {
+            console.error('Error loading savings:', error);
+        }
+    }
+
+    function renderSavings() {
+        const grid = document.getElementById('savings-grid');
+        while (grid.firstChild) grid.removeChild(grid.firstChild);
+
+        savingsBundles.forEach(function(bundle) {
+            const interest = bundle.future_amount - bundle.initial_deposit;
+            const interestPercent = bundle.initial_deposit > 0
+                ? ((interest / bundle.initial_deposit) * 100).toFixed(2) : '0.00';
+
+            let progressPercent = 0, daysRemaining = null;
+            if (bundle.start_date && bundle.maturity_date) {
+                const start = new Date(bundle.start_date + 'T00:00:00');
+                const end = new Date(bundle.maturity_date + 'T00:00:00');
+                const now = new Date();
+                const total = end - start;
+                progressPercent = total > 0 ? Math.min(100, Math.max(0, Math.round(((now - start) / total) * 100))) : 0;
+                daysRemaining = Math.ceil((end - now) / 86400000);
+            }
+
+            const card = document.createElement('div');
+            card.className = 'bg-white rounded-xl shadow-md p-6';
+
+            // Header
+            const header = document.createElement('div');
+            header.className = 'flex justify-between items-start mb-4';
+            const headerLeft = document.createElement('div');
+            const nameEl = document.createElement('h3');
+            nameEl.className = 'text-lg font-semibold text-gray-800';
+            nameEl.textContent = bundle.name;
+            const bankEl = document.createElement('p');
+            bankEl.className = 'text-sm text-gray-500';
+            bankEl.textContent = bundle.bank_name;
+            const typeEl = document.createElement('p');
+            typeEl.className = 'text-xs text-gray-400 capitalize';
+            typeEl.textContent = (bundle.type || 'fixed_deposit').replace('_', ' ');
+            headerLeft.appendChild(nameEl);
+            headerLeft.appendChild(bankEl);
+            headerLeft.appendChild(typeEl);
+            const badge = document.createElement('span');
+            badge.className = 'px-2 py-1 text-xs font-medium rounded-full ' + (
+                bundle.status === 'active' ? 'bg-green-100 text-green-800' :
+                bundle.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                'bg-gray-100 text-gray-800');
+            badge.textContent = bundle.status;
+            header.appendChild(headerLeft);
+            header.appendChild(badge);
+            card.appendChild(header);
+
+            // Amounts
+            const amts = document.createElement('div');
+            amts.className = 'space-y-3 mb-4';
+            const amtRow = document.createElement('div');
+            amtRow.className = 'flex justify-between items-center p-3 bg-blue-50 rounded-lg';
+            const lDiv = document.createElement('div');
+            const lLbl = document.createElement('p');
+            lLbl.className = 'text-xs text-gray-500';
+            lLbl.textContent = 'Initial Deposit';
+            const lVal = document.createElement('p');
+            lVal.className = 'font-semibold text-blue-700';
+            lVal.textContent = formatVND(bundle.initial_deposit);
+            lDiv.appendChild(lLbl); lDiv.appendChild(lVal);
+            const arw = document.createElement('i');
+            arw.className = 'fas fa-arrow-right text-gray-400';
+            const rDiv = document.createElement('div');
+            rDiv.className = 'text-right';
+            const rLbl = document.createElement('p');
+            rLbl.className = 'text-xs text-gray-500';
+            rLbl.textContent = 'Future Amount';
+            const rVal = document.createElement('p');
+            rVal.className = 'font-semibold text-green-700';
+            rVal.textContent = formatVND(bundle.future_amount);
+            rDiv.appendChild(rLbl); rDiv.appendChild(rVal);
+            amtRow.appendChild(lDiv); amtRow.appendChild(arw); amtRow.appendChild(rDiv);
+            amts.appendChild(amtRow);
+
+            if (bundle.current_amount != null && bundle.current_amount !== bundle.initial_deposit) {
+                const curRow = document.createElement('div');
+                curRow.className = 'flex justify-between text-sm';
+                const cLbl = document.createElement('span');
+                cLbl.className = 'text-gray-500';
+                cLbl.textContent = 'Current Amount:';
+                const cVal = document.createElement('span');
+                cVal.className = 'font-semibold text-blue-600';
+                cVal.textContent = formatVND(bundle.current_amount);
+                curRow.appendChild(cLbl); curRow.appendChild(cVal);
+                amts.appendChild(curRow);
+            }
+
+            const intRow = document.createElement('div');
+            intRow.className = 'flex justify-between text-sm';
+            const iLbl = document.createElement('span');
+            iLbl.className = 'text-gray-500';
+            iLbl.textContent = 'Interest Earned:';
+            const iVal = document.createElement('span');
+            iVal.className = 'font-semibold text-purple-600';
+            iVal.textContent = '+' + formatVND(interest) + ' (' + interestPercent + '%)';
+            intRow.appendChild(iLbl); intRow.appendChild(iVal);
+            amts.appendChild(intRow);
+
+            if (bundle.interest_rate) {
+                const rRow = document.createElement('div');
+                rRow.className = 'flex justify-between text-sm';
+                const rrLbl = document.createElement('span');
+                rrLbl.className = 'text-gray-500';
+                rrLbl.textContent = 'Interest Rate:';
+                const rrVal = document.createElement('span');
+                rrVal.className = 'font-medium';
+                rrVal.textContent = bundle.interest_rate + '% / year';
+                rRow.appendChild(rrLbl); rRow.appendChild(rrVal);
+                amts.appendChild(rRow);
+            }
+            card.appendChild(amts);
+
+            // Progress bar (#11 & #12)
+            if (bundle.status === 'active' && bundle.maturity_date) {
+                const progWrap = document.createElement('div');
+                progWrap.className = 'mb-4';
+                const progHdr = document.createElement('div');
+                progHdr.className = 'flex justify-between text-xs text-gray-500 mb-1';
+                const pLbl = document.createElement('span');
+                pLbl.textContent = 'Term Progress';
+                const pPct = document.createElement('span');
+                pPct.textContent = progressPercent + '%';
+                progHdr.appendChild(pLbl); progHdr.appendChild(pPct);
+                const track = document.createElement('div');
+                track.className = 'w-full bg-gray-200 rounded-full h-2';
+                const bar = document.createElement('div');
+                bar.className = 'h-2 rounded-full bg-blue-500 transition-all duration-300';
+                bar.style.width = progressPercent + '%';
+                track.appendChild(bar);
+                progWrap.appendChild(progHdr);
+                progWrap.appendChild(track);
+                if (daysRemaining !== null) {
+                    const dEl = document.createElement('p');
+                    dEl.className = 'text-xs mt-1 ' + (daysRemaining <= 7 ? 'text-red-600 font-semibold' : 'text-gray-500');
+                    dEl.textContent = daysRemaining > 0
+                        ? 'Matures in ' + daysRemaining + ' days'
+                        : 'Matured ' + Math.abs(daysRemaining) + ' days ago';
+                    progWrap.appendChild(dEl);
+                }
+                card.appendChild(progWrap);
+            }
+
+            // Dates
+            const datesDiv = document.createElement('div');
+            datesDiv.className = 'text-sm text-gray-500 mb-4 space-y-1';
+            const sRow = document.createElement('div');
+            const sIco = document.createElement('i');
+            sIco.className = 'fas fa-calendar-alt mr-2 w-4';
+            sRow.appendChild(sIco);
+            sRow.appendChild(document.createTextNode('Start: ' + formatDate(bundle.start_date)));
+            datesDiv.appendChild(sRow);
+            if (bundle.maturity_date) {
+                const mRow = document.createElement('div');
+                const mIco = document.createElement('i');
+                mIco.className = 'fas fa-flag-checkered mr-2 w-4';
+                mRow.appendChild(mIco);
+                mRow.appendChild(document.createTextNode('Matures: ' + formatDate(bundle.maturity_date)));
+                datesDiv.appendChild(mRow);
+            }
+            card.appendChild(datesDiv);
+
+            if (bundle.notes) {
+                const notesEl = document.createElement('p');
+                notesEl.className = 'text-sm text-gray-600 mb-4 italic';
+                notesEl.textContent = '\u201c' + bundle.notes + '\u201d';
+                card.appendChild(notesEl);
+            }
+
+            // Actions
+            const actDiv = document.createElement('div');
+            actDiv.className = 'flex gap-2 pt-4 border-t';
+
+            if (bundle.status === 'active') {
+                const completeBtn = document.createElement('button');
+                completeBtn.className = 'flex-1 bg-green-100 text-green-700 py-2 rounded-lg hover:bg-green-200 transition text-sm';
+                const chkIco = document.createElement('i');
+                chkIco.className = 'fas fa-check mr-1';
+                completeBtn.appendChild(chkIco);
+                completeBtn.appendChild(document.createTextNode('Mark Completed'));
+                completeBtn.addEventListener('click', function() { markCompleted(bundle.id); });
+                actDiv.appendChild(completeBtn);
+
+                const rollBtn = document.createElement('button');
+                rollBtn.className = 'px-3 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition text-sm';
+                rollBtn.title = 'Rollover to new bundle';
+                const rollIco = document.createElement('i');
+                rollIco.className = 'fas fa-redo';
+                rollBtn.appendChild(rollIco);
+                rollBtn.addEventListener('click', function() { rolloverSavings(bundle.id); });
+                actDiv.appendChild(rollBtn);
+            }
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'px-3 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition';
+            editBtn.title = 'Edit';
+            const editIco = document.createElement('i');
+            editIco.className = 'fas fa-edit';
+            editBtn.appendChild(editIco);
+            editBtn.addEventListener('click', function() { editSavings(bundle.id); });
+            actDiv.appendChild(editBtn);
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition';
+            delBtn.title = 'Delete';
+            const delIco = document.createElement('i');
+            delIco.className = 'fas fa-trash';
+            delBtn.appendChild(delIco);
+            delBtn.addEventListener('click', function() {
+                deleteWithUndo(card, '/api/savings/' + bundle.id, function() {
+                    loadSavings(); loadSummary();
+                }, bundle.name);
+            });
+            actDiv.appendChild(delBtn);
+
+            card.appendChild(actDiv);
+            grid.appendChild(card);
+        });
+    }
+
+    function openAddModal() {
+        document.getElementById('modal-title').textContent = 'Add Savings Bundle';
+        document.getElementById('savings-form').reset();
+        document.getElementById('savings-id').value = '';
+        document.getElementById('start-date').valueAsDate = new Date();
+        document.getElementById('savings-modal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+        document.getElementById('savings-modal').classList.add('hidden');
+    }
+
+    document.getElementById('savings-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const savingsId = document.getElementById('savings-id').value;
+        const initDeposit = parseFloat(document.getElementById('initial-deposit').value);
+        const curAmtRaw = document.getElementById('current-amount').value;
+        const data = {
+            name: document.getElementById('name').value,
+            bank_name: document.getElementById('bank-name').value,
+            type: document.getElementById('savings-type').value,
+            initial_deposit: initDeposit,
+            current_amount: curAmtRaw ? parseFloat(curAmtRaw) : initDeposit,
+            future_amount: parseFloat(document.getElementById('future-amount').value),
+            interest_rate: document.getElementById('interest-rate').value ? parseFloat(document.getElementById('interest-rate').value) : null,
+            start_date: document.getElementById('start-date').value,
+            maturity_date: document.getElementById('maturity-date').value || null,
+            notes: document.getElementById('notes').value || null
+        };
+        try {
+            const url = savingsId ? '/api/savings/' + savingsId : '/api/savings/';
+            const method = savingsId ? 'PUT' : 'POST';
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (response.ok) {
+                closeModal();
+                loadSavings();
+                loadSummary();
+            } else {
+                const error = await response.json();
+                const msg = typeof error.detail === 'object' ? JSON.stringify(error.detail) : error.detail;
+                showToast('Error: ' + msg, 'error');
+            }
+        } catch (error) {
+            console.error('Error saving savings bundle:', error);
+            showToast('Failed to save savings bundle', 'error');
+        }
+    });
+
+    function editSavings(id) {
+        const bundle = savingsBundles.find(function(s) { return s.id === id; });
+        if (!bundle) return;
+        document.getElementById('modal-title').textContent = 'Edit Savings Bundle';
+        document.getElementById('savings-id').value = bundle.id;
+        document.getElementById('name').value = bundle.name;
+        document.getElementById('bank-name').value = bundle.bank_name;
+        document.getElementById('savings-type').value = bundle.type || 'fixed_deposit';
+        document.getElementById('initial-deposit').value = bundle.initial_deposit;
+        document.getElementById('current-amount').value = bundle.current_amount != null ? bundle.current_amount : bundle.initial_deposit;
+        document.getElementById('future-amount').value = bundle.future_amount;
+        document.getElementById('interest-rate').value = bundle.interest_rate || '';
+        document.getElementById('start-date').value = bundle.start_date;
+        document.getElementById('maturity-date').value = bundle.maturity_date || '';
+        document.getElementById('notes').value = bundle.notes || '';
+        document.getElementById('savings-modal').classList.remove('hidden');
+    }
+
+    function markCompleted(id) {
+        showConfirm('Mark this savings bundle as completed?', async function() {
+            try {
+                const response = await fetch('/api/savings/' + id + '/mark-completed', { method: 'POST' });
+                if (response.ok) {
+                    loadSavings();
+                    loadSummary();
+                    showToast('Bundle marked as completed', 'success');
+                } else {
+                    const error = await response.json();
+                    showToast('Error: ' + (error.detail || 'Failed to mark as completed'), 'error');
+                }
+            } catch (error) {
+                console.error('Error completing savings:', error);
+                showToast('Failed to mark bundle as completed', 'error');
+            }
+        });
+    }
+
+    function rolloverSavings(id) {
+        showConfirm('Roll over this bundle? It will be marked complete and a new bundle seeded with the matured amount.', async function() {
+            try {
+                const response = await fetch('/api/savings/' + id + '/rollover', { method: 'POST' });
+                if (response.ok) {
+                    loadSavings();
+                    loadSummary();
+                    showToast('Bundle rolled over successfully', 'success');
+                } else {
+                    const error = await response.json();
+                    showToast('Error: ' + (error.detail || 'Failed to rollover'), 'error');
+                }
+            } catch (error) {
+                console.error('Error rolling over savings:', error);
+                showToast('Failed to rollover bundle', 'error');
+            }
+        }, 'Rollover', 'bg-indigo-600 text-white hover:bg-indigo-700');
+    }
+</script>
+{% endblock %}

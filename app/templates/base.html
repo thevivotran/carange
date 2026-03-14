@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Carange - Family Finance Tracker{% endblock %}</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- PWA -->
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="icon" type="image/svg+xml" href="/static/images/favicon.svg">
+    <meta name="theme-color" content="#10B981">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#3B82F6',
+                        secondary: '#10B981',
+                        danger: '#EF4444',
+                        warning: '#F59E0B',
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .sidebar-link:hover { background-color: rgba(59, 130, 246, 0.1); }
+        .sidebar-link.active { background-color: rgba(59, 130, 246, 0.15); border-right: 3px solid #3B82F6; }
+        
+        /* Chart container fix to prevent expanding */
+        canvas {
+            max-height: 100% !important;
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="bg-gray-50">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <aside class="hidden md:flex w-64 bg-white shadow-lg flex-col">
+            <div class="p-6 border-b">
+                <h1 class="text-2xl font-bold text-primary">
+                    <i class="fas fa-wallet mr-2"></i>Carange
+                </h1>
+                <p class="text-sm text-gray-500 mt-1">Family Finance</p>
+            </div>
+            
+            <nav class="flex-1 py-4 overflow-y-auto">
+                <a href="/" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'dashboard' %}active font-semibold{% endif %}">
+                    <i class="fas fa-chart-line w-6"></i>
+                    <span>Dashboard</span>
+                </a>
+                
+                <a href="/transactions" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'transactions' %}active font-semibold{% endif %}">
+                    <i class="fas fa-exchange-alt w-6"></i>
+                    <span>Transactions</span>
+                </a>
+                
+                <a href="/categories" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'categories' %}active font-semibold{% endif %}">
+                    <i class="fas fa-tags w-6"></i>
+                    <span>Categories</span>
+                </a>
+                
+                <a href="/templates" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'templates' %}active font-semibold{% endif %}">
+                    <i class="fas fa-copy w-6"></i>
+                    <span>Templates</span>
+                </a>
+                
+                <div class="px-6 py-2 mt-4 text-xs font-semibold text-gray-400 uppercase">Savings</div>
+                
+                <a href="/savings" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'savings' %}active font-semibold{% endif %}">
+                    <i class="fas fa-piggy-bank w-6"></i>
+                    <span>Savings Bundles</span>
+                </a>
+                
+                <div class="px-6 py-2 mt-4 text-xs font-semibold text-gray-400 uppercase">Projects</div>
+                
+                <a href="/projects" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'projects' %}active font-semibold{% endif %}">
+                    <i class="fas fa-bullseye w-6"></i>
+                    <span>Financial Projects</span>
+                </a>
+            </nav>
+            
+            <div class="p-4 border-t">
+                <div class="text-xs text-gray-500 text-center">
+                    Carange v1.0<br>
+                    <span class="text-primary">Local Network Access</span>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Mobile Header -->
+        <div class="md:hidden fixed top-0 left-0 right-0 bg-white shadow-md z-50">
+            <div class="flex items-center justify-between p-4">
+                <h1 class="text-xl font-bold text-primary">
+                    <i class="fas fa-wallet mr-2"></i>Carange
+                </h1>
+                <button id="mobile-menu-btn" class="p-2 text-gray-600">
+                    <i class="fas fa-bars text-xl"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- Mobile Menu -->
+        <div id="mobile-menu" class="hidden md:hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-40">
+            <div class="absolute right-0 top-0 bottom-0 w-64 bg-white shadow-xl">
+                <div class="p-4 border-b flex justify-between items-center">
+                    <span class="font-semibold">Menu</span>
+                    <button id="close-mobile-menu" class="p-2 text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <nav class="py-4">
+                    <a href="/" class="block px-6 py-3 text-gray-700 hover:bg-gray-100 {% if active_menu == 'dashboard' %}bg-blue-50 text-primary font-semibold{% endif %}">
+                        <i class="fas fa-chart-line w-6"></i>Dashboard
+                    </a>
+                    <a href="/transactions" class="block px-6 py-3 text-gray-700 hover:bg-gray-100 {% if active_menu == 'transactions' %}bg-blue-50 text-primary font-semibold{% endif %}">
+                        <i class="fas fa-exchange-alt w-6"></i>Transactions
+                    </a>
+                    <a href="/categories" class="block px-6 py-3 text-gray-700 hover:bg-gray-100 {% if active_menu == 'categories' %}bg-blue-50 text-primary font-semibold{% endif %}">
+                        <i class="fas fa-tags w-6"></i>Categories
+                    </a>
+                    <a href="/templates" class="block px-6 py-3 text-gray-700 hover:bg-gray-100 {% if active_menu == 'templates' %}bg-blue-50 text-primary font-semibold{% endif %}">
+                        <i class="fas fa-copy w-6"></i>Templates
+                    </a>
+                    <a href="/savings" class="block px-6 py-3 text-gray-700 hover:bg-gray-100 {% if active_menu == 'savings' %}bg-blue-50 text-primary font-semibold{% endif %}">
+                        <i class="fas fa-piggy-bank w-6"></i>Savings
+                    </a>
+                    <a href="/projects" class="block px-6 py-3 text-gray-700 hover:bg-gray-100 {% if active_menu == 'projects' %}bg-blue-50 text-primary font-semibold{% endif %}">
+                        <i class="fas fa-bullseye w-6"></i>Projects
+                    </a>
+                </nav>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <main class="flex-1 overflow-y-auto md:pt-0 pt-16">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+    
+    <script>
+        // Mobile menu toggle
+        document.getElementById('mobile-menu-btn').addEventListener('click', function() {
+            document.getElementById('mobile-menu').classList.remove('hidden');
+        });
+        
+        document.getElementById('close-mobile-menu').addEventListener('click', function() {
+            document.getElementById('mobile-menu').classList.add('hidden');
+        });
+        
+        // Format VND currency
+        function formatVND(amount) {
+            return new Intl.NumberFormat('vi-VN', {
+                style: 'currency',
+                currency: 'VND'
+            }).format(amount);
+        }
+        
+        // Fix: split-based date avoids UTC timezone off-by-one
+        function formatDate(dateString) {
+            if (!dateString) return '-';
+            const parts = dateString.split('-');
+            return parts[2] + '/' + parts[1] + '/' + parts[0];
+        }
+
+        // Toast notifications
+        function showToast(message, type, duration) {
+            type = type || 'success';
+            duration = duration || 3500;
+            const container = document.getElementById('toast-container');
+            const colors = { success: 'bg-green-500', error: 'bg-red-500', warning: 'bg-yellow-500', info: 'bg-blue-500' };
+            const toast = document.createElement('div');
+            toast.className = (colors[type] || colors.success) + ' text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 min-w-64 transition-all duration-300';
+            const msg = document.createElement('span');
+            msg.className = 'flex-1 text-sm';
+            msg.textContent = message;
+            const btn = document.createElement('button');
+            btn.className = 'opacity-75 hover:opacity-100 text-lg leading-none';
+            btn.textContent = '\u00d7';
+            btn.addEventListener('click', function() { toast.remove(); });
+            toast.appendChild(msg);
+            toast.appendChild(btn);
+            container.appendChild(toast);
+            setTimeout(function() { toast.remove(); }, duration);
+            return toast;
+        }
+
+        // Confirm dialog - replaces window.confirm()
+        function showConfirm(message, onConfirm, confirmLabel, confirmClass) {
+            confirmLabel = confirmLabel || 'Delete';
+            confirmClass = confirmClass || 'bg-red-600 hover:bg-red-700';
+            document.getElementById('confirm-message').textContent = message;
+            const okBtn = document.getElementById('confirm-ok');
+            okBtn.textContent = confirmLabel;
+            okBtn.className = 'flex-1 px-4 py-2 text-white rounded-lg transition ' + confirmClass;
+            document.getElementById('confirm-dialog').classList.remove('hidden');
+            const newOk = okBtn.cloneNode(true);
+            const cancelBtn = document.getElementById('confirm-cancel');
+            const newCancel = cancelBtn.cloneNode(true);
+            okBtn.replaceWith(newOk);
+            cancelBtn.replaceWith(newCancel);
+            const close = function() { document.getElementById('confirm-dialog').classList.add('hidden'); };
+            document.getElementById('confirm-ok').addEventListener('click', function() { close(); onConfirm(); });
+            document.getElementById('confirm-cancel').addEventListener('click', close);
+        }
+
+        // Undo-delete: hides element immediately, calls DELETE after 5 s unless undone
+        function deleteWithUndo(element, deleteUrl, reloadFn, itemName) {
+            itemName = itemName || 'item';
+            if (element) element.style.display = 'none';
+            let cancelled = false;
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 min-w-72';
+            const msg = document.createElement('span');
+            msg.className = 'flex-1 text-sm';
+            msg.textContent = itemName + ' deleted';
+            const undoBtn = document.createElement('button');
+            undoBtn.className = 'text-yellow-300 hover:text-yellow-100 font-semibold text-sm underline';
+            undoBtn.textContent = 'Undo';
+            undoBtn.addEventListener('click', function() {
+                cancelled = true;
+                if (element) element.style.display = '';
+                toast.remove();
+                showToast('Delete cancelled', 'info');
+            });
+            toast.appendChild(msg);
+            toast.appendChild(undoBtn);
+            container.appendChild(toast);
+            setTimeout(async function() {
+                toast.remove();
+                if (cancelled) return;
+                try {
+                    const resp = await fetch(deleteUrl, { method: 'DELETE' });
+                    if (resp.ok) { reloadFn(); }
+                    else { if (element) element.style.display = ''; showToast('Failed to delete', 'error'); }
+                } catch(e) { if (element) element.style.display = ''; showToast('Failed to delete', 'error'); }
+            }, 5000);
+        }
+    </script>
+    
+    {% block extra_js %}{% endblock %}
+
+    <!-- Toast container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-[200] space-y-2 pointer-events-none">
+        <div class="pointer-events-auto"></div>
+    </div>
+    <script>
+        // Re-initialise container so all toasts are pointer-events-auto
+        const _tc = document.getElementById('toast-container');
+        _tc.className = 'fixed bottom-4 right-4 z-[200] space-y-2';
+    </script>
+
+    <!-- Confirm dialog -->
+    <div id="confirm-dialog" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[150] flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+            <p id="confirm-message" class="text-gray-800 mb-6 text-center font-medium"></p>
+            <div class="flex gap-3">
+                <button id="confirm-cancel" class="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50 transition">Cancel</button>
+                <button id="confirm-ok" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">Delete</button>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

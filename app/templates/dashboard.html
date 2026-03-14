@@ -1,0 +1,374 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="p-6 max-w-7xl mx-auto">
+    <!-- Page Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-800">Dashboard</h2>
+            <p class="text-gray-600 mt-1">Overview of your family finances</p>
+        </div>
+        <!-- Month selector (#13) -->
+        <div class="flex items-center gap-2 bg-white rounded-lg shadow-sm px-4 py-2">
+            <button onclick="shiftMonth(-1)" class="text-gray-500 hover:text-gray-800 px-1">&#8249;</button>
+            <select id="sel-month" onchange="updateDashboard()" class="border-none focus:ring-0 text-sm font-medium text-gray-700">
+                <option value="1">January</option><option value="2">February</option>
+                <option value="3">March</option><option value="4">April</option>
+                <option value="5">May</option><option value="6">June</option>
+                <option value="7">July</option><option value="8">August</option>
+                <option value="9">September</option><option value="10">October</option>
+                <option value="11">November</option><option value="12">December</option>
+            </select>
+            <select id="sel-year" onchange="updateDashboard()" class="border-none focus:ring-0 text-sm font-medium text-gray-700">
+            </select>
+            <button onclick="shiftMonth(1)" class="text-gray-500 hover:text-gray-800 px-1">&#8250;</button>
+        </div>
+    </div>
+    
+    <!-- Summary Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+        <!-- Income Card -->
+        <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-green-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Monthly Income</p>
+                    <p id="card-income" class="text-xl font-bold text-gray-800">{{ "{:,.0f}".format(summary.total_income) }} ₫</p>
+                </div>
+                <div class="bg-green-100 p-2 rounded-full"><i class="fas fa-arrow-down text-green-600"></i></div>
+            </div>
+        </div>
+        <!-- Expense Card -->
+        <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-red-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Monthly Expense</p>
+                    <p id="card-expense" class="text-xl font-bold text-gray-800">{{ "{:,.0f}".format(summary.total_expense) }} ₫</p>
+                </div>
+                <div class="bg-red-100 p-2 rounded-full"><i class="fas fa-arrow-up text-red-600"></i></div>
+            </div>
+        </div>
+        <!-- Monthly Savings Card -->
+        <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-indigo-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Monthly Savings</p>
+                    <p id="card-savings" class="text-xl font-bold text-gray-800">{{ "{:,.0f}".format(summary.total_savings_expense) }} ₫</p>
+                </div>
+                <div class="bg-indigo-100 p-2 rounded-full"><i class="fas fa-piggy-bank text-indigo-600"></i></div>
+            </div>
+        </div>
+        <!-- Cash on Hand Card -->
+        <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-blue-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Cash on Hand</p>
+                    <p id="card-cash" class="text-xl font-bold {{ 'text-green-600' if summary.cash_on_hand >= 0 else 'text-red-600' }}">
+                        {{ "{:,.0f}".format(summary.cash_on_hand) }} ₫
+                    </p>
+                </div>
+                <div class="bg-blue-100 p-2 rounded-full"><i class="fas fa-wallet text-blue-600"></i></div>
+            </div>
+        </div>
+        <!-- Future Savings Card -->
+        <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-purple-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Future Savings</p>
+                    <p id="card-future-savings" class="text-xl font-bold text-gray-800">{{ "{:,.0f}".format(summary.total_savings) }} ₫</p>
+                    <p id="card-deposited" class="text-xs text-gray-400">Dep: {{ "{:,.0f}".format(summary.total_savings_initial) }} ₫</p>
+                </div>
+                <div class="bg-purple-100 p-2 rounded-full"><i class="fas fa-chart-line text-purple-600"></i></div>
+            </div>
+        </div>
+        <!-- Net Worth Card (#14) -->
+        <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-teal-500">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Net Worth</p>
+                    <p id="card-net-worth" class="text-xl font-bold text-teal-700">
+                        {{ "{:,.0f}".format(summary.cash_on_hand + summary.total_savings) }} ₫
+                    </p>
+                    <p class="text-xs text-gray-400">Cash + Savings</p>
+                </div>
+                <div class="bg-teal-100 p-2 rounded-full"><i class="fas fa-coins text-teal-600"></i></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Main Content Grid -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Left Column (2/3) -->
+        <div class="lg:col-span-2 space-y-8">
+            <!-- Charts Section -->
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Monthly Overview</h3>
+                <div style="height: 300px; position: relative;">
+                    <canvas id="monthlyChart"></canvas>
+                </div>
+            </div>
+            
+            <!-- Expense by Category -->
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <h3 class="text-lg font-semibold text-gray-800 mb-4">Expense by Category</h3>
+                {% if expense_by_category %}
+                <div id="expense-by-category" class="space-y-4">
+                    {% for category in expense_by_category %}
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <span class="text-sm font-medium text-gray-700">{{ category.name }}</span>
+                            <span class="text-sm text-gray-500">{{ "{:,.0f}".format(category.total) }} VND ({{ category.percentage }}%)</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div class="h-2 rounded-full transition-all duration-300" 
+                                 style="width: {{ category.percentage }}%; background-color: {{ category.color }}"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div id="expense-by-category">
+                    <p class="text-gray-500 text-center py-4">No expense data for this month</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Right Column (1/3) -->
+        <div class="space-y-8">
+            <!-- Recent Transactions -->
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800">Recent Transactions</h3>
+                    <a href="/transactions" class="text-sm text-primary hover:underline">View All</a>
+                </div>
+                
+                {% if recent_transactions %}
+                <div class="space-y-3">
+                    {% for transaction in recent_transactions %}
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center mr-3 
+                                {{ 'bg-green-100 text-green-600' if transaction.type.value == 'income' else 'bg-red-100 text-red-600' }}">
+                                <i class="fas {{ 'fa-arrow-down' if transaction.type.value == 'income' else 'fa-arrow-up' }}"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium text-gray-800">{{ transaction.description or transaction.category.name }}</p>
+                                <p class="text-xs text-gray-500">{{ transaction.date.strftime('%d/%m/%Y') if transaction.date else '-' }}</p>
+                            </div>
+                        </div>
+                        <span class="font-semibold {{ 'text-green-600' if transaction.type.value == 'income' else 'text-red-600' }}">
+                            {{ '+' if transaction.type.value == 'income' else '-' }}{{ "{:,.0f}".format(transaction.amount) }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-gray-500 text-center py-4">No recent transactions</p>
+                {% endif %}
+            </div>
+            
+            <!-- Upcoming Maturities -->
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800">Upcoming Maturities</h3>
+                    <a href="/savings" class="text-sm text-primary hover:underline">View All</a>
+                </div>
+                
+                {% if upcoming_maturities %}
+                <div class="space-y-3">
+                    {% for savings in upcoming_maturities %}
+                    <div class="p-3 bg-gray-50 rounded-lg">
+                        <div class="flex justify-between items-start mb-2">
+                            <p class="text-sm font-medium text-gray-800">{{ savings.name }}</p>
+                            <span class="text-xs text-gray-500">{{ savings.bank_name }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs text-gray-500">Matures: {{ savings.maturity_date.strftime('%d/%m/%Y') if savings.maturity_date else '-' }}</span>
+                            <span class="text-sm font-semibold text-primary">{{ "{:,.0f}".format(savings.future_amount) }} VND</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-gray-500 text-center py-4">No upcoming maturities</p>
+                {% endif %}
+            </div>
+            
+            <!-- Projects Summary -->
+            <div class="bg-white rounded-xl shadow-md p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold text-gray-800">Projects</h3>
+                    <a href="/projects" class="text-sm text-primary hover:underline">View All</a>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="text-center p-4 bg-blue-50 rounded-lg">
+                        <p class="text-2xl font-bold text-primary">{{ summary.active_projects }}</p>
+                        <p class="text-xs text-gray-600">Active</p>
+                    </div>
+                    <div class="text-center p-4 bg-green-50 rounded-lg">
+                        <p class="text-2xl font-bold text-green-600">{{ summary.completed_projects }}</p>
+                        <p class="text-xs text-gray-600">Completed</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Month selector (#13) ---
+    (function initMonthSelector() {
+        const today = new Date();
+        const curYear = today.getFullYear();
+        const curMonth = today.getMonth() + 1;
+        const selYear = document.getElementById('sel-year');
+        const selMonth = document.getElementById('sel-month');
+        for (let y = curYear - 3; y <= curYear + 1; y++) {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = y;
+            if (y === curYear) opt.selected = true;
+            selYear.appendChild(opt);
+        }
+        selMonth.value = curMonth;
+    })();
+
+    function shiftMonth(delta) {
+        const selMonth = document.getElementById('sel-month');
+        const selYear = document.getElementById('sel-year');
+        let m = parseInt(selMonth.value) + delta;
+        let y = parseInt(selYear.value);
+        if (m < 1) { m = 12; y--; }
+        if (m > 12) { m = 1; y++; }
+        selMonth.value = m;
+        const yearOpts = Array.from(selYear.options).map(function(o) { return parseInt(o.value); });
+        if (!yearOpts.includes(y)) {
+            const opt = document.createElement('option');
+            opt.value = y;
+            opt.textContent = y;
+            if (y < yearOpts[0]) selYear.insertBefore(opt, selYear.firstChild);
+            else selYear.appendChild(opt);
+        }
+        selYear.value = y;
+        updateDashboard();
+    }
+
+    function updateDashboard() {
+        const month = document.getElementById('sel-month').value;
+        const year = document.getElementById('sel-year').value;
+
+        fetch('/api/dashboard/summary?year=' + year + '&month=' + month)
+            .then(function(r) { return r.json(); })
+            .then(function(s) {
+                const fmt = function(v) { return new Intl.NumberFormat('vi-VN').format(Math.round(v)) + ' \u20ab'; };
+                document.getElementById('card-income').textContent = fmt(s.total_income_month);
+                document.getElementById('card-expense').textContent = fmt(s.total_expense_month);
+                document.getElementById('card-savings').textContent = fmt(s.total_savings_month);
+                const cash = s.cash_on_hand;
+                const cashEl = document.getElementById('card-cash');
+                cashEl.textContent = fmt(cash);
+                cashEl.className = 'text-xl font-bold ' + (cash >= 0 ? 'text-green-600' : 'text-red-600');
+                document.getElementById('card-future-savings').textContent = fmt(s.total_savings_active);
+                document.getElementById('card-deposited').textContent = 'Dep: ' + fmt(s.total_savings_target);
+                document.getElementById('card-net-worth').textContent = fmt(cash + s.total_savings_active);
+            });
+
+        fetch('/api/dashboard/expense-by-category?year=' + year + '&month=' + month)
+            .then(function(r) { return r.json(); })
+            .then(function(cats) {
+                const container = document.getElementById('expense-by-category');
+                if (!container) return;
+                while (container.firstChild) container.removeChild(container.firstChild);
+                if (!cats.length) {
+                    const p = document.createElement('p');
+                    p.className = 'text-gray-500 text-center py-4';
+                    p.textContent = 'No expense data for this month';
+                    container.appendChild(p);
+                    return;
+                }
+                cats.forEach(function(cat) {
+                    const wrap = document.createElement('div');
+                    const header = document.createElement('div');
+                    header.className = 'flex justify-between items-center mb-2';
+                    const name = document.createElement('span');
+                    name.className = 'text-sm font-medium text-gray-700';
+                    name.textContent = cat.category_name;
+                    const val = document.createElement('span');
+                    val.className = 'text-sm text-gray-500';
+                    val.textContent = new Intl.NumberFormat('vi-VN').format(Math.round(cat.total)) + ' VND (' + cat.percentage + '%)';
+                    header.appendChild(name);
+                    header.appendChild(val);
+                    const track = document.createElement('div');
+                    track.className = 'w-full bg-gray-200 rounded-full h-2';
+                    const bar = document.createElement('div');
+                    bar.className = 'h-2 rounded-full transition-all duration-300';
+                    bar.style.width = cat.percentage + '%';
+                    bar.style.backgroundColor = cat.category_color;
+                    track.appendChild(bar);
+                    wrap.appendChild(header);
+                    wrap.appendChild(track);
+                    container.appendChild(wrap);
+                });
+            });
+    }
+
+    // Load monthly trend data and render chart
+    fetch('/api/dashboard/monthly-trend')
+        .then(response => response.json())
+        .then(data => {
+            const ctx = document.getElementById('monthlyChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.map(d => d.month),
+                    datasets: [
+                        {
+                            label: 'Income',
+                            data: data.map(d => d.income),
+                            backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                            borderColor: 'rgba(16, 185, 129, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Expense',
+                            data: data.map(d => d.expense),
+                            backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                            borderColor: 'rgba(239, 68, 68, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Savings',
+                            data: data.map(d => d.savings),
+                            backgroundColor: 'rgba(99, 102, 241, 0.8)',
+                            borderColor: 'rgba(99, 102, 241, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return new Intl.NumberFormat('vi-VN', {
+                                        style: 'currency',
+                                        currency: 'VND',
+                                        maximumSignificantDigits: 3
+                                    }).format(value);
+                                }
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        });
+</script>
+{% endblock %}
