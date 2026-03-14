@@ -1,6 +1,6 @@
 # Carange - Family Finance Tracker
 
-A comprehensive web application built with Python FastAPI for tracking family finances, including daily transactions, savings bundles, and financial projects.
+A web application built with Python FastAPI for tracking family finances, including daily transactions, savings bundles, and financial projects.
 
 ## Features
 
@@ -14,8 +14,7 @@ A comprehensive web application built with Python FastAPI for tracking family fi
 ### 2. Savings Bundles
 - Track multiple savings accounts/goals
 - Monitor progress towards targets
-- Interest rate tracking
-- Maturity date tracking
+- Interest rate and maturity date tracking
 - Contribution history
 - Link savings to projects
 
@@ -37,117 +36,68 @@ A comprehensive web application built with Python FastAPI for tracking family fi
 ### 5. Templates
 - Create templates for recurring transactions
 - One-click "Use Template" to quickly add transactions
-- Templates for regular expenses (rent, utilities, etc.)
 - Edit and manage templates easily
 
 ## Technical Stack
 
-- **Backend**: FastAPI (Python)
-- **Database**: SQLite (file-based)
-- **Frontend**: Server-side rendering with Jinja2 templates
-- **Styling**: Tailwind CSS
-- **Charts**: Chart.js
-- **Icons**: FontAwesome
+- **Backend**: FastAPI (Python 3.12+)
+- **Database**: SQLite (`carange.db`, auto-created on first run)
+- **ORM**: SQLAlchemy + Alembic
+- **Frontend**: Jinja2 templates, Tailwind CSS, Chart.js, FontAwesome
+- **Dependency management**: [uv](https://docs.astral.sh/uv/)
 
 ## Installation
 
-1. Clone or download the project
-2. Install dependencies:
 ```bash
+git clone git@github.com:thevivotran/carange.git
 cd carange
-pip install -r requirements.txt
+uv sync
 ```
 
 ## Running the Application
 
-### Development Mode
+### Quickest way
 ```bash
+bash scripts/run.sh
+```
+
+### Manual
+```bash
+source .venv/bin/activate
 python main.py
 ```
-Or:
+
+### With uvicorn directly
 ```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 6868
 ```
 
-### Production Mode (Local Network)
+The app will be available at:
+- Local: http://localhost:6868
+- Network: http://YOUR_LOCAL_IP:6868
+
+## Deployment (systemd autostart)
+
+To run Carange automatically on system boot:
+
 ```bash
-uvicorn main:app --host 0.0.0.0 --port 6868
+sudo bash scripts/setup-autostart.sh
 ```
 
-The application will be accessible at:
-- Local: http://localhost:6868
-- Network: http://YOUR_LOCAL_IP:6868 (e.g., http://192.168.1.111:6868)
+This installs and enables a systemd service. Manage it with:
+
+```bash
+sudo systemctl start carange
+sudo systemctl stop carange
+sudo systemctl restart carange
+sudo systemctl status carange
+```
 
 ## Access from Other Devices
 
-1. Find your computer's local IP address:
-   - Windows: Open Command Prompt and run `ipconfig`
-   - Mac/Linux: Open Terminal and run `ifconfig` or `ip addr`
-
-2. Make sure your firewall allows connections on port 6868
-
-3. Access from any device on the same network using: `http://YOUR_IP:6868`
-
-## Database
-
-The application uses SQLite with a file-based database (`carange.db`) that will be created automatically on first run.
-
-### Default Categories
-
-The application comes with pre-configured categories:
-
-**Expense Categories:**
-- Food & Dining
-- Transportation
-- Shopping
-- Entertainment
-- Utilities
-- Healthcare
-- Education
-- Housing
-- Insurance
-- Others
-
-**Income Categories:**
-- Salary
-- Bonus
-- Investment
-- Freelance
-- Rental
-- Others
-
-## Backups
-
-### Automatic Weekly Backups
-The application includes a backup script (`backup.py`) that can be scheduled to run weekly.
-
-**To set up weekly backups on Linux/Mac:**
-1. Make the script executable:
-```bash
-chmod +x backup.py
-```
-
-2. Add to crontab to run every Sunday at midnight:
-```bash
-crontab -e
-```
-
-3. Add this line:
-```
-0 0 * * 0 cd /path/to/carange && /usr/bin/python3 backup.py
-```
-
-**To set up weekly backups on Windows:**
-1. Open Task Scheduler
-2. Create a new task to run weekly
-3. Set the action to run `python backup.py` in the carange directory
-
-### Manual Backup
-```bash
-python backup.py
-```
-
-Backups are stored in the `backups/` directory with timestamps. The system keeps the last 10 backups automatically.
+1. Find your local IP: `ip addr` or `ifconfig`
+2. Ensure port 6868 is allowed through your firewall
+3. Access from any device on the same network: `http://YOUR_IP:6868`
 
 ## Currency
 
@@ -155,71 +105,48 @@ The application uses **Vietnamese Dong (VND)** as the default currency.
 
 ## Mobile Support
 
-The application is fully responsive and works on:
-- Desktop computers
-- Tablets
-- Mobile phones
-
-It can be installed as a Progressive Web App (PWA) on mobile devices for quick access.
-
-## Data Structure
-
-### Transactions
-- Date, Amount, Type (Income/Expense)
-- Category, Description
-- Payment method (default: Cash)
-- Links to savings or projects (optional)
-
-### Savings Bundles
-- Name, Bank, Type (Fixed Deposit - default)
-- Initial Deposit, Target Amount, Current Amount
-- Interest Rate, Start Date, Maturity Date
-- Status (Active/Completed)
-
-### Financial Projects
-- Name, Type (Real Estate/Investment/etc.)
-- Target Amount, Current Amount
-- Priority, Status, Deadline
-- Milestones and Contributions
+Fully responsive — works on desktop, tablet, and mobile. Can be installed as a Progressive Web App (PWA) for quick access.
 
 ## API Endpoints
 
 ### Dashboard
-- `GET /api/dashboard/summary` - Get summary statistics
-- `GET /api/dashboard/monthly-trend` - Get monthly trend data
-- `GET /api/dashboard/expense-by-category` - Get expense breakdown
+- `GET /api/dashboard/summary`
+- `GET /api/dashboard/monthly-trend`
+- `GET /api/dashboard/expense-by-category`
 
 ### Transactions
-- `GET /api/transactions/` - List all transactions
-- `POST /api/transactions/` - Create new transaction
-- `PUT /api/transactions/{id}` - Update transaction
-- `DELETE /api/transactions/{id}` - Delete transaction
+- `GET /api/transactions/`
+- `POST /api/transactions/`
+- `PUT /api/transactions/{id}`
+- `DELETE /api/transactions/{id}`
 
 ### Categories
-- `GET /api/categories/` - List all categories
-- `POST /api/categories/` - Create new category
-- `PUT /api/categories/{id}` - Update category
-- `DELETE /api/categories/{id}` - Delete category
+- `GET /api/categories/`
+- `POST /api/categories/`
+- `PUT /api/categories/{id}`
+- `DELETE /api/categories/{id}`
 
 ### Savings
-- `GET /api/savings/` - List all savings bundles
-- `POST /api/savings/` - Create new savings bundle
-- `PUT /api/savings/{id}` - Update savings bundle
-- `POST /api/savings/{id}/contribute` - Add contribution
-- `POST /api/savings/{id}/mark-completed` - Mark as completed
+- `GET /api/savings/`
+- `POST /api/savings/`
+- `PUT /api/savings/{id}`
+- `POST /api/savings/{id}/contribute`
+- `POST /api/savings/{id}/mark-completed`
 
 ### Projects
-- `GET /api/projects/` - List all projects
-- `POST /api/projects/` - Create new project
-- `PUT /api/projects/{id}` - Update project
-- `POST /api/projects/{id}/contribute` - Add contribution
-- `GET /api/projects/{id}/milestones` - Get milestones
-- `POST /api/projects/{id}/milestones` - Add milestone
+- `GET /api/projects/`
+- `POST /api/projects/`
+- `PUT /api/projects/{id}`
+- `POST /api/projects/{id}/contribute`
+- `GET /api/projects/{id}/milestones`
+- `POST /api/projects/{id}/milestones`
+
+### Templates
+- `GET /api/templates/`
+- `POST /api/templates/`
+- `PUT /api/templates/{id}`
+- `DELETE /api/templates/{id}`
 
 ## License
 
-This is a personal project for family use.
-
-## Support
-
-For issues or questions, please check the project documentation or contact the developer.
+Personal project for family use.
