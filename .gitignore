@@ -36,11 +36,6 @@ ENV/
 # Environment variables
 .env
 
-# Google credentials (NEVER commit these!)
-google_credentials.json
-*credentials*.json
-!credentials.example.json
-
 # Database
 carange.db
 *.db

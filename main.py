@@ -12,7 +12,7 @@ load_dotenv()
 
 from app.models.database import create_tables, get_db, SessionLocal
 from app.models.database import Category, TransactionType
-from app.routers import transactions, categories, savings, projects, dashboard, sync, templates as templates_router
+from app.routers import transactions, categories, savings, projects, dashboard, templates as templates_router
 from app.routers.dashboard import get_dashboard_page_data
 
 @asynccontextmanager
@@ -67,7 +67,6 @@ app.include_router(transactions.router, prefix="/api/transactions")
 app.include_router(categories.router, prefix="/api/categories")
 app.include_router(savings.router, prefix="/api/savings")
 app.include_router(projects.router, prefix="/api/projects")
-app.include_router(sync.router, prefix="/api/sync")
 app.include_router(templates_router.router, prefix="/api/templates")
 
 # Main routes for HTML pages
