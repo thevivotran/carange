@@ -1,7 +1,12 @@
 from pydantic import BaseModel, Field, field_validator
 from datetime import date, datetime
 from typing import Optional, List
-from app.models.database import TransactionType, SavingsType, SavingsStatus, ProjectType, ProjectStatus, Priority, PaymentStatus
+
+# Python 3.12 evaluates annotated assignment values before annotation expressions in class bodies.
+# When a field is named `date` with default `None`, `date = None` is stored first, causing
+# `Optional[date]` to resolve as `NoneType`. Using an alias avoids this name collision.
+_Date = date
+from app.models.database import TransactionType, SavingsType, SavingsStatus, ProjectType, ProjectStatus, Priority, PaymentStatus, AssetType
 
 # Category Schemas
 class CategoryBase(BaseModel):
@@ -127,7 +132,7 @@ class TransactionCreate(TransactionBase):
     savings_bundle: Optional[SavingsBundleCreate] = None  # For creating new savings bundle with transaction
 
 class TransactionUpdate(BaseModel):
-    date: Optional[date] = None
+    date: Optional[_Date] = None
     amount: Optional[float] = None
     type: Optional[TransactionType] = None
     category_id: Optional[int] = None
@@ -256,6 +261,41 @@ class FinancialProject(FinancialProjectBase):
 
     class Config:
         from_attributes = True
+
+# Other Asset Schemas
+class OtherAssetBase(BaseModel):
+    name: str
+    asset_type: AssetType
+    symbol: Optional[str] = None
+    quantity: float = Field(gt=0, description="Quantity must be greater than 0")
+    unit: str
+    purchase_price_vnd: float = Field(ge=0, description="Purchase price cannot be negative")
+    current_value_vnd: float = Field(ge=0, description="Current value cannot be negative")
+    notes: Optional[str] = None
+    acquired_date: Optional[date] = None
+
+class OtherAssetCreate(OtherAssetBase):
+    pass
+
+class OtherAssetUpdate(BaseModel):
+    name: Optional[str] = None
+    asset_type: Optional[AssetType] = None
+    symbol: Optional[str] = None
+    quantity: Optional[float] = Field(None, gt=0)
+    unit: Optional[str] = None
+    purchase_price_vnd: Optional[float] = Field(None, ge=0)
+    current_value_vnd: Optional[float] = Field(None, ge=0)
+    notes: Optional[str] = None
+    acquired_date: Optional[date] = None
+
+class OtherAsset(OtherAssetBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
 
 # Transaction Template Schemas
 class TransactionTemplateBase(BaseModel):

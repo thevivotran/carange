@@ -43,6 +43,11 @@ class PaymentStatus(str, enum.Enum):
     PENDING = "pending"
     PAID    = "paid"
 
+class AssetType(str, enum.Enum):
+    CURRENCY = "currency"
+    GOLD = "gold"
+    OTHER = "other"
+
 class Category(Base):
     __tablename__ = "categories"
     
@@ -164,6 +169,23 @@ class ProjectPayment(Base):
 
     project     = relationship("FinancialProject", back_populates="payments")
     transaction = relationship("Transaction")
+
+
+class OtherAsset(Base):
+    __tablename__ = "other_assets"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)
+    asset_type = Column(Enum(AssetType), nullable=False)
+    symbol = Column(String(20), nullable=True)           # e.g., USD, EUR, SJC
+    quantity = Column(Float, nullable=False)              # amount held
+    unit = Column(String(50), nullable=False)             # display unit, e.g., USD, tael, gram
+    purchase_price_vnd = Column(Float, nullable=False)   # total VND cost basis
+    current_value_vnd = Column(Float, nullable=False)    # current estimated VND value
+    notes = Column(Text, nullable=True)
+    acquired_date = Column(Date, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 
 class TransactionTemplate(Base):

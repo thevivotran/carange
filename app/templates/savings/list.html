@@ -3,50 +3,105 @@
 {% block content %}
 <div class="p-6 max-w-7xl mx-auto">
     <!-- Page Header -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
-            <h2 class="text-3xl font-bold text-gray-800">Savings Bundles</h2>
-            <p class="text-gray-600 mt-1">Track your family's savings information</p>
+            <h2 class="text-3xl font-bold text-gray-800">Savings & Assets</h2>
+            <p class="text-gray-600 mt-1">Track your family's savings and other assets</p>
         </div>
-        <button onclick="openAddModal()" class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition flex items-center">
-            <i class="fas fa-plus mr-2"></i>Add Savings Bundle
+        <button id="main-add-btn" onclick="handleAddBtn()" class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition flex items-center">
+            <i class="fas fa-plus mr-2"></i><span id="main-add-label">Add Savings Bundle</span>
         </button>
     </div>
-    
-    <!-- Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div class="bg-white rounded-lg shadow p-4">
-            <p class="text-sm text-gray-500">Active Bundles</p>
-            <p class="text-2xl font-bold text-primary" id="sum-active-count">-</p>
+
+    <!-- Tab Switcher -->
+    <div class="flex gap-1 bg-gray-100 rounded-xl p-1 mb-6 w-fit">
+        <button id="tab-savings-btn" onclick="switchTab('savings')"
+                class="px-6 py-2 rounded-lg text-sm font-medium transition bg-white text-primary shadow">
+            <i class="fas fa-piggy-bank mr-2"></i>Savings Bundles
+        </button>
+        <button id="tab-assets-btn" onclick="switchTab('assets')"
+                class="px-6 py-2 rounded-lg text-sm font-medium transition text-gray-600 hover:text-gray-800">
+            <i class="fas fa-coins mr-2"></i>Other Assets
+        </button>
+    </div>
+
+    <!-- ===== SAVINGS BUNDLES SECTION ===== -->
+    <div id="savings-section">
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white rounded-lg shadow p-4">
+                <p class="text-sm text-gray-500">Active Bundles</p>
+                <p class="text-2xl font-bold text-primary" id="sum-active-count">-</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+                <p class="text-sm text-gray-500">Total Deposited</p>
+                <p class="text-2xl font-bold text-blue-600" id="sum-deposited">-</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+                <p class="text-sm text-gray-500">Future Amount</p>
+                <p class="text-2xl font-bold text-green-600" id="sum-future">-</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+                <p class="text-sm text-gray-500">Total Interest</p>
+                <p class="text-2xl font-bold text-purple-600" id="sum-interest">-</p>
+            </div>
         </div>
-        <div class="bg-white rounded-lg shadow p-4">
-            <p class="text-sm text-gray-500">Total Deposited</p>
-            <p class="text-2xl font-bold text-blue-600" id="sum-deposited">-</p>
+
+        <!-- Filters -->
+        <div class="bg-white rounded-xl shadow-md p-4 mb-6">
+            <div class="flex flex-wrap gap-4">
+                <select id="filter-status" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary" onchange="loadSavings()">
+                    <option value="">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                </select>
+            </div>
         </div>
-        <div class="bg-white rounded-lg shadow p-4">
-            <p class="text-sm text-gray-500">Future Amount</p>
-            <p class="text-2xl font-bold text-green-600" id="sum-future">-</p>
-        </div>
-        <div class="bg-white rounded-lg shadow p-4">
-            <p class="text-sm text-gray-500">Total Interest</p>
-            <p class="text-2xl font-bold text-purple-600" id="sum-interest">-</p>
+
+        <!-- Savings Grid -->
+        <div id="savings-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Dynamic content -->
         </div>
     </div>
-    
-    <!-- Filters -->
-    <div class="bg-white rounded-xl shadow-md p-4 mb-6">
-        <div class="flex flex-wrap gap-4">
-            <select id="filter-status" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary" onchange="loadSavings()">
-                <option value="">All Status</option>
-                <option value="active">Active</option>
-                <option value="completed">Completed</option>
-            </select>
+
+    <!-- ===== OTHER ASSETS SECTION ===== -->
+    <div id="assets-section" class="hidden">
+        <!-- Summary Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-white rounded-lg shadow p-4">
+                <p class="text-sm text-gray-500">Total Items</p>
+                <p class="text-2xl font-bold text-primary" id="asset-sum-count">-</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+                <p class="text-sm text-gray-500">Total Invested</p>
+                <p class="text-2xl font-bold text-blue-600" id="asset-sum-invested">-</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+                <p class="text-sm text-gray-500">Current Value</p>
+                <p class="text-2xl font-bold text-green-600" id="asset-sum-current">-</p>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+                <p class="text-sm text-gray-500">Gain / Loss</p>
+                <p class="text-2xl font-bold" id="asset-sum-gainloss">-</p>
+            </div>
         </div>
-    </div>
-    
-    <!-- Savings Grid -->
-    <div id="savings-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <!-- Dynamic content -->
+
+        <!-- Filters -->
+        <div class="bg-white rounded-xl shadow-md p-4 mb-6">
+            <div class="flex flex-wrap gap-4">
+                <select id="filter-asset-type" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary" onchange="loadAssets()">
+                    <option value="">All Types</option>
+                    <option value="currency">Currency</option>
+                    <option value="gold">Gold</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Assets Grid -->
+        <div id="assets-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Dynamic content -->
+        </div>
     </div>
 </div>
 
@@ -160,14 +215,152 @@
     </div>
 </div>
 
+<!-- Add/Edit Other Asset Modal -->
+<div id="asset-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+        <div class="p-6 border-b flex justify-between items-center">
+            <h3 class="text-xl font-bold text-gray-800" id="asset-modal-title">Add Asset</h3>
+            <button onclick="closeAssetModal()" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+
+        <form id="asset-form" class="p-6 space-y-4">
+            <input type="hidden" id="asset-id">
+
+            <!-- Name -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Asset Name</label>
+                <input type="text" id="asset-name" required
+                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                       placeholder="e.g., US Dollar cash, SJC Gold bar">
+            </div>
+
+            <!-- Type + Symbol -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Asset Type</label>
+                    <select id="asset-type" required
+                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <option value="currency">Currency</option>
+                        <option value="gold">Gold</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Symbol / Ticker</label>
+                    <input type="text" id="asset-symbol"
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                           placeholder="e.g., USD, EUR, SJC">
+                </div>
+            </div>
+
+            <!-- Quantity + Unit -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
+                    <input type="number" id="asset-quantity" required min="0" step="any"
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                           placeholder="e.g., 500, 2.5">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Unit</label>
+                    <input type="text" id="asset-unit" required
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                           placeholder="e.g., USD, tael, gram">
+                </div>
+            </div>
+
+            <!-- VND Values -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Purchase Price (VND)</label>
+                    <input type="number" id="asset-purchase-price" required min="0" step="1"
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                           placeholder="Total cost in VND">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Current Value (VND)</label>
+                    <input type="number" id="asset-current-value" required min="0" step="1"
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                           placeholder="Estimated current value">
+                </div>
+            </div>
+
+            <!-- Acquired Date -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Acquired Date</label>
+                <input type="date" id="asset-acquired-date"
+                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+
+            <!-- Notes -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                <textarea id="asset-notes" rows="3"
+                          class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                          placeholder="Optional notes..."></textarea>
+            </div>
+
+            <!-- Submit -->
+            <div class="flex gap-4 pt-4">
+                <button type="button" onclick="closeAssetModal()"
+                        class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="flex-1 px-4 py-3 bg-primary text-white rounded-lg hover:bg-blue-600 transition">
+                    Save Asset
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script>
     let savingsBundles = [];
+
+    let otherAssets = [];
+    let activeTab = 'savings';
 
     document.addEventListener('DOMContentLoaded', function() {
         loadSavings();
         loadSummary();
         document.getElementById('start-date').valueAsDate = new Date();
     });
+
+    function switchTab(tab) {
+        activeTab = tab;
+        const savingsSection = document.getElementById('savings-section');
+        const assetsSection = document.getElementById('assets-section');
+        const savingsBtn = document.getElementById('tab-savings-btn');
+        const assetsBtn = document.getElementById('tab-assets-btn');
+        const addLabel = document.getElementById('main-add-label');
+
+        if (tab === 'savings') {
+            savingsSection.classList.remove('hidden');
+            assetsSection.classList.add('hidden');
+            savingsBtn.className = 'px-6 py-2 rounded-lg text-sm font-medium transition bg-white text-primary shadow';
+            assetsBtn.className = 'px-6 py-2 rounded-lg text-sm font-medium transition text-gray-600 hover:text-gray-800';
+            addLabel.textContent = 'Add Savings Bundle';
+        } else {
+            savingsSection.classList.add('hidden');
+            assetsSection.classList.remove('hidden');
+            savingsBtn.className = 'px-6 py-2 rounded-lg text-sm font-medium transition text-gray-600 hover:text-gray-800';
+            assetsBtn.className = 'px-6 py-2 rounded-lg text-sm font-medium transition bg-white text-primary shadow';
+            addLabel.textContent = 'Add Asset';
+            loadAssets();
+            loadAssetsSummary();
+        }
+    }
+
+    function handleAddBtn() {
+        if (activeTab === 'savings') {
+            openAddModal();
+        } else {
+            openAddAssetModal();
+        }
+    }
 
     async function loadSummary() {
         try {
@@ -521,5 +714,247 @@
             }
         }, 'Rollover', 'bg-indigo-600 text-white hover:bg-indigo-700');
     }
+
+    // ===== OTHER ASSETS =====
+
+    async function loadAssets() {
+        try {
+            const assetType = document.getElementById('filter-asset-type').value;
+            const url = assetType ? '/api/assets/?asset_type=' + assetType : '/api/assets/';
+            const response = await fetch(url);
+            otherAssets = await response.json();
+            renderAssets();
+        } catch (error) {
+            console.error('Error loading assets:', error);
+        }
+    }
+
+    async function loadAssetsSummary() {
+        try {
+            const response = await fetch('/api/assets/stats/summary');
+            const data = await response.json();
+            document.getElementById('asset-sum-count').textContent = data.total_assets_count;
+            document.getElementById('asset-sum-invested').textContent = formatVND(data.total_invested_vnd);
+            document.getElementById('asset-sum-current').textContent = formatVND(data.total_current_value_vnd);
+            const glEl = document.getElementById('asset-sum-gainloss');
+            const gl = data.total_gain_loss_vnd;
+            glEl.textContent = (gl >= 0 ? '+' : '') + formatVND(gl) + ' (' + (gl >= 0 ? '+' : '') + data.total_gain_loss_pct + '%)';
+            glEl.className = 'text-2xl font-bold ' + (gl >= 0 ? 'text-green-600' : 'text-red-600');
+        } catch (error) {
+            console.error('Error loading assets summary:', error);
+        }
+    }
+
+    function renderAssets() {
+        const grid = document.getElementById('assets-grid');
+        while (grid.firstChild) grid.removeChild(grid.firstChild);
+
+        if (otherAssets.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'col-span-3 text-center py-16 text-gray-400';
+            const ico = document.createElement('i');
+            ico.className = 'fas fa-coins text-4xl mb-3 block';
+            const msg = document.createElement('p');
+            msg.textContent = 'No assets yet. Add your first asset above.';
+            empty.appendChild(ico);
+            empty.appendChild(msg);
+            grid.appendChild(empty);
+            return;
+        }
+
+        const typeStyles = {
+            currency: { bg: 'bg-blue-100', text: 'text-blue-800', icon: 'fas fa-money-bill-wave' },
+            gold:     { bg: 'bg-yellow-100', text: 'text-yellow-800', icon: 'fas fa-star' },
+            other:    { bg: 'bg-gray-100', text: 'text-gray-700', icon: 'fas fa-box' },
+        };
+
+        otherAssets.forEach(function(asset) {
+            const gainLoss = asset.current_value_vnd - asset.purchase_price_vnd;
+            const gainLossPct = asset.purchase_price_vnd > 0
+                ? ((gainLoss / asset.purchase_price_vnd) * 100).toFixed(2) : '0.00';
+            const style = typeStyles[asset.asset_type] || typeStyles.other;
+
+            const card = document.createElement('div');
+            card.className = 'bg-white rounded-xl shadow-md p-6';
+
+            // Header
+            const header = document.createElement('div');
+            header.className = 'flex justify-between items-start mb-4';
+            const headerLeft = document.createElement('div');
+            const nameEl = document.createElement('h3');
+            nameEl.className = 'text-lg font-semibold text-gray-800';
+            nameEl.textContent = asset.name;
+            headerLeft.appendChild(nameEl);
+            if (asset.symbol) {
+                const symEl = document.createElement('p');
+                symEl.className = 'text-sm text-gray-500 font-mono';
+                symEl.textContent = asset.symbol;
+                headerLeft.appendChild(symEl);
+            }
+            const badge = document.createElement('span');
+            badge.className = 'px-2 py-1 text-xs font-medium rounded-full flex items-center gap-1 ' + style.bg + ' ' + style.text;
+            const badgeIco = document.createElement('i');
+            badgeIco.className = style.icon;
+            badge.appendChild(badgeIco);
+            badge.appendChild(document.createTextNode(' ' + asset.asset_type));
+            header.appendChild(headerLeft);
+            header.appendChild(badge);
+            card.appendChild(header);
+
+            // Quantity row
+            const qtyRow = document.createElement('div');
+            qtyRow.className = 'flex justify-between text-sm mb-3 p-3 bg-gray-50 rounded-lg';
+            const qLbl = document.createElement('span');
+            qLbl.className = 'text-gray-500';
+            qLbl.textContent = 'Quantity held:';
+            const qVal = document.createElement('span');
+            qVal.className = 'font-semibold text-gray-800';
+            qVal.textContent = asset.quantity.toLocaleString() + ' ' + asset.unit;
+            qtyRow.appendChild(qLbl); qtyRow.appendChild(qVal);
+            card.appendChild(qtyRow);
+
+            // VND values
+            const amtBlock = document.createElement('div');
+            amtBlock.className = 'space-y-2 mb-4';
+
+            const purchRow = document.createElement('div');
+            purchRow.className = 'flex justify-between text-sm';
+            const pLbl = document.createElement('span'); pLbl.className = 'text-gray-500'; pLbl.textContent = 'Purchase Price:';
+            const pVal = document.createElement('span'); pVal.className = 'font-semibold text-blue-700'; pVal.textContent = formatVND(asset.purchase_price_vnd);
+            purchRow.appendChild(pLbl); purchRow.appendChild(pVal);
+
+            const curRow = document.createElement('div');
+            curRow.className = 'flex justify-between text-sm';
+            const cLbl = document.createElement('span'); cLbl.className = 'text-gray-500'; cLbl.textContent = 'Current Value:';
+            const cVal = document.createElement('span'); cVal.className = 'font-semibold text-green-700'; cVal.textContent = formatVND(asset.current_value_vnd);
+            curRow.appendChild(cLbl); curRow.appendChild(cVal);
+
+            const glRow = document.createElement('div');
+            glRow.className = 'flex justify-between text-sm pt-2 border-t';
+            const glLbl = document.createElement('span'); glLbl.className = 'text-gray-500'; glLbl.textContent = 'Gain / Loss:';
+            const glVal = document.createElement('span');
+            glVal.className = 'font-semibold ' + (gainLoss >= 0 ? 'text-green-600' : 'text-red-600');
+            glVal.textContent = (gainLoss >= 0 ? '+' : '') + formatVND(gainLoss) + ' (' + (gainLoss >= 0 ? '+' : '') + gainLossPct + '%)';
+            glRow.appendChild(glLbl); glRow.appendChild(glVal);
+
+            amtBlock.appendChild(purchRow);
+            amtBlock.appendChild(curRow);
+            amtBlock.appendChild(glRow);
+            card.appendChild(amtBlock);
+
+            // Acquired date
+            if (asset.acquired_date) {
+                const dateEl = document.createElement('div');
+                dateEl.className = 'text-sm text-gray-500 mb-4';
+                const dateIco = document.createElement('i');
+                dateIco.className = 'fas fa-calendar-alt mr-2 w-4';
+                dateEl.appendChild(dateIco);
+                dateEl.appendChild(document.createTextNode('Acquired: ' + formatDate(asset.acquired_date)));
+                card.appendChild(dateEl);
+            }
+
+            // Notes
+            if (asset.notes) {
+                const notesEl = document.createElement('p');
+                notesEl.className = 'text-sm text-gray-600 mb-4 italic';
+                notesEl.textContent = '\u201c' + asset.notes + '\u201d';
+                card.appendChild(notesEl);
+            }
+
+            // Actions
+            const actDiv = document.createElement('div');
+            actDiv.className = 'flex gap-2 pt-4 border-t';
+
+            const editBtn = document.createElement('button');
+            editBtn.className = 'flex-1 flex items-center justify-center gap-1 px-3 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition text-sm';
+            const editIco = document.createElement('i');
+            editIco.className = 'fas fa-edit';
+            editBtn.appendChild(editIco);
+            editBtn.appendChild(document.createTextNode(' Edit'));
+            editBtn.addEventListener('click', function() { editAsset(asset.id); });
+            actDiv.appendChild(editBtn);
+
+            const delBtn = document.createElement('button');
+            delBtn.className = 'px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition';
+            delBtn.title = 'Delete';
+            const delIco = document.createElement('i');
+            delIco.className = 'fas fa-trash';
+            delBtn.appendChild(delIco);
+            delBtn.addEventListener('click', function() {
+                deleteWithUndo(card, '/api/assets/' + asset.id, function() {
+                    loadAssets(); loadAssetsSummary();
+                }, asset.name);
+            });
+            actDiv.appendChild(delBtn);
+
+            card.appendChild(actDiv);
+            grid.appendChild(card);
+        });
+    }
+
+    function openAddAssetModal() {
+        document.getElementById('asset-modal-title').textContent = 'Add Asset';
+        document.getElementById('asset-form').reset();
+        document.getElementById('asset-id').value = '';
+        document.getElementById('asset-modal').classList.remove('hidden');
+    }
+
+    function closeAssetModal() {
+        document.getElementById('asset-modal').classList.add('hidden');
+    }
+
+    function editAsset(id) {
+        const asset = otherAssets.find(function(a) { return a.id === id; });
+        if (!asset) return;
+        document.getElementById('asset-modal-title').textContent = 'Edit Asset';
+        document.getElementById('asset-id').value = asset.id;
+        document.getElementById('asset-name').value = asset.name;
+        document.getElementById('asset-type').value = asset.asset_type;
+        document.getElementById('asset-symbol').value = asset.symbol || '';
+        document.getElementById('asset-quantity').value = asset.quantity;
+        document.getElementById('asset-unit').value = asset.unit;
+        document.getElementById('asset-purchase-price').value = asset.purchase_price_vnd;
+        document.getElementById('asset-current-value').value = asset.current_value_vnd;
+        document.getElementById('asset-acquired-date').value = asset.acquired_date || '';
+        document.getElementById('asset-notes').value = asset.notes || '';
+        document.getElementById('asset-modal').classList.remove('hidden');
+    }
+
+    document.getElementById('asset-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const assetId = document.getElementById('asset-id').value;
+        const data = {
+            name: document.getElementById('asset-name').value,
+            asset_type: document.getElementById('asset-type').value,
+            symbol: document.getElementById('asset-symbol').value || null,
+            quantity: parseFloat(document.getElementById('asset-quantity').value),
+            unit: document.getElementById('asset-unit').value,
+            purchase_price_vnd: parseFloat(document.getElementById('asset-purchase-price').value),
+            current_value_vnd: parseFloat(document.getElementById('asset-current-value').value),
+            acquired_date: document.getElementById('asset-acquired-date').value || null,
+            notes: document.getElementById('asset-notes').value || null,
+        };
+        try {
+            const url = assetId ? '/api/assets/' + assetId : '/api/assets/';
+            const method = assetId ? 'PUT' : 'POST';
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            if (response.ok) {
+                closeAssetModal();
+                loadAssets();
+                loadAssetsSummary();
+            } else {
+                const error = await response.json();
+                const msg = typeof error.detail === 'object' ? JSON.stringify(error.detail) : error.detail;
+                showToast('Error: ' + msg, 'error');
+            }
+        } catch (error) {
+            console.error('Error saving asset:', error);
+            showToast('Failed to save asset', 'error');
+        }
+    });
 </script>
 {% endblock %}

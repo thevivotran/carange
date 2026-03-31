@@ -266,45 +266,52 @@ def bulk_upload_transactions(
 
 def _process_vietnamese_format(reader, fieldnames, db):
     """Process Vietnamese CSV format"""
-    # Map column names
+    # Map English keys to actual CSV column names (handles extra whitespace in headers)
     found_columns = {}
     required_mappings = {'Năm': 'year', 'Tháng': 'month', 'Loại': 'category'}
-    
+
     for col in fieldnames:
         col_stripped = col.strip()
         if col_stripped in required_mappings:
-            found_columns[col_stripped] = required_mappings[col_stripped]
-    
+            found_columns[required_mappings[col_stripped]] = col  # English key -> actual CSV column name
+
     # Check for required columns
-    missing = [k for k in required_mappings.keys() if k not in found_columns]
+    missing = [v for v in required_mappings.values() if v not in found_columns]
     if missing:
         return JSONResponse(
             status_code=400,
             content={"error": f"Missing required columns: {', '.join(missing)}"}
         )
-    
+
     stats = {'income': 0, 'expense': 0, 'skipped': 0, 'errors': []}
-    
+
     for row_num, row in enumerate(reader, start=2):
         try:
-            year = int(row.get(found_columns.get('Năm', 'Năm'), 0))
-            month = int(row.get(found_columns.get('Tháng', 'Tháng'), 0))
-            
-            # Get amounts
-            thu_key = 'Thu' if 'Thu' in row else None
-            chi_key = 'Chi' if 'Chi' in row else None
-            
+            year_str = row.get(found_columns['year'], '').strip()
+            month_str = row.get(found_columns['month'], '').strip()
+            year = int(year_str) if year_str else 0
+            month = int(month_str) if month_str else 0
+
+            # Get amounts (dots are thousands separators in Vietnamese format)
+            thu_key = next((col for col in row if col.strip() == 'Thu'), None)
+            chi_key = next((col for col in row if col.strip() == 'Chi'), None)
+
             thu_str = row.get(thu_key, '0').strip().replace(',', '').replace('.', '') if thu_key else '0'
             chi_str = row.get(chi_key, '0').strip().replace(',', '').replace('.', '') if chi_key else '0'
-            
+
             thu = float(thu_str) if thu_str else 0
             chi = float(chi_str) if chi_str else 0
-            
-            category_name = row.get(found_columns.get('Loại', 'Loại'), '').strip()
-            desc_key = 'Ghi chú' if 'Ghi chú' in row else None
+
+            category_name = row.get(found_columns['category'], '').strip()
+            desc_key = next((col for col in row if col.strip() == 'Ghi chú'), None)
             description = row.get(desc_key, '').strip() if desc_key else None
-            
+
             if not year or not month:
+                stats['skipped'] += 1
+                continue
+
+            if not category_name:
+                stats['errors'].append(f"Row {row_num}: Missing category name")
                 stats['skipped'] += 1
                 continue
             
@@ -353,7 +360,7 @@ def _process_english_format(reader, fieldnames, db):
             field_map['date'] = col
         elif col_lower in ['amount', 'so_tien', 'amount_vnd']:
             field_map['amount'] = col
-        elif col_lower in ['type', 'loai', 'transaction_type']:
+        elif col_lower in ['type', 'transaction_type']:
             field_map['type'] = col
         elif col_lower in ['category', 'loai', 'danh_muc', 'category_name']:
             field_map['category'] = col
@@ -386,12 +393,16 @@ def _process_english_format(reader, fieldnames, db):
                 stats['skipped'] += 1
                 continue
             
-            # Parse amount
-            amount_str = row.get(field_map['amount'], '0').strip().replace(',', '').replace('.', '')
+            # Parse amount (commas are thousands separators; dots are decimal points in English format)
+            amount_str = row.get(field_map['amount'], '0').strip().replace(',', '')
             try:
                 amount = abs(float(amount_str))
             except:
                 stats['errors'].append(f"Row {row_num}: Invalid amount '{amount_str}'")
+                stats['skipped'] += 1
+                continue
+            if amount <= 0:
+                stats['errors'].append(f"Row {row_num}: Amount must be greater than 0")
                 stats['skipped'] += 1
                 continue
             
