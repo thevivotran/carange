@@ -25,39 +25,60 @@
         </div>
     </div>
     
-    <!-- Summary Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
-        <!-- Income Card -->
+    <!-- Row 1: Monthly Cash Flow -->
+    <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Monthly Cash Flow</p>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <!-- Income -->
         <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-green-500">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-xs text-gray-500 mb-1">Monthly Income</p>
+                    <p class="text-xs text-gray-500 mb-1">Income</p>
                     <p id="card-income" class="text-xl font-bold text-gray-800">{{ "{:,.0f}".format(summary.total_income) }} ₫</p>
                 </div>
                 <div class="bg-green-100 p-2 rounded-full"><i class="fas fa-arrow-down text-green-600"></i></div>
             </div>
         </div>
-        <!-- Expense Card -->
+        <!-- Expenses -->
         <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-red-500">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-xs text-gray-500 mb-1">Monthly Expense</p>
+                    <p class="text-xs text-gray-500 mb-1">Expenses</p>
                     <p id="card-expense" class="text-xl font-bold text-gray-800">{{ "{:,.0f}".format(summary.total_expense) }} ₫</p>
                 </div>
                 <div class="bg-red-100 p-2 rounded-full"><i class="fas fa-arrow-up text-red-600"></i></div>
             </div>
         </div>
-        <!-- Monthly Savings Card -->
+        <!-- Savings Deposited -->
         <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-indigo-500">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-xs text-gray-500 mb-1">Monthly Savings</p>
+                    <p class="text-xs text-gray-500 mb-1">Savings Deposited</p>
                     <p id="card-savings" class="text-xl font-bold text-gray-800">{{ "{:,.0f}".format(summary.total_savings_expense) }} ₫</p>
                 </div>
                 <div class="bg-indigo-100 p-2 rounded-full"><i class="fas fa-piggy-bank text-indigo-600"></i></div>
             </div>
         </div>
-        <!-- Cash on Hand Card -->
+        <!-- Net This Month -->
+        <div class="bg-white rounded-xl shadow-md p-5 border-l-4 {% if summary.net_this_month >= 0 %}border-emerald-400{% else %}border-orange-400{% endif %}">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-gray-500 mb-1">Net This Month</p>
+                    <p id="card-net-month" class="text-xl font-bold {% if summary.net_this_month >= 0 %}text-emerald-600{% else %}text-orange-600{% endif %}">
+                        {{ "{:+,.0f}".format(summary.net_this_month) }} ₫
+                    </p>
+                    <p class="text-xs text-gray-400">After savings</p>
+                </div>
+                <div class="{% if summary.net_this_month >= 0 %}bg-emerald-100{% else %}bg-orange-100{% endif %} p-2 rounded-full">
+                    <i class="fas {% if summary.net_this_month >= 0 %}fa-thumbs-up text-emerald-600{% else %}fa-exclamation text-orange-600{% endif %}"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Row 2: Wealth Snapshot -->
+    <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Wealth Snapshot</p>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <!-- Cash on Hand -->
         <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-blue-500">
             <div class="flex items-center justify-between">
                 <div>
@@ -65,32 +86,55 @@
                     <p id="card-cash" class="text-xl font-bold {{ 'text-green-600' if summary.cash_on_hand >= 0 else 'text-red-600' }}">
                         {{ "{:,.0f}".format(summary.cash_on_hand) }} ₫
                     </p>
+                    <p class="text-xs text-gray-400">All-time liquid</p>
                 </div>
                 <div class="bg-blue-100 p-2 rounded-full"><i class="fas fa-wallet text-blue-600"></i></div>
             </div>
         </div>
-        <!-- Future Savings Card -->
+        <!-- Active Savings -->
         <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-purple-500">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-xs text-gray-500 mb-1">Future Savings</p>
+                    <p class="text-xs text-gray-500 mb-1">Active Savings</p>
                     <p id="card-future-savings" class="text-xl font-bold text-gray-800">{{ "{:,.0f}".format(summary.total_savings) }} ₫</p>
                     <p id="card-deposited" class="text-xs text-gray-400">Dep: {{ "{:,.0f}".format(summary.total_savings_initial) }} ₫</p>
                 </div>
                 <div class="bg-purple-100 p-2 rounded-full"><i class="fas fa-chart-line text-purple-600"></i></div>
             </div>
         </div>
-        <!-- Net Worth Card (#14) -->
-        <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-teal-500">
+        <!-- Other Assets -->
+        <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-amber-500">
             <div class="flex items-center justify-between">
                 <div>
-                    <p class="text-xs text-gray-500 mb-1">Net Worth</p>
-                    <p id="card-net-worth" class="text-xl font-bold text-teal-700">
-                        {{ "{:,.0f}".format(summary.cash_on_hand + summary.total_savings) }} ₫
+                    <p class="text-xs text-gray-500 mb-1">Other Assets
+                        {% if summary.total_assets_count > 0 %}
+                        <span class="ml-1 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-xs">{{ summary.total_assets_count }}</span>
+                        {% endif %}
                     </p>
-                    <p class="text-xs text-gray-400">Cash + Savings</p>
+                    <p id="card-assets-value" class="text-xl font-bold text-gray-800">{{ "{:,.0f}".format(summary.total_assets_current) }} ₫</p>
+                    {% set assets_gl = summary.total_assets_current - summary.total_assets_purchase %}
+                    <p id="card-assets-sub" class="text-xs {% if assets_gl >= 0 %}text-green-600{% else %}text-red-500{% endif %}">
+                        {% if summary.total_assets_purchase > 0 %}
+                        {{ '+' if assets_gl >= 0 else '' }}{{ "{:,.0f}".format(assets_gl) }} ₫ gain/loss
+                        {% else %}
+                        No assets yet
+                        {% endif %}
+                    </p>
                 </div>
-                <div class="bg-teal-100 p-2 rounded-full"><i class="fas fa-coins text-teal-600"></i></div>
+                <div class="bg-amber-100 p-2 rounded-full"><i class="fas fa-coins text-amber-600"></i></div>
+            </div>
+        </div>
+        <!-- Net Worth (gradient, prominent) -->
+        <div class="bg-gradient-to-br from-teal-500 to-blue-600 rounded-xl shadow-md p-5 text-white">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-xs text-teal-100 mb-1">Total Net Worth</p>
+                    <p id="card-net-worth" class="text-xl font-bold">
+                        {{ "{:,.0f}".format(summary.cash_on_hand + summary.total_savings + summary.total_assets_current) }} ₫
+                    </p>
+                    <p id="card-net-worth-sub" class="text-xs text-teal-200 mt-0.5">Cash · Savings · Assets</p>
+                </div>
+                <div class="bg-white bg-opacity-20 p-2 rounded-full"><i class="fas fa-star text-white"></i></div>
             </div>
         </div>
     </div>
@@ -261,16 +305,39 @@
             .then(function(r) { return r.json(); })
             .then(function(s) {
                 const fmt = function(v) { return new Intl.NumberFormat('vi-VN').format(Math.round(v)) + ' \u20ab'; };
+                const fmtSigned = function(v) { return (v >= 0 ? '+' : '') + new Intl.NumberFormat('vi-VN').format(Math.round(v)) + ' \u20ab'; };
+
+                // Row 1: monthly
                 document.getElementById('card-income').textContent = fmt(s.total_income_month);
                 document.getElementById('card-expense').textContent = fmt(s.total_expense_month);
                 document.getElementById('card-savings').textContent = fmt(s.total_savings_month);
+                const net = s.net_this_month;
+                const netEl = document.getElementById('card-net-month');
+                netEl.textContent = fmtSigned(net);
+                netEl.className = 'text-xl font-bold ' + (net >= 0 ? 'text-emerald-600' : 'text-orange-600');
+
+                // Row 2: wealth
                 const cash = s.cash_on_hand;
                 const cashEl = document.getElementById('card-cash');
                 cashEl.textContent = fmt(cash);
                 cashEl.className = 'text-xl font-bold ' + (cash >= 0 ? 'text-green-600' : 'text-red-600');
+
                 document.getElementById('card-future-savings').textContent = fmt(s.total_savings_active);
                 document.getElementById('card-deposited').textContent = 'Dep: ' + fmt(s.total_savings_target);
-                document.getElementById('card-net-worth').textContent = fmt(cash + s.total_savings_active);
+
+                document.getElementById('card-assets-value').textContent = fmt(s.total_assets_current);
+                const gl = s.total_assets_current - s.total_assets_purchase;
+                const glEl = document.getElementById('card-assets-sub');
+                if (s.total_assets_purchase > 0) {
+                    glEl.textContent = fmtSigned(gl) + ' gain/loss';
+                    glEl.className = 'text-xs ' + (gl >= 0 ? 'text-green-600' : 'text-red-500');
+                } else {
+                    glEl.textContent = 'No assets yet';
+                    glEl.className = 'text-xs text-gray-400';
+                }
+
+                const netWorth = cash + s.total_savings_active + s.total_assets_current;
+                document.getElementById('card-net-worth').textContent = fmt(netWorth);
             });
 
         fetch('/api/dashboard/expense-by-category?year=' + year + '&month=' + month)

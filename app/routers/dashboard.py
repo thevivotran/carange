@@ -4,7 +4,7 @@ from sqlalchemy import func, extract, case, and_
 from datetime import datetime, date
 from typing import List, Optional
 
-from app.models.database import get_db, Transaction, Category, SavingsBundle, FinancialProject, SavingsStatus, ProjectStatus, TransactionType
+from app.models.database import get_db, Transaction, Category, SavingsBundle, FinancialProject, SavingsStatus, ProjectStatus, TransactionType, OtherAsset
 from app.models.schemas import DashboardData, DashboardSummary, MonthlyData, CategorySummary
 
 router = APIRouter()
@@ -62,6 +62,11 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
 
     cash_on_hand = total_income_all_time - total_expense_all_time
 
+    assets = db.query(OtherAsset).all()
+    total_assets_current = sum(a.current_value_vnd for a in assets)
+    total_assets_purchase = sum(a.purchase_price_vnd for a in assets)
+    total_assets_count = len(assets)
+
     recent_transactions = db.query(Transaction).order_by(Transaction.date.desc()).limit(5).all()
 
     upcoming_maturities = db.query(SavingsBundle).filter(
@@ -97,9 +102,13 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
             "total_income": monthly_income,
             "total_expense": monthly_expense,
             "total_savings_expense": monthly_savings,
+            "net_this_month": monthly_income - monthly_expense - monthly_savings,
             "cash_on_hand": cash_on_hand,
             "total_savings": total_savings,
             "total_savings_initial": total_savings_initial,
+            "total_assets_current": total_assets_current,
+            "total_assets_purchase": total_assets_purchase,
+            "total_assets_count": total_assets_count,
             "active_projects": active_projects_count,
             "completed_projects": completed_projects_count,
         },
@@ -117,9 +126,13 @@ def get_dashboard_summary(year: Optional[int] = None, month: Optional[int] = Non
         total_income_month=s["total_income"],
         total_expense_month=s["total_expense"],
         total_savings_month=s["total_savings_expense"],
+        net_this_month=s["net_this_month"],
         cash_on_hand=s["cash_on_hand"],
         total_savings_active=s["total_savings"],
         total_savings_target=s["total_savings_initial"],
+        total_assets_current=s["total_assets_current"],
+        total_assets_purchase=s["total_assets_purchase"],
+        total_assets_count=s["total_assets_count"],
         active_projects_count=s["active_projects"],
         completed_projects_count=s["completed_projects"],
     )

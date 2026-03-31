@@ -340,9 +340,13 @@ class DashboardSummary(BaseModel):
     total_income_month: float
     total_expense_month: float
     total_savings_month: float
+    net_this_month: float = 0
     cash_on_hand: float
     total_savings_active: float
     total_savings_target: float
+    total_assets_current: float = 0
+    total_assets_purchase: float = 0
+    total_assets_count: int = 0
     active_projects_count: int
     completed_projects_count: int
 
