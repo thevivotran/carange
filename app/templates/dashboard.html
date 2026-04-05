@@ -336,7 +336,7 @@
                     glEl.className = 'text-xs text-gray-400';
                 }
 
-                const netWorth = cash + s.total_savings_active + s.total_assets_current;
+                const netWorth = cash + s.total_savings_active + s.total_assets_current + (s.total_projects_paid || 0);
                 document.getElementById('card-net-worth').textContent = fmt(netWorth);
             });
 
