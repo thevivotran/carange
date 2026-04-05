@@ -261,7 +261,7 @@
                     <label class="block text-sm font-medium text-gray-700 mb-2">Quantity</label>
                     <input type="number" id="asset-quantity" required min="0" step="any"
                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
-                           placeholder="e.g., 500, 2.5">
+                           placeholder="e.g., 500, 2.5" oninput="updateAssetTotals()">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Unit</label>
@@ -271,27 +271,25 @@
                 </div>
             </div>
 
-            <!-- VND Values -->
+            <!-- VND Values per unit -->
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Purchase Price (VND)</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Purchase Price per Unit (VND)</label>
                     <input type="number" id="asset-purchase-price" required min="0" step="1"
                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
-                           placeholder="Total cost in VND">
+                           placeholder="Cost per unit in VND" oninput="updateAssetTotals()">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Current Value (VND)</label>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Current Value per Unit (VND)</label>
                     <input type="number" id="asset-current-value" required min="0" step="1"
                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
-                           placeholder="Estimated current value">
+                           placeholder="Current value per unit" oninput="updateAssetTotals()">
                 </div>
             </div>
-
-            <!-- Acquired Date -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Acquired Date</label>
-                <input type="date" id="asset-acquired-date"
-                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+            <!-- Auto-calculated totals preview -->
+            <div id="asset-totals-preview" class="hidden bg-gray-50 rounded-lg px-4 py-2 text-xs text-gray-600 grid grid-cols-2 gap-2">
+                <div>Total Purchase: <span id="preview-purchase" class="font-semibold text-blue-700"></span></div>
+                <div>Total Current: <span id="preview-current" class="font-semibold text-green-700"></span></div>
             </div>
 
             <!-- Notes -->
@@ -817,16 +815,21 @@
             const amtBlock = document.createElement('div');
             amtBlock.className = 'space-y-2 mb-4';
 
+            const perUnitPurchase = asset.quantity > 0 ? asset.purchase_price_vnd / asset.quantity : asset.purchase_price_vnd;
+            const perUnitCurrent  = asset.quantity > 0 ? asset.current_value_vnd  / asset.quantity : asset.current_value_vnd;
+
             const purchRow = document.createElement('div');
             purchRow.className = 'flex justify-between text-sm';
             const pLbl = document.createElement('span'); pLbl.className = 'text-gray-500'; pLbl.textContent = 'Purchase Price:';
-            const pVal = document.createElement('span'); pVal.className = 'font-semibold text-blue-700'; pVal.textContent = formatVND(asset.purchase_price_vnd);
+            const pVal = document.createElement('span'); pVal.className = 'font-semibold text-blue-700';
+            pVal.textContent = formatVND(perUnitPurchase) + '/unit · ' + formatVND(asset.purchase_price_vnd) + ' total';
             purchRow.appendChild(pLbl); purchRow.appendChild(pVal);
 
             const curRow = document.createElement('div');
             curRow.className = 'flex justify-between text-sm';
             const cLbl = document.createElement('span'); cLbl.className = 'text-gray-500'; cLbl.textContent = 'Current Value:';
-            const cVal = document.createElement('span'); cVal.className = 'font-semibold text-green-700'; cVal.textContent = formatVND(asset.current_value_vnd);
+            const cVal = document.createElement('span'); cVal.className = 'font-semibold text-green-700';
+            cVal.textContent = formatVND(perUnitCurrent) + '/unit · ' + formatVND(asset.current_value_vnd) + ' total';
             curRow.appendChild(cLbl); curRow.appendChild(cVal);
 
             const glRow = document.createElement('div');
@@ -842,14 +845,15 @@
             amtBlock.appendChild(glRow);
             card.appendChild(amtBlock);
 
-            // Acquired date
-            if (asset.acquired_date) {
+            // Updated at
+            if (asset.updated_at) {
                 const dateEl = document.createElement('div');
                 dateEl.className = 'text-sm text-gray-500 mb-4';
                 const dateIco = document.createElement('i');
-                dateIco.className = 'fas fa-calendar-alt mr-2 w-4';
+                dateIco.className = 'fas fa-clock mr-2 w-4';
                 dateEl.appendChild(dateIco);
-                dateEl.appendChild(document.createTextNode('Acquired: ' + formatDate(asset.acquired_date)));
+                const updatedDate = new Date(asset.updated_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+                dateEl.appendChild(document.createTextNode('Updated: ' + updatedDate));
                 card.appendChild(dateEl);
             }
 
@@ -892,10 +896,25 @@
         });
     }
 
+    function updateAssetTotals() {
+        const qty      = parseFloat(document.getElementById('asset-quantity').value) || 0;
+        const purchase = parseFloat(document.getElementById('asset-purchase-price').value) || 0;
+        const current  = parseFloat(document.getElementById('asset-current-value').value) || 0;
+        const preview  = document.getElementById('asset-totals-preview');
+        if (qty > 0 && (purchase > 0 || current > 0)) {
+            document.getElementById('preview-purchase').textContent = formatVND(purchase * qty);
+            document.getElementById('preview-current').textContent  = formatVND(current  * qty);
+            preview.classList.remove('hidden');
+        } else {
+            preview.classList.add('hidden');
+        }
+    }
+
     function openAddAssetModal() {
         document.getElementById('asset-modal-title').textContent = 'Add Asset';
         document.getElementById('asset-form').reset();
         document.getElementById('asset-id').value = '';
+        document.getElementById('asset-totals-preview').classList.add('hidden');
         document.getElementById('asset-modal').classList.remove('hidden');
     }
 
@@ -913,25 +932,27 @@
         document.getElementById('asset-symbol').value = asset.symbol || '';
         document.getElementById('asset-quantity').value = asset.quantity;
         document.getElementById('asset-unit').value = asset.unit;
-        document.getElementById('asset-purchase-price').value = asset.purchase_price_vnd;
-        document.getElementById('asset-current-value').value = asset.current_value_vnd;
-        document.getElementById('asset-acquired-date').value = asset.acquired_date || '';
+        const perUnitPurchase = asset.quantity > 0 ? Math.round(asset.purchase_price_vnd / asset.quantity) : asset.purchase_price_vnd;
+        const perUnitCurrent  = asset.quantity > 0 ? Math.round(asset.current_value_vnd  / asset.quantity) : asset.current_value_vnd;
+        document.getElementById('asset-purchase-price').value = perUnitPurchase;
+        document.getElementById('asset-current-value').value = perUnitCurrent;
         document.getElementById('asset-notes').value = asset.notes || '';
         document.getElementById('asset-modal').classList.remove('hidden');
+        updateAssetTotals();
     }
 
     document.getElementById('asset-form').addEventListener('submit', async function(e) {
         e.preventDefault();
         const assetId = document.getElementById('asset-id').value;
+        const qty = parseFloat(document.getElementById('asset-quantity').value) || 1;
         const data = {
             name: document.getElementById('asset-name').value,
             asset_type: document.getElementById('asset-type').value,
             symbol: document.getElementById('asset-symbol').value || null,
-            quantity: parseFloat(document.getElementById('asset-quantity').value),
+            quantity: qty,
             unit: document.getElementById('asset-unit').value,
-            purchase_price_vnd: parseFloat(document.getElementById('asset-purchase-price').value),
-            current_value_vnd: parseFloat(document.getElementById('asset-current-value').value),
-            acquired_date: document.getElementById('asset-acquired-date').value || null,
+            purchase_price_vnd: parseFloat(document.getElementById('asset-purchase-price').value) * qty,
+            current_value_vnd: parseFloat(document.getElementById('asset-current-value').value) * qty,
             notes: document.getElementById('asset-notes').value || null,
         };
         try {

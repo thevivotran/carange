@@ -35,7 +35,7 @@
                     <p class="text-xs text-gray-500 mb-1">Income</p>
                     <p id="card-income" class="text-xl font-bold text-gray-800">{{ "{:,.0f}".format(summary.total_income) }} ₫</p>
                 </div>
-                <div class="bg-green-100 p-2 rounded-full"><i class="fas fa-arrow-down text-green-600"></i></div>
+                <div class="hidden lg:block bg-green-100 p-2 rounded-full"><i class="fas fa-arrow-down text-green-600"></i></div>
             </div>
         </div>
         <!-- Expenses -->
@@ -45,7 +45,7 @@
                     <p class="text-xs text-gray-500 mb-1">Expenses</p>
                     <p id="card-expense" class="text-xl font-bold text-gray-800">{{ "{:,.0f}".format(summary.total_expense) }} ₫</p>
                 </div>
-                <div class="bg-red-100 p-2 rounded-full"><i class="fas fa-arrow-up text-red-600"></i></div>
+                <div class="hidden lg:block bg-red-100 p-2 rounded-full"><i class="fas fa-arrow-up text-red-600"></i></div>
             </div>
         </div>
         <!-- Savings Deposited -->
@@ -55,7 +55,7 @@
                     <p class="text-xs text-gray-500 mb-1">Savings Deposited</p>
                     <p id="card-savings" class="text-xl font-bold text-gray-800">{{ "{:,.0f}".format(summary.total_savings_expense) }} ₫</p>
                 </div>
-                <div class="bg-indigo-100 p-2 rounded-full"><i class="fas fa-piggy-bank text-indigo-600"></i></div>
+                <div class="hidden lg:block bg-indigo-100 p-2 rounded-full"><i class="fas fa-piggy-bank text-indigo-600"></i></div>
             </div>
         </div>
         <!-- Net This Month -->
@@ -68,7 +68,7 @@
                     </p>
                     <p class="text-xs text-gray-400">After savings</p>
                 </div>
-                <div class="{% if summary.net_this_month >= 0 %}bg-emerald-100{% else %}bg-orange-100{% endif %} p-2 rounded-full">
+                <div class="hidden lg:block {% if summary.net_this_month >= 0 %}bg-emerald-100{% else %}bg-orange-100{% endif %} p-2 rounded-full">
                     <i class="fas {% if summary.net_this_month >= 0 %}fa-thumbs-up text-emerald-600{% else %}fa-exclamation text-orange-600{% endif %}"></i>
                 </div>
             </div>
@@ -88,7 +88,7 @@
                     </p>
                     <p class="text-xs text-gray-400">All-time liquid</p>
                 </div>
-                <div class="bg-blue-100 p-2 rounded-full"><i class="fas fa-wallet text-blue-600"></i></div>
+                <div class="hidden lg:block bg-blue-100 p-2 rounded-full"><i class="fas fa-wallet text-blue-600"></i></div>
             </div>
         </div>
         <!-- Active Savings -->
@@ -99,7 +99,7 @@
                     <p id="card-future-savings" class="text-xl font-bold text-gray-800">{{ "{:,.0f}".format(summary.total_savings) }} ₫</p>
                     <p id="card-deposited" class="text-xs text-gray-400">Dep: {{ "{:,.0f}".format(summary.total_savings_initial) }} ₫</p>
                 </div>
-                <div class="bg-purple-100 p-2 rounded-full"><i class="fas fa-chart-line text-purple-600"></i></div>
+                <div class="hidden lg:block bg-purple-100 p-2 rounded-full"><i class="fas fa-chart-line text-purple-600"></i></div>
             </div>
         </div>
         <!-- Other Assets -->
@@ -121,7 +121,7 @@
                         {% endif %}
                     </p>
                 </div>
-                <div class="bg-amber-100 p-2 rounded-full"><i class="fas fa-coins text-amber-600"></i></div>
+                <div class="hidden lg:block bg-amber-100 p-2 rounded-full"><i class="fas fa-coins text-amber-600"></i></div>
             </div>
         </div>
         <!-- Net Worth (gradient, prominent) -->
@@ -130,11 +130,11 @@
                 <div>
                     <p class="text-xs text-teal-100 mb-1">Total Net Worth</p>
                     <p id="card-net-worth" class="text-xl font-bold">
-                        {{ "{:,.0f}".format(summary.cash_on_hand + summary.total_savings + summary.total_assets_current) }} ₫
+                        {{ "{:,.0f}".format(summary.cash_on_hand + summary.total_savings + summary.total_assets_current + summary.total_projects_paid) }} ₫
                     </p>
-                    <p id="card-net-worth-sub" class="text-xs text-teal-200 mt-0.5">Cash · Savings · Assets</p>
+                    <p id="card-net-worth-sub" class="text-xs text-teal-200 mt-0.5">Cash · Savings · Assets · Projects</p>
                 </div>
-                <div class="bg-white bg-opacity-20 p-2 rounded-full"><i class="fas fa-star text-white"></i></div>
+                <div class="hidden lg:block bg-white bg-opacity-20 p-2 rounded-full"><i class="fas fa-star text-white"></i></div>
             </div>
         </div>
     </div>

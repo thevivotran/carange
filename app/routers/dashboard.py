@@ -4,7 +4,7 @@ from sqlalchemy import func, extract, case, and_
 from datetime import datetime, date
 from typing import List, Optional
 
-from app.models.database import get_db, Transaction, Category, SavingsBundle, FinancialProject, SavingsStatus, ProjectStatus, TransactionType, OtherAsset
+from app.models.database import get_db, Transaction, Category, SavingsBundle, FinancialProject, SavingsStatus, ProjectStatus, TransactionType, OtherAsset, ProjectPayment, PaymentStatus
 from app.models.schemas import DashboardData, DashboardSummary, MonthlyData, CategorySummary
 
 router = APIRouter()
@@ -67,6 +67,10 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
     total_assets_purchase = sum(a.purchase_price_vnd for a in assets)
     total_assets_count = len(assets)
 
+    total_projects_paid = db.query(func.sum(ProjectPayment.amount)).filter(
+        ProjectPayment.status == PaymentStatus.PAID
+    ).scalar() or 0
+
     recent_transactions = db.query(Transaction).order_by(Transaction.date.desc()).limit(5).all()
 
     upcoming_maturities = db.query(SavingsBundle).filter(
@@ -109,6 +113,7 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
             "total_assets_current": total_assets_current,
             "total_assets_purchase": total_assets_purchase,
             "total_assets_count": total_assets_count,
+            "total_projects_paid": total_projects_paid,
             "active_projects": active_projects_count,
             "completed_projects": completed_projects_count,
         },
@@ -133,6 +138,7 @@ def get_dashboard_summary(year: Optional[int] = None, month: Optional[int] = Non
         total_assets_current=s["total_assets_current"],
         total_assets_purchase=s["total_assets_purchase"],
         total_assets_count=s["total_assets_count"],
+        total_projects_paid=s["total_projects_paid"],
         active_projects_count=s["active_projects"],
         completed_projects_count=s["completed_projects"],
     )

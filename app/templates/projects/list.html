@@ -195,6 +195,32 @@
     </div>
 </div>
 
+<!-- ===== Edit Payment Modal ===== -->
+<div id="edit-payment-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-30 z-[60] flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
+        <h4 class="font-semibold text-gray-800 mb-4">Edit Payment</h4>
+        <input type="hidden" id="edit-payment-id">
+        <div class="space-y-3">
+            <div>
+                <label class="block text-xs text-gray-600 mb-1">Due Date (optional)</label>
+                <input type="date" id="edit-payment-date" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-600 mb-1">Amount (VND) *</label>
+                <input type="number" id="edit-payment-amount" required min="1" step="1" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+            </div>
+            <div>
+                <label class="block text-xs text-gray-600 mb-1">Notes</label>
+                <input type="text" id="edit-payment-notes" placeholder="Optional notes" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+            </div>
+        </div>
+        <div class="flex gap-3 mt-5">
+            <button onclick="closeEditPaymentModal()" class="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50 text-sm">Cancel</button>
+            <button onclick="saveEditPayment()" class="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">Save Changes</button>
+        </div>
+    </div>
+</div>
+
 <!-- ===== Mark Paid Pop-over ===== -->
 <div id="mark-paid-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-30 z-[60] flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
@@ -617,6 +643,14 @@
                 paidBtn.onclick = () => openMarkPaidModal(p.id, p.due_date, p.amount);
                 tdAct.appendChild(paidBtn);
             }
+            const editPayBtn = document.createElement('button');
+            editPayBtn.className = 'text-xs text-blue-500 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50';
+            editPayBtn.title = 'Edit';
+            const editPayIco = document.createElement('i');
+            editPayIco.className = 'fas fa-pencil-alt';
+            editPayBtn.appendChild(editPayIco);
+            editPayBtn.onclick = () => openEditPaymentModal(p);
+            tdAct.appendChild(editPayBtn);
             const delBtn = document.createElement('button');
             delBtn.className = 'text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50';
             delBtn.textContent = 'Del';
@@ -680,6 +714,44 @@
             const res = await fetch('/api/projects/' + currentTimelineProjectId + '/payments/' + paymentId, { method:'DELETE' });
             if (res.ok) await loadPayments();
         } catch(e) { console.error(e); }
+    }
+
+    // ---- Edit Payment modal ----
+    function openEditPaymentModal(payment) {
+        document.getElementById('edit-payment-id').value = payment.id;
+        document.getElementById('edit-payment-date').value = payment.due_date || '';
+        document.getElementById('edit-payment-amount').value = payment.amount;
+        document.getElementById('edit-payment-notes').value = payment.notes || '';
+        document.getElementById('edit-payment-modal').classList.remove('hidden');
+    }
+
+    function closeEditPaymentModal() {
+        document.getElementById('edit-payment-modal').classList.add('hidden');
+    }
+
+    async function saveEditPayment() {
+        const paymentId = document.getElementById('edit-payment-id').value;
+        const dueDateVal = document.getElementById('edit-payment-date').value;
+        const amountVal = document.getElementById('edit-payment-amount').value;
+        const notesVal = document.getElementById('edit-payment-notes').value;
+        if (!amountVal || parseFloat(amountVal) <= 0) { alert('Amount is required'); return; }
+        const body = {
+            due_date: dueDateVal || null,
+            amount:   parseFloat(amountVal),
+            notes:    notesVal || null,
+        };
+        try {
+            const res = await fetch('/api/projects/' + currentTimelineProjectId + '/payments/' + paymentId, {
+                method: 'PATCH', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+            });
+            if (res.ok) {
+                closeEditPaymentModal();
+                await loadPayments();
+            } else {
+                const err = await res.json();
+                alert('Error: ' + (typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail));
+            }
+        } catch(e) { console.error(e); alert('Failed to save payment'); }
     }
 
     // ---- Mark Paid modal ----

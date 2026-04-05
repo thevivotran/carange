@@ -347,6 +347,7 @@ class DashboardSummary(BaseModel):
     total_assets_current: float = 0
     total_assets_purchase: float = 0
     total_assets_count: int = 0
+    total_projects_paid: float = 0
     active_projects_count: int
     completed_projects_count: int
 
