@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import date, datetime, timezone
 
-from app.models.database import get_db, SavingsBundle, SavingsStatus, SavingsType, FinancialProject
+from app.models.database import get_db, SavingsBundle, SavingsStatus, SavingsType, FinancialProject, Transaction, TransactionType, Category
 from app.models.schemas import SavingsBundle as SavingsBundleSchema, SavingsBundleCreate, SavingsBundleUpdate
 
 router = APIRouter()
@@ -94,6 +94,28 @@ def mark_bundle_completed(bundle_id: int, db: Session = Depends(get_db)):
 
     bundle.status = SavingsStatus.COMPLETED
     bundle.completed_at = datetime.now(timezone.utc)
+
+    category = (
+        db.query(Category)
+        .filter(Category.type == TransactionType.INCOME, Category.name == "Investment")
+        .first()
+        or db.query(Category)
+        .filter(Category.type == TransactionType.INCOME)
+        .first()
+    )
+    if category:
+        transaction = Transaction(
+            date=date.today(),
+            amount=bundle.future_amount,
+            type=TransactionType.INCOME,
+            category_id=category.id,
+            description=f"Savings matured: {bundle.name} - {bundle.bank_name}",
+            payment_method="bank",
+            is_savings_related=True,
+            savings_bundle_id=bundle.id,
+        )
+        db.add(transaction)
+
     db.commit()
 
     return {"message": "Bundle marked as completed", "completed_at": bundle.completed_at}
