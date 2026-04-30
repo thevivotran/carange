@@ -14,6 +14,7 @@ from app.models.database import create_tables, get_db, SessionLocal
 from app.models.database import Category, TransactionType
 from app.routers import transactions, categories, savings, projects, dashboard, templates as templates_router
 from app.routers import assets
+from app.routers import notes
 from app.routers.dashboard import get_dashboard_page_data
 
 @asynccontextmanager
@@ -70,6 +71,7 @@ app.include_router(savings.router, prefix="/api/savings")
 app.include_router(projects.router, prefix="/api/projects")
 app.include_router(templates_router.router, prefix="/api/templates")
 app.include_router(assets.router, prefix="/api/assets")
+app.include_router(notes.router, prefix="/api/notes")
 
 # Main routes for HTML pages
 @app.get("/", response_class=HTMLResponse)
@@ -114,6 +116,13 @@ async def templates_page(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("templates/list.html", {
         "request": request,
         "active_menu": "templates"
+    })
+
+@app.get("/notes", response_class=HTMLResponse)
+async def notes_page(request: Request):
+    return templates.TemplateResponse("notes/list.html", {
+        "request": request,
+        "active_menu": "notes"
     })
 
 if __name__ == "__main__":

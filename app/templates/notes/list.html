@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+
+{% block title %}Notes - Carange{% endblock %}
+
+{% block content %}
+<div class="flex h-full" style="height: calc(100vh - 0px);">
+
+    <!-- Sidebar: note list -->
+    <div id="notes-sidebar" class="w-72 flex-shrink-0 bg-white border-r flex flex-col h-full">
+        <div class="p-4 border-b flex items-center justify-between">
+            <h2 class="text-lg font-bold text-gray-800"><i class="fas fa-sticky-note mr-2 text-yellow-500"></i>Notes</h2>
+            <button onclick="newNote()" class="bg-primary text-white px-3 py-1.5 rounded-lg text-sm hover:bg-blue-700 transition flex items-center gap-1">
+                <i class="fas fa-plus text-xs"></i> New
+            </button>
+        </div>
+
+        <!-- Filter by type -->
+        <div class="px-3 pt-3 pb-1 flex gap-2 flex-wrap">
+            <button onclick="filterNotes(null)" id="filter-all" class="filter-btn active text-xs px-2.5 py-1 rounded-full border transition">All</button>
+            <button onclick="filterNotes('money_owed')" id="filter-money_owed" class="filter-btn text-xs px-2.5 py-1 rounded-full border transition">Money Owed</button>
+            <button onclick="filterNotes('general')" id="filter-general" class="filter-btn text-xs px-2.5 py-1 rounded-full border transition">General</button>
+        </div>
+
+        <div id="notes-list" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
+    </div>
+
+    <!-- Editor panel -->
+    <div id="editor-panel" class="flex-1 flex flex-col h-full bg-gray-50">
+        <!-- Empty state -->
+        <div id="empty-state" class="flex-1 flex flex-col items-center justify-center text-gray-400">
+            <i class="fas fa-file-alt text-5xl mb-4 opacity-30"></i>
+            <p class="text-lg font-medium">Select a note or create one</p>
+            <button onclick="newNote()" class="mt-4 bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm">
+                <i class="fas fa-plus mr-1"></i> New Note
+            </button>
+        </div>
+
+        <!-- Active editor (hidden until a note is selected) -->
+        <div id="active-editor" class="hidden flex-1 flex flex-col h-full">
+            <div class="border-b bg-white px-6 py-3 flex items-center gap-3">
+                <input id="note-title" type="text" placeholder="Note title…"
+                    class="flex-1 text-xl font-semibold text-gray-800 bg-transparent border-none outline-none placeholder-gray-300"
+                    oninput="scheduleSave()">
+
+                <select id="note-type" onchange="scheduleSave()"
+                    class="text-xs border rounded-full px-3 py-1 text-gray-600 bg-white focus:outline-none">
+                    <option value="">General</option>
+                    <option value="money_owed">Money Owed</option>
+                    <option value="general">General</option>
+                </select>
+
+                <span id="save-status" class="text-xs text-gray-400 min-w-16 text-right"></span>
+
+                <button onclick="deleteCurrentNote()" class="text-red-400 hover:text-red-600 transition ml-2" title="Delete note">
+                    <i class="fas fa-trash text-sm"></i>
+                </button>
+            </div>
+
+            <textarea id="note-content"
+                class="flex-1 w-full p-6 bg-gray-50 text-gray-800 text-base leading-relaxed resize-none outline-none font-mono placeholder-gray-300"
+                placeholder="Start writing…"
+                oninput="scheduleSave()"></textarea>
+
+            <div class="px-6 py-2 border-t bg-white text-xs text-gray-400 flex justify-between">
+                <span id="note-meta"></span>
+                <span id="char-count"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.filter-btn { background: white; color: #6b7280; }
+.filter-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; }
+.note-card { cursor: pointer; border-radius: 0.5rem; padding: 0.625rem 0.75rem; transition: background 0.15s; border-left: 3px solid transparent; }
+.note-card:hover { background: #f3f4f6; }
+.note-card.selected { background: #eff6ff; border-left-color: #3b82f6; }
+#note-content { min-height: 0; }
+</style>
+
+<script>
+let notes = [];
+let currentNoteId = null;
+let saveTimer = null;
+let activeFilter = null;
+
+const TYPE_LABELS = { money_owed: 'Money Owed', general: 'General' };
+const TYPE_COLORS = { money_owed: 'bg-orange-100 text-orange-700', general: 'bg-gray-100 text-gray-600' };
+
+async function loadNotes() {
+    const res = await fetch('/api/notes/');
+    notes = await res.json();
+    renderNoteList();
+}
+
+function filterNotes(type) {
+    activeFilter = type;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('filter-' + (type || 'all')).classList.add('active');
+    renderNoteList();
+}
+
+function renderNoteList() {
+    const container = document.getElementById('notes-list');
+    container.replaceChildren();
+
+    const filtered = activeFilter ? notes.filter(n => n.type === activeFilter) : notes;
+
+    if (filtered.length === 0) {
+        const msg = document.createElement('p');
+        msg.className = 'text-xs text-gray-400 text-center pt-6';
+        msg.textContent = 'No notes yet';
+        container.appendChild(msg);
+        return;
+    }
+
+    filtered.forEach(n => {
+        const card = document.createElement('div');
+        card.className = 'note-card' + (n.id === currentNoteId ? ' selected' : '');
+        card.id = 'card-' + n.id;
+        card.addEventListener('click', () => openNote(n.id));
+
+        const topRow = document.createElement('div');
+        topRow.className = 'flex items-start justify-between gap-1 mb-0.5';
+
+        const titleEl = document.createElement('span');
+        titleEl.className = 'font-medium text-sm text-gray-800 truncate flex-1';
+        titleEl.textContent = n.title;
+        topRow.appendChild(titleEl);
+
+        if (n.type) {
+            const badge = document.createElement('span');
+            badge.className = 'text-xs px-1.5 py-0.5 rounded flex-shrink-0 ' + (TYPE_COLORS[n.type] || 'bg-gray-100 text-gray-500');
+            badge.textContent = TYPE_LABELS[n.type] || n.type;
+            topRow.appendChild(badge);
+        }
+
+        const preview = document.createElement('p');
+        preview.className = 'text-xs text-gray-400 truncate';
+        const previewText = (n.content || '').replace(/\n/g, ' ').slice(0, 80);
+        if (previewText) {
+            preview.textContent = previewText;
+        } else {
+            const em = document.createElement('em');
+            em.textContent = 'Empty';
+            preview.appendChild(em);
+        }
+
+        card.appendChild(topRow);
+        card.appendChild(preview);
+        container.appendChild(card);
+    });
+}
+
+function openNote(id) {
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; doSave(); }
+    currentNoteId = id;
+    const note = notes.find(n => n.id === id);
+    if (!note) return;
+    document.getElementById('note-title').value = note.title;
+    document.getElementById('note-content').value = note.content || '';
+    document.getElementById('note-type').value = note.type || '';
+    updateMeta(note);
+    updateCharCount();
+    showEditor();
+    renderNoteList();
+}
+
+function showEditor() {
+    document.getElementById('empty-state').classList.add('hidden');
+    const editor = document.getElementById('active-editor');
+    editor.classList.remove('hidden');
+    editor.classList.add('flex');
+}
+
+function updateMeta(note) {
+    const d = new Date(note.updated_at);
+    document.getElementById('note-meta').textContent = 'Last edited ' + d.toLocaleString();
+}
+
+function updateCharCount() {
+    const len = document.getElementById('note-content').value.length;
+    document.getElementById('char-count').textContent = len + ' chars';
+}
+
+function scheduleSave() {
+    updateCharCount();
+    document.getElementById('save-status').textContent = 'Unsaved…';
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(doSave, 800);
+}
+
+async function doSave() {
+    saveTimer = null;
+    if (!currentNoteId) return;
+    const title = document.getElementById('note-title').value.trim() || 'Untitled';
+    const content = document.getElementById('note-content').value;
+    const type = document.getElementById('note-type').value || null;
+    const res = await fetch('/api/notes/' + currentNoteId, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, content, type })
+    });
+    if (res.ok) {
+        const updated = await res.json();
+        const idx = notes.findIndex(n => n.id === currentNoteId);
+        if (idx !== -1) notes[idx] = updated;
+        document.getElementById('save-status').textContent = 'Saved';
+        updateMeta(updated);
+        renderNoteList();
+        setTimeout(() => { document.getElementById('save-status').textContent = ''; }, 2000);
+    }
+}
+
+async function newNote() {
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; doSave(); }
+    const res = await fetch('/api/notes/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: 'Untitled', content: '', type: activeFilter || null })
+    });
+    if (res.ok) {
+        const note = await res.json();
+        notes.unshift(note);
+        renderNoteList();
+        openNote(note.id);
+        document.getElementById('note-title').focus();
+        document.getElementById('note-title').select();
+    }
+}
+
+async function deleteCurrentNote() {
+    if (!currentNoteId) return;
+    showConfirm('Delete this note?', async function() {
+        const res = await fetch('/api/notes/' + currentNoteId, { method: 'DELETE' });
+        if (res.ok) {
+            notes = notes.filter(n => n.id !== currentNoteId);
+            currentNoteId = null;
+            document.getElementById('empty-state').classList.remove('hidden');
+            const editor = document.getElementById('active-editor');
+            editor.classList.add('hidden');
+            editor.classList.remove('flex');
+            renderNoteList();
+        }
+    });
+}
+
+loadNotes();
+</script>
+{% endblock %}
