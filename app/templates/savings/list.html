@@ -317,15 +317,23 @@
 
 <script>
     let savingsBundles = [];
-
     let otherAssets = [];
+    let allProjects = [];
     let activeTab = 'savings';
 
     document.addEventListener('DOMContentLoaded', function() {
         loadSavings();
         loadSummary();
+        loadAllProjects();
         document.getElementById('start-date').valueAsDate = new Date();
     });
+
+    async function loadAllProjects() {
+        try {
+            const res = await fetch('/api/projects/');
+            allProjects = await res.json();
+        } catch(e) { console.error(e); }
+    }
 
     function switchTab(tab) {
         activeTab = tab;
@@ -554,6 +562,26 @@
                 card.appendChild(notesEl);
             }
 
+            // Linked project display (#4)
+            if (bundle.linked_project_id) {
+                const linkedProject = allProjects.find(function(p) { return p.id === bundle.linked_project_id; });
+                const linkedDiv = document.createElement('div');
+                linkedDiv.className = 'flex items-center justify-between text-sm bg-blue-50 rounded-lg px-3 py-2 mb-4';
+                const linkedLbl = document.createElement('span');
+                linkedLbl.className = 'text-blue-700';
+                const linkIco = document.createElement('i');
+                linkIco.className = 'fas fa-link mr-2';
+                linkedLbl.appendChild(linkIco);
+                linkedLbl.appendChild(document.createTextNode(linkedProject ? linkedProject.name : 'Project #' + bundle.linked_project_id));
+                const unlinkBtn = document.createElement('button');
+                unlinkBtn.className = 'text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 transition';
+                unlinkBtn.textContent = 'Unlink';
+                unlinkBtn.addEventListener('click', function() { unlinkProject(bundle.id); });
+                linkedDiv.appendChild(linkedLbl);
+                linkedDiv.appendChild(unlinkBtn);
+                card.appendChild(linkedDiv);
+            }
+
             // Actions
             const actDiv = document.createElement('div');
             actDiv.className = 'flex gap-2 pt-4 border-t';
@@ -713,6 +741,24 @@
         }, 'Rollover', 'bg-indigo-600 text-white hover:bg-indigo-700');
     }
 
+    async function unlinkProject(bundleId) {
+        try {
+            const res = await fetch('/api/savings/' + bundleId, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ linked_project_id: null })
+            });
+            if (res.ok) {
+                await loadAllProjects();
+                loadSavings();
+                showToast('Project unlinked', 'success');
+            } else {
+                const err = await res.json();
+                showToast('Error: ' + (err.detail || 'Failed to unlink'), 'error');
+            }
+        } catch(e) { showToast('Failed to unlink project', 'error'); }
+    }
+
     // ===== OTHER ASSETS =====
 
     async function loadAssets() {
@@ -844,6 +890,45 @@
             amtBlock.appendChild(curRow);
             amtBlock.appendChild(glRow);
             card.appendChild(amtBlock);
+
+            // Quick price update (#8)
+            const quickUpdateDiv = document.createElement('div');
+            quickUpdateDiv.className = 'flex items-center gap-2 mb-3 bg-yellow-50 rounded-lg px-3 py-2';
+            const quickLbl = document.createElement('span');
+            quickLbl.className = 'text-xs text-gray-500 flex-shrink-0';
+            quickLbl.textContent = 'New price/unit:';
+            const quickInput = document.createElement('input');
+            quickInput.type = 'number';
+            quickInput.min = '0';
+            quickInput.step = '1';
+            quickInput.className = 'flex-1 border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-primary text-right min-w-0';
+            quickInput.value = asset.quantity > 0 ? Math.round(asset.current_value_vnd / asset.quantity) : asset.current_value_vnd;
+            quickInput.title = 'Current value per unit in VND';
+            const quickBtn = document.createElement('button');
+            quickBtn.className = 'flex-shrink-0 text-xs bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 transition';
+            quickBtn.textContent = 'Update';
+            quickBtn.addEventListener('click', function() {
+                const newPerUnit = parseFloat(quickInput.value);
+                if (isNaN(newPerUnit) || newPerUnit < 0) { showToast('Enter a valid price', 'error'); return; }
+                const newTotal = newPerUnit * asset.quantity;
+                fetch('/api/assets/' + asset.id, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ current_value_vnd: newTotal })
+                }).then(function(res) {
+                    if (res.ok) {
+                        loadAssets();
+                        loadAssetsSummary();
+                        showToast('Price updated', 'success');
+                    } else {
+                        res.json().then(function(err) { showToast('Error: ' + (err.detail || 'Failed'), 'error'); });
+                    }
+                }).catch(function() { showToast('Failed to update price', 'error'); });
+            });
+            quickUpdateDiv.appendChild(quickLbl);
+            quickUpdateDiv.appendChild(quickInput);
+            quickUpdateDiv.appendChild(quickBtn);
+            card.appendChild(quickUpdateDiv);
 
             // Updated at
             if (asset.updated_at) {

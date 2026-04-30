@@ -127,6 +127,41 @@
             <!-- Footer Totals -->
             <div class="bg-gray-50 rounded-lg p-4 text-sm grid grid-cols-2 md:grid-cols-4 gap-3" id="payments-totals"></div>
 
+            <!-- Milestones Section (#1) -->
+            <div class="border rounded-lg p-4">
+                <h4 class="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                    <i class="fas fa-flag text-purple-500 text-sm"></i>
+                    Milestones
+                </h4>
+                <div id="milestones-list" class="space-y-2 mb-3"></div>
+                <form id="add-milestone-form" class="flex gap-2 items-end flex-wrap">
+                    <div class="flex-1 min-w-32">
+                        <label class="block text-xs text-gray-600 mb-1">Milestone Name *</label>
+                        <input type="text" id="new-milestone-name" required placeholder="e.g., 50% funded"
+                               class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                    </div>
+                    <div class="w-36">
+                        <label class="block text-xs text-gray-600 mb-1">Target Amount (optional)</label>
+                        <input type="number" id="new-milestone-amount" min="0" step="1" placeholder="VND"
+                               class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                    </div>
+                    <button type="submit" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition text-sm">
+                        <i class="fas fa-plus mr-1"></i>Add Milestone
+                    </button>
+                </form>
+            </div>
+
+            <!-- Linked Transactions Section (#9) -->
+            <div class="border rounded-lg p-4">
+                <h4 class="font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                    <i class="fas fa-receipt text-green-500 text-sm"></i>
+                    Linked Transactions
+                </h4>
+                <div id="project-transactions-list" class="space-y-1 text-sm text-gray-500">
+                    <p>Loading...</p>
+                </div>
+            </div>
+
             <!-- Add Single Payment -->
             <div class="border rounded-lg p-4">
                 <h4 class="font-semibold text-gray-700 mb-3">Add Single Payment</h4>
@@ -540,8 +575,9 @@
             'Payment Timeline' + (project ? ' — ' + project.name : '');
         document.getElementById('add-payment-form').reset();
         document.getElementById('recurring-form').reset();
+        document.getElementById('add-milestone-form').reset();
         document.getElementById('timeline-modal').classList.remove('hidden');
-        await loadPayments();
+        await Promise.all([loadPayments(), loadMilestones(), loadProjectTransactions()]);
     }
 
     function closeTimelineModal() {
@@ -795,6 +831,177 @@
             });
             if (res.ok) await loadPayments();
         } catch(e) { console.error(e); }
+    }
+
+    // ---- Milestones (#1) ----
+    async function loadMilestones() {
+        if (!currentTimelineProjectId) return;
+        try {
+            const res = await fetch('/api/projects/' + currentTimelineProjectId + '/milestones');
+            const milestones = await res.json();
+            renderMilestones(milestones);
+        } catch(e) { console.error(e); }
+    }
+
+    function renderMilestones(milestones) {
+        const container = document.getElementById('milestones-list');
+        while (container.firstChild) container.removeChild(container.firstChild);
+        if (milestones.length === 0) {
+            const empty = document.createElement('p');
+            empty.className = 'text-sm text-gray-400 italic';
+            empty.textContent = 'No milestones yet.';
+            container.appendChild(empty);
+            return;
+        }
+        const project = projects.find(p => p.id === currentTimelineProjectId);
+        const currentAmt = project ? project.current_amount : 0;
+        milestones.forEach(function(m) {
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-3 py-1.5 border-b last:border-0';
+
+            const icon = document.createElement('i');
+            const isReached = m.target_amount && currentAmt >= m.target_amount;
+            icon.className = m.is_completed
+                ? 'fas fa-check-circle text-green-500 w-4 flex-shrink-0'
+                : (isReached ? 'fas fa-circle text-yellow-400 w-4 flex-shrink-0' : 'far fa-circle text-gray-300 w-4 flex-shrink-0');
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'flex-1 text-sm ' + (m.is_completed ? 'text-gray-400 line-through' : 'text-gray-700');
+            nameSpan.textContent = m.name;
+
+            const amtSpan = document.createElement('span');
+            amtSpan.className = 'text-xs text-gray-500 flex-shrink-0';
+            if (m.target_amount) amtSpan.textContent = formatVND(m.target_amount);
+
+            const actDiv = document.createElement('div');
+            actDiv.className = 'flex gap-1 flex-shrink-0';
+
+            if (!m.is_completed) {
+                const doneBtn = document.createElement('button');
+                doneBtn.className = 'text-xs text-green-600 hover:text-green-800 px-2 py-0.5 rounded hover:bg-green-50';
+                doneBtn.textContent = 'Done';
+                doneBtn.addEventListener('click', function() { completeMilestone(m.id); });
+                actDiv.appendChild(doneBtn);
+            }
+            const delBtn = document.createElement('button');
+            delBtn.className = 'text-xs text-red-500 hover:text-red-700 px-2 py-0.5 rounded hover:bg-red-50';
+            delBtn.textContent = 'Del';
+            delBtn.addEventListener('click', function() { deleteMilestone(m.id); });
+            actDiv.appendChild(delBtn);
+
+            row.appendChild(icon);
+            row.appendChild(nameSpan);
+            row.appendChild(amtSpan);
+            row.appendChild(actDiv);
+            container.appendChild(row);
+        });
+    }
+
+    async function completeMilestone(milestoneId) {
+        try {
+            const res = await fetch('/api/projects/' + currentTimelineProjectId + '/milestones/' + milestoneId + '/complete', { method: 'PATCH' });
+            if (res.ok) await loadMilestones();
+        } catch(e) { console.error(e); }
+    }
+
+    async function deleteMilestone(milestoneId) {
+        try {
+            const res = await fetch('/api/projects/' + currentTimelineProjectId + '/milestones/' + milestoneId, { method: 'DELETE' });
+            if (res.ok) await loadMilestones();
+        } catch(e) { console.error(e); }
+    }
+
+    document.getElementById('add-milestone-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const name = document.getElementById('new-milestone-name').value.trim();
+        const amtVal = document.getElementById('new-milestone-amount').value;
+        if (!name) return;
+        const body = { name: name, target_amount: amtVal ? parseFloat(amtVal) : null, is_completed: false };
+        try {
+            const res = await fetch('/api/projects/' + currentTimelineProjectId + '/milestones', {
+                method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)
+            });
+            if (res.ok) {
+                document.getElementById('add-milestone-form').reset();
+                await loadMilestones();
+            }
+        } catch(e) { console.error(e); }
+    });
+
+    // ---- Project transactions (#9) ----
+    async function loadProjectTransactions() {
+        if (!currentTimelineProjectId) return;
+        const container = document.getElementById('project-transactions-list');
+        while (container.firstChild) container.removeChild(container.firstChild);
+        const loadingP = document.createElement('p');
+        loadingP.textContent = 'Loading...';
+        container.appendChild(loadingP);
+        try {
+            const res = await fetch('/api/transactions/?project_id=' + currentTimelineProjectId + '&limit=50');
+            const txns = await res.json();
+            while (container.firstChild) container.removeChild(container.firstChild);
+            if (txns.length === 0) {
+                const empty = document.createElement('p');
+                empty.className = 'text-gray-400 italic';
+                empty.textContent = 'No linked transactions yet.';
+                container.appendChild(empty);
+                return;
+            }
+            let totalAmount = 0;
+            txns.forEach(function(t) {
+                totalAmount += t.amount;
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between py-1 border-b last:border-0';
+
+                const left = document.createElement('div');
+                left.className = 'flex items-center gap-2 flex-1 min-w-0';
+
+                const dateSpan = document.createElement('span');
+                dateSpan.className = 'text-gray-500 flex-shrink-0';
+                dateSpan.textContent = formatDate(t.date);
+
+                const catSpan = document.createElement('span');
+                catSpan.className = 'text-xs px-1.5 py-0.5 rounded flex-shrink-0';
+                catSpan.style.backgroundColor = (t.category.color || '#ccc') + '20';
+                catSpan.style.color = t.category.color || '#666';
+                catSpan.textContent = t.category.name;
+
+                left.appendChild(dateSpan);
+                left.appendChild(catSpan);
+
+                if (t.description) {
+                    const descSpan = document.createElement('span');
+                    descSpan.className = 'text-gray-500 truncate';
+                    descSpan.textContent = t.description;
+                    left.appendChild(descSpan);
+                }
+
+                const amtSpan = document.createElement('span');
+                amtSpan.className = 'font-semibold text-red-600 flex-shrink-0 ml-2';
+                amtSpan.textContent = '-' + formatVND(t.amount);
+
+                row.appendChild(left);
+                row.appendChild(amtSpan);
+                container.appendChild(row);
+            });
+
+            const totalRow = document.createElement('div');
+            totalRow.className = 'flex justify-between pt-2 font-semibold text-gray-700 border-t mt-1';
+            const totalLbl = document.createElement('span');
+            totalLbl.textContent = 'Total (' + txns.length + ' transaction' + (txns.length !== 1 ? 's' : '') + ')';
+            const totalAmtSpan = document.createElement('span');
+            totalAmtSpan.className = 'text-red-600';
+            totalAmtSpan.textContent = '-' + formatVND(totalAmount);
+            totalRow.appendChild(totalLbl);
+            totalRow.appendChild(totalAmtSpan);
+            container.appendChild(totalRow);
+        } catch(e) {
+            while (container.firstChild) container.removeChild(container.firstChild);
+            const errP = document.createElement('p');
+            errP.className = 'text-red-500';
+            errP.textContent = 'Failed to load transactions.';
+            container.appendChild(errP);
+        }
     }
 
     // ---- Recurring schedule ----

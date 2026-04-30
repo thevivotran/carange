@@ -19,6 +19,7 @@ def get_transactions(
     limit: int = 100,
     type: Optional[str] = None,
     category_id: Optional[int] = None,
+    project_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     search: Optional[str] = None,
@@ -34,6 +35,8 @@ def get_transactions(
         query = query.filter(Transaction.type == type)
     if category_id:
         query = query.filter(Transaction.category_id == category_id)
+    if project_id:
+        query = query.filter(Transaction.project_id == project_id)
     if start_date:
         query = query.filter(Transaction.date >= start_date)
     if end_date:

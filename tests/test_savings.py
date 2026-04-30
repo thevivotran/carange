@@ -130,3 +130,29 @@ def test_rollover_marks_original_as_completed(client, db_session):
     client.post(f"/api/savings/{bundle_id}/rollover")
     original = db_session.get(SBModel, bundle_id)
     assert original.status.value == "completed"
+
+
+# ── Unlink project (#4) ───────────────────────────────────────────────────────
+
+def test_unlink_project_from_bundle(client):
+    """Setting linked_project_id to null should remove the project association."""
+    project_id = client.post("/api/projects/", json={
+        "name": "House Project", "type": "real_estate", "priority": "high"
+    }).json()["id"]
+
+    bundle_id = client.post("/api/savings/", json=_bundle_payload(
+        linked_project_id=project_id
+    )).json()["id"]
+
+    assert client.get(f"/api/savings/{bundle_id}").json()["linked_project_id"] == project_id
+
+    r = client.put(f"/api/savings/{bundle_id}", json={"linked_project_id": None})
+    assert r.status_code == 200
+    assert r.json()["linked_project_id"] is None
+
+
+def test_link_nonexistent_project_returns_404(client):
+    """Linking to a non-existent project should return 404."""
+    bundle_id = client.post("/api/savings/", json=_bundle_payload()).json()["id"]
+    r = client.put(f"/api/savings/{bundle_id}", json={"linked_project_id": 999999})
+    assert r.status_code == 404

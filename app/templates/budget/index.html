@@ -11,7 +11,10 @@
       <h1 class="text-2xl font-bold text-gray-800" id="month-label"></h1>
       <button onclick="nextMonth()" class="p-2 rounded-lg hover:bg-gray-100 transition text-gray-600"><i class="fas fa-chevron-right"></i></button>
     </div>
-    <div class="flex gap-2">
+    <div class="flex gap-2 flex-wrap">
+      <button onclick="openHistoryModal()" class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm">
+        <i class="fas fa-history text-xs"></i> History
+      </button>
       <button onclick="openAddModal()" class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm">
         <i class="fas fa-plus text-xs"></i> Add Category
       </button>
@@ -86,6 +89,20 @@
     <div class="px-6 py-4 border-t flex gap-3">
       <button onclick="closeAddModal()" class="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50 transition text-sm">Cancel</button>
       <button onclick="confirmAdd()" class="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition text-sm">Add</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── History modal ── -->
+<div id="history-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+    <div class="px-6 py-4 border-b flex items-center justify-between">
+      <h3 class="font-bold text-gray-800">Budget History — Last 6 Months</h3>
+      <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="flex-1 overflow-auto px-6 py-4">
+      <div id="history-loading" class="text-center text-gray-400 py-8">Loading...</div>
+      <div id="history-table-wrap" class="hidden overflow-x-auto"></div>
     </div>
   </div>
 </div>
@@ -376,6 +393,117 @@ function removeCategory(categoryId, categoryName) {
         'Remove',
         'bg-red-600 hover:bg-red-700'
     );
+}
+
+// ── History modal ──────────────────────────────────────────────────────────
+function closeHistoryModal() { document.getElementById('history-modal').classList.add('hidden'); }
+
+async function openHistoryModal() {
+    document.getElementById('history-modal').classList.remove('hidden');
+    document.getElementById('history-loading').classList.remove('hidden');
+    document.getElementById('history-table-wrap').classList.add('hidden');
+
+    // Build list of last 6 months up to currentYM
+    const months = [];
+    for (let i = 5; i >= 0; i--) months.push(addMonths(currentYM, -i));
+
+    // Fetch data for each month in parallel
+    const results = await Promise.all(months.map(ym =>
+        fetch('/api/budget/' + ym + '/rows').then(r => r.json()).catch(() => [])
+    ));
+
+    // Collect all category names across all months
+    const catMap = new Map(); // id → {name, color}
+    results.forEach(function(rows) {
+        rows.forEach(function(r) {
+            if (!catMap.has(r.category_id)) catMap.set(r.category_id, { name: r.category_name, color: r.category_color });
+        });
+    });
+
+    document.getElementById('history-loading').classList.add('hidden');
+    const wrap = document.getElementById('history-table-wrap');
+    wrap.classList.remove('hidden');
+    while (wrap.firstChild) wrap.removeChild(wrap.firstChild);
+
+    if (catMap.size === 0) {
+        const empty = document.createElement('p');
+        empty.className = 'text-gray-400 text-center py-8';
+        empty.textContent = 'No budget data found for this period.';
+        wrap.appendChild(empty);
+        return;
+    }
+
+    const table = document.createElement('table');
+    table.className = 'w-full text-sm border-collapse';
+
+    // Header row
+    const thead = document.createElement('thead');
+    const hRow = document.createElement('tr');
+    const thCat = document.createElement('th');
+    thCat.className = 'text-left py-2 px-3 bg-gray-50 font-semibold text-gray-600 sticky left-0 z-10 border-b';
+    thCat.textContent = 'Category';
+    hRow.appendChild(thCat);
+    months.forEach(function(ym) {
+        const th = document.createElement('th');
+        th.className = 'text-right py-2 px-3 bg-gray-50 font-semibold text-gray-600 border-b whitespace-nowrap';
+        th.textContent = fmtMonth(ym);
+        hRow.appendChild(th);
+    });
+    thead.appendChild(hRow);
+    table.appendChild(thead);
+
+    // Body rows — one per category
+    const tbody = document.createElement('tbody');
+    catMap.forEach(function(catInfo, catId) {
+        const tr = document.createElement('tr');
+        tr.className = 'border-b hover:bg-gray-50';
+
+        // Category name cell
+        const tdName = document.createElement('td');
+        tdName.className = 'py-2 px-3 sticky left-0 bg-white';
+        const dot = document.createElement('span');
+        dot.className = 'inline-block w-2.5 h-2.5 rounded-full mr-2 flex-shrink-0';
+        dot.style.background = catInfo.color;
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'font-medium text-gray-700';
+        nameSpan.textContent = catInfo.name;
+        tdName.appendChild(dot);
+        tdName.appendChild(nameSpan);
+        tr.appendChild(tdName);
+
+        // One cell per month
+        results.forEach(function(rows) {
+            const row = rows.find(function(r) { return r.category_id === catId; });
+            const td = document.createElement('td');
+            td.className = 'py-2 px-3 text-right';
+            if (row) {
+                const usagePct = row.monthly_allocation > 0 ? Math.round(row.this_month_spent / row.monthly_allocation * 100) : 0;
+                const color = usagePct > 100 ? '#ef4444' : usagePct > 80 ? '#f59e0b' : '#22c55e';
+
+                const spentEl = document.createElement('div');
+                spentEl.className = 'font-semibold';
+                spentEl.style.color = color;
+                spentEl.textContent = fmtVND(row.this_month_spent);
+
+                const budgetEl = document.createElement('div');
+                budgetEl.className = 'text-xs text-gray-400';
+                budgetEl.textContent = fmtVND(row.monthly_allocation) + ' budget';
+
+                td.appendChild(spentEl);
+                td.appendChild(budgetEl);
+            } else {
+                const dash = document.createElement('span');
+                dash.className = 'text-gray-300';
+                dash.textContent = '—';
+                td.appendChild(dash);
+            }
+            tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
 }
 
 load();

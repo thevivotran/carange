@@ -321,6 +321,19 @@ def complete_milestone(project_id: int, milestone_id: int, db: Session = Depends
     return {"message": "Milestone marked as completed"}
 
 
+@router.delete("/{project_id}/milestones/{milestone_id}")
+def delete_milestone(project_id: int, milestone_id: int, db: Session = Depends(get_db)):
+    milestone = db.query(ProjectMilestone).filter(
+        ProjectMilestone.id == milestone_id,
+        ProjectMilestone.project_id == project_id,
+    ).first()
+    if not milestone:
+        raise HTTPException(status_code=404, detail="Milestone not found")
+    db.delete(milestone)
+    db.commit()
+    return {"message": "Milestone deleted"}
+
+
 # ---------------------------------------------------------------------------
 # Contribution Routes (kept for back-compat)
 # ---------------------------------------------------------------------------
