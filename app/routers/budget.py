@@ -207,6 +207,19 @@ def update_allocation(allocation_id: int, data: BudgetAllocationUpdate, db: Sess
     return alloc
 
 
+@router.delete("/category/{category_id}")
+def delete_category_budget(category_id: int, db: Session = Depends(get_db)):
+    deleted = (
+        db.query(BudgetAllocation)
+        .filter(BudgetAllocation.category_id == category_id)
+        .delete()
+    )
+    db.commit()
+    if deleted == 0:
+        raise HTTPException(status_code=404, detail="No allocations found for this category")
+    return {"message": f"Deleted {deleted} allocation(s)"}
+
+
 @router.delete("/{allocation_id}")
 def delete_allocation(allocation_id: int, db: Session = Depends(get_db)):
     alloc = db.query(BudgetAllocation).filter(BudgetAllocation.id == allocation_id).first()
