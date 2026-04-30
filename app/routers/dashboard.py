@@ -26,11 +26,36 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
         Transaction.type == TransactionType.INCOME,
     ).scalar() or 0
 
-    monthly_expense = db.query(func.sum(Transaction.amount)).filter(
+    # Resolve exclusion category IDs by name (so IDs never need to be hardcoded)
+    _excl_rate = [r[0] for r in db.query(Category.id).filter(
+        Category.name.in_(['Bất động sản', 'Tiết kiệm']),
+        Category.type == TransactionType.EXPENSE,
+    ).all()]
+    _excl_cash = [r[0] for r in db.query(Category.id).filter(
+        Category.name == 'Tiết kiệm',
+        Category.type == TransactionType.EXPENSE,
+    ).all()]
+
+    _base_exp = [
         extract('month', Transaction.date) == current_month,
         extract('year',  Transaction.date) == current_year,
         Transaction.type == TransactionType.EXPENSE,
         Transaction.is_savings_related == False,
+    ]
+
+    # All non-savings expense — used for category breakdown percentages only
+    monthly_expense = db.query(func.sum(Transaction.amount)).filter(*_base_exp).scalar() or 0
+
+    # Living expense for Savings Rate (excludes Bất động sản + Tiết kiệm)
+    living_expense = db.query(func.sum(Transaction.amount)).filter(
+        *_base_exp,
+        ~Transaction.category_id.in_(_excl_rate) if _excl_rate else True,
+    ).scalar() or 0
+
+    # Net expense for Net Cash (excludes Tiết kiệm only)
+    net_expense = db.query(func.sum(Transaction.amount)).filter(
+        *_base_exp,
+        ~Transaction.category_id.in_(_excl_cash) if _excl_cash else True,
     ).scalar() or 0
 
     monthly_savings = db.query(func.sum(Transaction.amount)).filter(
@@ -41,7 +66,7 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
     ).scalar() or 0
 
     savings_rate = round(
-        (monthly_income - monthly_expense) / monthly_income * 100, 1
+        (monthly_income - living_expense) / monthly_income * 100, 1
     ) if monthly_income > 0 else 0
 
     # ── Static / current-state figures ────────────────────────────────────
@@ -144,9 +169,9 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
     return {
         "summary": {
             "total_income":          monthly_income,
-            "total_expense":         monthly_expense,
+            "total_expense":         net_expense,
             "total_savings_expense": monthly_savings,
-            "net_this_month":        monthly_income - monthly_expense - monthly_savings,
+            "net_this_month":        monthly_income - net_expense - monthly_savings,
             "savings_rate":          savings_rate,
             "net_worth":             net_worth,
             "cash_on_hand":          cash_on_hand,
