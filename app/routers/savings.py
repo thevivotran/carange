@@ -54,8 +54,13 @@ def update_savings_bundle(bundle_id: int, bundle_update: SavingsBundleUpdate, db
     if not db_bundle:
         raise HTTPException(status_code=404, detail="Savings bundle not found")
     
-    # Update fields
     update_data = bundle_update.model_dump(exclude_unset=True)
+
+    if "linked_project_id" in update_data and update_data["linked_project_id"] is not None:
+        project = db.query(FinancialProject).filter(FinancialProject.id == update_data["linked_project_id"]).first()
+        if not project:
+            raise HTTPException(status_code=404, detail="Linked project not found")
+
     for key, value in update_data.items():
         setattr(db_bundle, key, value)
     

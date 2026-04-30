@@ -35,9 +35,16 @@ def get_categories(
 
 @router.get("/{category_id}", response_model=CategorySchema)
 def get_category(category_id: int, db: Session = Depends(get_db)):
-    category = db.query(Category).filter(Category.id == category_id).first()
-    if not category:
+    result = db.query(
+        Category,
+        func.count(Transaction.id).label('tx_count'),
+    ).outerjoin(
+        Transaction, Transaction.category_id == Category.id
+    ).filter(Category.id == category_id).group_by(Category.id).first()
+    if not result:
         raise HTTPException(status_code=404, detail="Category not found")
+    category, count = result
+    category.transaction_count = count
     return category
 
 @router.post("/", response_model=CategorySchema)

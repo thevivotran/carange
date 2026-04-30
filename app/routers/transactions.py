@@ -108,9 +108,15 @@ def update_transaction(transaction_id: int, transaction: TransactionUpdate, db: 
     
     # Update only fields that are provided (not None)
     update_data = transaction.model_dump(exclude_unset=True)
+
+    if "category_id" in update_data:
+        category = db.query(Category).filter(Category.id == update_data["category_id"]).first()
+        if not category:
+            raise HTTPException(status_code=404, detail="Category not found")
+
     for key, value in update_data.items():
         setattr(db_transaction, key, value)
-    
+
     db.commit()
     db.refresh(db_transaction)
     return db_transaction

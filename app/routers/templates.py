@@ -53,10 +53,16 @@ def update_template(template_id: int, template: TransactionTemplateUpdate, db: S
     if not db_template:
         raise HTTPException(status_code=404, detail="Template not found")
     
-    # Update fields
-    for key, value in template.model_dump(exclude_unset=True).items():
+    update_data = template.model_dump(exclude_unset=True)
+
+    if "category_id" in update_data:
+        category = db.query(Category).filter(Category.id == update_data["category_id"]).first()
+        if not category:
+            raise HTTPException(status_code=404, detail="Category not found")
+
+    for key, value in update_data.items():
         setattr(db_template, key, value)
-    
+
     db.commit()
     db.refresh(db_template)
     return db_template

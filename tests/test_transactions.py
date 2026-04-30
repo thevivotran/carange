@@ -128,6 +128,13 @@ def test_delete_nonexistent_transaction_returns_404(client):
     assert client.delete("/api/transactions/999999").status_code == 404
 
 
+def test_update_transaction_with_nonexistent_category_returns_404(client, cat_ids):
+    tx_id = _make_tx(client, date_str="2026-04-01", amount=500,
+                     type_="expense", category_id=cat_ids["expense"]).json()["id"]
+    r = client.put(f"/api/transactions/{tx_id}", json={"category_id": 999999})
+    assert r.status_code == 404
+
+
 # ── Keyword search ───────────────────────────────────────────────────────────
 
 def test_search_by_description(client, cat_ids):

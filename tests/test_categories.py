@@ -67,3 +67,20 @@ def test_delete_category(client):
 def test_delete_nonexistent_category_returns_404(client):
     r = client.delete("/api/categories/99999")
     assert r.status_code == 404
+
+
+def test_get_single_category_has_correct_transaction_count(client, db_session):
+    """Single category GET must return accurate transaction_count (not always 0)."""
+    from app.models.database import Category as CatModel, Transaction as TxModel, TransactionType
+    cat = CatModel(name="TxCount", type=TransactionType.EXPENSE, color="#000", icon="x")
+    db_session.add(cat)
+    db_session.commit()
+    db_session.refresh(cat)
+    from datetime import date
+    tx = TxModel(date=date(2026, 4, 1), amount=100, type=TransactionType.EXPENSE, category_id=cat.id)
+    db_session.add(tx)
+    db_session.commit()
+
+    r = client.get(f"/api/categories/{cat.id}")
+    assert r.status_code == 200
+    assert r.json()["transaction_count"] == 1
