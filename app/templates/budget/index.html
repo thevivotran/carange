@@ -1,0 +1,349 @@
+{% extends "base.html" %}
+{% block title %}Budget — Carange{% endblock %}
+
+{% block content %}
+<div class="p-6 max-w-5xl mx-auto">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+    <div class="flex items-center gap-3">
+      <button onclick="prevMonth()" class="p-2 rounded-lg hover:bg-gray-100 transition text-gray-600"><i class="fas fa-chevron-left"></i></button>
+      <h1 class="text-2xl font-bold text-gray-800" id="month-label"></h1>
+      <button onclick="nextMonth()" class="p-2 rounded-lg hover:bg-gray-100 transition text-gray-600"><i class="fas fa-chevron-right"></i></button>
+    </div>
+    <div class="flex gap-2">
+      <button onclick="openAddModal()" class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm">
+        <i class="fas fa-plus text-xs"></i> Add Category
+      </button>
+      <button onclick="openEditModal()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition text-sm">
+        <i class="fas fa-sliders-h text-xs"></i> Edit Budgets
+      </button>
+    </div>
+  </div>
+
+  <!-- Summary bar -->
+  <div id="summary-card" class="bg-white rounded-2xl shadow-sm border p-5 mb-6 hidden">
+    <div class="flex flex-wrap gap-6 mb-3 text-sm">
+      <div><span class="text-gray-400">Total budgeted</span><br><span class="text-xl font-bold text-gray-800" id="sum-budget">—</span></div>
+      <div><span class="text-gray-400">Spent this month</span><br><span class="text-xl font-bold text-red-500" id="sum-spent">—</span></div>
+      <div><span class="text-gray-400">Available balance</span><br><span class="text-xl font-bold text-green-600" id="sum-balance">—</span></div>
+    </div>
+    <div class="w-full bg-gray-100 rounded-full h-3">
+      <div id="summary-bar" class="h-3 rounded-full transition-all duration-500 bg-primary" style="width:0%"></div>
+    </div>
+    <div class="text-right text-xs text-gray-400 mt-1" id="summary-pct"></div>
+  </div>
+
+  <!-- Category rows -->
+  <div id="rows-container" class="space-y-3"></div>
+  <div id="empty-state" class="hidden text-center py-20 text-gray-400">
+    <i class="fas fa-wallet text-5xl mb-4 opacity-30"></i>
+    <p class="text-lg">No budget set for this month.</p>
+    <button onclick="openAddModal()" class="mt-3 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-blue-700 transition">Add first category</button>
+  </div>
+
+</div>
+
+<!-- ── Edit budgets modal ── -->
+<div id="edit-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[85vh] flex flex-col">
+    <div class="px-6 py-4 border-b flex items-center justify-between">
+      <h3 class="font-bold text-gray-800">Edit Budgets</h3>
+      <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+    </div>
+    <div id="edit-form" class="flex-1 overflow-y-auto px-6 py-4 space-y-3"></div>
+    <div class="px-6 py-4 border-t flex gap-3">
+      <button onclick="closeEditModal()" class="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50 transition text-sm">Cancel</button>
+      <button onclick="saveEdits()" class="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition text-sm">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Add category modal ── -->
+<div id="add-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+    <div class="px-6 py-4 border-b flex items-center justify-between">
+      <h3 class="font-bold text-gray-800">Add Category to Budget</h3>
+      <button onclick="closeAddModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="px-6 py-4 space-y-4">
+      <div>
+        <label class="text-sm font-medium text-gray-700 mb-1 block">Category</label>
+        <select id="add-cat-select" class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+          <option value="">Select category…</option>
+        </select>
+      </div>
+      <div>
+        <label class="text-sm font-medium text-gray-700 mb-1 block">Monthly Budget (VND)</label>
+        <input id="add-amount" type="number" min="0" step="10000" placeholder="0"
+          class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+      </div>
+    </div>
+    <div class="px-6 py-4 border-t flex gap-3">
+      <button onclick="closeAddModal()" class="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50 transition text-sm">Cancel</button>
+      <button onclick="confirmAdd()" class="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition text-sm">Add</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.cat-card { background: white; border-radius: 1rem; border: 1px solid #e5e7eb; padding: 1rem 1.25rem; transition: box-shadow 0.15s; }
+.cat-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+.progress-bg { background: #f3f4f6; border-radius: 999px; height: 8px; }
+.progress-bar { height: 8px; border-radius: 999px; transition: width 0.5s; }
+</style>
+
+<script>
+const BASELINE = "2026-05";
+let currentYM = getCurrentYM();
+let rows = [];
+
+function getCurrentYM() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+}
+
+function fmtMonth(ym) {
+    const [y, m] = ym.split('-');
+    const names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    return `${names[parseInt(m)-1]} ${y}`;
+}
+
+function fmtVND(n) {
+    if (Math.abs(n) >= 1_000_000) return (n/1_000_000).toFixed(1).replace(/\.0$/,'') + 'M';
+    if (Math.abs(n) >= 1_000) return (n/1_000).toFixed(0) + 'K';
+    return n.toLocaleString();
+}
+
+function fmtVNDFull(n) { return n.toLocaleString('vi-VN') + ' ₫'; }
+
+function addMonths(ym, delta) {
+    let [y, m] = ym.split('-').map(Number);
+    m += delta;
+    while (m > 12) { m -= 12; y++; }
+    while (m < 1)  { m += 12; y--; }
+    return `${y}-${String(m).padStart(2,'0')}`;
+}
+
+function prevMonth() { currentYM = addMonths(currentYM, -1); load(); }
+function nextMonth() { currentYM = addMonths(currentYM,  1); load(); }
+
+function barColor(pct, balance) {
+    if (balance < 0) return '#ef4444';
+    if (pct >= 95)   return '#ef4444';
+    if (pct >= 75)   return '#f59e0b';
+    return '#22c55e';
+}
+
+async function load() {
+    document.getElementById('month-label').textContent = fmtMonth(currentYM);
+    const res = await fetch(`/api/budget/${currentYM}/rows`);
+    rows = await res.json();
+    renderRows();
+}
+
+function renderRows() {
+    const container = document.getElementById('rows-container');
+    const empty     = document.getElementById('empty-state');
+    const summary   = document.getElementById('summary-card');
+    container.replaceChildren();
+
+    if (rows.length === 0) {
+        empty.classList.remove('hidden');
+        summary.classList.add('hidden');
+        return;
+    }
+    empty.classList.add('hidden');
+    summary.classList.remove('hidden');
+
+    let totalBudget = 0, totalSpent = 0, totalBalance = 0;
+
+    rows.forEach(r => {
+        totalBudget  += r.monthly_allocation;
+        totalSpent   += r.this_month_spent;
+        totalBalance += r.available_balance;
+
+        const pct   = Math.min(r.usage_pct, 100);
+        const color = barColor(r.usage_pct, r.available_balance);
+        const rollover = r.cumulative_allocated - r.monthly_allocation - (r.cumulative_spent - r.this_month_spent);
+
+        const card = document.createElement('div');
+        card.className = 'cat-card';
+
+        // Top row: dot + name + badge + amounts
+        const topRow = document.createElement('div');
+        topRow.className = 'flex items-center justify-between mb-2 gap-2';
+
+        const left = document.createElement('div');
+        left.className = 'flex items-center gap-2 min-w-0';
+
+        const dot = document.createElement('span');
+        dot.className = 'w-3 h-3 rounded-full flex-shrink-0';
+        dot.style.background = r.category_color;
+
+        const name = document.createElement('span');
+        name.className = 'font-semibold text-gray-800 text-sm truncate';
+        name.textContent = r.category_name;
+
+        left.appendChild(dot);
+        left.appendChild(name);
+
+        // rollover badge
+        if (Math.abs(rollover) >= 1000) {
+            const badge = document.createElement('span');
+            badge.className = `text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${rollover >= 0 ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-500'}`;
+            badge.textContent = (rollover >= 0 ? '+' : '') + fmtVND(rollover) + ' rollover';
+            left.appendChild(badge);
+        }
+
+        const right = document.createElement('div');
+        right.className = 'flex items-center gap-4 text-sm flex-shrink-0';
+
+        const spentEl = document.createElement('span');
+        spentEl.className = 'text-gray-500';
+        spentEl.textContent = fmtVND(r.this_month_spent) + ' spent';
+
+        const balEl = document.createElement('span');
+        balEl.className = `font-bold ${r.available_balance >= 0 ? 'text-green-600' : 'text-red-500'}`;
+        balEl.textContent = (r.available_balance >= 0 ? '' : '-') + fmtVND(Math.abs(r.available_balance)) + ' left';
+
+        right.appendChild(spentEl);
+        right.appendChild(balEl);
+        topRow.appendChild(left);
+        topRow.appendChild(right);
+
+        // Progress bar
+        const progressBg = document.createElement('div');
+        progressBg.className = 'progress-bg';
+        const bar = document.createElement('div');
+        bar.className = 'progress-bar';
+        bar.style.width = pct + '%';
+        bar.style.background = color;
+        progressBg.appendChild(bar);
+
+        // Bottom row: allocation + pct
+        const bottomRow = document.createElement('div');
+        bottomRow.className = 'flex justify-between text-xs text-gray-400 mt-1';
+        const allocEl = document.createElement('span');
+        allocEl.textContent = fmtVND(r.monthly_allocation) + '/month';
+        const pctEl = document.createElement('span');
+        pctEl.textContent = r.usage_pct.toFixed(0) + '%';
+        pctEl.style.color = color;
+        bottomRow.appendChild(allocEl);
+        bottomRow.appendChild(pctEl);
+
+        card.appendChild(topRow);
+        card.appendChild(progressBg);
+        card.appendChild(bottomRow);
+        container.appendChild(card);
+    });
+
+    // Summary
+    const spentPct = totalBudget > 0 ? Math.min(totalSpent / totalBudget * 100, 100) : 0;
+    document.getElementById('sum-budget').textContent  = fmtVNDFull(totalBudget);
+    document.getElementById('sum-spent').textContent   = fmtVNDFull(totalSpent);
+    document.getElementById('sum-balance').textContent = fmtVNDFull(totalBalance);
+    document.getElementById('summary-bar').style.width = spentPct + '%';
+    document.getElementById('summary-bar').style.background = barColor(spentPct, totalBalance);
+    document.getElementById('summary-pct').textContent = spentPct.toFixed(1) + '% of monthly budgets used';
+}
+
+// ── Edit modal ─────────────────────────────────────────────────────────────
+function openEditModal() {
+    const form = document.getElementById('edit-form');
+    form.replaceChildren();
+    rows.forEach(r => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center gap-3';
+
+        const dot = document.createElement('span');
+        dot.className = 'w-3 h-3 rounded-full flex-shrink-0';
+        dot.style.background = r.category_color;
+
+        const label = document.createElement('span');
+        label.className = 'text-sm text-gray-700 flex-1';
+        label.textContent = r.category_name;
+
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = '0';
+        input.step = '10000';
+        input.value = r.monthly_allocation;
+        input.dataset.catId = r.category_id;
+        input.dataset.allocId = r.allocation_id || '';
+        input.className = 'w-36 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary text-right';
+
+        row.appendChild(dot);
+        row.appendChild(label);
+        row.appendChild(input);
+        form.appendChild(row);
+    });
+    document.getElementById('edit-modal').classList.remove('hidden');
+}
+
+function closeEditModal() { document.getElementById('edit-modal').classList.add('hidden'); }
+
+async function saveEdits() {
+    const inputs = document.querySelectorAll('#edit-form input');
+    const promises = [];
+    inputs.forEach(inp => {
+        const newAmt = parseFloat(inp.value);
+        const catId  = parseInt(inp.dataset.catId);
+        const origAmt = rows.find(r => r.category_id === catId)?.monthly_allocation;
+        if (isNaN(newAmt) || newAmt === origAmt) return;
+        promises.push(
+            fetch('/api/budget/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ category_id: catId, year_month: currentYM, amount: newAmt })
+            })
+        );
+    });
+    await Promise.all(promises);
+    closeEditModal();
+    load();
+    showToast('Budgets updated', 'success');
+}
+
+// ── Add modal ──────────────────────────────────────────────────────────────
+async function openAddModal() {
+    const res = await fetch(`/api/budget/categories/unbudgeted/${currentYM}`);
+    const cats = await res.json();
+    const sel = document.getElementById('add-cat-select');
+    sel.replaceChildren();
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Select category…';
+    sel.appendChild(placeholder);
+    cats.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = c.name;
+        sel.appendChild(opt);
+    });
+    document.getElementById('add-amount').value = '';
+    document.getElementById('add-modal').classList.remove('hidden');
+}
+
+function closeAddModal() { document.getElementById('add-modal').classList.add('hidden'); }
+
+async function confirmAdd() {
+    const catId = parseInt(document.getElementById('add-cat-select').value);
+    const amt   = parseFloat(document.getElementById('add-amount').value);
+    if (!catId) { showToast('Select a category', 'error'); return; }
+    if (!amt || amt <= 0) { showToast('Enter a valid amount', 'error'); return; }
+    const res = await fetch('/api/budget/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category_id: catId, year_month: currentYM, amount: amt })
+    });
+    if (res.ok) {
+        closeAddModal();
+        load();
+        showToast('Category added to budget', 'success');
+    }
+}
+
+load();
+</script>
+{% endblock %}

@@ -392,3 +392,35 @@ class Note(NoteBase):
 
     class Config:
         from_attributes = True
+
+# Budget Schemas
+class BudgetAllocationCreate(BaseModel):
+    category_id: int
+    year_month: str   # "2026-05"
+    amount: float = Field(gt=0)
+
+class BudgetAllocationUpdate(BaseModel):
+    amount: float = Field(gt=0)
+
+class BudgetAllocationRecord(BaseModel):
+    id: int
+    category_id: int
+    year_month: str
+    amount: float
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class BudgetCategoryRow(BaseModel):
+    category_id: int
+    category_name: str
+    category_color: str
+    monthly_allocation: float     # amount set for this specific month
+    cumulative_allocated: float   # sum of all allocations up to this month
+    cumulative_spent: float       # sum of all spending since 2026-05-01 up to end of month
+    this_month_spent: float
+    available_balance: float      # cumulative_allocated - cumulative_spent
+    usage_pct: float              # this_month_spent / monthly_allocation * 100
+    allocation_id: Optional[int]  # None if inherited

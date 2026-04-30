@@ -94,6 +94,13 @@
                     <span>Financial Projects</span>
                 </a>
 
+                <div class="px-6 py-2 mt-4 text-xs font-semibold text-gray-400 uppercase">Budget</div>
+
+                <a href="/budget" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'budget' %}active font-semibold{% endif %}">
+                    <i class="fas fa-wallet w-6"></i>
+                    <span>Budget Allocate</span>
+                </a>
+
                 <div class="px-6 py-2 mt-4 text-xs font-semibold text-gray-400 uppercase">Notes</div>
 
                 <a href="/notes" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'notes' %}active font-semibold{% endif %}">
@@ -149,6 +156,9 @@
                     </a>
                     <a href="/projects" class="block px-6 py-3 text-gray-700 hover:bg-gray-100 {% if active_menu == 'projects' %}bg-blue-50 text-primary font-semibold{% endif %}">
                         <i class="fas fa-bullseye w-6"></i>Projects
+                    </a>
+                    <a href="/budget" class="block px-6 py-3 text-gray-700 hover:bg-gray-100 {% if active_menu == 'budget' %}bg-blue-50 text-primary font-semibold{% endif %}">
+                        <i class="fas fa-wallet w-6"></i>Budget
                     </a>
                     <a href="/notes" class="block px-6 py-3 text-gray-700 hover:bg-gray-100 {% if active_menu == 'notes' %}bg-blue-50 text-primary font-semibold{% endif %}">
                         <i class="fas fa-sticky-note w-6"></i>Notes

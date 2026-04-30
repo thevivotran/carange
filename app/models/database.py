@@ -204,6 +204,22 @@ class TransactionTemplate(Base):
     
     category = relationship("Category")
 
+class BudgetAllocation(Base):
+    __tablename__ = "budget_allocations"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
+    year_month  = Column(String(7), nullable=False)   # "2026-05"
+    amount      = Column(Float, nullable=False)
+    created_at  = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at  = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    category = relationship("Category")
+
+    __table_args__ = (
+        __import__("sqlalchemy").UniqueConstraint("category_id", "year_month", name="uq_budget_category_month"),
+    )
+
 class Note(Base):
     __tablename__ = "notes"
 
