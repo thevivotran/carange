@@ -1,441 +1,517 @@
 {% extends "base.html" %}
+{% block title %}Dashboard — Carange{% endblock %}
 
 {% block content %}
 <div class="p-6 max-w-7xl mx-auto">
-    <!-- Page Header -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-        <div>
-            <h2 class="text-3xl font-bold text-gray-800">Dashboard</h2>
-            <p class="text-gray-600 mt-1">Overview of your family finances</p>
-        </div>
-        <!-- Month selector (#13) -->
-        <div class="flex items-center gap-2 bg-white rounded-lg shadow-sm px-4 py-2">
-            <button onclick="shiftMonth(-1)" class="text-gray-500 hover:text-gray-800 px-1">&#8249;</button>
-            <select id="sel-month" onchange="updateDashboard()" class="border-none focus:ring-0 text-sm font-medium text-gray-700">
-                <option value="1">January</option><option value="2">February</option>
-                <option value="3">March</option><option value="4">April</option>
-                <option value="5">May</option><option value="6">June</option>
-                <option value="7">July</option><option value="8">August</option>
-                <option value="9">September</option><option value="10">October</option>
-                <option value="11">November</option><option value="12">December</option>
-            </select>
-            <select id="sel-year" onchange="updateDashboard()" class="border-none focus:ring-0 text-sm font-medium text-gray-700">
-            </select>
-            <button onclick="shiftMonth(1)" class="text-gray-500 hover:text-gray-800 px-1">&#8250;</button>
-        </div>
+
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
+    <div>
+      <h2 class="text-2xl font-bold text-gray-800">Financial Health</h2>
+      <p class="text-sm text-gray-400">as of {{ today.strftime('%d %B %Y') }}</p>
     </div>
-    
-    <!-- Row 1: Monthly Cash Flow -->
-    <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Monthly Cash Flow</p>
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <!-- Income -->
-        <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-green-500">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs text-gray-500 mb-1">Income</p>
-                    <p id="card-income" class="text-xl font-bold text-gray-800">{{ "{:,.0f}".format(summary.total_income) }} ₫</p>
-                </div>
-                <div class="hidden lg:block bg-green-100 p-2 rounded-full"><i class="fas fa-arrow-down text-green-600"></i></div>
-            </div>
+    <div class="flex items-center gap-1 bg-white rounded-xl shadow-sm border px-3 py-2">
+      <button onclick="shiftMonth(-1)" class="px-2 py-1 text-gray-400 hover:text-gray-700">&#8249;</button>
+      <select id="sel-month" onchange="updateDashboard()" class="border-none focus:ring-0 text-sm font-medium text-gray-700 bg-transparent">
+        <option value="1">January</option><option value="2">February</option>
+        <option value="3">March</option><option value="4">April</option>
+        <option value="5">May</option><option value="6">June</option>
+        <option value="7">July</option><option value="8">August</option>
+        <option value="9">September</option><option value="10">October</option>
+        <option value="11">November</option><option value="12">December</option>
+      </select>
+      <select id="sel-year" onchange="updateDashboard()" class="border-none focus:ring-0 text-sm font-medium text-gray-700 bg-transparent"></select>
+      <button onclick="shiftMonth(1)" class="px-2 py-1 text-gray-400 hover:text-gray-700">&#8250;</button>
+    </div>
+  </div>
+
+  <!-- ── Row 1: KPI Cards ─────────────────────────────────────────────── -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+
+    <!-- Savings Rate -->
+    <div class="bg-white rounded-2xl shadow-sm border p-5">
+      <p class="text-xs text-gray-400 uppercase tracking-widest mb-2">Savings Rate</p>
+      <p id="kpi-savings-rate" class="text-3xl font-bold
+        {% if summary.savings_rate >= 58 %}text-green-600
+        {% elif summary.savings_rate >= 50 %}text-yellow-500
+        {% else %}text-red-500{% endif %}">
+        {{ summary.savings_rate }}%
+      </p>
+      <div class="mt-2 w-full bg-gray-100 rounded-full h-1.5">
+        <div id="kpi-rate-bar" class="h-1.5 rounded-full transition-all duration-500"
+          style="width: {{ [summary.savings_rate, 100]|min }}%;
+                 background: {% if summary.savings_rate >= 58 %}#22c55e{% elif summary.savings_rate >= 50 %}#f59e0b{% else %}#ef4444{% endif %}">
         </div>
-        <!-- Expenses -->
-        <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-red-500">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs text-gray-500 mb-1">Expenses</p>
-                    <p id="card-expense" class="text-xl font-bold text-gray-800">{{ "{:,.0f}".format(summary.total_expense) }} ₫</p>
-                </div>
-                <div class="hidden lg:block bg-red-100 p-2 rounded-full"><i class="fas fa-arrow-up text-red-600"></i></div>
-            </div>
-        </div>
-        <!-- Savings Deposited -->
-        <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-indigo-500">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs text-gray-500 mb-1">Savings Deposited</p>
-                    <p id="card-savings" class="text-xl font-bold text-gray-800">{{ "{:,.0f}".format(summary.total_savings_expense) }} ₫</p>
-                </div>
-                <div class="hidden lg:block bg-indigo-100 p-2 rounded-full"><i class="fas fa-piggy-bank text-indigo-600"></i></div>
-            </div>
-        </div>
-        <!-- Net This Month -->
-        <div class="bg-white rounded-xl shadow-md p-5 border-l-4 {% if summary.net_this_month >= 0 %}border-emerald-400{% else %}border-orange-400{% endif %}">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs text-gray-500 mb-1">Net This Month</p>
-                    <p id="card-net-month" class="text-xl font-bold {% if summary.net_this_month >= 0 %}text-emerald-600{% else %}text-orange-600{% endif %}">
-                        {{ "{:+,.0f}".format(summary.net_this_month) }} ₫
-                    </p>
-                    <p class="text-xs text-gray-400">After savings</p>
-                </div>
-                <div class="hidden lg:block {% if summary.net_this_month >= 0 %}bg-emerald-100{% else %}bg-orange-100{% endif %} p-2 rounded-full">
-                    <i class="fas {% if summary.net_this_month >= 0 %}fa-thumbs-up text-emerald-600{% else %}fa-exclamation text-orange-600{% endif %}"></i>
-                </div>
-            </div>
-        </div>
+      </div>
+      <div class="mt-2 flex items-center justify-between">
+        <span class="text-xs text-gray-400">Target: ≥ 58%</span>
+        <span id="kpi-rate-badge" class="text-xs px-2 py-0.5 rounded-full
+          {% if summary.savings_rate >= 58 %}bg-green-100 text-green-700
+          {% elif summary.savings_rate >= 50 %}bg-yellow-100 text-yellow-700
+          {% else %}bg-red-100 text-red-700{% endif %}">
+          {% if summary.savings_rate >= 58 %}On track{% elif summary.savings_rate >= 50 %}Close{% else %}Below target{% endif %}
+        </span>
+      </div>
     </div>
 
-    <!-- Row 2: Wealth Snapshot -->
-    <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Wealth Snapshot</p>
-    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <!-- Cash on Hand -->
-        <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-blue-500">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs text-gray-500 mb-1">Cash on Hand</p>
-                    <p id="card-cash" class="text-xl font-bold {{ 'text-green-600' if summary.cash_on_hand >= 0 else 'text-red-600' }}">
-                        {{ "{:,.0f}".format(summary.cash_on_hand) }} ₫
-                    </p>
-                    <p class="text-xs text-gray-400">All-time liquid</p>
-                </div>
-                <div class="hidden lg:block bg-blue-100 p-2 rounded-full"><i class="fas fa-wallet text-blue-600"></i></div>
-            </div>
-        </div>
-        <!-- Active Savings -->
-        <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-purple-500">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs text-gray-500 mb-1">Active Savings</p>
-                    <p id="card-future-savings" class="text-xl font-bold text-gray-800">{{ "{:,.0f}".format(summary.total_savings) }} ₫</p>
-                    <p id="card-deposited" class="text-xs text-gray-400">Dep: {{ "{:,.0f}".format(summary.total_savings_initial) }} ₫</p>
-                </div>
-                <div class="hidden lg:block bg-purple-100 p-2 rounded-full"><i class="fas fa-chart-line text-purple-600"></i></div>
-            </div>
-        </div>
-        <!-- Other Assets -->
-        <div class="bg-white rounded-xl shadow-md p-5 border-l-4 border-amber-500">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs text-gray-500 mb-1">Other Assets
-                        {% if summary.total_assets_count > 0 %}
-                        <span class="ml-1 px-1.5 py-0.5 bg-amber-100 text-amber-700 rounded text-xs">{{ summary.total_assets_count }}</span>
-                        {% endif %}
-                    </p>
-                    <p id="card-assets-value" class="text-xl font-bold text-gray-800">{{ "{:,.0f}".format(summary.total_assets_current) }} ₫</p>
-                    {% set assets_gl = summary.total_assets_current - summary.total_assets_purchase %}
-                    <p id="card-assets-sub" class="text-xs {% if assets_gl >= 0 %}text-green-600{% else %}text-red-500{% endif %}">
-                        {% if summary.total_assets_purchase > 0 %}
-                        {{ '+' if assets_gl >= 0 else '' }}{{ "{:,.0f}".format(assets_gl) }} ₫ gain/loss
-                        {% else %}
-                        No assets yet
-                        {% endif %}
-                    </p>
-                </div>
-                <div class="hidden lg:block bg-amber-100 p-2 rounded-full"><i class="fas fa-coins text-amber-600"></i></div>
-            </div>
-        </div>
-        <!-- Net Worth (gradient, prominent) -->
-        <div class="bg-gradient-to-br from-teal-500 to-blue-600 rounded-xl shadow-md p-5 text-white">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-xs text-teal-100 mb-1">Total Net Worth</p>
-                    <p id="card-net-worth" class="text-xl font-bold">
-                        {{ "{:,.0f}".format(summary.cash_on_hand + summary.total_savings + summary.total_assets_current + summary.total_projects_paid) }} ₫
-                    </p>
-                    <p id="card-net-worth-sub" class="text-xs text-teal-200 mt-0.5">Cash · Savings · Assets · Projects</p>
-                </div>
-                <div class="hidden lg:block bg-white bg-opacity-20 p-2 rounded-full"><i class="fas fa-star text-white"></i></div>
-            </div>
-        </div>
+    <!-- Net Cash This Month -->
+    <div class="bg-white rounded-2xl shadow-sm border p-5">
+      <p class="text-xs text-gray-400 uppercase tracking-widest mb-2">Net Cash</p>
+      <p id="kpi-net-cash" class="text-2xl font-bold
+        {% if summary.net_this_month >= 0 %}text-green-600{% else %}text-red-500{% endif %}">
+        {{ "{:+,.0f}".format(summary.net_this_month) }} ₫
+      </p>
+      <p class="text-xs text-gray-400 mt-2">After expense &amp; savings</p>
+      <div class="mt-2 flex gap-3 text-xs text-gray-500">
+        <span id="kpi-income-sub">In: {{ "{:,.0f}".format(summary.total_income) }} ₫</span>
+        <span id="kpi-expense-sub">Out: {{ "{:,.0f}".format(summary.total_expense + summary.total_savings_expense) }} ₫</span>
+      </div>
     </div>
-    
-    <!-- Main Content Grid -->
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- Left Column (2/3) -->
-        <div class="lg:col-span-2 space-y-8">
-            <!-- Charts Section -->
-            <div class="bg-white rounded-xl shadow-md p-6">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4">Monthly Overview</h3>
-                <div style="height: 300px; position: relative;">
-                    <canvas id="monthlyChart"></canvas>
-                </div>
-            </div>
-            
-            <!-- Expense by Category -->
-            <div class="bg-white rounded-xl shadow-md p-6">
-                <h3 class="text-lg font-semibold text-gray-800 mb-4">Expense by Category</h3>
-                {% if expense_by_category %}
-                <div id="expense-by-category" class="space-y-4">
-                    {% for category in expense_by_category %}
-                    <div>
-                        <div class="flex justify-between items-center mb-2">
-                            <span class="text-sm font-medium text-gray-700">{{ category.name }}</span>
-                            <span class="text-sm text-gray-500">{{ "{:,.0f}".format(category.total) }} VND ({{ category.percentage }}%)</span>
-                        </div>
-                        <div class="w-full bg-gray-200 rounded-full h-2">
-                            <div class="h-2 rounded-full transition-all duration-300" 
-                                 style="width: {{ category.percentage }}%; background-color: {{ category.color }}"></div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <div id="expense-by-category">
-                    <p class="text-gray-500 text-center py-4">No expense data for this month</p>
-                </div>
-                {% endif %}
-            </div>
+
+    <!-- Net Worth -->
+    <div class="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-sm p-5 text-white">
+      <p class="text-xs text-blue-200 uppercase tracking-widest mb-2">Net Worth</p>
+      <p class="text-2xl font-bold leading-tight">
+        {% set nw = summary.net_worth %}
+        {% if nw >= 1_000_000_000 %}
+          {{ "%.2f"|format(nw / 1_000_000_000) }}B
+        {% else %}
+          {{ "{:,.0f}".format(nw) }}
+        {% endif %} ₫
+      </p>
+      <div class="mt-3 space-y-0.5 text-xs text-blue-200">
+        <div class="flex justify-between">
+          <span>Cash</span><span>{{ "{:,.0f}".format(summary.cash_on_hand) }} ₫</span>
         </div>
-        
-        <!-- Right Column (1/3) -->
-        <div class="space-y-8">
-            <!-- Recent Transactions -->
-            <div class="bg-white rounded-xl shadow-md p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-800">Recent Transactions</h3>
-                    <a href="/transactions" class="text-sm text-primary hover:underline">View All</a>
-                </div>
-                
-                {% if recent_transactions %}
-                <div class="space-y-3">
-                    {% for transaction in recent_transactions %}
-                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div class="flex items-center">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center mr-3 
-                                {{ 'bg-green-100 text-green-600' if transaction.type.value == 'income' else 'bg-red-100 text-red-600' }}">
-                                <i class="fas {{ 'fa-arrow-down' if transaction.type.value == 'income' else 'fa-arrow-up' }}"></i>
-                            </div>
-                            <div>
-                                <p class="text-sm font-medium text-gray-800">{{ transaction.description or transaction.category.name }}</p>
-                                <p class="text-xs text-gray-500">{{ transaction.date.strftime('%d/%m/%Y') if transaction.date else '-' }}</p>
-                            </div>
-                        </div>
-                        <span class="font-semibold {{ 'text-green-600' if transaction.type.value == 'income' else 'text-red-600' }}">
-                            {{ '+' if transaction.type.value == 'income' else '-' }}{{ "{:,.0f}".format(transaction.amount) }}
-                        </span>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p class="text-gray-500 text-center py-4">No recent transactions</p>
-                {% endif %}
-            </div>
-            
-            <!-- Upcoming Maturities -->
-            <div class="bg-white rounded-xl shadow-md p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-800">Upcoming Maturities</h3>
-                    <a href="/savings" class="text-sm text-primary hover:underline">View All</a>
-                </div>
-                
-                {% if upcoming_maturities %}
-                <div class="space-y-3">
-                    {% for savings in upcoming_maturities %}
-                    <div class="p-3 bg-gray-50 rounded-lg">
-                        <div class="flex justify-between items-start mb-2">
-                            <p class="text-sm font-medium text-gray-800">{{ savings.name }}</p>
-                            <span class="text-xs text-gray-500">{{ savings.bank_name }}</span>
-                        </div>
-                        <div class="flex justify-between items-center">
-                            <span class="text-xs text-gray-500">Matures: {{ savings.maturity_date.strftime('%d/%m/%Y') if savings.maturity_date else '-' }}</span>
-                            <span class="text-sm font-semibold text-primary">{{ "{:,.0f}".format(savings.future_amount) }} VND</span>
-                        </div>
-                    </div>
-                    {% endfor %}
-                </div>
-                {% else %}
-                <p class="text-gray-500 text-center py-4">No upcoming maturities</p>
-                {% endif %}
-            </div>
-            
-            <!-- Projects Summary -->
-            <div class="bg-white rounded-xl shadow-md p-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h3 class="text-lg font-semibold text-gray-800">Projects</h3>
-                    <a href="/projects" class="text-sm text-primary hover:underline">View All</a>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="text-center p-4 bg-blue-50 rounded-lg">
-                        <p class="text-2xl font-bold text-primary">{{ summary.active_projects }}</p>
-                        <p class="text-xs text-gray-600">Active</p>
-                    </div>
-                    <div class="text-center p-4 bg-green-50 rounded-lg">
-                        <p class="text-2xl font-bold text-green-600">{{ summary.completed_projects }}</p>
-                        <p class="text-xs text-gray-600">Completed</p>
-                    </div>
-                </div>
-            </div>
+        <div class="flex justify-between">
+          <span>Savings</span><span>{{ "{:,.0f}".format(summary.total_savings) }} ₫</span>
         </div>
+        <div class="flex justify-between">
+          <span>Assets</span><span>{{ "{:,.0f}".format(summary.total_assets_current) }} ₫</span>
+        </div>
+      </div>
     </div>
+
+    <!-- Budget Health -->
+    <div class="bg-white rounded-2xl shadow-sm border p-5">
+      <p class="text-xs text-gray-400 uppercase tracking-widest mb-2">Budget Health</p>
+      {% if summary.budget_adherence_pct is not none %}
+        {% set ok = summary.budget_total - summary.budget_over_count %}
+        <p class="text-3xl font-bold
+          {% if summary.budget_over_count == 0 %}text-green-600
+          {% elif summary.budget_over_count <= 2 %}text-yellow-500
+          {% else %}text-red-500{% endif %}">
+          {{ ok }}<span class="text-lg text-gray-400">/{{ summary.budget_total }}</span>
+        </p>
+        <p class="text-xs text-gray-400 mt-2">categories in control</p>
+        {% if summary.budget_over_count == 0 %}
+        <span class="mt-2 inline-block text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">All good</span>
+        {% else %}
+        <span class="mt-2 inline-block text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600">{{ summary.budget_over_count }} over budget</span>
+        {% endif %}
+      {% else %}
+        <p class="text-3xl font-bold text-gray-300">—</p>
+        <p class="text-xs text-gray-400 mt-2">No budget set</p>
+        <a href="/budget" class="mt-2 inline-block text-xs text-primary hover:underline">Set up →</a>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- ── Row 2: Chart + Budget Snapshot ───────────────────────────────── -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+    <!-- Cash Flow Chart -->
+    <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-semibold text-gray-800">Cash Flow — Last 6 Months</h3>
+        <span class="text-xs text-gray-400">― 50M target</span>
+      </div>
+      <div style="height: 260px; position: relative;">
+        <canvas id="cashFlowChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Budget Snapshot -->
+    <div class="bg-white rounded-2xl shadow-sm border p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-semibold text-gray-800">Budget Snapshot</h3>
+        <a href="/budget" class="text-xs text-primary hover:underline">View all</a>
+      </div>
+      {% if budget_top_cats %}
+      <div class="space-y-3">
+        {% for cat in budget_top_cats %}
+        <div>
+          <div class="flex justify-between items-center mb-0.5 text-xs">
+            <span class="flex items-center gap-1.5 min-w-0">
+              <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:{{ cat.category_color }}"></span>
+              <span class="text-gray-700 font-medium truncate">{{ cat.category_name }}</span>
+            </span>
+            <span class="ml-2 flex-shrink-0
+              {% if cat.available_balance < 0 %}text-red-500 font-semibold
+              {% elif cat.usage_pct >= 75 %}text-yellow-600
+              {% else %}text-gray-400{% endif %}">
+              {{ cat.usage_pct | int }}%
+            </span>
+          </div>
+          <div class="w-full bg-gray-100 rounded-full h-1.5">
+            <div class="h-1.5 rounded-full transition-all duration-500"
+              style="width: {{ [cat.usage_pct, 100]|min }}%;
+                     background: {% if cat.available_balance < 0 %}#ef4444{% elif cat.usage_pct >= 75 %}#f59e0b{% else %}#22c55e{% endif %}">
+            </div>
+          </div>
+          <div class="text-xs text-gray-400 mt-0.5 text-right">
+            {{ "{:,.0f}".format(cat.this_month_spent) }} / {{ "{:,.0f}".format(cat.monthly_allocation) }} ₫
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="text-center py-10">
+        <p class="text-sm text-gray-400 mb-3">No budget configured</p>
+        <a href="/budget" class="text-xs text-primary hover:underline">Set up budget →</a>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- ── Row 3: Alerts ─────────────────────────────────────────────────── -->
+  {% if alert_maturities or alert_over_budget %}
+  <div class="mb-6">
+    <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Alerts</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+      {% if alert_maturities %}
+      <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+        <div class="flex items-center gap-2 mb-3">
+          <i class="fas fa-clock text-amber-500"></i>
+          <span class="font-semibold text-amber-800 text-sm">Maturing within 30 days</span>
+        </div>
+        <div class="space-y-2">
+          {% for b in alert_maturities %}
+          {% set days = (b.maturity_date - today).days %}
+          <div class="flex justify-between items-center text-xs">
+            <span class="text-amber-800 font-medium truncate pr-2">{{ b.name }}</span>
+            <div class="text-right flex-shrink-0">
+              <span class="text-amber-700">{{ b.maturity_date.strftime('%d/%m') }}</span>
+              <span class="ml-1 text-amber-500">({{ days }}d)</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        <a href="/savings" class="mt-3 block text-xs text-amber-600 font-medium hover:underline">View savings →</a>
+      </div>
+      {% endif %}
+
+      {% if alert_over_budget %}
+      <div class="bg-red-50 border border-red-200 rounded-2xl p-4">
+        <div class="flex items-center gap-2 mb-3">
+          <i class="fas fa-exclamation-circle text-red-500"></i>
+          <span class="font-semibold text-red-800 text-sm">Over Budget</span>
+        </div>
+        <div class="space-y-2">
+          {% for cat in alert_over_budget %}
+          <div class="flex justify-between items-center text-xs">
+            <span class="text-red-800 font-medium">{{ cat.category_name }}</span>
+            <span class="text-red-600">{{ "{:,.0f}".format(cat.available_balance | abs) }} ₫ over</span>
+          </div>
+          {% endfor %}
+        </div>
+        <a href="/budget" class="mt-3 block text-xs text-red-600 font-medium hover:underline">Adjust budget →</a>
+      </div>
+      {% endif %}
+
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── Row 4: Projects + Savings ─────────────────────────────────────── -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+    <!-- Active Projects -->
+    <div class="bg-white rounded-2xl shadow-sm border p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-semibold text-gray-800">Active Projects</h3>
+        <a href="/projects" class="text-xs text-primary hover:underline">View all</a>
+      </div>
+      {% if active_projects_list %}
+      <div class="space-y-4">
+        {% for p in active_projects_list %}
+        {% set pct = (p.current_amount / p.target_amount * 100) if p.target_amount > 0 else 0 %}
+        {% set is_risk = p.id in at_risk_ids %}
+        <div>
+          <div class="flex justify-between items-start mb-1">
+            <div class="flex items-center gap-1.5 min-w-0">
+              {% if is_risk %}
+              <span class="w-2 h-2 rounded-full bg-red-400 flex-shrink-0 mt-0.5"></span>
+              {% else %}
+              <span class="w-2 h-2 rounded-full bg-gray-300 flex-shrink-0 mt-0.5"></span>
+              {% endif %}
+              <span class="text-sm font-medium text-gray-800 truncate">{{ p.name }}</span>
+            </div>
+            <span class="text-xs font-semibold ml-2 flex-shrink-0
+              {% if is_risk %}text-red-500{% elif pct >= 75 %}text-green-600{% else %}text-blue-500{% endif %}">
+              {{ pct | int }}%
+            </span>
+          </div>
+          <div class="w-full bg-gray-100 rounded-full h-2">
+            <div class="h-2 rounded-full transition-all duration-500
+              {% if is_risk %}bg-red-400{% elif pct >= 75 %}bg-green-500{% else %}bg-blue-400{% endif %}"
+              style="width: {{ [pct, 100]|min }}%"></div>
+          </div>
+          <div class="flex justify-between text-xs text-gray-400 mt-0.5">
+            <span>
+              {% if p.deadline %}Due {{ p.deadline.strftime('%d/%m/%Y') }}{% else %}No deadline{% endif %}
+            </span>
+            <span>Gap: {{ "{:,.0f}".format([p.target_amount - p.current_amount, 0]|max) }} ₫</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-sm text-gray-400 text-center py-8">No active projects</p>
+      {% endif %}
+    </div>
+
+    <!-- Upcoming Maturities -->
+    <div class="bg-white rounded-2xl shadow-sm border p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="font-semibold text-gray-800">Upcoming Maturities</h3>
+        <a href="/savings" class="text-xs text-primary hover:underline">View all</a>
+      </div>
+      {% if upcoming_maturities %}
+      <div class="space-y-3">
+        {% for s in upcoming_maturities %}
+        {% set days = (s.maturity_date - today).days if s.maturity_date else None %}
+        <div class="flex items-center justify-between p-3 rounded-xl
+          {% if days is not none and days <= 30 %}bg-amber-50 border border-amber-100{% else %}bg-gray-50{% endif %}">
+          <div class="min-w-0 pr-2">
+            <p class="text-sm font-medium text-gray-800 truncate">{{ s.name }}</p>
+            <p class="text-xs text-gray-500">
+              {{ s.bank_name }}
+              {% if s.maturity_date %}· {{ s.maturity_date.strftime('%d/%m/%Y') }}{% endif %}
+              {% if days is not none %}
+              <span class="{% if days <= 30 %}text-amber-600 font-semibold{% else %}text-gray-400{% endif %}">
+                ({{ days }}d)
+              </span>
+              {% endif %}
+            </p>
+          </div>
+          <span class="text-sm font-bold text-indigo-600 flex-shrink-0">{{ "{:,.0f}".format(s.future_amount) }} ₫</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-sm text-gray-400 text-center py-8">No upcoming maturities</p>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- ── Row 5: Recent Transactions ───────────────────────────────────── -->
+  <div class="bg-white rounded-2xl shadow-sm border p-6">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="font-semibold text-gray-800">Recent Transactions</h3>
+      <a href="/transactions" class="text-xs text-primary hover:underline">View all</a>
+    </div>
+    {% if recent_transactions %}
+    <div class="divide-y divide-gray-50">
+      {% for t in recent_transactions %}
+      <div class="flex items-center justify-between py-2.5">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0
+            {{ 'bg-green-100' if t.type.value == 'income' else 'bg-red-100' }}">
+            <i class="fas text-xs {{ 'fa-arrow-down text-green-600' if t.type.value == 'income' else 'fa-arrow-up text-red-500' }}"></i>
+          </div>
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-gray-800 truncate">{{ t.description or t.category.name }}</p>
+            <p class="text-xs text-gray-400">{{ t.date.strftime('%d/%m/%Y') }} · {{ t.category.name }}</p>
+          </div>
+        </div>
+        <span class="text-sm font-semibold ml-4 flex-shrink-0
+          {{ 'text-green-600' if t.type.value == 'income' else 'text-red-500' }}">
+          {{ '+' if t.type.value == 'income' else '-' }}{{ "{:,.0f}".format(t.amount) }} ₫
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-400 text-center py-8">No transactions yet</p>
+    {% endif %}
+  </div>
+
 </div>
 
 <script>
-    // --- Month selector (#13) ---
-    (function initMonthSelector() {
-        const today = new Date();
-        const curYear = today.getFullYear();
-        const curMonth = today.getMonth() + 1;
-        const selYear = document.getElementById('sel-year');
-        const selMonth = document.getElementById('sel-month');
-        for (let y = curYear - 3; y <= curYear + 1; y++) {
-            const opt = document.createElement('option');
-            opt.value = y;
-            opt.textContent = y;
-            if (y === curYear) opt.selected = true;
-            selYear.appendChild(opt);
-        }
-        selMonth.value = curMonth;
-    })();
-
-    function shiftMonth(delta) {
-        const selMonth = document.getElementById('sel-month');
-        const selYear = document.getElementById('sel-year');
-        let m = parseInt(selMonth.value) + delta;
-        let y = parseInt(selYear.value);
-        if (m < 1) { m = 12; y--; }
-        if (m > 12) { m = 1; y++; }
-        selMonth.value = m;
-        const yearOpts = Array.from(selYear.options).map(function(o) { return parseInt(o.value); });
-        if (!yearOpts.includes(y)) {
-            const opt = document.createElement('option');
-            opt.value = y;
-            opt.textContent = y;
-            if (y < yearOpts[0]) selYear.insertBefore(opt, selYear.firstChild);
-            else selYear.appendChild(opt);
-        }
-        selYear.value = y;
-        updateDashboard();
+// ── Month selector ──────────────────────────────────────────────────────────
+(function initMonthSelector() {
+    const today = new Date();
+    const curYear  = today.getFullYear();
+    const curMonth = today.getMonth() + 1;
+    const selYear  = document.getElementById('sel-year');
+    const selMonth = document.getElementById('sel-month');
+    for (let y = curYear - 3; y <= curYear + 1; y++) {
+        const opt = document.createElement('option');
+        opt.value = y;
+        opt.textContent = y;
+        if (y === curYear) opt.selected = true;
+        selYear.appendChild(opt);
     }
+    selMonth.value = curMonth;
+})();
 
-    function updateDashboard() {
-        const month = document.getElementById('sel-month').value;
-        const year = document.getElementById('sel-year').value;
-
-        fetch('/api/dashboard/summary?year=' + year + '&month=' + month)
-            .then(function(r) { return r.json(); })
-            .then(function(s) {
-                const fmt = function(v) { return new Intl.NumberFormat('vi-VN').format(Math.round(v)) + ' \u20ab'; };
-                const fmtSigned = function(v) { return (v >= 0 ? '+' : '') + new Intl.NumberFormat('vi-VN').format(Math.round(v)) + ' \u20ab'; };
-
-                // Row 1: monthly
-                document.getElementById('card-income').textContent = fmt(s.total_income_month);
-                document.getElementById('card-expense').textContent = fmt(s.total_expense_month);
-                document.getElementById('card-savings').textContent = fmt(s.total_savings_month);
-                const net = s.net_this_month;
-                const netEl = document.getElementById('card-net-month');
-                netEl.textContent = fmtSigned(net);
-                netEl.className = 'text-xl font-bold ' + (net >= 0 ? 'text-emerald-600' : 'text-orange-600');
-
-                // Row 2: wealth
-                const cash = s.cash_on_hand;
-                const cashEl = document.getElementById('card-cash');
-                cashEl.textContent = fmt(cash);
-                cashEl.className = 'text-xl font-bold ' + (cash >= 0 ? 'text-green-600' : 'text-red-600');
-
-                document.getElementById('card-future-savings').textContent = fmt(s.total_savings_active);
-                document.getElementById('card-deposited').textContent = 'Dep: ' + fmt(s.total_savings_target);
-
-                document.getElementById('card-assets-value').textContent = fmt(s.total_assets_current);
-                const gl = s.total_assets_current - s.total_assets_purchase;
-                const glEl = document.getElementById('card-assets-sub');
-                if (s.total_assets_purchase > 0) {
-                    glEl.textContent = fmtSigned(gl) + ' gain/loss';
-                    glEl.className = 'text-xs ' + (gl >= 0 ? 'text-green-600' : 'text-red-500');
-                } else {
-                    glEl.textContent = 'No assets yet';
-                    glEl.className = 'text-xs text-gray-400';
-                }
-
-                const netWorth = cash + s.total_savings_active + s.total_assets_current + (s.total_projects_paid || 0);
-                document.getElementById('card-net-worth').textContent = fmt(netWorth);
-            });
-
-        fetch('/api/dashboard/expense-by-category?year=' + year + '&month=' + month)
-            .then(function(r) { return r.json(); })
-            .then(function(cats) {
-                const container = document.getElementById('expense-by-category');
-                if (!container) return;
-                while (container.firstChild) container.removeChild(container.firstChild);
-                if (!cats.length) {
-                    const p = document.createElement('p');
-                    p.className = 'text-gray-500 text-center py-4';
-                    p.textContent = 'No expense data for this month';
-                    container.appendChild(p);
-                    return;
-                }
-                cats.forEach(function(cat) {
-                    const wrap = document.createElement('div');
-                    const header = document.createElement('div');
-                    header.className = 'flex justify-between items-center mb-2';
-                    const name = document.createElement('span');
-                    name.className = 'text-sm font-medium text-gray-700';
-                    name.textContent = cat.category_name;
-                    const val = document.createElement('span');
-                    val.className = 'text-sm text-gray-500';
-                    val.textContent = new Intl.NumberFormat('vi-VN').format(Math.round(cat.total)) + ' VND (' + cat.percentage + '%)';
-                    header.appendChild(name);
-                    header.appendChild(val);
-                    const track = document.createElement('div');
-                    track.className = 'w-full bg-gray-200 rounded-full h-2';
-                    const bar = document.createElement('div');
-                    bar.className = 'h-2 rounded-full transition-all duration-300';
-                    bar.style.width = cat.percentage + '%';
-                    bar.style.backgroundColor = cat.category_color;
-                    track.appendChild(bar);
-                    wrap.appendChild(header);
-                    wrap.appendChild(track);
-                    container.appendChild(wrap);
-                });
-            });
+function shiftMonth(delta) {
+    const selMonth = document.getElementById('sel-month');
+    const selYear  = document.getElementById('sel-year');
+    let m = parseInt(selMonth.value) + delta;
+    let y = parseInt(selYear.value);
+    if (m < 1)  { m = 12; y--; }
+    if (m > 12) { m = 1;  y++; }
+    selMonth.value = m;
+    const yearOpts = Array.from(selYear.options).map(o => parseInt(o.value));
+    if (!yearOpts.includes(y)) {
+        const opt = document.createElement('option');
+        opt.value = y; opt.textContent = y;
+        if (y < yearOpts[0]) selYear.insertBefore(opt, selYear.firstChild);
+        else selYear.appendChild(opt);
     }
+    selYear.value = y;
+    updateDashboard();
+}
 
-    // Load monthly trend data and render chart
-    fetch('/api/dashboard/monthly-trend')
-        .then(response => response.json())
-        .then(data => {
-            const ctx = document.getElementById('monthlyChart').getContext('2d');
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: data.map(d => d.month),
-                    datasets: [
-                        {
-                            label: 'Income',
-                            data: data.map(d => d.income),
-                            backgroundColor: 'rgba(16, 185, 129, 0.8)',
-                            borderColor: 'rgba(16, 185, 129, 1)',
-                            borderWidth: 1
-                        },
-                        {
-                            label: 'Expense',
-                            data: data.map(d => d.expense),
-                            backgroundColor: 'rgba(239, 68, 68, 0.8)',
-                            borderColor: 'rgba(239, 68, 68, 1)',
-                            borderWidth: 1
-                        },
-                        {
-                            label: 'Savings',
-                            data: data.map(d => d.savings),
-                            backgroundColor: 'rgba(99, 102, 241, 0.8)',
-                            borderColor: 'rgba(99, 102, 241, 1)',
-                            borderWidth: 1
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: function(value) {
-                                    return new Intl.NumberFormat('vi-VN', {
-                                        style: 'currency',
-                                        currency: 'VND',
-                                        maximumSignificantDigits: 3
-                                    }).format(value);
-                                }
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            position: 'bottom'
-                        }
-                    }
-                }
-            });
+// ── Helpers ─────────────────────────────────────────────────────────────────
+function fmtVND(v) { return new Intl.NumberFormat('vi-VN').format(Math.round(v)) + ' ₫'; }
+function fmtSigned(v) { return (v >= 0 ? '+' : '') + fmtVND(Math.abs(v)); }
+function fmtM(v) {
+    const abs = Math.abs(v);
+    if (abs >= 1e9) return (v / 1e9).toFixed(2) + 'B';
+    if (abs >= 1e6) return (v / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+    return new Intl.NumberFormat('vi-VN').format(Math.round(v));
+}
+
+// ── KPI update on month change ───────────────────────────────────────────────
+function updateDashboard() {
+    const month = document.getElementById('sel-month').value;
+    const year  = document.getElementById('sel-year').value;
+
+    fetch('/api/dashboard/summary?year=' + year + '&month=' + month)
+        .then(r => r.json())
+        .then(s => {
+            // Savings rate
+            const rate   = s.savings_rate;
+            const rateEl = document.getElementById('kpi-savings-rate');
+            rateEl.textContent = rate + '%';
+            rateEl.className   = 'text-3xl font-bold ' + (rate >= 58 ? 'text-green-600' : rate >= 50 ? 'text-yellow-500' : 'text-red-500');
+
+            const barEl = document.getElementById('kpi-rate-bar');
+            barEl.style.width      = Math.min(rate, 100) + '%';
+            barEl.style.background = rate >= 58 ? '#22c55e' : rate >= 50 ? '#f59e0b' : '#ef4444';
+
+            const badgeEl = document.getElementById('kpi-rate-badge');
+            if (rate >= 58) {
+                badgeEl.textContent  = 'On track';
+                badgeEl.className    = 'text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700';
+            } else if (rate >= 50) {
+                badgeEl.textContent  = 'Close';
+                badgeEl.className    = 'text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700';
+            } else {
+                badgeEl.textContent  = 'Below target';
+                badgeEl.className    = 'text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700';
+            }
+
+            // Net cash
+            const net   = s.net_this_month;
+            const netEl = document.getElementById('kpi-net-cash');
+            netEl.textContent = (net >= 0 ? '+' : '-') + fmtVND(Math.abs(net));
+            netEl.className   = 'text-2xl font-bold ' + (net >= 0 ? 'text-green-600' : 'text-red-500');
+
+            document.getElementById('kpi-income-sub').textContent  = 'In: '  + fmtM(s.total_income_month) + ' ₫';
+            document.getElementById('kpi-expense-sub').textContent = 'Out: ' + fmtM(s.total_expense_month + s.total_savings_month) + ' ₫';
         });
+}
+
+// ── Cash flow chart ─────────────────────────────────────────────────────────
+fetch('/api/dashboard/monthly-trend')
+    .then(r => r.json())
+    .then(all => {
+        const data = all.slice(-6);
+        const ctx  = document.getElementById('cashFlowChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.map(d => d.month),
+                datasets: [
+                    {
+                        label: 'Income',
+                        data: data.map(d => d.income),
+                        backgroundColor: 'rgba(34,197,94,0.75)',
+                        borderColor: '#16a34a',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                    },
+                    {
+                        label: 'Expense',
+                        data: data.map(d => d.expense),
+                        backgroundColor: 'rgba(239,68,68,0.75)',
+                        borderColor: '#dc2626',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                    },
+                    {
+                        label: 'Net Cash',
+                        type: 'line',
+                        data: data.map(d => d.net),
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59,130,246,0.08)',
+                        borderWidth: 2,
+                        tension: 0.35,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#3b82f6',
+                        fill: false,
+                        order: 0,
+                    },
+                    {
+                        label: 'Target (50M)',
+                        type: 'line',
+                        data: data.map(() => 50_000_000),
+                        borderColor: '#10b981',
+                        borderDash: [6, 4],
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        fill: false,
+                        order: 0,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0,0,0,0.04)' },
+                        ticks: {
+                            callback: v => fmtM(v),
+                            font: { size: 11 },
+                        },
+                    },
+                    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+                },
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { boxWidth: 12, font: { size: 11 }, padding: 16 },
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => ' ' + ctx.dataset.label + ': ' + fmtVND(ctx.raw),
+                        },
+                    },
+                },
+            },
+        });
+    });
 </script>
 {% endblock %}
