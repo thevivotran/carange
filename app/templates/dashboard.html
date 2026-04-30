@@ -30,7 +30,10 @@
 
     <!-- Savings Rate -->
     <div class="bg-white rounded-2xl shadow-sm border p-5">
-      <p class="text-xs text-gray-400 uppercase tracking-widest mb-2">Savings Rate</p>
+      <div class="flex justify-between items-center mb-2">
+        <p class="text-xs text-gray-400 uppercase tracking-widest">Savings Rate</p>
+        <button onclick="showKpiInfo('savings-rate', this)" class="text-gray-300 hover:text-gray-500 focus:outline-none"><i class="fas fa-info-circle text-xs"></i></button>
+      </div>
       <p id="kpi-savings-rate" class="text-3xl font-bold
         {% if summary.savings_rate >= 58 %}text-green-600
         {% elif summary.savings_rate >= 50 %}text-yellow-500
@@ -56,7 +59,10 @@
 
     <!-- Net Cash This Month -->
     <div class="bg-white rounded-2xl shadow-sm border p-5">
-      <p class="text-xs text-gray-400 uppercase tracking-widest mb-2">Net Cash</p>
+      <div class="flex justify-between items-center mb-2">
+        <p class="text-xs text-gray-400 uppercase tracking-widest">Net Cash</p>
+        <button onclick="showKpiInfo('net-cash', this)" class="text-gray-300 hover:text-gray-500 focus:outline-none"><i class="fas fa-info-circle text-xs"></i></button>
+      </div>
       <p id="kpi-net-cash" class="text-2xl font-bold
         {% if summary.net_this_month >= 0 %}text-green-600{% else %}text-red-500{% endif %}">
         {{ "{:+,.0f}".format(summary.net_this_month) }} ₫
@@ -70,7 +76,10 @@
 
     <!-- Net Worth -->
     <div class="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-sm p-5 text-white">
-      <p class="text-xs text-blue-200 uppercase tracking-widest mb-2">Net Worth</p>
+      <div class="flex justify-between items-center mb-2">
+        <p class="text-xs text-blue-200 uppercase tracking-widest">Net Worth</p>
+        <button onclick="showKpiInfo('net-worth', this)" class="text-blue-300 hover:text-white focus:outline-none"><i class="fas fa-info-circle text-xs"></i></button>
+      </div>
       <p class="text-2xl font-bold leading-tight">
         {% set nw = summary.net_worth %}
         {% if nw >= 1_000_000_000 %}
@@ -94,7 +103,10 @@
 
     <!-- Budget Health -->
     <div class="bg-white rounded-2xl shadow-sm border p-5">
-      <p class="text-xs text-gray-400 uppercase tracking-widest mb-2">Budget Health</p>
+      <div class="flex justify-between items-center mb-2">
+        <p class="text-xs text-gray-400 uppercase tracking-widest">Budget Health</p>
+        <button onclick="showKpiInfo('budget-health', this)" class="text-gray-300 hover:text-gray-500 focus:outline-none"><i class="fas fa-info-circle text-xs"></i></button>
+      </div>
       {% if summary.budget_adherence_pct is not none %}
         {% set ok = summary.budget_total - summary.budget_over_count %}
         <p class="text-3xl font-bold
@@ -513,5 +525,138 @@ fetch('/api/dashboard/monthly-trend')
             },
         });
     });
+
+// ── KPI info popover ────────────────────────────────────────────────────────
+const KPI_INFO = {
+    'savings-rate': {
+        title: 'Savings Rate',
+        formula: '(Income − Living Expense) ÷ Income × 100',
+        target: '≥ 58%  →  saves ≥ 50M from 86M income',
+        notes: [
+            'Living expense excludes savings deposits to bundles',
+            'Green ≥ 58% / Yellow 50–57% / Red < 50%',
+            'Reflects the selected month',
+        ],
+    },
+    'net-cash': {
+        title: 'Net Cash',
+        formula: 'Income − Living Expense − Savings Deposits',
+        target: '> 0  (unallocated cash after all outflows)',
+        notes: [
+            'Positive = cash still sitting in current account',
+            'Negative = total outflows exceeded income this month',
+            'Reflects the selected month',
+        ],
+    },
+    'net-worth': {
+        title: 'Net Worth',
+        formula: 'Cash on Hand + Active Savings + Other Assets + Projects Paid',
+        target: 'Increasing month-over-month',
+        notes: [
+            'Cash on Hand = all-time income minus all-time expenses',
+            'Active Savings = future maturity value of open bundles',
+            'Always shows current state — not affected by month selector',
+        ],
+    },
+    'budget-health': {
+        title: 'Budget Health',
+        formula: 'Categories with positive rollover balance ÷ Total budgeted',
+        target: '100%  →  all categories within cumulative budget',
+        notes: [
+            'Uses envelope rollover: unspent months carry forward as credit',
+            'A category is "over" when cumulative spend > cumulative allocation',
+            'Always shows the current month, not the selected month',
+        ],
+    },
+};
+
+let _activePopover = null;
+
+function showKpiInfo(key, btn) {
+    const pop = document.getElementById('kpi-popover');
+    // Toggle off if already showing this key
+    if (_activePopover === key && !pop.classList.contains('hidden')) {
+        hideKpiInfo(); return;
+    }
+    _activePopover = key;
+    const info = KPI_INFO[key];
+    if (!info) return;
+
+    // Build content
+    pop.replaceChildren();
+
+    const header = document.createElement('div');
+    header.className = 'flex justify-between items-center mb-3';
+    const titleEl = document.createElement('span');
+    titleEl.className = 'font-semibold text-gray-800 text-sm';
+    titleEl.textContent = info.title;
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'text-gray-400 hover:text-gray-600 text-lg leading-none ml-3';
+    closeBtn.textContent = '×';
+    closeBtn.addEventListener('click', hideKpiInfo);
+    header.appendChild(titleEl);
+    header.appendChild(closeBtn);
+    pop.appendChild(header);
+
+    const addRow = (label, value) => {
+        const row = document.createElement('div');
+        row.className = 'mb-2';
+        const lbl = document.createElement('p');
+        lbl.className = 'text-xs font-semibold text-gray-400 uppercase tracking-wide';
+        lbl.textContent = label;
+        const val = document.createElement('p');
+        val.className = 'text-xs text-gray-700 mt-0.5 font-mono';
+        val.textContent = value;
+        row.appendChild(lbl);
+        row.appendChild(val);
+        pop.appendChild(row);
+    };
+
+    addRow('Formula', info.formula);
+    addRow('Target', info.target);
+
+    const div = document.createElement('div');
+    div.className = 'mt-3 pt-3 border-t border-gray-100 space-y-1';
+    info.notes.forEach(note => {
+        const p = document.createElement('p');
+        p.className = 'text-xs text-gray-500 flex gap-1.5';
+        const dot = document.createElement('span');
+        dot.textContent = '•';
+        dot.className = 'text-gray-300 flex-shrink-0';
+        const txt = document.createElement('span');
+        txt.textContent = note;
+        p.appendChild(dot);
+        p.appendChild(txt);
+        div.appendChild(p);
+    });
+    pop.appendChild(div);
+
+    // Position below the button
+    pop.classList.remove('hidden');
+    const rect = btn.getBoundingClientRect();
+    const scrollY = window.scrollY || document.documentElement.scrollTop;
+    const popW = 288;
+    let top  = rect.bottom + scrollY + 8;
+    let left = rect.left + (window.scrollX || 0);
+    if (left + popW > window.innerWidth - 12) left = window.innerWidth - popW - 12;
+    if (left < 12) left = 12;
+    pop.style.top  = top  + 'px';
+    pop.style.left = left + 'px';
+}
+
+function hideKpiInfo() {
+    document.getElementById('kpi-popover').classList.add('hidden');
+    _activePopover = null;
+}
+
+document.addEventListener('click', e => {
+    if (!e.target.closest('#kpi-popover') && !e.target.closest('[onclick^="showKpiInfo"]')) {
+        hideKpiInfo();
+    }
+});
 </script>
+
+<!-- KPI info popover -->
+<div id="kpi-popover" class="hidden fixed z-[300] w-72 bg-white rounded-xl shadow-xl border border-gray-100 p-4" style="top:0;left:0"></div>
+
 {% endblock %}
