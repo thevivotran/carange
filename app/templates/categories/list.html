@@ -160,6 +160,25 @@
 
         const filtered = categories.filter(function(c) { return c.type === currentTab; });
 
+        if (filtered.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'col-span-3 text-center py-20 text-gray-400';
+            const ico = document.createElement('i');
+            ico.className = 'fas fa-tag text-5xl mb-4 block opacity-30';
+            const msg = document.createElement('p');
+            msg.className = 'text-lg';
+            msg.textContent = 'No ' + currentTab + ' categories yet.';
+            const btn = document.createElement('button');
+            btn.className = 'mt-3 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-blue-600 transition';
+            btn.textContent = 'Add Category';
+            btn.addEventListener('click', openAddModal);
+            empty.appendChild(ico);
+            empty.appendChild(msg);
+            empty.appendChild(btn);
+            grid.appendChild(empty);
+            return;
+        }
+
         filtered.forEach(function(category) {
             const card = document.createElement('div');
             card.className = 'bg-white rounded-xl shadow-md p-6' + (!category.is_active ? ' opacity-60' : '');

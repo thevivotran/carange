@@ -40,8 +40,8 @@
         {% else %}text-red-500{% endif %}">
         {{ summary.savings_rate }}%
       </p>
-      <div class="mt-2 w-full bg-gray-100 rounded-full h-1.5">
-        <div id="kpi-rate-bar" class="h-1.5 rounded-full transition-all duration-500"
+      <div class="mt-2 w-full bg-gray-100 rounded-full h-2">
+        <div id="kpi-rate-bar" class="h-2 rounded-full transition-all duration-500"
           style="width: {{ [summary.savings_rate, 100]|min }}%;
                  background: {% if summary.savings_rate >= 58 %}#22c55e{% elif summary.savings_rate >= 23 %}#f59e0b{% else %}#ef4444{% endif %}">
         </div>
@@ -166,8 +166,8 @@
               {{ cat.usage_pct | int }}%
             </span>
           </div>
-          <div class="w-full bg-gray-100 rounded-full h-1.5">
-            <div class="h-1.5 rounded-full transition-all duration-500"
+          <div class="w-full bg-gray-100 rounded-full h-2">
+            <div class="h-2 rounded-full transition-all duration-500"
               style="width: {{ [cat.usage_pct, 100]|min }}%;
                      background: {% if cat.available_balance < 0 %}#ef4444{% elif cat.usage_pct >= 75 %}#f59e0b{% else %}#22c55e{% endif %}">
             </div>

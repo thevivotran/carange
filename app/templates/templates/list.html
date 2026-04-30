@@ -230,6 +230,28 @@
             const tbody = document.getElementById('templates-table-body');
             while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
 
+            if (templates.length === 0) {
+                const emptyRow = document.createElement('tr');
+                const emptyCell = document.createElement('td');
+                emptyCell.colSpan = 7;
+                emptyCell.className = 'py-20 text-center text-gray-400';
+                const ico = document.createElement('i');
+                ico.className = 'fas fa-layer-group text-5xl mb-4 block opacity-30';
+                const msg = document.createElement('p');
+                msg.className = 'text-lg';
+                msg.textContent = 'No templates yet.';
+                const btn = document.createElement('button');
+                btn.className = 'mt-3 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-blue-600 transition';
+                btn.textContent = 'Add Template';
+                btn.addEventListener('click', openAddModal);
+                emptyCell.appendChild(ico);
+                emptyCell.appendChild(msg);
+                emptyCell.appendChild(btn);
+                emptyRow.appendChild(emptyCell);
+                tbody.appendChild(emptyRow);
+                return;
+            }
+
             templates.forEach(function(t) {
                 const row = document.createElement('tr');
                 row.className = 'border-b hover:bg-gray-50';

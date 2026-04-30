@@ -387,6 +387,27 @@
             const tbody = document.getElementById('transactions-table-body');
             while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
 
+            if (transactions.length === 0) {
+                const emptyRow = document.createElement('tr');
+                const emptyCell = document.createElement('td');
+                emptyCell.colSpan = 6;
+                emptyCell.className = 'py-20 text-center text-gray-400';
+                const ico = document.createElement('i');
+                ico.className = 'fas fa-receipt text-5xl mb-4 block opacity-30';
+                const msg = document.createElement('p');
+                msg.className = 'text-lg';
+                msg.textContent = 'No transactions found.';
+                emptyCell.appendChild(ico);
+                emptyCell.appendChild(msg);
+                emptyRow.appendChild(emptyCell);
+                tbody.appendChild(emptyRow);
+                document.getElementById('totals-row').classList.add('hidden');
+                document.getElementById('pagination-info').textContent = 'Showing 0 transactions';
+                document.getElementById('prev-btn').disabled = true;
+                document.getElementById('next-btn').disabled = true;
+                return;
+            }
+
             let totalIncome = 0, totalExpense = 0;
 
             transactions.forEach(function(t) {

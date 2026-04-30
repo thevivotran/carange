@@ -434,9 +434,9 @@
             progHeader.appendChild(progLabel);
             progHeader.appendChild(progVal);
             const barBg = document.createElement('div');
-            barBg.className = 'w-full bg-gray-200 rounded-full h-3';
+            barBg.className = 'w-full bg-gray-200 rounded-full h-2';
             const barFill = document.createElement('div');
-            barFill.className = 'bg-primary h-3 rounded-full transition-all duration-500';
+            barFill.className = 'bg-primary h-2 rounded-full transition-all duration-500';
             barFill.style.width = Math.min(progress, 100) + '%';
             barBg.appendChild(barFill);
             progWrap.appendChild(progHeader);
