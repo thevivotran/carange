@@ -5,18 +5,23 @@ A self-hosted web app for tracking a family's finances: daily spending, savings,
 ## Features
 
 ### 1. Dashboard
-- Monthly income / expense overview with net balance
-- Expense breakdown by category (chart)
-- Net worth summary: savings bundles + financial projects + other assets
-- Recent transactions and upcoming savings maturities
-- Project funding progress
+- **4 KPI cards** — Savings Rate, Net Cash, Net Worth, Budget Health; each with a ⓘ popover showing formula and target
+- **Savings Rate** = (Tiết kiệm + Bất động sản) ÷ Income × 100 — tracks wealth-building allocation; target ≥ 58%
+- **Net Worth** = Cash on Hand + Active Savings (maturity value) + Other Assets + Projects Paid
+- **Critical Checks** — two always-visible cards showing ✅/❌ for the month's most important obligations:
+  - Tiết kiệm > 20M deposited this month
+  - Bất động sản payment made this month
+- Month selector — KPI cards and critical checks update dynamically when month changes
+- Expense breakdown by category (chart), 6-month cash-flow trend (bar + line)
+- Upcoming savings maturities, active project progress, recent transactions
+- Budget over-limit and savings maturity alerts
 
 ### 2. Transactions
 - Log income and expense transactions with date, category, description, payment method
-- Filter by month, type, category, and keyword search
+- Filter by date range, type, category, keyword search
 - Edit and delete with undo support
 - Link transactions to savings bundles or financial projects
-- CSV export
+- Client-side CSV export with active filters applied
 - Quick-entry via Templates
 
 ### 3. Categories
@@ -33,6 +38,7 @@ A self-hosted web app for tracking a family's finances: daily spending, savings,
 - Record bank, interest rate, maturity date, current and future value
 - Log contributions and link bundles to financial projects
 - Mark as completed — automatically creates an income transaction for the matured amount
+- Rollover — marks old bundle complete and opens a new one seeded with the maturity value
 
 ### 6. Financial Projects
 - Track multi-step financial goals (Real Estate, Investment, Vehicle, Education, Vacation, Custom)
@@ -51,8 +57,8 @@ A self-hosted web app for tracking a family's finances: daily spending, savings,
 - **Rollover balances:** unspent budget carries forward; overspending rolls as a deficit
 - Baseline starts from May 2026 — all history computed from that point
 - Month navigation to view any past or future month
-- Edit Budgets modal with "Effective from" month picker (set future budgets without touching the current month)
-- Add new categories to the budget at any time; remove categories to stop tracking them
+- "Effective from" month picker — set future budgets without touching the current month
+- Add and remove categories from the budget at any time
 - Per-category progress bar with colour coding (green / amber / red)
 - Summary bar showing total monthly spend vs. total allocation
 
@@ -99,6 +105,14 @@ Available at:
 - Local: http://localhost:6868
 - Network: http://YOUR_LOCAL_IP:6868
 
+## Tests
+
+```bash
+.venv/bin/pytest
+```
+
+72 tests covering all routers and core business logic (budget rollover, savings rate formula, savings mark-completed auto-transaction, CRUD validation). Each test uses a fresh in-memory SQLite database — the production `carange.db` is never touched.
+
 ## Deployment (systemd autostart)
 
 ```bash
@@ -121,15 +135,15 @@ sudo systemctl start|stop|restart|status carange
 
 | Router | Prefix | Key endpoints |
 |--------|--------|---------------|
-| Dashboard | `/api` | `GET /summary`, `/monthly-trend`, `/expense-by-category` |
-| Transactions | `/api/transactions` | CRUD + `GET /export` |
+| Dashboard | `/api` | `GET /dashboard/summary`, `/dashboard/monthly-trend`, `/dashboard/expense-by-category` |
+| Transactions | `/api/transactions` | CRUD + `GET /stats/monthly-summary`, `GET /stats/by-category` |
 | Categories | `/api/categories` | CRUD |
 | Templates | `/api/templates` | CRUD |
-| Savings | `/api/savings` | CRUD + `POST /{id}/contribute`, `POST /{id}/mark-completed` |
+| Savings | `/api/savings` | CRUD + `POST /{id}/contribute`, `POST /{id}/mark-completed`, `POST /{id}/rollover` |
 | Projects | `/api/projects` | CRUD + milestones, contributions, payments |
 | Assets | `/api/assets` | CRUD |
 | Budget | `/api/budget` | `GET /{ym}/rows`, `POST /`, `PUT /{id}`, `DELETE /category/{id}`, `DELETE /{id}` |
-| Notes | `/api/notes` | CRUD |
+| Notes | `/api/notes` | `GET /`, `POST /`, `PUT /{id}`, `DELETE /{id}` |
 
 ## License
 
