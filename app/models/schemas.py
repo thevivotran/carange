@@ -344,6 +344,8 @@ class DashboardSummary(BaseModel):
     savings_rate: float = 0
     net_worth: float = 0
     budget_adherence_pct: Optional[float] = None
+    monthly_tiet_kiem: float = 0
+    monthly_bds: float = 0
     cash_on_hand: float
     total_savings_active: float
     total_savings_target: float

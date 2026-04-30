@@ -36,23 +36,23 @@
       </div>
       <p id="kpi-savings-rate" class="text-3xl font-bold
         {% if summary.savings_rate >= 58 %}text-green-600
-        {% elif summary.savings_rate >= 50 %}text-yellow-500
+        {% elif summary.savings_rate >= 23 %}text-yellow-500
         {% else %}text-red-500{% endif %}">
         {{ summary.savings_rate }}%
       </p>
       <div class="mt-2 w-full bg-gray-100 rounded-full h-1.5">
         <div id="kpi-rate-bar" class="h-1.5 rounded-full transition-all duration-500"
           style="width: {{ [summary.savings_rate, 100]|min }}%;
-                 background: {% if summary.savings_rate >= 58 %}#22c55e{% elif summary.savings_rate >= 50 %}#f59e0b{% else %}#ef4444{% endif %}">
+                 background: {% if summary.savings_rate >= 58 %}#22c55e{% elif summary.savings_rate >= 23 %}#f59e0b{% else %}#ef4444{% endif %}">
         </div>
       </div>
       <div class="mt-2 flex items-center justify-between">
         <span class="text-xs text-gray-400">Target: ≥ 58%</span>
         <span id="kpi-rate-badge" class="text-xs px-2 py-0.5 rounded-full
           {% if summary.savings_rate >= 58 %}bg-green-100 text-green-700
-          {% elif summary.savings_rate >= 50 %}bg-yellow-100 text-yellow-700
+          {% elif summary.savings_rate >= 23 %}bg-yellow-100 text-yellow-700
           {% else %}bg-red-100 text-red-700{% endif %}">
-          {% if summary.savings_rate >= 58 %}On track{% elif summary.savings_rate >= 50 %}Close{% else %}Below target{% endif %}
+          {% if summary.savings_rate >= 58 %}On track{% elif summary.savings_rate >= 23 %}Partial{% else %}Below target{% endif %}
         </span>
       </div>
     </div>
@@ -188,7 +188,41 @@
 
   </div>
 
-  <!-- ── Row 3: Alerts ─────────────────────────────────────────────────── -->
+  <!-- ── Row 3: Critical Monthly Checks ──────────────────────────────── -->
+  <div class="mb-6">
+    <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Critical Checks This Month</p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+      <!-- Tiết kiệm check -->
+      {% set tk_ok = summary.monthly_tiet_kiem >= 20000000 %}
+      <div class="rounded-2xl border p-4 flex items-start gap-3
+        {{ 'bg-green-50 border-green-200' if tk_ok else 'bg-red-50 border-red-200' }}">
+        <span class="text-xl leading-none mt-0.5">{{ '✅' if tk_ok else '❌' }}</span>
+        <div class="min-w-0">
+          <p class="font-semibold text-sm {{ 'text-green-800' if tk_ok else 'text-red-800' }}">Tiết kiệm &gt; 20M</p>
+          <p id="critical-tk-amount" class="text-xs mt-0.5 {{ 'text-green-600' if tk_ok else 'text-red-600' }}">
+            {{ "{:,.0f}".format(summary.monthly_tiet_kiem) }} ₫ this month
+          </p>
+        </div>
+      </div>
+
+      <!-- Bất động sản check -->
+      {% set bds_ok = summary.monthly_bds > 0 %}
+      <div class="rounded-2xl border p-4 flex items-start gap-3
+        {{ 'bg-green-50 border-green-200' if bds_ok else 'bg-red-50 border-red-200' }}">
+        <span class="text-xl leading-none mt-0.5">{{ '✅' if bds_ok else '❌' }}</span>
+        <div class="min-w-0">
+          <p class="font-semibold text-sm {{ 'text-green-800' if bds_ok else 'text-red-800' }}">Paid for Project (Bất động sản)</p>
+          <p id="critical-bds-amount" class="text-xs mt-0.5 {{ 'text-green-600' if bds_ok else 'text-red-600' }}">
+            {{ "{:,.0f}".format(summary.monthly_bds) if bds_ok else 'No payment recorded yet' }} {{ '₫ this month' if bds_ok else '' }}
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Row 4: Alerts ─────────────────────────────────────────────────── -->
   {% if alert_maturities or alert_over_budget %}
   <div class="mb-6">
     <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Alerts</p>
@@ -414,18 +448,18 @@ function updateDashboard() {
             const rate   = s.savings_rate;
             const rateEl = document.getElementById('kpi-savings-rate');
             rateEl.textContent = rate + '%';
-            rateEl.className   = 'text-3xl font-bold ' + (rate >= 58 ? 'text-green-600' : rate >= 50 ? 'text-yellow-500' : 'text-red-500');
+            rateEl.className   = 'text-3xl font-bold ' + (rate >= 58 ? 'text-green-600' : rate >= 23 ? 'text-yellow-500' : 'text-red-500');
 
             const barEl = document.getElementById('kpi-rate-bar');
             barEl.style.width      = Math.min(rate, 100) + '%';
-            barEl.style.background = rate >= 58 ? '#22c55e' : rate >= 50 ? '#f59e0b' : '#ef4444';
+            barEl.style.background = rate >= 58 ? '#22c55e' : rate >= 23 ? '#f59e0b' : '#ef4444';
 
             const badgeEl = document.getElementById('kpi-rate-badge');
             if (rate >= 58) {
                 badgeEl.textContent  = 'On track';
                 badgeEl.className    = 'text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700';
-            } else if (rate >= 50) {
-                badgeEl.textContent  = 'Close';
+            } else if (rate >= 23) {
+                badgeEl.textContent  = 'Partial';
                 badgeEl.className    = 'text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700';
             } else {
                 badgeEl.textContent  = 'Below target';
@@ -440,6 +474,32 @@ function updateDashboard() {
 
             document.getElementById('kpi-income-sub').textContent  = 'In: '  + fmtM(s.total_income_month) + ' ₫';
             document.getElementById('kpi-expense-sub').textContent = 'Out: ' + fmtM(s.total_expense_month + s.total_savings_month) + ' ₫';
+
+            // Critical checks
+            const tkOk  = s.monthly_tiet_kiem >= 20000000;
+            const bdsOk = s.monthly_bds > 0;
+
+            const tkCard = document.getElementById('critical-tk-amount').parentElement.parentElement;
+            tkCard.className = 'rounded-2xl border p-4 flex items-start gap-3 ' + (tkOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200');
+            const tkIcon = tkCard.querySelector('span');
+            tkIcon.textContent = tkOk ? '✅' : '❌';
+            const tkTitle = tkCard.querySelector('p');
+            tkTitle.className = 'font-semibold text-sm ' + (tkOk ? 'text-green-800' : 'text-red-800');
+            const tkAmt = document.getElementById('critical-tk-amount');
+            tkAmt.className = 'text-xs mt-0.5 ' + (tkOk ? 'text-green-600' : 'text-red-600');
+            tkAmt.textContent = new Intl.NumberFormat('vi-VN').format(Math.round(s.monthly_tiet_kiem)) + ' ₫ this month';
+
+            const bdsCard = document.getElementById('critical-bds-amount').parentElement.parentElement;
+            bdsCard.className = 'rounded-2xl border p-4 flex items-start gap-3 ' + (bdsOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200');
+            const bdsIcon = bdsCard.querySelector('span');
+            bdsIcon.textContent = bdsOk ? '✅' : '❌';
+            const bdsTitle = bdsCard.querySelector('p');
+            bdsTitle.className = 'font-semibold text-sm ' + (bdsOk ? 'text-green-800' : 'text-red-800');
+            const bdsAmt = document.getElementById('critical-bds-amount');
+            bdsAmt.className = 'text-xs mt-0.5 ' + (bdsOk ? 'text-green-600' : 'text-red-600');
+            bdsAmt.textContent = bdsOk
+                ? new Intl.NumberFormat('vi-VN').format(Math.round(s.monthly_bds)) + ' ₫ this month'
+                : 'No payment recorded yet';
         });
 }
 
@@ -530,11 +590,11 @@ fetch('/api/dashboard/monthly-trend')
 const KPI_INFO = {
     'savings-rate': {
         title: 'Savings Rate',
-        formula: '(Income − Living Expense) ÷ Income × 100',
+        formula: '(Tiết kiệm + Bất động sản) ÷ Income × 100',
         target: '≥ 58%  →  saves ≥ 50M from 86M income',
         notes: [
-            'Living expense excludes savings deposits to bundles',
-            'Green ≥ 58% / Yellow 50–57% / Red < 50%',
+            'Measures wealth-building: only deposits to savings & real-estate',
+            'Green ≥ 58% / Yellow 23–57% / Red < 23%',
             'Reflects the selected month',
         ],
     },

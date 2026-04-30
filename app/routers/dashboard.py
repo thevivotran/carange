@@ -40,8 +40,32 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
         Transaction.is_savings_related == True,
     ).scalar() or 0
 
+    # Wealth-building categories for Savings Rate and critical alerts
+    _cat_tiet_kiem = [r[0] for r in db.query(Category.id).filter(
+        Category.name == 'Tiết kiệm', Category.type == TransactionType.EXPENSE,
+    ).all()]
+    _cat_bds = [r[0] for r in db.query(Category.id).filter(
+        Category.name == 'Bất động sản', Category.type == TransactionType.EXPENSE,
+    ).all()]
+
+    _month_filter = [
+        extract('month', Transaction.date) == current_month,
+        extract('year',  Transaction.date) == current_year,
+        Transaction.type == TransactionType.EXPENSE,
+    ]
+    monthly_tiet_kiem = db.query(func.sum(Transaction.amount)).filter(
+        *_month_filter,
+        Transaction.category_id.in_(_cat_tiet_kiem) if _cat_tiet_kiem else False,
+    ).scalar() or 0
+
+    monthly_bds = db.query(func.sum(Transaction.amount)).filter(
+        *_month_filter,
+        Transaction.category_id.in_(_cat_bds) if _cat_bds else False,
+    ).scalar() or 0
+
+    # Savings Rate = what % of income went to wealth-building
     savings_rate = round(
-        (monthly_income - monthly_expense) / monthly_income * 100, 1
+        (monthly_tiet_kiem + monthly_bds) / monthly_income * 100, 1
     ) if monthly_income > 0 else 0
 
     # ── Static / current-state figures ────────────────────────────────────
@@ -161,6 +185,8 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
             "budget_adherence_pct":  budget_adherence_pct,
             "budget_over_count":     len(alert_over_budget),
             "budget_total":          budget_total,
+            "monthly_tiet_kiem":     monthly_tiet_kiem,
+            "monthly_bds":           monthly_bds,
         },
         "budget_top_cats":      budget_top_cats,
         "alert_maturities":     alert_maturities,
@@ -197,6 +223,8 @@ def get_dashboard_summary(year: Optional[int] = None, month: Optional[int] = Non
         active_projects_count=s["active_projects"],
         completed_projects_count=s["completed_projects"],
         budget_adherence_pct=s["budget_adherence_pct"],
+        monthly_tiet_kiem=s["monthly_tiet_kiem"],
+        monthly_bds=s["monthly_bds"],
     )
 
 
