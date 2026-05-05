@@ -231,7 +231,8 @@ class Note(Base):
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 # Database configuration
-DATABASE_URL = "sqlite:///./carange.db"
+import os
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./carange.db")
 
 engine = create_engine(
     DATABASE_URL, 

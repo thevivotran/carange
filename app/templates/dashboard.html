@@ -35,24 +35,24 @@
         <button onclick="showKpiInfo('savings-rate', this)" class="text-gray-300 hover:text-gray-500 focus:outline-none"><i class="fas fa-info-circle text-xs"></i></button>
       </div>
       <p id="kpi-savings-rate" class="text-3xl font-bold
-        {% if summary.savings_rate >= 58 %}text-green-600
-        {% elif summary.savings_rate >= 23 %}text-yellow-500
+        {% if summary.savings_rate >= 50 %}text-green-600
+        {% elif summary.savings_rate >= 10 %}text-yellow-500
         {% else %}text-red-500{% endif %}">
         {{ summary.savings_rate }}%
       </p>
       <div class="mt-2 w-full bg-gray-100 rounded-full h-2">
         <div id="kpi-rate-bar" class="h-2 rounded-full transition-all duration-500"
           style="width: {{ [summary.savings_rate, 100]|min }}%;
-                 background: {% if summary.savings_rate >= 58 %}#22c55e{% elif summary.savings_rate >= 23 %}#f59e0b{% else %}#ef4444{% endif %}">
+                 background: {% if summary.savings_rate >= 50 %}#22c55e{% elif summary.savings_rate >= 10 %}#f59e0b{% else %}#ef4444{% endif %}">
         </div>
       </div>
       <div class="mt-2 flex items-center justify-between">
-        <span class="text-xs text-gray-400">Target: ≥ 58%</span>
+        <span class="text-xs text-gray-400">Target: ≥ 50%</span>
         <span id="kpi-rate-badge" class="text-xs px-2 py-0.5 rounded-full
-          {% if summary.savings_rate >= 58 %}bg-green-100 text-green-700
-          {% elif summary.savings_rate >= 23 %}bg-yellow-100 text-yellow-700
+          {% if summary.savings_rate >= 50 %}bg-green-100 text-green-700
+          {% elif summary.savings_rate >= 10 %}bg-yellow-100 text-yellow-700
           {% else %}bg-red-100 text-red-700{% endif %}">
-          {% if summary.savings_rate >= 58 %}On track{% elif summary.savings_rate >= 23 %}Partial{% else %}Below target{% endif %}
+          {% if summary.savings_rate >= 50 %}On track{% elif summary.savings_rate >= 10 %}Partial{% else %}Below target{% endif %}
         </span>
       </div>
     </div>
@@ -448,17 +448,17 @@ function updateDashboard() {
             const rate   = s.savings_rate;
             const rateEl = document.getElementById('kpi-savings-rate');
             rateEl.textContent = rate + '%';
-            rateEl.className   = 'text-3xl font-bold ' + (rate >= 58 ? 'text-green-600' : rate >= 23 ? 'text-yellow-500' : 'text-red-500');
+            rateEl.className   = 'text-3xl font-bold ' + (rate >= 50 ? 'text-green-600' : rate >= 10 ? 'text-yellow-500' : 'text-red-500');
 
             const barEl = document.getElementById('kpi-rate-bar');
             barEl.style.width      = Math.min(rate, 100) + '%';
-            barEl.style.background = rate >= 58 ? '#22c55e' : rate >= 23 ? '#f59e0b' : '#ef4444';
+            barEl.style.background = rate >= 50 ? '#22c55e' : rate >= 10 ? '#f59e0b' : '#ef4444';
 
             const badgeEl = document.getElementById('kpi-rate-badge');
-            if (rate >= 58) {
+            if (rate >= 50) {
                 badgeEl.textContent  = 'On track';
                 badgeEl.className    = 'text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700';
-            } else if (rate >= 23) {
+            } else if (rate >= 10) {
                 badgeEl.textContent  = 'Partial';
                 badgeEl.className    = 'text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700';
             } else {
