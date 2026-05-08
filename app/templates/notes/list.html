@@ -3,10 +3,10 @@
 {% block title %}Notes - Carange{% endblock %}
 
 {% block content %}
-<div class="flex h-full" style="height: calc(100vh - 0px);">
+<div class="flex h-full min-h-0">
 
-    <!-- Sidebar: note list -->
-    <div id="notes-sidebar" class="w-72 flex-shrink-0 bg-white border-r flex flex-col h-full">
+    <!-- Sidebar: note list (full-width on mobile, fixed-width on desktop) -->
+    <div id="notes-sidebar" class="w-full md:w-72 md:flex-shrink-0 bg-white border-r flex flex-col h-full">
         <div class="p-4 border-b flex items-center justify-between">
             <h2 class="text-lg font-bold text-gray-800"><i class="fas fa-sticky-note mr-2 text-yellow-500"></i>Notes</h2>
             <button onclick="newNote()" class="bg-primary text-white px-3 py-1.5 rounded-lg text-sm hover:bg-blue-700 transition flex items-center gap-1">
@@ -24,8 +24,8 @@
         <div id="notes-list" class="flex-1 overflow-y-auto p-2 space-y-1"></div>
     </div>
 
-    <!-- Editor panel -->
-    <div id="editor-panel" class="flex-1 flex flex-col h-full bg-gray-50">
+    <!-- Editor panel (hidden on mobile by default, visible on desktop) -->
+    <div id="editor-panel" class="flex-1 flex-col h-full bg-gray-50 hidden md:flex">
         <!-- Empty state -->
         <div id="empty-state" class="flex-1 flex flex-col items-center justify-center text-gray-400">
             <i class="fas fa-file-alt text-5xl mb-4 opacity-30"></i>
@@ -38,6 +38,11 @@
         <!-- Active editor (hidden until a note is selected) -->
         <div id="active-editor" class="hidden flex-1 flex flex-col h-full">
             <div class="border-b bg-white px-6 py-3 flex items-center gap-3">
+                <!-- Back button: mobile only -->
+                <button onclick="showNotesList()" class="md:hidden text-gray-500 hover:text-gray-700 mr-1">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+
                 <input id="note-title" type="text" placeholder="Note title…"
                     class="flex-1 text-xl font-semibold text-gray-800 bg-transparent border-none outline-none placeholder-gray-300"
                     oninput="scheduleSave()">
@@ -164,6 +169,21 @@ function openNote(id) {
     updateCharCount();
     showEditor();
     renderNoteList();
+
+    // On mobile: hide sidebar, show editor
+    if (window.innerWidth < 768) {
+        document.getElementById('notes-sidebar').classList.add('hidden');
+        const panel = document.getElementById('editor-panel');
+        panel.classList.remove('hidden');
+        panel.classList.add('flex');
+    }
+}
+
+function showNotesList() {
+    document.getElementById('notes-sidebar').classList.remove('hidden');
+    const panel = document.getElementById('editor-panel');
+    panel.classList.add('hidden');
+    panel.classList.remove('flex');
 }
 
 function showEditor() {
@@ -241,6 +261,8 @@ async function deleteCurrentNote() {
             editor.classList.add('hidden');
             editor.classList.remove('flex');
             renderNoteList();
+            // On mobile: go back to list
+            if (window.innerWidth < 768) showNotesList();
         }
     });
 }
