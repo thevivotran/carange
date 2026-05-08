@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, extract
 from typing import List, Optional
 from datetime import date
+from calendar import monthrange
 import csv
 import io
 import random
@@ -145,25 +146,29 @@ def get_monthly_summary(
     if not month:
         month = date.today().month
 
+    month_start = date(year, month, 1)
+    _, last_day = monthrange(year, month)
+    month_end = date(year, month, last_day)
+
     # Income (all income transactions)
     income = db.query(func.sum(Transaction.amount)).filter(
-        extract('year', Transaction.date) == year,
-        extract('month', Transaction.date) == month,
+        Transaction.date >= month_start,
+        Transaction.date <= month_end,
         Transaction.type == TransactionType.INCOME
     ).scalar() or 0
 
     # Expense (only non-savings-related expenses)
     expense = db.query(func.sum(Transaction.amount)).filter(
-        extract('year', Transaction.date) == year,
-        extract('month', Transaction.date) == month,
+        Transaction.date >= month_start,
+        Transaction.date <= month_end,
         Transaction.type == TransactionType.EXPENSE,
         Transaction.is_savings_related == False
     ).scalar() or 0
 
     # Savings (savings-related expenses)
     savings = db.query(func.sum(Transaction.amount)).filter(
-        extract('year', Transaction.date) == year,
-        extract('month', Transaction.date) == month,
+        Transaction.date >= month_start,
+        Transaction.date <= month_end,
         Transaction.type == TransactionType.EXPENSE,
         Transaction.is_savings_related == True
     ).scalar() or 0
@@ -200,14 +205,18 @@ def get_transactions_by_category(
         year = date.today().year
     if not month:
         month = date.today().month
-    
+
+    month_start = date(year, month, 1)
+    _, last_day = monthrange(year, month)
+    month_end = date(year, month, last_day)
+
     results = db.query(
         Category.name,
         Category.color,
         func.sum(Transaction.amount).label('total')
     ).join(Transaction).filter(
-        extract('year', Transaction.date) == year,
-        extract('month', Transaction.date) == month,
+        Transaction.date >= month_start,
+        Transaction.date <= month_end,
         Transaction.type == type
     ).group_by(Category.id).all()
     

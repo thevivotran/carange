@@ -232,12 +232,21 @@ class Note(Base):
 
 # Database configuration
 import os
+from sqlalchemy import event
+
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./carange.db")
 
 engine = create_engine(
-    DATABASE_URL, 
+    DATABASE_URL,
     connect_args={"check_same_thread": False}
 )
+
+@event.listens_for(engine, "connect")
+def set_sqlite_pragma(dbapi_conn, _):
+    cursor = dbapi_conn.cursor()
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.close()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
