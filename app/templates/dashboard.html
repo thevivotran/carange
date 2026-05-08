@@ -25,7 +25,7 @@
     </div>
   </div>
 
-  <!-- ── Row 1: KPI Cards ─────────────────────────────────────────────── -->
+  <!-- ── Row 1: KPI Cards ────────────────────────────────────────── -->
   <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
 
     <!-- Savings Rate -->
@@ -63,9 +63,9 @@
         <p class="text-xs text-gray-400 uppercase tracking-widest">Net Cash</p>
         <button onclick="showKpiInfo('net-cash', this)" class="text-gray-300 hover:text-gray-500 focus:outline-none"><i class="fas fa-info-circle text-xs"></i></button>
       </div>
-      <p id="kpi-net-cash" class="text-2xl font-bold
+      <p id="kpi-net-cash" class="text-2xl font-bold leading-tight
         {% if summary.net_this_month >= 0 %}text-green-600{% else %}text-red-500{% endif %}">
-        {{ "{:+,.0f}".format(summary.net_this_month) }} ₫
+        {% set nc = summary.net_this_month %}{% if nc | abs >= 1000000000 %}{% if nc >= 0 %}+{% endif %}{{ "%.2f" | format(nc / 1000000000) }}B{% elif nc | abs >= 1000000 %}{% if nc >= 0 %}+{% endif %}{{ "%.1f" | format(nc / 1000000) }}M{% else %}{{ "{:+,.0f}".format(nc) }}{% endif %} ₫
       </p>
       <p class="text-xs text-gray-400 mt-2">After expense &amp; savings</p>
       <div class="mt-2 flex gap-3 text-xs text-gray-500">
@@ -130,7 +130,7 @@
 
   </div>
 
-  <!-- ── Row 2: Chart + Budget Snapshot ───────────────────────────────── -->
+  <!-- ── Row 2: Chart + Budget Snapshot ────────────────────────────── -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
     <!-- Cash Flow Chart -->
@@ -188,7 +188,7 @@
 
   </div>
 
-  <!-- ── Row 3: Critical Monthly Checks ──────────────────────────────── -->
+  <!-- ── Row 3: Critical Monthly Checks ────────────────────────────── -->
   <div class="mb-6">
     <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Critical Checks This Month</p>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -222,7 +222,7 @@
     </div>
   </div>
 
-  <!-- ── Row 4: Alerts ─────────────────────────────────────────────────── -->
+  <!-- ── Row 4: Alerts ──────────────────────────────────────────────── -->
   {% if alert_maturities or alert_over_budget %}
   <div class="mb-6">
     <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Alerts</p>
@@ -272,7 +272,7 @@
   </div>
   {% endif %}
 
-  <!-- ── Row 4: Projects + Savings ─────────────────────────────────────── -->
+  <!-- ── Row 4: Projects + Savings ───────────────────────────────────── -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 
     <!-- Active Projects -->
@@ -355,7 +355,7 @@
 
   </div>
 
-  <!-- ── Row 5: Recent Transactions ───────────────────────────────────── -->
+  <!-- ── Row 5: Recent Transactions ─────────────────────────────────── -->
   <div class="bg-white rounded-2xl shadow-sm border p-6">
     <div class="flex justify-between items-center mb-4">
       <h3 class="font-semibold text-gray-800">Recent Transactions</h3>
@@ -390,7 +390,7 @@
 </div>
 
 <script>
-// ── Month selector ──────────────────────────────────────────────────────────
+// ── Month selector ─────────────────────────────────────────────────────────
 (function initMonthSelector() {
     const today = new Date();
     const curYear  = today.getFullYear();
@@ -426,7 +426,7 @@ function shiftMonth(delta) {
     updateDashboard();
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────
 function fmtVND(v) { return new Intl.NumberFormat('vi-VN').format(Math.round(v)) + ' ₫'; }
 function fmtSigned(v) { return (v >= 0 ? '+' : '') + fmtVND(Math.abs(v)); }
 function fmtM(v) {
@@ -469,8 +469,8 @@ function updateDashboard() {
             // Net cash
             const net   = s.net_this_month;
             const netEl = document.getElementById('kpi-net-cash');
-            netEl.textContent = (net >= 0 ? '+' : '-') + fmtVND(Math.abs(net));
-            netEl.className   = 'text-2xl font-bold ' + (net >= 0 ? 'text-green-600' : 'text-red-500');
+            netEl.textContent = (net >= 0 ? '+' : '') + fmtM(net) + ' ₫';
+            netEl.className   = 'text-2xl font-bold leading-tight ' + (net >= 0 ? 'text-green-600' : 'text-red-500');
 
             document.getElementById('kpi-income-sub').textContent  = 'In: '  + fmtM(s.total_income_month) + ' ₫';
             document.getElementById('kpi-expense-sub').textContent = 'Out: ' + fmtM(s.total_expense_month + s.total_savings_month) + ' ₫';
@@ -503,7 +503,7 @@ function updateDashboard() {
         });
 }
 
-// ── Cash flow chart ─────────────────────────────────────────────────────────
+// ── Cash flow chart ────────────────────────────────────────────────────────
 fetch('/api/dashboard/monthly-trend')
     .then(r => r.json())
     .then(all => {
@@ -586,7 +586,7 @@ fetch('/api/dashboard/monthly-trend')
         });
     });
 
-// ── KPI info popover ────────────────────────────────────────────────────────
+// ── KPI info popover ─────────────────────────────────────────────────────────
 const KPI_INFO = {
     'savings-rate': {
         title: 'Savings Rate',
