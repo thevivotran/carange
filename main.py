@@ -1,7 +1,8 @@
 from fastapi import FastAPI, Request, Depends
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy.orm import Session
 from contextlib import asynccontextmanager
 import os
@@ -26,6 +27,8 @@ async def lifespan(app: FastAPI):
 
 # Create FastAPI app
 app = FastAPI(title="Carange - Family Finance Tracker", lifespan=lifespan)
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -74,6 +77,10 @@ app.include_router(templates_router.router, prefix="/api/templates")
 app.include_router(assets.router, prefix="/api/assets")
 app.include_router(notes.router, prefix="/api/notes")
 app.include_router(budget.router, prefix="/api/budget")
+
+@app.get("/health")
+async def health():
+    return JSONResponse({"status": "ok"})
 
 # Main routes for HTML pages
 @app.get("/", response_class=HTMLResponse)

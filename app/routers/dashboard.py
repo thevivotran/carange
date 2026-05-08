@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract, case, and_
 from datetime import date, timedelta
+from calendar import monthrange
 from typing import List, Optional
 
 from app.models.database import (
@@ -18,24 +19,27 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
     today = date.today()
     current_month = month or today.month
     current_year  = year  or today.year
+    month_start = date(current_year, current_month, 1)
+    _, last_day = monthrange(current_year, current_month)
+    month_end = date(current_year, current_month, last_day)
 
     # ── Monthly figures (affected by month selector) ───────────────────────
     monthly_income = db.query(func.sum(Transaction.amount)).filter(
-        extract('month', Transaction.date) == current_month,
-        extract('year',  Transaction.date) == current_year,
+        Transaction.date >= month_start,
+        Transaction.date <= month_end,
         Transaction.type == TransactionType.INCOME,
     ).scalar() or 0
 
     monthly_expense = db.query(func.sum(Transaction.amount)).filter(
-        extract('month', Transaction.date) == current_month,
-        extract('year',  Transaction.date) == current_year,
+        Transaction.date >= month_start,
+        Transaction.date <= month_end,
         Transaction.type == TransactionType.EXPENSE,
         Transaction.is_savings_related == False,
     ).scalar() or 0
 
     monthly_savings = db.query(func.sum(Transaction.amount)).filter(
-        extract('month', Transaction.date) == current_month,
-        extract('year',  Transaction.date) == current_year,
+        Transaction.date >= month_start,
+        Transaction.date <= month_end,
         Transaction.type == TransactionType.EXPENSE,
         Transaction.is_savings_related == True,
     ).scalar() or 0
@@ -49,8 +53,8 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
     ).all()]
 
     _month_filter = [
-        extract('month', Transaction.date) == current_month,
-        extract('year',  Transaction.date) == current_year,
+        Transaction.date >= month_start,
+        Transaction.date <= month_end,
         Transaction.type == TransactionType.EXPENSE,
     ]
     monthly_tiet_kiem = db.query(func.sum(Transaction.amount)).filter(
@@ -148,8 +152,8 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
         Category.color,
         func.sum(Transaction.amount).label('total'),
     ).join(Transaction).filter(
-        extract('month', Transaction.date) == current_month,
-        extract('year',  Transaction.date) == current_year,
+        Transaction.date >= month_start,
+        Transaction.date <= month_end,
         Transaction.type == TransactionType.EXPENSE,
         Transaction.is_savings_related == False,
     ).group_by(Category.id).all()
@@ -286,10 +290,13 @@ def get_expense_by_category(year: Optional[int] = None, month: Optional[int] = N
     today = date.today()
     current_month = month or today.month
     current_year  = year  or today.year
+    month_start = date(current_year, current_month, 1)
+    _, last_day = monthrange(current_year, current_month)
+    month_end = date(current_year, current_month, last_day)
 
     total_expense = db.query(func.sum(Transaction.amount)).filter(
-        extract('month', Transaction.date) == current_month,
-        extract('year',  Transaction.date) == current_year,
+        Transaction.date >= month_start,
+        Transaction.date <= month_end,
         Transaction.type == TransactionType.EXPENSE,
         Transaction.is_savings_related == False,
     ).scalar() or 1
@@ -299,8 +306,8 @@ def get_expense_by_category(year: Optional[int] = None, month: Optional[int] = N
         Category.color,
         func.sum(Transaction.amount),
     ).join(Transaction).filter(
-        extract('month', Transaction.date) == current_month,
-        extract('year',  Transaction.date) == current_year,
+        Transaction.date >= month_start,
+        Transaction.date <= month_end,
         Transaction.type == TransactionType.EXPENSE,
         Transaction.is_savings_related == False,
     ).group_by(Category.id).all()
