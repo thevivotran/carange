@@ -127,6 +127,8 @@ class TransactionBase(BaseModel):
 
 class TransactionCreate(TransactionBase):
     is_savings_related: bool = False
+    is_advance: bool = False
+    advance_settled: bool = False
     savings_bundle_id: Optional[int] = None
     project_id: Optional[int] = None
     savings_bundle: Optional[SavingsBundleCreate] = None  # For creating new savings bundle with transaction
@@ -139,12 +141,16 @@ class TransactionUpdate(BaseModel):
     description: Optional[str] = None
     payment_method: Optional[str] = None
     is_savings_related: Optional[bool] = None
+    is_advance: Optional[bool] = None
+    advance_settled: Optional[bool] = None
     savings_bundle_id: Optional[int] = None
     project_id: Optional[int] = None
 
 class Transaction(TransactionBase):
     id: int
     is_savings_related: bool
+    is_advance: bool = False
+    advance_settled: bool = False
     savings_bundle_id: Optional[int]
     project_id: Optional[int]
     created_at: datetime

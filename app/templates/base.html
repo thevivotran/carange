@@ -53,9 +53,11 @@
         <!-- Sidebar -->
         <aside class="hidden md:flex w-64 bg-white shadow-lg flex-col">
             <div class="p-6 border-b">
-                <h1 class="text-2xl font-bold text-primary">
-                    <i class="fas fa-wallet mr-2"></i>Carange
-                </h1>
+                <a href="/" class="hover:opacity-80 transition">
+                    <h1 class="text-2xl font-bold text-primary">
+                        <i class="fas fa-wallet mr-2"></i>Carange
+                    </h1>
+                </a>
                 <p class="text-sm text-gray-500 mt-1">Family Finance</p>
             </div>
             
@@ -120,9 +122,11 @@
         <!-- Mobile Header -->
         <div class="md:hidden fixed top-0 left-0 right-0 bg-white shadow-md z-50">
             <div class="flex items-center justify-between p-4">
-                <h1 class="text-xl font-bold text-primary">
-                    <i class="fas fa-wallet mr-2"></i>Carange
-                </h1>
+                <a href="/" class="hover:opacity-80 transition">
+                    <h1 class="text-xl font-bold text-primary">
+                        <i class="fas fa-wallet mr-2"></i>Carange
+                    </h1>
+                </a>
                 <button id="mobile-menu-btn" class="p-2 text-gray-600">
                     <i class="fas fa-bars text-xl"></i>
                 </button>
@@ -211,7 +215,7 @@
             msg.textContent = message;
             const btn = document.createElement('button');
             btn.className = 'opacity-75 hover:opacity-100 text-lg leading-none';
-            btn.textContent = '\u00d7';
+            btn.textContent = '×';
             btn.addEventListener('click', function() { toast.remove(); });
             toast.appendChild(msg);
             toast.appendChild(btn);
@@ -275,6 +279,145 @@
     </script>
     
     {% block extra_js %}{% endblock %}
+
+    <!-- Shared row action dropdown -->
+    <div id="row-dropdown" class="hidden fixed z-[120] bg-white border rounded-lg shadow-xl py-1 min-w-40"></div>
+
+    <!-- FAB: global quick-add transaction -->
+    <button onclick="openGlobalAddModal()"
+            class="fixed bottom-6 right-6 z-[100] w-14 h-14 bg-secondary text-white rounded-full shadow-lg hover:bg-green-600 active:scale-95 transition-all flex items-center justify-center">
+        <i class="fas fa-plus text-xl"></i>
+    </button>
+
+    <!-- Global quick-add transaction modal -->
+    <div id="global-tx-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[110] flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6 border-b flex justify-between items-center">
+                <h3 class="text-xl font-bold text-gray-800">Quick Add Transaction</h3>
+                <button onclick="closeGlobalAddModal()" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <form id="global-tx-form" class="p-6 space-y-4">
+                <!-- Type -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                    <div class="flex gap-4">
+                        <label class="flex-1 cursor-pointer">
+                            <input type="radio" name="global-type" value="income" class="hidden peer" onchange="_loadGlobalCategories()">
+                            <div class="text-center py-3 border-2 rounded-lg peer-checked:border-green-500 peer-checked:bg-green-50 transition">
+                                <i class="fas fa-arrow-down text-green-600 text-xl mb-1"></i>
+                                <p class="text-sm font-medium">Income</p>
+                            </div>
+                        </label>
+                        <label class="flex-1 cursor-pointer">
+                            <input type="radio" name="global-type" value="expense" class="hidden peer" checked onchange="_loadGlobalCategories()">
+                            <div class="text-center py-3 border-2 rounded-lg peer-checked:border-red-500 peer-checked:bg-red-50 transition">
+                                <i class="fas fa-arrow-up text-red-600 text-xl mb-1"></i>
+                                <p class="text-sm font-medium">Expense</p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                <!-- Amount -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Amount (VND)</label>
+                    <input type="number" id="global-tx-amount" required min="1" step="1"
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                           placeholder="Enter amount">
+                </div>
+                <!-- Date -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                    <input type="date" id="global-tx-date" required
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+                <!-- Category -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                    <select id="global-tx-category" required
+                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <option value="">Select Category</option>
+                    </select>
+                </div>
+                <!-- Description -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                    <input type="text" id="global-tx-desc"
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                           placeholder="Optional description">
+                </div>
+                <!-- Advance -->
+                <div class="flex items-center">
+                    <input type="checkbox" id="global-tx-advance"
+                           class="w-5 h-5 text-amber-500 border-gray-300 rounded focus:ring-amber-400">
+                    <label for="global-tx-advance" class="ml-3 text-sm font-medium text-gray-700">
+                        <i class="fas fa-hand-holding-usd text-amber-500 mr-1"></i>
+                        Personal advance (family owes me back)
+                    </label>
+                </div>
+                <!-- Submit -->
+                <div class="flex gap-4 pt-4">
+                    <button type="button" onclick="closeGlobalAddModal()"
+                            class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition">Cancel</button>
+                    <button type="submit"
+                            class="flex-1 px-4 py-3 bg-secondary text-white rounded-lg hover:bg-green-600 transition">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        async function openGlobalAddModal() {
+            document.getElementById('global-tx-form').reset();
+            document.querySelector('input[name="global-type"][value="expense"]').checked = true;
+            document.getElementById('global-tx-date').valueAsDate = new Date();
+            document.getElementById('global-tx-modal').classList.remove('hidden');
+            await _loadGlobalCategories();
+        }
+        function closeGlobalAddModal() {
+            document.getElementById('global-tx-modal').classList.add('hidden');
+        }
+        async function _loadGlobalCategories() {
+            const type = document.querySelector('input[name="global-type"]:checked').value;
+            const res  = await fetch('/api/categories/');
+            const cats = await res.json();
+            const sel  = document.getElementById('global-tx-category');
+            sel.innerHTML = '<option value="">Select Category</option>';
+            cats.filter(c => c.type === type && c.is_active)
+                .forEach(c => sel.innerHTML += `<option value="${c.id}">${c.name}</option>`);
+        }
+        document.getElementById('global-tx-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const catVal = document.getElementById('global-tx-category').value;
+            if (!catVal) { showToast('Please select a category', 'error'); return; }
+            const res = await fetch('/api/transactions/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    date: document.getElementById('global-tx-date').value,
+                    amount: parseFloat(document.getElementById('global-tx-amount').value),
+                    type: document.querySelector('input[name="global-type"]:checked').value,
+                    category_id: parseInt(catVal),
+                    description: document.getElementById('global-tx-desc').value,
+                    payment_method: 'cash',
+                    is_savings_related: false,
+                    is_advance: document.getElementById('global-tx-advance').checked,
+                    advance_settled: false,
+                })
+            });
+            if (res.ok) {
+                closeGlobalAddModal();
+                showToast('Transaction saved', 'success');
+                if (window.location.pathname === '/transactions' && typeof loadTransactions === 'function') {
+                    loadTransactions(); loadMonthlySummary();
+                }
+            } else {
+                const err = await res.json();
+                showToast('Error: ' + (err.detail || 'Unknown'), 'error');
+            }
+        });
+    </script>
 
     <!-- Toast container -->
     <div id="toast-container" class="fixed bottom-4 right-4 z-[200] space-y-2 pointer-events-none">

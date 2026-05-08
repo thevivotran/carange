@@ -19,9 +19,23 @@ from app.routers import notes
 from app.routers import budget
 from app.routers.dashboard import get_dashboard_page_data
 
+
+def _migrate_db():
+    from sqlalchemy import text
+    from app.models.database import engine as _engine
+    with _engine.connect() as conn:
+        cols = [r[1] for r in conn.execute(text("PRAGMA table_info(transactions)"))]
+        if 'is_advance' not in cols:
+            conn.execute(text("ALTER TABLE transactions ADD COLUMN is_advance BOOLEAN DEFAULT 0"))
+        if 'advance_settled' not in cols:
+            conn.execute(text("ALTER TABLE transactions ADD COLUMN advance_settled BOOLEAN DEFAULT 0"))
+        conn.commit()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     create_tables()
+    _migrate_db()
     seed_default_categories()
     yield
 

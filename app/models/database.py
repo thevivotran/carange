@@ -72,6 +72,8 @@ class Transaction(Base):
     description = Column(Text, nullable=True)
     payment_method = Column(String(50), default="cash")
     is_savings_related = Column(Boolean, default=False)
+    is_advance      = Column(Boolean, default=False)
+    advance_settled = Column(Boolean, default=False)
     savings_bundle_id = Column(Integer, ForeignKey("savings_bundles.id"), nullable=True)
     project_id = Column(Integer, ForeignKey("financial_projects.id"), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
