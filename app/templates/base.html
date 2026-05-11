@@ -44,6 +44,19 @@
         canvas {
             max-height: 100% !important;
         }
+
+        /* iOS Safari: date inputs get extra internal height from WebKit's
+           -webkit-date-and-time-value pseudo-element. Resetting appearance
+           and controlling that pseudo-element makes them match text inputs. */
+        input[type="date"] {
+            -webkit-appearance: none;
+            appearance: none;
+            line-height: normal;
+        }
+        input[type="date"]::-webkit-date-and-time-value {
+            height: 1.5em;
+            margin: 0;
+        }
     </style>
     
     {% block extra_css %}{% endblock %}
