@@ -39,7 +39,7 @@
         body { font-family: 'Inter', sans-serif; }
         .sidebar-link:hover { background-color: rgba(59, 130, 246, 0.1); }
         .sidebar-link.active { background-color: rgba(59, 130, 246, 0.15); border-right: 3px solid #3B82F6; }
-        
+
         /* Chart container fix to prevent expanding */
         canvas {
             max-height: 100% !important;
@@ -48,21 +48,36 @@
         /* iOS Safari: date inputs get extra internal height from WebKit's
            -webkit-date-and-time-value pseudo-element. Resetting appearance
            and controlling that pseudo-element makes them match text inputs. */
-        input[type="date"] {
+        input[type="date"],
+        input[type="month"] {
             -webkit-appearance: none;
             appearance: none;
             line-height: normal;
         }
-        input[type="date"]::-webkit-date-and-time-value {
+        input[type="date"]::-webkit-date-and-time-value,
+        input[type="month"]::-webkit-date-and-time-value {
             height: 1.5em;
             margin: 0;
+        }
+
+        /* iOS Safari: prevent font scaling on orientation change */
+        html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+        /* Momentum scrolling on all scrollable containers */
+        .overflow-y-auto, .overflow-x-auto, .overflow-auto {
+            -webkit-overflow-scrolling: touch;
+        }
+
+        /* Suppress iOS tap-highlight flash on interactive elements */
+        button, a, label, select, input, textarea {
+            -webkit-tap-highlight-color: transparent;
         }
     </style>
     
     {% block extra_css %}{% endblock %}
 </head>
 <body class="bg-gray-50">
-    <div class="flex h-screen">
+    <div class="flex h-screen" style="height:100vh;height:100dvh;">
         <!-- Sidebar -->
         <aside class="hidden md:flex w-64 bg-white shadow-lg flex-col">
             <div class="p-6 border-b">
@@ -131,7 +146,7 @@
         </aside>
         
         <!-- Mobile Header -->
-        <div class="md:hidden fixed top-0 left-0 right-0 bg-white shadow-md z-50">
+        <div class="md:hidden fixed top-0 left-0 right-0 bg-white shadow-md z-50" style="padding-top:env(safe-area-inset-top)">
             <div class="flex items-center justify-between p-4">
                 <a href="/" class="hover:opacity-80 transition">
                     <h1 class="text-xl font-bold text-primary">
@@ -190,7 +205,7 @@
         </div>
         
         <!-- Main Content -->
-        <main class="flex-1 overflow-y-auto md:pt-0 pt-16">
+        <main class="flex-1 overflow-y-auto md:pt-0 pt-16" style="padding-bottom:env(safe-area-inset-bottom)">
             {% block content %}{% endblock %}
         </main>
     </div>
@@ -300,7 +315,8 @@
 
     <!-- FAB: global quick-add transaction -->
     <button onclick="openGlobalAddModal()"
-            class="fixed bottom-6 right-6 z-[100] w-14 h-14 bg-secondary text-white rounded-full shadow-lg hover:bg-green-600 active:scale-95 transition-all flex items-center justify-center">
+            class="fixed bottom-6 right-6 z-[100] w-14 h-14 bg-secondary text-white rounded-full shadow-lg hover:bg-green-600 active:scale-95 transition-all flex items-center justify-center"
+            style="bottom:calc(1.5rem + env(safe-area-inset-bottom))">
         <i class="fas fa-plus text-xl"></i>
     </button>
 
@@ -434,14 +450,13 @@
         });
     </script>
 
-    <!-- Toast container -->
-    <div id="toast-container" class="fixed bottom-4 right-4 z-[200] space-y-2 pointer-events-none">
+    <!-- Toast container — sits above FAB on mobile (bottom-24), normal on md+ -->
+    <div id="toast-container" class="fixed bottom-24 right-4 md:bottom-4 z-[200] space-y-2 pointer-events-none">
         <div class="pointer-events-auto"></div>
     </div>
     <script>
-        // Re-initialise container so all toasts are pointer-events-auto
         const _tc = document.getElementById('toast-container');
-        _tc.className = 'fixed bottom-4 right-4 z-[200] space-y-2';
+        _tc.className = 'fixed bottom-24 right-4 md:bottom-4 z-[200] space-y-2';
     </script>
 
     <!-- Confirm dialog -->
@@ -454,5 +469,30 @@
             </div>
         </div>
     </div>
+
+    <script>
+        // Lock body scroll whenever any modal overlay is visible; unlock when all are hidden.
+        (function() {
+            const observer = new MutationObserver(function() {
+                const anyOpen = Array.from(document.querySelectorAll('.fixed.inset-0')).some(function(el) {
+                    return !el.classList.contains('hidden');
+                });
+                document.body.style.overflow = anyOpen ? 'hidden' : '';
+            });
+            observer.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
+        })();
+
+        // Tap on modal backdrop (outside the card) closes it.
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('inset-0') && !e.target.classList.contains('hidden')) {
+                // Prefer clicking the dedicated close/cancel button for proper cleanup.
+                var closeBtn = e.target.querySelector(
+                    'button[onclick*="close"], button[onclick*="Close"], #confirm-cancel'
+                );
+                if (closeBtn) { closeBtn.click(); }
+                else { e.target.classList.add('hidden'); }
+            }
+        });
+    </script>
 </body>
 </html>
