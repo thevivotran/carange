@@ -20,33 +20,61 @@
     
     <!-- Filters -->
     <div class="bg-white rounded-xl shadow-md p-4 mb-6">
-        <div class="flex flex-wrap gap-4">
-            <select id="filter-type" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary">
-                <option value="">All Types</option>
-                <option value="income">Income</option>
-                <option value="expense">Expense</option>
-            </select>
-            
-            <select id="filter-category" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary">
-                <option value="">All Categories</option>
-            </select>
-            
-            <input type="date" id="filter-start-date" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary" placeholder="Start Date">
-            <input type="date" id="filter-end-date" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary" placeholder="End Date">
-            
-            <select id="filter-project" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary">
-                <option value="">All Projects</option>
-            </select>
-
-            <input type="text" id="filter-search" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary" placeholder="Search description...">
-
-            <button onclick="applyFilters()" class="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition">
-                <i class="fas fa-filter mr-2"></i>Filter
+        <!-- Always-visible row -->
+        <div class="flex flex-wrap gap-3 items-center">
+            <div class="flex-1 min-w-[180px] relative">
+                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
+                <input type="text" id="filter-search"
+                       class="w-full border rounded-lg pl-9 pr-4 py-2 text-sm focus:ring-2 focus:ring-primary"
+                       placeholder="Search description..."
+                       onkeydown="if(event.key==='Enter') applyFilters()">
+            </div>
+            <button id="toggle-filters-btn" onclick="toggleAdvancedFilters()"
+                    class="flex items-center gap-2 border rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 transition">
+                <i class="fas fa-sliders-h text-gray-500"></i>
+                Filters
+                <span id="active-filter-count" class="hidden bg-primary text-white text-xs rounded-full w-5 h-5 items-center justify-center font-semibold">0</span>
             </button>
-            
-            <button onclick="exportCSV()" class="bg-green-100 text-green-700 px-4 py-2 rounded-lg hover:bg-green-200 transition">
-                <i class="fas fa-download mr-2"></i>Export CSV
+            <button onclick="exportCSV()"
+                    class="bg-green-100 text-green-700 px-3 py-2 rounded-lg hover:bg-green-200 transition text-sm flex items-center gap-2">
+                <i class="fas fa-download"></i><span class="hidden sm:inline">Export CSV</span>
             </button>
+        </div>
+
+        <!-- Advanced filters (collapsible) -->
+        <div id="advanced-filters" class="hidden mt-3 pt-3 border-t">
+            <div class="flex flex-wrap gap-3 items-center">
+                <select id="filter-type" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                    <option value="">All Types</option>
+                    <option value="income">Income</option>
+                    <option value="expense">Expense</option>
+                </select>
+
+                <select id="filter-category" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary min-w-[140px]">
+                    <option value="">All Categories</option>
+                </select>
+
+                <div class="flex items-center gap-2">
+                    <input type="date" id="filter-start-date"
+                           class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary bg-white h-[38px]">
+                    <span class="text-gray-400 text-xs">→</span>
+                    <input type="date" id="filter-end-date"
+                           class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary bg-white h-[38px]">
+                </div>
+
+                <select id="filter-project" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary min-w-[120px]">
+                    <option value="">All Projects</option>
+                </select>
+
+                <button onclick="applyFilters()"
+                        class="bg-primary text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-600 transition flex items-center gap-2">
+                    <i class="fas fa-filter"></i>Apply
+                </button>
+                <button onclick="clearFilters()"
+                        class="text-gray-400 hover:text-red-500 text-sm px-2 py-2 transition">
+                    <i class="fas fa-times mr-1"></i>Clear
+                </button>
+            </div>
         </div>
     </div>
     
@@ -155,7 +183,7 @@
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Date</label>
                 <input type="date" id="date" required
-                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent bg-white">
+                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent bg-white h-[50px]">
             </div>
             
             <!-- Category -->
@@ -229,7 +257,7 @@
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Maturity Date</label>
                     <input type="date" id="savings-maturity-date"
-                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent bg-white h-[50px]">
                 </div>
 
                 <!-- Future Amount -->
@@ -719,9 +747,44 @@
         loadTransactions();
     }
     
+    function toggleAdvancedFilters() {
+        const panel = document.getElementById('advanced-filters');
+        panel.classList.toggle('hidden');
+    }
+
+    function updateFilterBadge() {
+        const hasType     = !!document.getElementById('filter-type').value;
+        const hasCat      = !!document.getElementById('filter-category').value;
+        const hasStart    = !!document.getElementById('filter-start-date').value;
+        const hasEnd      = !!document.getElementById('filter-end-date').value;
+        const hasProject  = !!document.getElementById('filter-project').value;
+        const count = [hasType, hasCat, hasStart, hasEnd, hasProject].filter(Boolean).length;
+        const badge = document.getElementById('active-filter-count');
+        if (count > 0) {
+            badge.textContent = count;
+            badge.classList.remove('hidden');
+            badge.classList.add('flex');
+        } else {
+            badge.classList.add('hidden');
+            badge.classList.remove('flex');
+        }
+    }
+
+    function clearFilters() {
+        document.getElementById('filter-type').value     = '';
+        document.getElementById('filter-category').value = '';
+        document.getElementById('filter-start-date').value = '';
+        document.getElementById('filter-end-date').value   = '';
+        document.getElementById('filter-project').value  = '';
+        document.getElementById('filter-search').value   = '';
+        updateFilterBadge();
+        applyFilters();
+    }
+
     function applyFilters() {
         currentPage = 0;
         saveFilters();
+        updateFilterBadge();
         loadTransactions();
     }
     
@@ -747,6 +810,11 @@
             document.getElementById('filter-start-date').value = filters.start_date || '';
             document.getElementById('filter-end-date').value = filters.end_date || '';
             document.getElementById('filter-search').value = filters.search || '';
+            const hasAdvanced = !!(filters.type || filters.category_id || filters.project_id || filters.start_date || filters.end_date);
+            if (hasAdvanced) {
+                document.getElementById('advanced-filters').classList.remove('hidden');
+                updateFilterBadge();
+            }
         }
     }
     

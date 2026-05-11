@@ -67,6 +67,11 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
         Transaction.category_id.in_(_cat_bds) if _cat_bds else False,
     ).scalar() or 0
 
+    total_bds_alltime = db.query(func.sum(Transaction.amount)).filter(
+        Transaction.type == TransactionType.EXPENSE,
+        Transaction.category_id.in_(_cat_bds) if _cat_bds else False,
+    ).scalar() or 0
+
     # Savings Rate = what % of income went to wealth-building
     savings_rate = round(
         (monthly_tiet_kiem + monthly_bds) / monthly_income * 100, 1
@@ -191,6 +196,7 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
             "budget_total":          budget_total,
             "monthly_tiet_kiem":     monthly_tiet_kiem,
             "monthly_bds":           monthly_bds,
+            "total_bds_alltime":     total_bds_alltime,
         },
         "budget_top_cats":      budget_top_cats,
         "alert_maturities":     alert_maturities,
@@ -229,6 +235,7 @@ def get_dashboard_summary(year: Optional[int] = None, month: Optional[int] = Non
         budget_adherence_pct=s["budget_adherence_pct"],
         monthly_tiet_kiem=s["monthly_tiet_kiem"],
         monthly_bds=s["monthly_bds"],
+        total_bds_alltime=s["total_bds_alltime"],
     )
 
 
@@ -321,3 +328,58 @@ def get_expense_by_category(year: Optional[int] = None, month: Optional[int] = N
         }
         for name, color, total in cat_rows if total > 0
     ]
+
+
+@router.get("/dashboard/wealth-building-trend")
+def get_wealth_building_trend(db: Session = Depends(get_db)):
+    today = date.today()
+    months = []
+    for i in range(5, -1, -1):
+        total_months = today.month - 1 - i
+        year_num  = today.year + total_months // 12
+        month_num = total_months % 12 + 1
+        months.append((year_num, month_num))
+
+    start_date = date(months[0][0], months[0][1], 1)
+
+    _cat_tiet_kiem = [r[0] for r in db.query(Category.id).filter(
+        Category.name == 'Tiết kiệm', Category.type == TransactionType.EXPENSE,
+    ).all()]
+    _cat_bds = [r[0] for r in db.query(Category.id).filter(
+        Category.name == 'Bất động sản', Category.type == TransactionType.EXPENSE,
+    ).all()]
+
+    rows = db.query(
+        extract('year',  Transaction.date).label('year'),
+        extract('month', Transaction.date).label('month'),
+        func.sum(case(
+            (Transaction.category_id.in_(_cat_tiet_kiem) if _cat_tiet_kiem else False, Transaction.amount),
+            else_=0,
+        )).label('tiet_kiem'),
+        func.sum(case(
+            (Transaction.category_id.in_(_cat_bds) if _cat_bds else False, Transaction.amount),
+            else_=0,
+        )).label('bds'),
+    ).filter(
+        Transaction.date >= start_date,
+        Transaction.type == TransactionType.EXPENSE,
+    ).group_by(
+        extract('year',  Transaction.date),
+        extract('month', Transaction.date),
+    ).all()
+
+    data_map = {(int(r.year), int(r.month)): r for r in rows}
+
+    results = []
+    for year_num, month_num in months:
+        r = data_map.get((year_num, month_num))
+        tk  = float(r.tiet_kiem) if r else 0
+        bds = float(r.bds)       if r else 0
+        results.append({
+            "month":     date(year_num, month_num, 1).strftime("%b %Y"),
+            "tiet_kiem": tk,
+            "bds":       bds,
+            "total":     tk + bds,
+        })
+
+    return results

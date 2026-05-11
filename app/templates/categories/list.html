@@ -158,7 +158,9 @@
         const grid = document.getElementById('categories-grid');
         while (grid.firstChild) grid.removeChild(grid.firstChild);
 
-        const filtered = categories.filter(function(c) { return c.type === currentTab; });
+        const filtered = categories
+            .filter(function(c) { return c.type === currentTab; })
+            .sort(function(a, b) { return a.name.localeCompare(b.name); });
 
         if (filtered.length === 0) {
             const empty = document.createElement('div');

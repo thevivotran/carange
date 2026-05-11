@@ -10,9 +10,10 @@
       <h2 class="text-2xl font-bold text-gray-800">Financial Health</h2>
       <p class="text-sm text-gray-400">as of {{ today.strftime('%d %B %Y') }}</p>
     </div>
-    <div class="flex items-center gap-1 bg-white rounded-xl shadow-sm border px-3 py-2">
-      <button onclick="shiftMonth(-1)" class="px-2 py-1 text-gray-400 hover:text-gray-700">&#8249;</button>
-      <select id="sel-month" onchange="updateDashboard()" class="border-none focus:ring-0 text-sm font-medium text-gray-700 bg-transparent">
+    <div class="flex items-center gap-1 bg-white rounded-xl shadow-sm border px-2 py-1">
+      <button onclick="shiftMonth(-1)"
+              class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 transition select-none">&#8249;</button>
+      <select id="sel-month" onchange="updateDashboard()" class="border-none focus:ring-0 text-sm font-medium text-gray-700 bg-transparent py-2">
         <option value="1">January</option><option value="2">February</option>
         <option value="3">March</option><option value="4">April</option>
         <option value="5">May</option><option value="6">June</option>
@@ -20,8 +21,9 @@
         <option value="9">September</option><option value="10">October</option>
         <option value="11">November</option><option value="12">December</option>
       </select>
-      <select id="sel-year" onchange="updateDashboard()" class="border-none focus:ring-0 text-sm font-medium text-gray-700 bg-transparent"></select>
-      <button onclick="shiftMonth(1)" class="px-2 py-1 text-gray-400 hover:text-gray-700">&#8250;</button>
+      <select id="sel-year" onchange="updateDashboard()" class="border-none focus:ring-0 text-sm font-medium text-gray-700 bg-transparent py-2"></select>
+      <button onclick="shiftMonth(1)"
+              class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 transition select-none">&#8250;</button>
     </div>
   </div>
 
@@ -67,7 +69,7 @@
         {% if summary.net_this_month >= 0 %}text-green-600{% else %}text-red-500{% endif %}">
         {% set nc = summary.net_this_month %}{% if nc | abs >= 1000000000 %}{% if nc >= 0 %}+{% endif %}{{ "%.2f" | format(nc / 1000000000) }}B{% elif nc | abs >= 1000000 %}{% if nc >= 0 %}+{% endif %}{{ "%.1f" | format(nc / 1000000) }}M{% else %}{{ "{:+,.0f}".format(nc) }}{% endif %} ₫
       </p>
-      <p class="text-xs text-gray-400 mt-2">After expense &amp; savings</p>
+      <p class="text-xs text-gray-400 mt-2">Income − Savings − BDS − Living</p>
       <div class="mt-2 flex gap-3 text-xs text-gray-500">
         <span id="kpi-income-sub">In: {{ "{:,.0f}".format(summary.total_income) }} ₫</span>
         <span id="kpi-expense-sub">Out: {{ "{:,.0f}".format(summary.total_expense + summary.total_savings_expense) }} ₫</span>
@@ -184,6 +186,38 @@
         <a href="/budget" class="text-xs text-primary hover:underline">Set up budget →</a>
       </div>
       {% endif %}
+    </div>
+
+  </div>
+
+  <!-- ── Row 2b: Wealth Building Charts ───────────────────────────── -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+    <!-- Wealth Building Trend -->
+    <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border p-6">
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <h3 class="font-semibold text-gray-800">Wealth Building — Last 6 Months</h3>
+          <p class="text-xs text-gray-400 mt-0.5">Tiết kiệm + Bất động sản monthly deposits</p>
+        </div>
+      </div>
+      <div style="height: 230px; position: relative;">
+        <canvas id="wealthTrendChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Wealth Allocation Donut -->
+    <div class="bg-white rounded-2xl shadow-sm border p-6">
+      <div class="flex justify-between items-center mb-4">
+        <div>
+          <h3 class="font-semibold text-gray-800">Wealth Allocation</h3>
+          <p class="text-xs text-gray-400 mt-0.5">Current distribution of assets</p>
+        </div>
+      </div>
+      <div style="height: 180px; position: relative;" class="mx-auto">
+        <canvas id="wealthAllocChart"></canvas>
+      </div>
+      <div class="mt-4 space-y-1.5" id="alloc-legend"></div>
     </div>
 
   </div>
@@ -586,6 +620,143 @@ fetch('/api/dashboard/monthly-trend')
         });
     });
 
+// ── Wealth Building Trend chart ───────────────────────────────────────────────
+fetch('/api/dashboard/wealth-building-trend')
+    .then(r => r.json())
+    .then(data => {
+        const ctx = document.getElementById('wealthTrendChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.map(d => d.month),
+                datasets: [
+                    {
+                        label: 'Tiết kiệm',
+                        data: data.map(d => d.tiet_kiem),
+                        backgroundColor: 'rgba(99,102,241,0.8)',
+                        borderColor: '#4f46e5',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        stack: 'wb',
+                    },
+                    {
+                        label: 'Bất động sản',
+                        data: data.map(d => d.bds),
+                        backgroundColor: 'rgba(16,185,129,0.8)',
+                        borderColor: '#059669',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                        stack: 'wb',
+                    },
+                    {
+                        label: 'Total',
+                        type: 'line',
+                        data: data.map(d => d.total),
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245,158,11,0.08)',
+                        borderWidth: 2,
+                        tension: 0.3,
+                        pointRadius: 4,
+                        pointBackgroundColor: '#f59e0b',
+                        fill: false,
+                        order: 0,
+                    },
+                ],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                scales: {
+                    x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
+                    y: {
+                        stacked: true,
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0,0,0,0.04)' },
+                        ticks: { callback: v => fmtM(v), font: { size: 11 } },
+                    },
+                },
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 }, padding: 14 } },
+                    tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + fmtVND(ctx.raw) } },
+                },
+            },
+        });
+    });
+
+// ── Wealth Allocation donut chart ─────────────────────────────────────────────
+(function renderWealthAlloc() {
+    const bds      = {{ summary.total_bds_alltime | default(0) }};
+    const savings  = {{ summary.total_savings_initial | default(0) }};
+    const assets   = {{ summary.total_assets_current | default(0) }};
+    const total    = bds + savings + assets;
+
+    const labels = ['Bất động sản', 'Savings Deposits', 'Other Assets'];
+    const values = [bds, savings, assets];
+    const colors = ['#10b981', '#6366f1', '#f59e0b'];
+
+    const ctx = document.getElementById('wealthAllocChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels,
+            datasets: [{
+                data: values,
+                backgroundColor: colors.map(c => c + 'cc'),
+                borderColor: colors,
+                borderWidth: 2,
+                hoverOffset: 6,
+            }],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '65%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => {
+                            const pct = total > 0 ? (ctx.raw / total * 100).toFixed(1) : 0;
+                            return ' ' + ctx.label + ': ' + fmtVND(ctx.raw) + ' (' + pct + '%)';
+                        },
+                    },
+                },
+            },
+        },
+    });
+
+    const legend = document.getElementById('alloc-legend');
+    labels.forEach(function(label, i) {
+        const pct = total > 0 ? (values[i] / total * 100).toFixed(1) : 0;
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between text-xs';
+        const left = document.createElement('div');
+        left.className = 'flex items-center gap-2';
+        const dot = document.createElement('span');
+        dot.className = 'w-2.5 h-2.5 rounded-full flex-shrink-0';
+        dot.style.backgroundColor = colors[i];
+        const lbl = document.createElement('span');
+        lbl.className = 'text-gray-600 truncate';
+        lbl.textContent = label;
+        left.appendChild(dot);
+        left.appendChild(lbl);
+        const right = document.createElement('div');
+        right.className = 'text-right flex-shrink-0 ml-2';
+        const pctEl = document.createElement('span');
+        pctEl.className = 'font-semibold text-gray-700';
+        pctEl.textContent = pct + '%';
+        const valEl = document.createElement('div');
+        valEl.className = 'text-gray-400';
+        valEl.textContent = fmtM(values[i]) + ' ₫';
+        right.appendChild(pctEl);
+        right.appendChild(valEl);
+        row.appendChild(left);
+        row.appendChild(right);
+        legend.appendChild(row);
+    });
+})();
+
 // ── KPI info popover ─────────────────────────────────────────────────────────
 const KPI_INFO = {
     'savings-rate': {
@@ -600,11 +771,13 @@ const KPI_INFO = {
     },
     'net-cash': {
         title: 'Net Cash',
-        formula: 'Income − Living Expense − Savings Deposits',
-        target: '> 0  (unallocated cash after all outflows)',
+        formula: '(Income − Savings Deposits − Bất động sản) − Living Expense',
+        target: '> 0  (discretionary cash after all outflows)',
         notes: [
-            'Positive = cash still sitting in current account',
-            'Negative = total outflows exceeded income this month',
+            'Savings Deposits = Tiết kiệm transfers to savings accounts',
+            'Bất động sản = The Gió Riverside instalment payments',
+            'Living Expense = day-to-day spending (food, transport, etc.)',
+            'Positive = cash still sitting in current account this month',
             'Reflects the selected month',
         ],
     },
