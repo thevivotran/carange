@@ -107,9 +107,7 @@
                         <th class="text-left py-4 px-6 text-sm font-semibold text-gray-700">Date</th>
                         <th class="text-left py-4 px-6 text-sm font-semibold text-gray-700">Category</th>
                         <th class="text-left py-4 px-6 text-sm font-semibold text-gray-700">Description</th>
-                        <th class="text-left py-4 px-6 text-sm font-semibold text-gray-700">Payment</th>
                         <th class="text-right py-4 px-6 text-sm font-semibold text-gray-700">Amount</th>
-                        <th class="text-center py-4 px-6 text-sm font-semibold text-gray-700">Actions</th>
                     </tr>
                 </thead>
                 <tbody id="transactions-table-body">
@@ -409,13 +407,14 @@
             const response = await fetch('/api/transactions/?' + params);
             const transactions = await response.json();
 
+            collapseActions();
             const tbody = document.getElementById('transactions-table-body');
             while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
 
             if (transactions.length === 0) {
                 const emptyRow = document.createElement('tr');
                 const emptyCell = document.createElement('td');
-                emptyCell.colSpan = 6;
+                emptyCell.colSpan = 4;
                 emptyCell.className = 'py-20 text-center text-gray-400';
                 const ico = document.createElement('i');
                 ico.className = 'fas fa-receipt text-5xl mb-4 block opacity-30';
@@ -441,12 +440,13 @@
 
                 const row = document.createElement('tr');
                 if (t.is_advance && !t.advance_settled) {
-                    row.className = 'border-b border-l-4 border-amber-400 bg-amber-50 hover:bg-amber-100 transition-colors';
+                    row.className = 'border-b border-l-4 border-amber-400 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer select-none';
                 } else if (t.is_advance && t.advance_settled) {
-                    row.className = 'border-b border-l-4 border-green-300 bg-green-50 hover:bg-green-100 transition-colors';
+                    row.className = 'border-b border-l-4 border-green-300 bg-green-50 hover:bg-green-100 transition-colors cursor-pointer select-none';
                 } else {
-                    row.className = 'border-b hover:bg-gray-50 transition-colors';
+                    row.className = 'border-b hover:bg-gray-50 transition-colors cursor-pointer select-none';
                 }
+                row.addEventListener('click', function() { toggleRowActions(row, t); });
 
                 const dateCell = document.createElement('td');
                 dateCell.className = 'py-4 px-6';
@@ -481,27 +481,10 @@
                 }
                 row.appendChild(descCell);
 
-                const payCell = document.createElement('td');
-                payCell.className = 'py-4 px-6 text-gray-500 text-sm capitalize';
-                payCell.textContent = (t.payment_method || '-').replace('_', ' ');
-                row.appendChild(payCell);
-
                 const amtCell = document.createElement('td');
                 amtCell.className = 'py-4 px-6 text-right font-semibold ' + (t.type === 'income' ? 'text-green-600' : 'text-red-600');
                 amtCell.textContent = (t.type === 'income' ? '+' : '-') + formatVND(t.amount);
                 row.appendChild(amtCell);
-
-                const actCell = document.createElement('td');
-                actCell.className = 'py-4 px-6 text-center';
-                const menuBtn = document.createElement('button');
-                menuBtn.className = 'row-menu-btn text-gray-500 hover:text-gray-800 px-2 py-1 rounded hover:bg-gray-200 transition font-bold text-lg leading-none';
-                menuBtn.textContent = '⋯';
-                menuBtn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    openRowMenu(menuBtn, t, row);
-                });
-                actCell.appendChild(menuBtn);
-                row.appendChild(actCell);
 
                 tbody.appendChild(row);
             });
@@ -675,51 +658,77 @@
         });
     }
 
-    // Row action dropdown
-    function makeMenuItem(icon, label, colorClass, onClick) {
-        const item = document.createElement('button');
-        item.className = 'w-full text-left px-4 py-2 text-sm ' + colorClass + ' hover:bg-gray-50 flex items-center gap-2 transition';
-        const ico = document.createElement('i');
-        ico.className = 'fas ' + icon + ' w-4 text-center';
-        item.appendChild(ico);
-        item.appendChild(document.createTextNode(' ' + label));
-        item.addEventListener('click', onClick);
-        return item;
-    }
+    // ── Inline row action bar ─────────────────────────────────────────────────
+    let _activeRow = null, _activeActionTr = null, _activeRowOrigClass = null;
 
-    function openRowMenu(btn, t, row) {
-        const menu = document.getElementById('row-dropdown');
-        menu.innerHTML = '';
-        menu.style.top = '-9999px';
-        menu.style.left = '-9999px';
-        menu.classList.remove('hidden');
+    function toggleRowActions(row, t) {
+        if (_activeRow === row) { collapseActions(); return; }
+        collapseActions();
 
-        menu.appendChild(makeMenuItem('fa-edit', 'Edit', 'text-blue-600', function() {
-            closeRowMenu(); editTransaction(t.id);
-        }));
+        _activeRowOrigClass = row.className;
+        row.className = row.className + ' !bg-blue-50 ring-1 ring-inset ring-blue-200';
+
+        const actionTr = document.createElement('tr');
+        actionTr.className = 'bg-blue-50 border-b border-blue-100';
+        actionTr.addEventListener('click', function(e) { e.stopPropagation(); });
+
+        const td = document.createElement('td');
+        td.colSpan = 4;
+        td.className = 'px-4 py-2';
+
+        const bar = document.createElement('div');
+        bar.className = 'flex flex-wrap items-center gap-2';
+
+        const mkBtn = function(iconClass, label, cls) {
+            const btn = document.createElement('button');
+            btn.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition active:scale-95 ' + cls;
+            const ico = document.createElement('i');
+            ico.className = 'fas ' + iconClass;
+            btn.appendChild(ico);
+            btn.appendChild(document.createTextNode(' ' + label));
+            return btn;
+        };
+
+        const editBtn = mkBtn('fa-edit', 'Edit', 'text-blue-700 bg-white border-blue-200 hover:bg-blue-50');
+        editBtn.addEventListener('click', function(e) { e.stopPropagation(); collapseActions(); editTransaction(t.id); });
+        bar.appendChild(editBtn);
 
         if (t.is_advance && !t.advance_settled) {
-            menu.appendChild(makeMenuItem('fa-check-circle', 'Mark as Settled', 'text-green-600', function() {
-                closeRowMenu(); settleAdvance(t.id);
-            }));
+            const settleBtn = mkBtn('fa-check-circle', 'Mark Settled', 'text-green-700 bg-white border-green-200 hover:bg-green-50');
+            settleBtn.addEventListener('click', function(e) { e.stopPropagation(); collapseActions(); settleAdvance(t.id); });
+            bar.appendChild(settleBtn);
         }
 
-        menu.appendChild(makeMenuItem('fa-trash', 'Delete', 'text-red-600', function() {
-            closeRowMenu();
+        const delBtn = mkBtn('fa-trash', 'Delete', 'text-red-700 bg-white border-red-200 hover:bg-red-50');
+        delBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            collapseActions();
             deleteWithUndo(row, '/api/transactions/' + t.id, function() {
                 saveFilters(); loadTransactions(); loadMonthlySummary();
             }, formatDate(t.date) + ' ' + t.category.name);
-        }));
+        });
+        bar.appendChild(delBtn);
 
-        const rect = btn.getBoundingClientRect();
-        const menuWidth = menu.offsetWidth || 160;
-        const left = Math.max(4, rect.right + window.scrollX - menuWidth);
-        menu.style.top  = (rect.bottom + window.scrollY + 4) + 'px';
-        menu.style.left = left + 'px';
+        const hint = document.createElement('span');
+        hint.className = 'ml-auto text-xs text-gray-400 hidden sm:block';
+        hint.textContent = 'Tap row to close';
+        bar.appendChild(hint);
+
+        td.appendChild(bar);
+        actionTr.appendChild(td);
+        row.after(actionTr);
+
+        _activeRow = row;
+        _activeActionTr = actionTr;
     }
 
-    function closeRowMenu() {
-        document.getElementById('row-dropdown').classList.add('hidden');
+    function collapseActions() {
+        if (_activeActionTr) { _activeActionTr.remove(); _activeActionTr = null; }
+        if (_activeRow) {
+            if (_activeRowOrigClass !== null) _activeRow.className = _activeRowOrigClass;
+            _activeRow = null;
+            _activeRowOrigClass = null;
+        }
     }
 
     async function settleAdvance(id) {
@@ -732,12 +741,6 @@
         else showToast('Failed to settle advance', 'error');
     }
 
-    document.addEventListener('click', function(e) {
-        if (!e.target.closest('#row-dropdown') && !e.target.closest('.row-menu-btn')) {
-            closeRowMenu();
-        }
-    });
-    
     function prevPage() {
         if (currentPage > 0) { currentPage--; loadTransactions(); }
     }
