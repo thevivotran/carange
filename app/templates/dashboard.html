@@ -686,14 +686,14 @@ fetch('/api/dashboard/wealth-building-trend')
 
 // ── Wealth Allocation donut chart ─────────────────────────────────────────────
 (function renderWealthAlloc() {
-    const bds      = {{ summary.total_bds_alltime | default(0) }};
-    const savings  = {{ summary.total_savings_initial | default(0) }};
-    const assets   = {{ summary.total_assets_current | default(0) }};
-    const total    = bds + savings + assets;
+    const projectSegs = {{ project_amounts_by_type | tojson }};
+    const savings     = {{ summary.total_savings_initial | default(0) }};
+    const assets      = {{ summary.total_assets_current  | default(0) }};
 
-    const labels = ['Bất động sản', 'Savings Deposits', 'Other Assets'];
-    const values = [bds, savings, assets];
-    const colors = ['#10b981', '#6366f1', '#f59e0b'];
+    const labels = projectSegs.map(s => s.label).concat(['Savings Deposits', 'Other Assets']);
+    const values = projectSegs.map(s => s.amount).concat([savings, assets]);
+    const colors = projectSegs.map(s => s.color).concat(['#6366f1', '#f59e0b']);
+    const total  = values.reduce((a, b) => a + b, 0);
 
     const ctx = document.getElementById('wealthAllocChart').getContext('2d');
     new Chart(ctx, {

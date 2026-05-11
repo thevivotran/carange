@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from app.models.database import (
     get_db, Transaction, Category, SavingsBundle, FinancialProject,
-    SavingsStatus, ProjectStatus, TransactionType, OtherAsset,
+    SavingsStatus, ProjectStatus, ProjectType, TransactionType, OtherAsset,
     ProjectPayment, PaymentStatus,
 )
 from app.models.schemas import DashboardSummary, MonthlyData, CategorySummary
@@ -67,10 +67,24 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
         Transaction.category_id.in_(_cat_bds) if _cat_bds else False,
     ).scalar() or 0
 
-    total_bds_alltime = db.query(func.sum(Transaction.amount)).filter(
-        Transaction.type == TransactionType.EXPENSE,
-        Transaction.category_id.in_(_cat_bds) if _cat_bds else False,
-    ).scalar() or 0
+    _PROJECT_TYPE_META = {
+        'real_estate': {'label': 'Bất động sản',  'color': '#10b981'},
+        'investment':  {'label': 'Investment',     'color': '#6366f1'},
+    }
+    _type_rows = db.query(
+        FinancialProject.type,
+        func.sum(FinancialProject.current_amount).label('total'),
+    ).filter(
+        FinancialProject.type.in_([ProjectType.REAL_ESTATE, ProjectType.INVESTMENT]),
+    ).group_by(FinancialProject.type).all()
+    project_amounts_by_type = [
+        {
+            'label':  _PROJECT_TYPE_META[row.type.value]['label'],
+            'color':  _PROJECT_TYPE_META[row.type.value]['color'],
+            'amount': float(row.total or 0),
+        }
+        for row in _type_rows if (row.total or 0) > 0
+    ]
 
     # Savings Rate = what % of income went to wealth-building
     savings_rate = round(
@@ -196,17 +210,17 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
             "budget_total":          budget_total,
             "monthly_tiet_kiem":     monthly_tiet_kiem,
             "monthly_bds":           monthly_bds,
-            "total_bds_alltime":     total_bds_alltime,
         },
-        "budget_top_cats":      budget_top_cats,
-        "alert_maturities":     alert_maturities,
-        "alert_over_budget":    alert_over_budget,
-        "active_projects_list": active_projects_list,
-        "at_risk_ids":          at_risk_ids,
-        "today":                today,
-        "recent_transactions":  recent_transactions,
-        "upcoming_maturities":  upcoming_maturities,
-        "expense_by_category":  expense_by_category,
+        "budget_top_cats":          budget_top_cats,
+        "alert_maturities":         alert_maturities,
+        "alert_over_budget":        alert_over_budget,
+        "active_projects_list":     active_projects_list,
+        "at_risk_ids":              at_risk_ids,
+        "today":                    today,
+        "recent_transactions":      recent_transactions,
+        "upcoming_maturities":      upcoming_maturities,
+        "expense_by_category":      expense_by_category,
+        "project_amounts_by_type":  project_amounts_by_type,
     }
 
 
@@ -235,7 +249,6 @@ def get_dashboard_summary(year: Optional[int] = None, month: Optional[int] = Non
         budget_adherence_pct=s["budget_adherence_pct"],
         monthly_tiet_kiem=s["monthly_tiet_kiem"],
         monthly_bds=s["monthly_bds"],
-        total_bds_alltime=s["total_bds_alltime"],
     )
 
 

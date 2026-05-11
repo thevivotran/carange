@@ -352,7 +352,6 @@ class DashboardSummary(BaseModel):
     budget_adherence_pct: Optional[float] = None
     monthly_tiet_kiem: float = 0
     monthly_bds: float = 0
-    total_bds_alltime: float = 0
     cash_on_hand: float
     total_savings_active: float
     total_savings_target: float
