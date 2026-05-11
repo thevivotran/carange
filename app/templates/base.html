@@ -3,6 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Apply saved theme BEFORE first paint to avoid flash -->
+    <script>
+        (function(){
+            var t=localStorage.getItem('carange-theme');
+            if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches)){
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
     <title>{% block title %}Carange - Family Finance Tracker{% endblock %}</title>
     
     <!-- Tailwind CSS -->
@@ -41,37 +50,123 @@
         .sidebar-link.active { background-color: rgba(59, 130, 246, 0.15); border-right: 3px solid #3B82F6; }
 
         /* Chart container fix to prevent expanding */
-        canvas {
-            max-height: 100% !important;
-        }
+        canvas { max-height: 100% !important; }
 
-        /* iOS Safari: date inputs get extra internal height from WebKit's
-           -webkit-date-and-time-value pseudo-element. Resetting appearance
-           and controlling that pseudo-element makes them match text inputs. */
-        input[type="date"],
-        input[type="month"] {
-            -webkit-appearance: none;
-            appearance: none;
-            line-height: normal;
+        /* iOS Safari: date / month inputs — reset WebKit height injection */
+        input[type="date"], input[type="month"] {
+            -webkit-appearance: none; appearance: none; line-height: normal;
         }
         input[type="date"]::-webkit-date-and-time-value,
-        input[type="month"]::-webkit-date-and-time-value {
-            height: 1.5em;
-            margin: 0;
-        }
+        input[type="month"]::-webkit-date-and-time-value { height: 1.5em; margin: 0; }
 
         /* iOS Safari: prevent font scaling on orientation change */
         html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
         /* Momentum scrolling on all scrollable containers */
-        .overflow-y-auto, .overflow-x-auto, .overflow-auto {
-            -webkit-overflow-scrolling: touch;
-        }
+        .overflow-y-auto, .overflow-x-auto, .overflow-auto { -webkit-overflow-scrolling: touch; }
 
-        /* Suppress iOS tap-highlight flash on interactive elements */
-        button, a, label, select, input, textarea {
-            -webkit-tap-highlight-color: transparent;
+        /* Suppress iOS tap-highlight flash */
+        button, a, label, select, input, textarea { -webkit-tap-highlight-color: transparent; }
+
+        /* ═══════════════════════════════════════════════════
+           DARK MODE  —  toggled via <html class="dark">
+           CSS-override approach: !important beats Tailwind CDN
+           utilities and works on dynamically-generated DOM too.
+           ═══════════════════════════════════════════════════ */
+
+        /* Scaffold */
+        .dark body { background-color: #111827; }
+
+        /* ── Surfaces ─────────────────────────────────────── */
+        .dark .bg-white   { background-color: #1f2937 !important; }
+        .dark .bg-gray-50 { background-color: #111827 !important; }
+        .dark .bg-gray-100{ background-color: #374151 !important; }
+        .dark .bg-gray-200{ background-color: #4b5563 !important; }
+        /* undo-toast / dark overlays */
+        .dark .bg-gray-800{ background-color: #0f172a !important; }
+        .dark .bg-gray-900{ background-color: #030712 !important; }
+
+        /* Coloured tints → dim transparency in dark mode */
+        .dark .bg-green-50  { background-color: rgba(16,185,129,.13) !important; }
+        .dark .bg-red-50    { background-color: rgba(239,68,68,.13)  !important; }
+        .dark .bg-blue-50   { background-color: rgba(59,130,246,.13) !important; }
+        .dark .bg-indigo-50 { background-color: rgba(99,102,241,.13) !important; }
+        .dark .bg-amber-50  { background-color: rgba(245,158,11,.13) !important; }
+        .dark .bg-yellow-50 { background-color: rgba(234,179,8,.13)  !important; }
+        .dark .bg-purple-50 { background-color: rgba(168,85,247,.13) !important; }
+
+        /* Badge/chip tints */
+        .dark .bg-green-100  { background-color: rgba(16,185,129,.22) !important; }
+        .dark .bg-red-100    { background-color: rgba(239,68,68,.22)  !important; }
+        .dark .bg-blue-100   { background-color: rgba(59,130,246,.22) !important; }
+        .dark .bg-indigo-100 { background-color: rgba(99,102,241,.22) !important; }
+        .dark .bg-amber-100  { background-color: rgba(245,158,11,.22) !important; }
+        .dark .bg-yellow-100 { background-color: rgba(234,179,8,.22)  !important; }
+        .dark .bg-purple-100 { background-color: rgba(168,85,247,.22) !important; }
+
+        /* ── Text ─────────────────────────────────────────── */
+        .dark .text-gray-800 { color: #f9fafb !important; }
+        .dark .text-gray-700 { color: #e5e7eb !important; }
+        .dark .text-gray-600 { color: #d1d5db !important; }
+        .dark .text-gray-500 { color: #9ca3af !important; }
+        .dark .text-gray-400 { color: #6b7280 !important; }
+        .dark .text-gray-300 { color: #4b5563 !important; }
+        /* Vivid accent text (green, red, blue, amber, indigo, purple) kept as-is */
+
+        /* ── Borders ──────────────────────────────────────── */
+        .dark .border,
+        .dark .border-t,
+        .dark .border-b,
+        .dark .border-r,
+        .dark .border-l      { border-color: #374151 !important; }
+        .dark .border-gray-100{ border-color: #374151 !important; }
+        .dark .border-gray-200{ border-color: #374151 !important; }
+        .dark .border-gray-300{ border-color: #4b5563 !important; }
+        .dark .divide-y > * + *{ border-color: #374151 !important; }
+
+        /* ── Form controls ────────────────────────────────── */
+        .dark input:not([type="radio"]):not([type="checkbox"]),
+        .dark select,
+        .dark textarea {
+            background-color: #374151 !important;
+            color:            #f9fafb !important;
+            border-color:     #4b5563 !important;
         }
+        .dark input::placeholder,
+        .dark textarea::placeholder { color: #6b7280 !important; }
+        .dark option { background-color: #1f2937; color: #f9fafb; }
+
+        /* ── Hover / interaction ──────────────────────────── */
+        .dark .hover\:bg-gray-50:hover  { background-color: #374151 !important; }
+        .dark .hover\:bg-gray-100:hover { background-color: #4b5563 !important; }
+
+        /* ── Progress bar tracks ──────────────────────────── */
+        .dark .bg-gray-100.rounded-full { background-color: #374151 !important; }
+        .dark .progress-bg              { background-color: #374151 !important; }
+
+        /* ── Shadows ──────────────────────────────────────── */
+        .dark .shadow, .dark .shadow-sm { box-shadow: 0 1px 3px rgba(0,0,0,.5)   !important; }
+        .dark .shadow-md { box-shadow: 0 4px 6px -1px rgba(0,0,0,.5)  !important; }
+        .dark .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0,0,0,.6) !important; }
+        .dark .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0,0,0,.7) !important; }
+
+        /* ── Sidebar ──────────────────────────────────────── */
+        .dark .sidebar-link:hover { background-color: rgba(59,130,246,.18) !important; }
+        .dark .sidebar-link.active{ background-color: rgba(59,130,246,.28) !important; border-right-color: #3b82f6; }
+
+        /* ── Budget page custom classes ───────────────────── */
+        .dark .cat-card { background: #1f2937 !important; border-color: #374151 !important; }
+        .dark .cat-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.4); }
+
+        /* ── Notes page filter pills ──────────────────────── */
+        .dark .filter-btn { background: #374151 !important; color: #d1d5db !important; border-color: #4b5563 !important; }
+        .dark .filter-btn.active { background: #3b82f6 !important; color: #fff !important; border-color: #3b82f6 !important; }
+
+        /* ── Theme toggle icon ────────────────────────────── */
+        .dark .theme-icon-dark  { display: none  !important; }
+        .dark .theme-icon-light { display: inline !important; }
+        .theme-icon-dark        { display: inline; }
+        .theme-icon-light       { display: none; }
     </style>
     
     {% block extra_css %}{% endblock %}
@@ -137,6 +232,14 @@
 
             </nav>
             
+            <div class="px-4 pb-2">
+                <button onclick="toggleTheme()"
+                        class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-100 transition">
+                    <i class="fas fa-moon theme-icon-dark w-4 text-center"></i>
+                    <i class="fas fa-sun  theme-icon-light w-4 text-center text-yellow-400"></i>
+                    <span class="theme-label">Night Mode</span>
+                </button>
+            </div>
             <div class="p-4 border-t">
                 <div class="text-xs text-gray-500 text-center">
                     Carange v1.0<br>
@@ -153,9 +256,15 @@
                         <i class="fas fa-wallet mr-2"></i>Carange
                     </h1>
                 </a>
-                <button id="mobile-menu-btn" class="p-2 text-gray-600">
-                    <i class="fas fa-bars text-xl"></i>
-                </button>
+                <div class="flex items-center gap-1">
+                    <button onclick="toggleTheme()" class="p-2 text-gray-500">
+                        <i class="fas fa-moon  theme-icon-dark"></i>
+                        <i class="fas fa-sun   theme-icon-light text-yellow-400"></i>
+                    </button>
+                    <button id="mobile-menu-btn" class="p-2 text-gray-600">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
+                </div>
             </div>
         </div>
         
@@ -211,6 +320,22 @@
     </div>
     
     <script>
+        // ── Theme toggle ──────────────────────────────────────────────────────
+        function toggleTheme() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('carange-theme', isDark ? 'dark' : 'light');
+            document.querySelectorAll('.theme-label').forEach(function(el) {
+                el.textContent = isDark ? 'Light Mode' : 'Night Mode';
+            });
+        }
+        // Set initial label to match current theme (FOUC script already set the class)
+        (function() {
+            const isDark = document.documentElement.classList.contains('dark');
+            document.querySelectorAll('.theme-label').forEach(function(el) {
+                el.textContent = isDark ? 'Light Mode' : 'Night Mode';
+            });
+        })();
+
         // Mobile menu toggle
         document.getElementById('mobile-menu-btn').addEventListener('click', function() {
             document.getElementById('mobile-menu').classList.remove('hidden');
