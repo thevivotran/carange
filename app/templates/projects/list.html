@@ -616,7 +616,7 @@
 
             // Due date
             const tdDate = document.createElement('td');
-            tdDate.className = 'px-3 py-2';
+            tdDate.className = 'px-3 py-2 text-gray-800 dark:text-gray-200';
             if (p.due_date) {
                 tdDate.textContent = formatDate(p.due_date);
             } else {
@@ -629,7 +629,7 @@
 
             // Amount
             const tdAmt = document.createElement('td');
-            tdAmt.className = 'px-3 py-2 font-medium';
+            tdAmt.className = 'px-3 py-2 font-medium text-gray-800 dark:text-gray-200';
             tdAmt.textContent = formatVND(p.amount);
             tr.appendChild(tdAmt);
 
