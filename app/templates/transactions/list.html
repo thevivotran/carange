@@ -325,9 +325,11 @@
     
     async function loadCategories() {
         try {
-            const response = await fetch('/api/categories/');
-            categories = await response.json();
-            
+            if (!categories.length) {
+                const response = await fetch('/api/categories/');
+                categories = await response.json();
+            }
+
             const type = document.querySelector('input[name="type"]:checked')?.value;
             const categorySelect = document.getElementById('category');
             const filterCategorySelect = document.getElementById('filter-category');

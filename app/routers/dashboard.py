@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import func, extract, case, and_
+from sqlalchemy import func, extract, case, and_, false as sqla_false
 from datetime import date, timedelta
 from calendar import monthrange
 from typing import List, Optional
@@ -23,28 +23,7 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
     _, last_day = monthrange(current_year, current_month)
     month_end = date(current_year, current_month, last_day)
 
-    # ── Monthly figures (affected by month selector) ───────────────────────
-    monthly_income = db.query(func.sum(Transaction.amount)).filter(
-        Transaction.date >= month_start,
-        Transaction.date <= month_end,
-        Transaction.type == TransactionType.INCOME,
-    ).scalar() or 0
-
-    monthly_expense = db.query(func.sum(Transaction.amount)).filter(
-        Transaction.date >= month_start,
-        Transaction.date <= month_end,
-        Transaction.type == TransactionType.EXPENSE,
-        Transaction.is_savings_related == False,
-    ).scalar() or 0
-
-    monthly_savings = db.query(func.sum(Transaction.amount)).filter(
-        Transaction.date >= month_start,
-        Transaction.date <= month_end,
-        Transaction.type == TransactionType.EXPENSE,
-        Transaction.is_savings_related == True,
-    ).scalar() or 0
-
-    # Wealth-building categories for Savings Rate and critical alerts
+    # Wealth-building category IDs (2 tiny queries by name)
     _cat_tiet_kiem = [r[0] for r in db.query(Category.id).filter(
         Category.name == 'Tiết kiệm', Category.type == TransactionType.EXPENSE,
     ).all()]
@@ -52,20 +31,61 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
         Category.name == 'Bất động sản', Category.type == TransactionType.EXPENSE,
     ).all()]
 
-    _month_filter = [
-        Transaction.date >= month_start,
-        Transaction.date <= month_end,
-        Transaction.type == TransactionType.EXPENSE,
-    ]
-    monthly_tiet_kiem = db.query(func.sum(Transaction.amount)).filter(
-        *_month_filter,
-        Transaction.category_id.in_(_cat_tiet_kiem) if _cat_tiet_kiem else False,
-    ).scalar() or 0
+    # Empty-list guards: use SQL false() so the CASE branch never fires
+    tk_filter  = Transaction.category_id.in_(_cat_tiet_kiem) if _cat_tiet_kiem else sqla_false()
+    bds_filter = Transaction.category_id.in_(_cat_bds)       if _cat_bds       else sqla_false()
 
-    monthly_bds = db.query(func.sum(Transaction.amount)).filter(
-        *_month_filter,
-        Transaction.category_id.in_(_cat_bds) if _cat_bds else False,
-    ).scalar() or 0
+    # ── Single query: all seven transaction aggregates via CASE ────────────
+    _agg = db.query(
+        func.sum(case(
+            (and_(Transaction.type == TransactionType.INCOME,
+                  Transaction.date >= month_start,
+                  Transaction.date <= month_end), Transaction.amount),
+            else_=0,
+        )).label('monthly_income'),
+        func.sum(case(
+            (and_(Transaction.type == TransactionType.EXPENSE,
+                  Transaction.is_savings_related == False,
+                  Transaction.date >= month_start,
+                  Transaction.date <= month_end), Transaction.amount),
+            else_=0,
+        )).label('monthly_expense'),
+        func.sum(case(
+            (and_(Transaction.type == TransactionType.EXPENSE,
+                  Transaction.is_savings_related == True,
+                  Transaction.date >= month_start,
+                  Transaction.date <= month_end), Transaction.amount),
+            else_=0,
+        )).label('monthly_savings'),
+        func.sum(case(
+            (and_(Transaction.type == TransactionType.EXPENSE,
+                  Transaction.date >= month_start,
+                  Transaction.date <= month_end,
+                  tk_filter), Transaction.amount),
+            else_=0,
+        )).label('monthly_tiet_kiem'),
+        func.sum(case(
+            (and_(Transaction.type == TransactionType.EXPENSE,
+                  Transaction.date >= month_start,
+                  Transaction.date <= month_end,
+                  bds_filter), Transaction.amount),
+            else_=0,
+        )).label('monthly_bds'),
+        func.sum(case(
+            (Transaction.type == TransactionType.INCOME, Transaction.amount),
+            else_=0,
+        )).label('total_income'),
+        func.sum(case(
+            (Transaction.type == TransactionType.EXPENSE, Transaction.amount),
+            else_=0,
+        )).label('total_expense'),
+    ).first()
+
+    monthly_income    = float(_agg.monthly_income    or 0)
+    monthly_expense   = float(_agg.monthly_expense   or 0)
+    monthly_savings   = float(_agg.monthly_savings   or 0)
+    monthly_tiet_kiem = float(_agg.monthly_tiet_kiem or 0)
+    monthly_bds       = float(_agg.monthly_bds       or 0)
 
     _PROJECT_TYPE_META = {
         'real_estate': {'label': 'Bất động sản',  'color': '#10b981'},
@@ -106,9 +126,7 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
         FinancialProject.status == ProjectStatus.COMPLETED
     ).count()
 
-    total_income_all  = db.query(func.sum(Transaction.amount)).filter(Transaction.type == TransactionType.INCOME).scalar()  or 0
-    total_expense_all = db.query(func.sum(Transaction.amount)).filter(Transaction.type == TransactionType.EXPENSE).scalar() or 0
-    cash_on_hand = total_income_all - total_expense_all
+    cash_on_hand = float((_agg.total_income or 0) - (_agg.total_expense or 0))
 
     assets = db.query(OtherAsset).all()
     total_assets_current  = sum(a.current_value_vnd  for a in assets)

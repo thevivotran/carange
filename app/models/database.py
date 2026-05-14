@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Date, Boolean, ForeignKey, Text, Enum
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Date, Boolean, ForeignKey, Text, Enum, Index
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from datetime import datetime, timezone
 import enum
@@ -82,6 +82,11 @@ class Transaction(Base):
     category = relationship("Category", back_populates="transactions")
     savings_bundle = relationship("SavingsBundle", back_populates="transactions")
     project = relationship("FinancialProject", back_populates="transactions")
+
+    __table_args__ = (
+        Index('ix_transactions_type_date', 'type', 'date'),
+        Index('ix_transactions_category_id', 'category_id'),
+    )
 
 class SavingsBundle(Base):
     __tablename__ = "savings_bundles"
@@ -248,6 +253,8 @@ def set_sqlite_pragma(dbapi_conn, _):
     cursor = dbapi_conn.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.execute("PRAGMA cache_size=-16000")   # 16 MB page cache
+    cursor.execute("PRAGMA temp_store=MEMORY")   # temp tables in RAM
     cursor.close()
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

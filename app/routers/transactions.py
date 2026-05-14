@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func, extract
+from sqlalchemy import func, extract, case, and_
 from typing import List, Optional
 from datetime import date
 from calendar import monthrange
@@ -150,39 +150,42 @@ def get_monthly_summary(
     _, last_day = monthrange(year, month)
     month_end = date(year, month, last_day)
 
-    # Income (all income transactions)
-    income = db.query(func.sum(Transaction.amount)).filter(
-        Transaction.date >= month_start,
-        Transaction.date <= month_end,
-        Transaction.type == TransactionType.INCOME
-    ).scalar() or 0
+    # Single query: all five aggregates via CASE expressions
+    row = db.query(
+        func.sum(case(
+            (and_(Transaction.type == TransactionType.INCOME,
+                  Transaction.date >= month_start,
+                  Transaction.date <= month_end), Transaction.amount),
+            else_=0,
+        )).label('income'),
+        func.sum(case(
+            (and_(Transaction.type == TransactionType.EXPENSE,
+                  Transaction.is_savings_related == False,
+                  Transaction.date >= month_start,
+                  Transaction.date <= month_end), Transaction.amount),
+            else_=0,
+        )).label('expense'),
+        func.sum(case(
+            (and_(Transaction.type == TransactionType.EXPENSE,
+                  Transaction.is_savings_related == True,
+                  Transaction.date >= month_start,
+                  Transaction.date <= month_end), Transaction.amount),
+            else_=0,
+        )).label('savings'),
+        func.sum(case(
+            (Transaction.type == TransactionType.INCOME, Transaction.amount),
+            else_=0,
+        )).label('total_income'),
+        func.sum(case(
+            (Transaction.type == TransactionType.EXPENSE, Transaction.amount),
+            else_=0,
+        )).label('total_expense'),
+    ).first()
 
-    # Expense (only non-savings-related expenses)
-    expense = db.query(func.sum(Transaction.amount)).filter(
-        Transaction.date >= month_start,
-        Transaction.date <= month_end,
-        Transaction.type == TransactionType.EXPENSE,
-        Transaction.is_savings_related == False
-    ).scalar() or 0
-
-    # Savings (savings-related expenses)
-    savings = db.query(func.sum(Transaction.amount)).filter(
-        Transaction.date >= month_start,
-        Transaction.date <= month_end,
-        Transaction.type == TransactionType.EXPENSE,
-        Transaction.is_savings_related == True
-    ).scalar() or 0
-
-    # Calculate all-time cash on hand
-    total_income_all_time = db.query(func.sum(Transaction.amount)).filter(
-        Transaction.type == TransactionType.INCOME
-    ).scalar() or 0
-
-    total_expense_all_time = db.query(func.sum(Transaction.amount)).filter(
-        Transaction.type == TransactionType.EXPENSE
-    ).scalar() or 0
-
-    cash_on_hand = total_income_all_time - total_expense_all_time
+    income  = float(row.income  or 0)
+    expense = float(row.expense or 0)
+    savings = float(row.savings or 0)
+    cash_on_hand = float((row.total_income or 0) - (row.total_expense or 0))
 
     return {
         "year": year,
@@ -191,7 +194,7 @@ def get_monthly_summary(
         "expense": expense,
         "savings": savings,
         "net": income - expense - savings,
-        "cash_on_hand": cash_on_hand
+        "cash_on_hand": cash_on_hand,
     }
 
 @router.get("/stats/by-category")

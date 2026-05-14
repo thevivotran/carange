@@ -29,6 +29,19 @@ def _migrate_db():
             conn.execute(text("ALTER TABLE transactions ADD COLUMN is_advance BOOLEAN DEFAULT 0"))
         if 'advance_settled' not in cols:
             conn.execute(text("ALTER TABLE transactions ADD COLUMN advance_settled BOOLEAN DEFAULT 0"))
+
+        existing_idx = {r[0] for r in conn.execute(text(
+            "SELECT name FROM sqlite_master WHERE type='index'"
+        ))}
+        if 'ix_transactions_type_date' not in existing_idx:
+            conn.execute(text(
+                "CREATE INDEX ix_transactions_type_date ON transactions (type, date)"
+            ))
+        if 'ix_transactions_category_id' not in existing_idx:
+            conn.execute(text(
+                "CREATE INDEX ix_transactions_category_id ON transactions (category_id)"
+            ))
+
         conn.commit()
 
 
