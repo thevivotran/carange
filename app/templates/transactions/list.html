@@ -98,22 +98,10 @@
         </div>
     </div>
     
-    <!-- Transactions Table -->
+    <!-- Transactions List -->
     <div class="bg-white rounded-xl shadow-md overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full">
-                <thead class="bg-gray-50 border-b">
-                    <tr>
-                        <th class="text-left py-4 px-6 text-sm font-semibold text-gray-700">Date</th>
-                        <th class="text-left py-4 px-6 text-sm font-semibold text-gray-700">Category</th>
-                        <th class="text-left py-4 px-6 text-sm font-semibold text-gray-700">Description</th>
-                        <th class="text-right py-4 px-6 text-sm font-semibold text-gray-700">Amount</th>
-                    </tr>
-                </thead>
-                <tbody id="transactions-table-body">
-                    <!-- Dynamic content -->
-                </tbody>
-            </table>
+        <div id="transactions-table-body">
+            <!-- Dynamic content -->
         </div>
         
         <!-- Totals row -->
@@ -426,19 +414,16 @@
             while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
 
             if (transactions.length === 0) {
-                const emptyRow = document.createElement('tr');
-                const emptyCell = document.createElement('td');
-                emptyCell.colSpan = 4;
-                emptyCell.className = 'py-20 text-center text-gray-400';
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'py-20 text-center text-gray-400';
                 const ico = document.createElement('i');
                 ico.className = 'fas fa-receipt text-5xl mb-4 block opacity-30';
                 const msg = document.createElement('p');
                 msg.className = 'text-lg';
                 msg.textContent = 'No transactions found.';
-                emptyCell.appendChild(ico);
-                emptyCell.appendChild(msg);
-                emptyRow.appendChild(emptyCell);
-                tbody.appendChild(emptyRow);
+                emptyDiv.appendChild(ico);
+                emptyDiv.appendChild(msg);
+                tbody.appendChild(emptyDiv);
                 document.getElementById('totals-row').classList.add('hidden');
                 document.getElementById('pagination-info').textContent = 'Showing 0 transactions';
                 document.getElementById('prev-btn').disabled = true;
@@ -467,75 +452,60 @@
                 });
                 const dayNet = dayIncome - dayExpense;
 
-                // Date group header row
-                const headerTr = document.createElement('tr');
-                headerTr.className = 'bg-gray-50 border-t border-b border-gray-100';
-                headerTr.addEventListener('click', function(e) { e.stopPropagation(); });
-                const headerTd = document.createElement('td');
-                headerTd.colSpan = 4;
-                headerTd.className = 'px-6 py-1.5';
-                const headerDiv = document.createElement('div');
-                headerDiv.className = 'flex items-center justify-between';
+                // Date group header
+                const headerTr = document.createElement('div');
+                headerTr.className = 'bg-gray-50 border-t border-b border-gray-100 px-4 py-1.5 flex items-center justify-between';
                 const dateSpan = document.createElement('span');
                 dateSpan.className = 'text-xs font-semibold text-gray-400 uppercase tracking-widest';
                 dateSpan.textContent = formatDate(date);
                 const netSpan = document.createElement('span');
                 netSpan.className = 'text-xs font-semibold ' + (dayNet >= 0 ? 'text-green-600' : 'text-red-500');
                 netSpan.textContent = (dayNet >= 0 ? '+' : '') + formatVND(Math.abs(dayNet));
-                headerDiv.appendChild(dateSpan);
-                headerDiv.appendChild(netSpan);
-                headerTd.appendChild(headerDiv);
-                headerTr.appendChild(headerTd);
+                headerTr.appendChild(dateSpan);
+                headerTr.appendChild(netSpan);
                 tbody.appendChild(headerTr);
 
                 txsForDate.forEach(function(t) {
-                const row = document.createElement('tr');
+                const row = document.createElement('div');
                 if (t.is_advance && !t.advance_settled) {
-                    row.className = 'border-b border-l-4 border-amber-400 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer select-none';
+                    row.className = 'flex items-center gap-3 px-4 py-3 border-b border-l-4 border-amber-400 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer select-none';
                 } else if (t.is_advance && t.advance_settled) {
-                    row.className = 'border-b border-l-4 border-green-300 bg-green-50 hover:bg-green-100 transition-colors cursor-pointer select-none';
+                    row.className = 'flex items-center gap-3 px-4 py-3 border-b border-l-4 border-green-300 bg-green-50 hover:bg-green-100 transition-colors cursor-pointer select-none';
                 } else {
-                    row.className = 'border-b hover:bg-gray-50 transition-colors cursor-pointer select-none';
+                    row.className = 'flex items-center gap-3 px-4 py-3 border-b hover:bg-gray-50 transition-colors cursor-pointer select-none';
                 }
                 row.addEventListener('click', function() { toggleRowActions(row, t); });
 
-                const dateCell = document.createElement('td');
-                dateCell.className = 'py-4 px-6 text-gray-800 dark:text-gray-200';
-                dateCell.textContent = formatDate(t.date);
-                row.appendChild(dateCell);
-
-                const catCell = document.createElement('td');
-                catCell.className = 'py-4 px-6';
                 const catBadge = document.createElement('span');
-                catBadge.className = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium';
+                catBadge.className = 'inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 w-24 truncate';
                 catBadge.style.backgroundColor = t.category.color + '20';
                 catBadge.style.color = t.category.color;
                 catBadge.textContent = t.category.name;
-                catCell.appendChild(catBadge);
-                row.appendChild(catCell);
+                row.appendChild(catBadge);
 
-                const descCell = document.createElement('td');
-                descCell.className = 'py-4 px-6 text-gray-600';
-                const descText = document.createElement('div');
+                const descDiv = document.createElement('div');
+                descDiv.className = 'flex-1 min-w-0';
+                const descText = document.createElement('p');
+                descText.className = 'text-sm text-gray-700 truncate';
                 descText.textContent = t.description || '-';
-                descCell.appendChild(descText);
+                descDiv.appendChild(descText);
                 if (t.is_advance) {
                     const badge = document.createElement('span');
                     if (!t.advance_settled) {
-                        badge.className = 'mt-1 inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700';
+                        badge.className = 'inline-block px-1.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700';
                         badge.textContent = '⏳ Pending';
                     } else {
-                        badge.className = 'mt-1 inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700';
+                        badge.className = 'inline-block px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700';
                         badge.textContent = '✓ Settled';
                     }
-                    descCell.appendChild(badge);
+                    descDiv.appendChild(badge);
                 }
-                row.appendChild(descCell);
+                row.appendChild(descDiv);
 
-                const amtCell = document.createElement('td');
-                amtCell.className = 'py-4 px-6 text-right font-semibold ' + (t.type === 'income' ? 'text-green-600' : 'text-red-600');
-                amtCell.textContent = (t.type === 'income' ? '+' : '-') + formatVND(t.amount);
-                row.appendChild(amtCell);
+                const amtSpan = document.createElement('span');
+                amtSpan.className = 'text-sm font-semibold whitespace-nowrap ' + (t.type === 'income' ? 'text-green-600' : 'text-red-600');
+                amtSpan.textContent = (t.type === 'income' ? '+' : '-') + formatVND(t.amount);
+                row.appendChild(amtSpan);
 
                 tbody.appendChild(row);
                 }); // end txsForDate.forEach
@@ -721,13 +691,9 @@
         _activeRowOrigClass = row.className;
         row.className = row.className + ' !bg-blue-50 ring-1 ring-inset ring-blue-200';
 
-        const actionTr = document.createElement('tr');
-        actionTr.className = 'bg-blue-50 border-b border-blue-100';
+        const actionTr = document.createElement('div');
+        actionTr.className = 'bg-blue-50 border-b border-blue-100 px-4 py-2';
         actionTr.addEventListener('click', function(e) { e.stopPropagation(); });
-
-        const td = document.createElement('td');
-        td.colSpan = 4;
-        td.className = 'px-4 py-2';
 
         const bar = document.createElement('div');
         bar.className = 'flex flex-wrap items-center gap-2';
@@ -767,8 +733,7 @@
         hint.textContent = 'Tap row to close';
         bar.appendChild(hint);
 
-        td.appendChild(bar);
-        actionTr.appendChild(td);
+        actionTr.appendChild(bar);
         row.after(actionTr);
 
         _activeRow = row;

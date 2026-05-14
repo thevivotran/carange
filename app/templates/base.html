@@ -221,6 +221,13 @@
         .dark #mobile-bottom-nav { background-color: #1f2937 !important; border-color: #374151 !important; }
         .dark .bottom-nav-link { color: #6b7280; }
         .dark .bottom-nav-link.active { color: #60a5fa; }
+
+        /* ── iOS safe-area bottom clearance ──────────────── */
+        /* pb-16 (64px) isn't enough when the home indicator adds ~34px to the nav.
+           Use env() so the main scroll area always clears the full nav height. */
+        @media (max-width: 767px) {
+          main { padding-bottom: calc(3.5rem + env(safe-area-inset-bottom)) !important; }
+        }
     </style>
     
     {% block extra_css %}{% endblock %}
