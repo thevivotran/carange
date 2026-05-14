@@ -449,6 +449,12 @@ function shiftMonth(delta) {
     updateDashboard();
 }
 
+// ── Dark mode helpers ─────────────────────────────────────────────────────
+const _isDark = () => document.documentElement.classList.contains('dark');
+const _gridColor = () => _isDark() ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.04)';
+const _tickColor = () => _isDark() ? '#9ca3af' : '#6b7280';
+const _legendColor = () => _isDark() ? '#d1d5db' : '#374151';
+
 // ── Helpers ───────────────────────────────────────────────────────────────
 function fmtVND(v) { return new Intl.NumberFormat('vi-VN').format(Math.round(v)) + ' ₫'; }
 function fmtSigned(v) { return (v >= 0 ? '+' : '') + fmtVND(Math.abs(v)); }
@@ -584,18 +590,19 @@ fetch('/api/dashboard/monthly-trend')
                 scales: {
                     y: {
                         beginAtZero: true,
-                        grid: { color: 'rgba(0,0,0,0.04)' },
+                        grid: { color: _gridColor() },
                         ticks: {
                             callback: v => fmtM(v),
                             font: { size: 11 },
+                            color: _tickColor(),
                         },
                     },
-                    x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+                    x: { grid: { display: false }, ticks: { font: { size: 11 }, color: _tickColor() } },
                 },
                 plugins: {
                     legend: {
                         position: 'bottom',
-                        labels: { boxWidth: 12, font: { size: 11 }, padding: 16 },
+                        labels: { boxWidth: 12, font: { size: 11 }, padding: 16, color: _legendColor() },
                     },
                     tooltip: {
                         callbacks: {
@@ -656,16 +663,16 @@ fetch('/api/dashboard/wealth-building-trend')
                 maintainAspectRatio: false,
                 interaction: { mode: 'index', intersect: false },
                 scales: {
-                    x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
+                    x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 }, color: _tickColor() } },
                     y: {
                         stacked: true,
                         beginAtZero: true,
-                        grid: { color: 'rgba(0,0,0,0.04)' },
-                        ticks: { callback: v => fmtM(v), font: { size: 11 } },
+                        grid: { color: _gridColor() },
+                        ticks: { callback: v => fmtM(v), font: { size: 11 }, color: _tickColor() },
                     },
                 },
                 plugins: {
-                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 }, padding: 14 } },
+                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 }, padding: 14, color: _legendColor() } },
                     tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + fmtVND(ctx.raw) } },
                 },
             },

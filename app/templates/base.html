@@ -91,23 +91,23 @@
         .dark .bg-gray-800{ background-color: #0f172a !important; }
         .dark .bg-gray-900{ background-color: #030712 !important; }
 
-        /* Coloured tints → dim transparency in dark mode */
-        .dark .bg-green-50  { background-color: rgba(16,185,129,.13) !important; }
-        .dark .bg-red-50    { background-color: rgba(239,68,68,.13)  !important; }
-        .dark .bg-blue-50   { background-color: rgba(59,130,246,.13) !important; }
-        .dark .bg-indigo-50 { background-color: rgba(99,102,241,.13) !important; }
-        .dark .bg-amber-50  { background-color: rgba(245,158,11,.13) !important; }
-        .dark .bg-yellow-50 { background-color: rgba(234,179,8,.13)  !important; }
-        .dark .bg-purple-50 { background-color: rgba(168,85,247,.13) !important; }
+        /* Coloured tints — raised to 20% so the status colour reads clearly */
+        .dark .bg-green-50  { background-color: rgba(16,185,129,.20) !important; }
+        .dark .bg-red-50    { background-color: rgba(239,68,68,.20)  !important; }
+        .dark .bg-blue-50   { background-color: rgba(59,130,246,.20) !important; }
+        .dark .bg-indigo-50 { background-color: rgba(99,102,241,.20) !important; }
+        .dark .bg-amber-50  { background-color: rgba(245,158,11,.20) !important; }
+        .dark .bg-yellow-50 { background-color: rgba(234,179,8,.20)  !important; }
+        .dark .bg-purple-50 { background-color: rgba(168,85,247,.20) !important; }
 
-        /* Badge/chip tints */
-        .dark .bg-green-100  { background-color: rgba(16,185,129,.22) !important; }
-        .dark .bg-red-100    { background-color: rgba(239,68,68,.22)  !important; }
-        .dark .bg-blue-100   { background-color: rgba(59,130,246,.22) !important; }
-        .dark .bg-indigo-100 { background-color: rgba(99,102,241,.22) !important; }
-        .dark .bg-amber-100  { background-color: rgba(245,158,11,.22) !important; }
-        .dark .bg-yellow-100 { background-color: rgba(234,179,8,.22)  !important; }
-        .dark .bg-purple-100 { background-color: rgba(168,85,247,.22) !important; }
+        /* Badge/chip tints — raised to 32% for clear chip backgrounds */
+        .dark .bg-green-100  { background-color: rgba(16,185,129,.32) !important; }
+        .dark .bg-red-100    { background-color: rgba(239,68,68,.32)  !important; }
+        .dark .bg-blue-100   { background-color: rgba(59,130,246,.32) !important; }
+        .dark .bg-indigo-100 { background-color: rgba(99,102,241,.32) !important; }
+        .dark .bg-amber-100  { background-color: rgba(245,158,11,.32) !important; }
+        .dark .bg-yellow-100 { background-color: rgba(234,179,8,.32)  !important; }
+        .dark .bg-purple-100 { background-color: rgba(168,85,247,.32) !important; }
 
         /* ── Text ─────────────────────────────────────────── */
         .dark .text-gray-800 { color: #f9fafb !important; }
@@ -115,8 +115,29 @@
         .dark .text-gray-600 { color: #d1d5db !important; }
         .dark .text-gray-500 { color: #9ca3af !important; }
         .dark .text-gray-400 { color: #6b7280 !important; }
-        .dark .text-gray-300 { color: #9ca3af !important; }
-        /* Vivid accent text (green, red, blue, amber, indigo, purple) kept as-is */
+        .dark .text-gray-300 { color: #d1d5db !important; } /* fixed: was duplicating gray-500 */
+
+        /* ── Colored text — flip -600/-700/-800 shades to light equivalents ── */
+        /* These were designed for light tinted backgrounds; dark mode needs their inverse */
+        .dark .text-green-800 { color: #86efac !important; } /* green-300 */
+        .dark .text-green-700 { color: #4ade80 !important; } /* green-400 */
+        .dark .text-green-600 { color: #34d399 !important; } /* emerald-400, lifts the borderline 4.5 */
+        .dark .text-red-800   { color: #fca5a5 !important; } /* red-300 */
+        .dark .text-red-700   { color: #f87171 !important; } /* red-400 */
+        .dark .text-red-600   { color: #f87171 !important; } /* red-400 */
+        .dark .text-red-500   { color: #f87171 !important; } /* red-400 */
+        .dark .text-amber-800 { color: #fcd34d !important; } /* amber-300 */
+        .dark .text-amber-700 { color: #fbbf24 !important; } /* amber-400 */
+        .dark .text-amber-600 { color: #fbbf24 !important; } /* amber-400 */
+        .dark .text-yellow-800{ color: #fde68a !important; } /* yellow-200 */
+        .dark .text-yellow-700{ color: #fde047 !important; } /* yellow-300 */
+        .dark .text-yellow-600{ color: #facc15 !important; } /* yellow-400 */
+        .dark .text-yellow-500{ color: #facc15 !important; } /* yellow-400 */
+        .dark .text-purple-700{ color: #c084fc !important; } /* purple-400 */
+        .dark .text-purple-600{ color: #c084fc !important; } /* purple-400 */
+        .dark .text-indigo-600{ color: #818cf8 !important; } /* indigo-400 */
+        .dark .text-blue-600  { color: #60a5fa !important; } /* blue-400 */
+        .dark .text-blue-500  { color: #60a5fa !important; } /* blue-400 */
 
         /* ── Borders ──────────────────────────────────────── */
         .dark .border,
