@@ -175,6 +175,31 @@
         .dark .theme-icon-light { display: inline !important; }
         .theme-icon-dark        { display: inline; }
         .theme-icon-light       { display: none; }
+
+        /* ── Sidebar collapse ─────────────────────────────── */
+        #sidebar { transition: width 0.2s ease; }
+        #sidebar.collapsed { width: 4rem !important; }
+        #sidebar.collapsed .sidebar-label,
+        #sidebar.collapsed .sidebar-section-label,
+        #sidebar.collapsed .sidebar-footer-text { display: none !important; }
+        #sidebar.collapsed #sidebar-brand-text { display: none !important; }
+        #sidebar.collapsed .sidebar-link {
+            justify-content: center;
+            padding-left: 0.75rem;
+            padding-right: 0.75rem;
+        }
+        #sidebar.collapsed .sidebar-link.active {
+            border-right: none !important;
+            border-left: 3px solid #3B82F6;
+        }
+        #sidebar.collapsed #sidebar-collapse-btn i { transform: rotate(180deg); }
+
+        /* ── Mobile bottom nav ────────────────────────────── */
+        .bottom-nav-link { transition: color 0.15s; color: #9ca3af; }
+        .bottom-nav-link.active { color: #3B82F6; }
+        .dark #mobile-bottom-nav { background-color: #1f2937 !important; border-color: #374151 !important; }
+        .dark .bottom-nav-link { color: #6b7280; }
+        .dark .bottom-nav-link.active { color: #60a5fa; }
     </style>
     
     {% block extra_css %}{% endblock %}
@@ -182,73 +207,79 @@
 <body class="bg-gray-50">
     <div class="flex h-screen" style="height:100vh;height:100dvh;">
         <!-- Sidebar -->
-        <aside class="hidden md:flex w-64 bg-white shadow-lg flex-col">
-            <div class="p-6 border-b">
-                <a href="/" class="hover:opacity-80 transition">
-                    <h1 class="text-2xl font-bold text-primary">
-                        <i class="fas fa-wallet mr-2"></i>Carange
-                    </h1>
+        <aside id="sidebar" class="hidden md:flex w-64 bg-white shadow-lg flex-col">
+            <div class="p-5 border-b flex items-center justify-between gap-2">
+                <a href="/" class="hover:opacity-80 transition flex items-center gap-2 min-w-0">
+                    <i class="fas fa-wallet text-primary text-xl flex-shrink-0"></i>
+                    <div id="sidebar-brand-text" class="min-w-0">
+                        <h1 class="text-lg font-bold text-primary leading-none">Carange</h1>
+                        <p class="text-xs text-gray-500 mt-0.5">Family Finance</p>
+                    </div>
                 </a>
-                <p class="text-sm text-gray-500 mt-1">Family Finance</p>
+                <button id="sidebar-collapse-btn" onclick="toggleSidebar()"
+                        class="flex-shrink-0 p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                        title="Collapse sidebar">
+                    <i class="fas fa-chevron-left text-xs"></i>
+                </button>
             </div>
-            
+
             <nav class="flex-1 py-4 overflow-y-auto">
 
                 <!-- Overview -->
-                <div class="px-6 pt-2 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest">Overview</div>
-                <a href="/" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'dashboard' %}active font-semibold{% endif %}">
-                    <i class="fas fa-chart-line w-6"></i>
-                    <span>Dashboard</span>
+                <div class="px-6 pt-2 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest sidebar-section-label">Overview</div>
+                <a href="/" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'dashboard' %}active font-semibold{% endif %}" title="Dashboard">
+                    <i class="fas fa-chart-line w-6 flex-shrink-0"></i>
+                    <span class="sidebar-label">Dashboard</span>
                 </a>
 
                 <!-- Daily Finance -->
-                <div class="px-6 pt-5 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest">Daily Finance</div>
-                <a href="/transactions" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'transactions' %}active font-semibold{% endif %}">
-                    <i class="fas fa-exchange-alt w-6"></i>
-                    <span>Transactions</span>
+                <div class="px-6 pt-5 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest sidebar-section-label">Daily Finance</div>
+                <a href="/transactions" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'transactions' %}active font-semibold{% endif %}" title="Transactions">
+                    <i class="fas fa-exchange-alt w-6 flex-shrink-0"></i>
+                    <span class="sidebar-label">Transactions</span>
                 </a>
-                <a href="/budget" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'budget' %}active font-semibold{% endif %}">
-                    <i class="fas fa-wallet w-6"></i>
-                    <span>Budget</span>
+                <a href="/budget" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'budget' %}active font-semibold{% endif %}" title="Budget">
+                    <i class="fas fa-wallet w-6 flex-shrink-0"></i>
+                    <span class="sidebar-label">Budget</span>
                 </a>
-                <a href="/categories" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'categories' %}active font-semibold{% endif %}">
-                    <i class="fas fa-tags w-6"></i>
-                    <span>Categories</span>
+                <a href="/categories" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'categories' %}active font-semibold{% endif %}" title="Categories">
+                    <i class="fas fa-tags w-6 flex-shrink-0"></i>
+                    <span class="sidebar-label">Categories</span>
                 </a>
-                <a href="/templates" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'templates' %}active font-semibold{% endif %}">
-                    <i class="fas fa-copy w-6"></i>
-                    <span>Templates</span>
+                <a href="/templates" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'templates' %}active font-semibold{% endif %}" title="Templates">
+                    <i class="fas fa-copy w-6 flex-shrink-0"></i>
+                    <span class="sidebar-label">Templates</span>
                 </a>
 
                 <!-- Wealth Building -->
-                <div class="px-6 pt-5 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest">Wealth Building</div>
-                <a href="/savings" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'savings' %}active font-semibold{% endif %}">
-                    <i class="fas fa-piggy-bank w-6"></i>
-                    <span>Savings</span>
+                <div class="px-6 pt-5 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest sidebar-section-label">Wealth Building</div>
+                <a href="/savings" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'savings' %}active font-semibold{% endif %}" title="Savings">
+                    <i class="fas fa-piggy-bank w-6 flex-shrink-0"></i>
+                    <span class="sidebar-label">Savings</span>
                 </a>
-                <a href="/projects" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'projects' %}active font-semibold{% endif %}">
-                    <i class="fas fa-bullseye w-6"></i>
-                    <span>Projects</span>
+                <a href="/projects" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'projects' %}active font-semibold{% endif %}" title="Projects">
+                    <i class="fas fa-bullseye w-6 flex-shrink-0"></i>
+                    <span class="sidebar-label">Projects</span>
                 </a>
 
                 <!-- Other -->
-                <div class="px-6 pt-5 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest">Other</div>
-                <a href="/notes" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'notes' %}active font-semibold{% endif %}">
-                    <i class="fas fa-sticky-note w-6"></i>
-                    <span>Notes</span>
+                <div class="px-6 pt-5 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest sidebar-section-label">Other</div>
+                <a href="/notes" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'notes' %}active font-semibold{% endif %}" title="Notes">
+                    <i class="fas fa-sticky-note w-6 flex-shrink-0"></i>
+                    <span class="sidebar-label">Notes</span>
                 </a>
 
             </nav>
-            
+
             <div class="px-4 pb-2">
                 <button onclick="toggleTheme()"
-                        class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-100 transition">
-                    <i class="fas fa-moon theme-icon-dark w-4 text-center"></i>
-                    <i class="fas fa-sun  theme-icon-light w-4 text-center text-yellow-400"></i>
-                    <span class="theme-label">Night Mode</span>
+                        class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-100 transition" title="Toggle theme">
+                    <i class="fas fa-moon theme-icon-dark w-4 text-center flex-shrink-0"></i>
+                    <i class="fas fa-sun  theme-icon-light w-4 text-center text-yellow-400 flex-shrink-0"></i>
+                    <span class="theme-label sidebar-label">Night Mode</span>
                 </button>
             </div>
-            <div class="p-4 border-t">
+            <div class="p-4 border-t sidebar-footer-text">
                 <div class="text-xs text-gray-500 text-center">
                     Carange v1.0<br>
                     <span class="text-primary">Local Network Access</span>
@@ -258,21 +289,16 @@
         
         <!-- Mobile Header -->
         <div class="md:hidden fixed top-0 left-0 right-0 bg-white shadow-md z-50" style="padding-top:env(safe-area-inset-top)">
-            <div class="flex items-center justify-between p-4">
+            <div class="flex items-center justify-between px-4 py-3">
                 <a href="/" class="hover:opacity-80 transition">
                     <h1 class="text-xl font-bold text-primary">
                         <i class="fas fa-wallet mr-2"></i>Carange
                     </h1>
                 </a>
-                <div class="flex items-center gap-1">
-                    <button onclick="toggleTheme()" class="p-2 text-gray-500">
-                        <i class="fas fa-moon  theme-icon-dark"></i>
-                        <i class="fas fa-sun   theme-icon-light text-yellow-400"></i>
-                    </button>
-                    <button id="mobile-menu-btn" class="p-2 text-gray-600">
-                        <i class="fas fa-bars text-xl"></i>
-                    </button>
-                </div>
+                <button onclick="toggleTheme()" class="p-2 text-gray-500">
+                    <i class="fas fa-moon theme-icon-dark"></i>
+                    <i class="fas fa-sun theme-icon-light text-yellow-400"></i>
+                </button>
             </div>
         </div>
         
@@ -322,7 +348,7 @@
         </div>
         
         <!-- Main Content -->
-        <main class="flex-1 overflow-y-auto md:pt-0 pt-16" style="padding-bottom:env(safe-area-inset-bottom)">
+        <main class="flex-1 overflow-y-auto md:pt-0 pt-14 pb-16 md:pb-0">
             {% block content %}{% endblock %}
         </main>
     </div>
@@ -344,14 +370,23 @@
             });
         })();
 
-        // Mobile menu toggle
-        document.getElementById('mobile-menu-btn').addEventListener('click', function() {
-            document.getElementById('mobile-menu').classList.remove('hidden');
-        });
-        
+        // Mobile menu close (opened via bottom nav "More" tab)
         document.getElementById('close-mobile-menu').addEventListener('click', function() {
             document.getElementById('mobile-menu').classList.add('hidden');
         });
+
+        // Sidebar collapse
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const isCollapsed = sidebar.classList.toggle('collapsed');
+            localStorage.setItem('carange-sidebar-collapsed', isCollapsed ? '1' : '0');
+        }
+        (function() {
+            if (localStorage.getItem('carange-sidebar-collapsed') === '1') {
+                const s = document.getElementById('sidebar');
+                if (s) s.classList.add('collapsed');
+            }
+        })();
         
         // Format VND currency
         function formatVND(amount) {
@@ -446,9 +481,9 @@
     
     {% block extra_js %}{% endblock %}
 
-    <!-- FAB: global quick-add transaction -->
+    <!-- FAB: global quick-add transaction (desktop only — mobile uses bottom nav) -->
     <button onclick="openGlobalAddModal()"
-            class="fixed bottom-6 right-6 z-[100] w-14 h-14 bg-secondary text-white rounded-full shadow-lg hover:bg-green-600 active:scale-95 transition-all flex items-center justify-center"
+            class="hidden md:flex fixed bottom-6 right-6 z-[100] w-14 h-14 bg-secondary text-white rounded-full shadow-lg hover:bg-green-600 active:scale-95 transition-all items-center justify-center"
             style="bottom:calc(1.5rem + env(safe-area-inset-bottom))">
         <i class="fas fa-plus text-xl"></i>
     </button>
@@ -538,6 +573,7 @@
             document.getElementById('global-tx-date').valueAsDate = new Date();
             document.getElementById('global-tx-modal').classList.remove('hidden');
             await _loadGlobalCategories();
+            setTimeout(function() { document.getElementById('global-tx-amount').focus(); }, 50);
         }
         function closeGlobalAddModal() {
             document.getElementById('global-tx-modal').classList.add('hidden');
@@ -591,14 +627,44 @@
         });
     </script>
 
-    <!-- Toast container — sits above FAB on mobile (bottom-24), normal on md+ -->
-    <div id="toast-container" class="fixed bottom-24 right-4 md:bottom-4 z-[200] space-y-2 pointer-events-none">
+    <!-- Toast container — sits above bottom nav on mobile, normal on md+ -->
+    <div id="toast-container" class="fixed bottom-20 right-4 md:bottom-4 z-[200] space-y-2 pointer-events-none">
         <div class="pointer-events-auto"></div>
     </div>
     <script>
         const _tc = document.getElementById('toast-container');
-        _tc.className = 'fixed bottom-24 right-4 md:bottom-4 z-[200] space-y-2';
+        _tc.className = 'fixed bottom-20 right-4 md:bottom-4 z-[200] space-y-2';
     </script>
+
+    <!-- Mobile Bottom Navigation Bar -->
+    <nav id="mobile-bottom-nav" class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-[90]"
+         style="padding-bottom:env(safe-area-inset-bottom)">
+        <div class="flex items-center justify-around h-14">
+            <a href="/" class="bottom-nav-link {% if active_menu == 'dashboard' %}active{% endif %} flex flex-col items-center justify-center flex-1 h-full gap-0.5">
+                <i class="fas fa-chart-line text-lg"></i>
+                <span class="text-xs">Home</span>
+            </a>
+            <a href="/transactions" class="bottom-nav-link {% if active_menu == 'transactions' %}active{% endif %} flex flex-col items-center justify-center flex-1 h-full gap-0.5">
+                <i class="fas fa-exchange-alt text-lg"></i>
+                <span class="text-xs">Txns</span>
+            </a>
+            <div class="flex-1 flex items-center justify-center">
+                <button onclick="openGlobalAddModal()"
+                        class="w-12 h-12 bg-secondary text-white rounded-full shadow-lg hover:bg-green-600 active:scale-95 transition-all flex items-center justify-center -mt-5">
+                    <i class="fas fa-plus text-xl"></i>
+                </button>
+            </div>
+            <a href="/budget" class="bottom-nav-link {% if active_menu == 'budget' %}active{% endif %} flex flex-col items-center justify-center flex-1 h-full gap-0.5">
+                <i class="fas fa-wallet text-lg"></i>
+                <span class="text-xs">Budget</span>
+            </a>
+            <button onclick="document.getElementById('mobile-menu').classList.remove('hidden')"
+                    class="bottom-nav-link flex flex-col items-center justify-center flex-1 h-full gap-0.5">
+                <i class="fas fa-bars text-lg"></i>
+                <span class="text-xs">More</span>
+            </button>
+        </div>
+    </nav>
 
     <!-- Confirm dialog -->
     <div id="confirm-dialog" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[150] flex items-center justify-center p-4">

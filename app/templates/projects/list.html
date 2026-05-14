@@ -375,6 +375,31 @@
     function renderProjects() {
         const grid = document.getElementById('projects-grid');
         grid.replaceChildren();
+        if (projects.length === 0) {
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = 'col-span-full flex flex-col items-center justify-center py-20 text-center';
+            const ico = document.createElement('i');
+            ico.className = 'fas fa-bullseye text-6xl mb-4 text-gray-200';
+            const title = document.createElement('p');
+            title.className = 'text-xl font-medium text-gray-500 mb-2';
+            title.textContent = 'No projects yet';
+            const sub = document.createElement('p');
+            sub.className = 'text-sm text-gray-400 mb-6';
+            sub.textContent = 'Set a financial goal and track your progress toward it';
+            const btn = document.createElement('button');
+            btn.className = 'bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition flex items-center gap-2 text-sm mx-auto';
+            btn.addEventListener('click', openAddModal);
+            const plusIco = document.createElement('i');
+            plusIco.className = 'fas fa-plus';
+            btn.appendChild(plusIco);
+            btn.appendChild(document.createTextNode(' Create your first project'));
+            emptyDiv.appendChild(ico);
+            emptyDiv.appendChild(title);
+            emptyDiv.appendChild(sub);
+            emptyDiv.appendChild(btn);
+            grid.appendChild(emptyDiv);
+            return;
+        }
         projects.forEach(project => {
             const progress = project.target_amount > 0
                 ? Math.round((project.current_amount / project.target_amount) * 100)

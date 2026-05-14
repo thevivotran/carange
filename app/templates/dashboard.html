@@ -13,15 +13,7 @@
     <div class="flex items-center gap-1 bg-white rounded-xl shadow-sm border px-2 py-1">
       <button onclick="shiftMonth(-1)"
               class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 transition select-none">&#8249;</button>
-      <select id="sel-month" onchange="updateDashboard()" class="border-none focus:ring-0 text-sm font-medium text-gray-700 bg-transparent py-2">
-        <option value="1">January</option><option value="2">February</option>
-        <option value="3">March</option><option value="4">April</option>
-        <option value="5">May</option><option value="6">June</option>
-        <option value="7">July</option><option value="8">August</option>
-        <option value="9">September</option><option value="10">October</option>
-        <option value="11">November</option><option value="12">December</option>
-      </select>
-      <select id="sel-year" onchange="updateDashboard()" class="border-none focus:ring-0 text-sm font-medium text-gray-700 bg-transparent py-2"></select>
+      <span id="month-year-display" class="px-3 py-1 text-sm font-semibold text-gray-700 min-w-[120px] text-center select-none"></span>
       <button onclick="shiftMonth(1)"
               class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 transition select-none">&#8250;</button>
     </div>
@@ -65,7 +57,7 @@
         <p class="text-xs text-gray-400 uppercase tracking-widest">Net Cash</p>
         <button onclick="showKpiInfo('net-cash', this)" class="text-gray-300 hover:text-gray-500 focus:outline-none"><i class="fas fa-info-circle text-xs"></i></button>
       </div>
-      <p id="kpi-net-cash" class="text-2xl font-bold leading-tight
+      <p id="kpi-net-cash" class="text-3xl font-bold leading-tight
         {% if summary.net_this_month >= 0 %}text-green-600{% else %}text-red-500{% endif %}">
         {% set nc = summary.net_this_month %}{% if nc | abs >= 1000000000 %}{% if nc >= 0 %}+{% endif %}{{ "%.2f" | format(nc / 1000000000) }}B{% elif nc | abs >= 1000000 %}{% if nc >= 0 %}+{% endif %}{{ "%.1f" | format(nc / 1000000) }}M{% else %}{{ "{:+,.0f}".format(nc) }}{% endif %} ₫
       </p>
@@ -82,7 +74,7 @@
         <p class="text-xs text-blue-200 uppercase tracking-widest">Net Worth</p>
         <button onclick="showKpiInfo('net-worth', this)" class="text-blue-300 hover:text-white focus:outline-none"><i class="fas fa-info-circle text-xs"></i></button>
       </div>
-      <p class="text-2xl font-bold leading-tight">
+      <p class="text-3xl font-bold leading-tight">
         {% set nw = summary.net_worth %}
         {% if nw >= 1_000_000_000 %}
           {{ "%.2f"|format(nw / 1_000_000_000) }}B
@@ -118,11 +110,21 @@
           {{ ok }}<span class="text-lg text-gray-400">/{{ summary.budget_total }}</span>
         </p>
         <p class="text-xs text-gray-400 mt-2">categories in control</p>
-        {% if summary.budget_over_count == 0 %}
-        <span class="mt-2 inline-block text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">All good</span>
-        {% else %}
-        <span class="mt-2 inline-block text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600">{{ summary.budget_over_count }} over budget</span>
-        {% endif %}
+        {% set bh_pct = ((ok / summary.budget_total) * 100) | int if summary.budget_total > 0 else 0 %}
+        <div class="mt-2 w-full bg-gray-100 rounded-full h-2">
+          <div id="kpi-bh-bar" class="h-2 rounded-full transition-all duration-500"
+            style="width: {{ bh_pct }}%;
+                   background: {% if summary.budget_over_count == 0 %}#22c55e{% elif summary.budget_over_count <= 2 %}#f59e0b{% else %}#ef4444{% endif %}">
+          </div>
+        </div>
+        <div class="mt-2 flex items-center justify-between">
+          <span class="text-xs text-gray-400">Target: 100%</span>
+          {% if summary.budget_over_count == 0 %}
+          <span id="kpi-bh-badge" class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">All good</span>
+          {% else %}
+          <span id="kpi-bh-badge" class="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600">{{ summary.budget_over_count }} over</span>
+          {% endif %}
+        </div>
       {% else %}
         <p class="text-3xl font-bold text-gray-300">—</p>
         <p class="text-xs text-gray-400 mt-2">No budget set</p>
@@ -425,38 +427,25 @@
 
 <script>
 // ── Month selector ─────────────────────────────────────────────────────────
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+let _curMonth, _curYear;
+
 (function initMonthSelector() {
     const today = new Date();
-    const curYear  = today.getFullYear();
-    const curMonth = today.getMonth() + 1;
-    const selYear  = document.getElementById('sel-year');
-    const selMonth = document.getElementById('sel-month');
-    for (let y = curYear - 3; y <= curYear + 1; y++) {
-        const opt = document.createElement('option');
-        opt.value = y;
-        opt.textContent = y;
-        if (y === curYear) opt.selected = true;
-        selYear.appendChild(opt);
-    }
-    selMonth.value = curMonth;
+    _curYear  = today.getFullYear();
+    _curMonth = today.getMonth() + 1;
+    _updateMonthDisplay();
 })();
 
+function _updateMonthDisplay() {
+    document.getElementById('month-year-display').textContent = MONTH_NAMES[_curMonth - 1] + ' ' + _curYear;
+}
+
 function shiftMonth(delta) {
-    const selMonth = document.getElementById('sel-month');
-    const selYear  = document.getElementById('sel-year');
-    let m = parseInt(selMonth.value) + delta;
-    let y = parseInt(selYear.value);
-    if (m < 1)  { m = 12; y--; }
-    if (m > 12) { m = 1;  y++; }
-    selMonth.value = m;
-    const yearOpts = Array.from(selYear.options).map(o => parseInt(o.value));
-    if (!yearOpts.includes(y)) {
-        const opt = document.createElement('option');
-        opt.value = y; opt.textContent = y;
-        if (y < yearOpts[0]) selYear.insertBefore(opt, selYear.firstChild);
-        else selYear.appendChild(opt);
-    }
-    selYear.value = y;
+    _curMonth += delta;
+    if (_curMonth < 1)  { _curMonth = 12; _curYear--; }
+    if (_curMonth > 12) { _curMonth = 1;  _curYear++; }
+    _updateMonthDisplay();
     updateDashboard();
 }
 
@@ -472,10 +461,7 @@ function fmtM(v) {
 
 // ── KPI update on month change ───────────────────────────────────────────────
 function updateDashboard() {
-    const month = document.getElementById('sel-month').value;
-    const year  = document.getElementById('sel-year').value;
-
-    fetch('/api/dashboard/summary?year=' + year + '&month=' + month)
+    fetch('/api/dashboard/summary?year=' + _curYear + '&month=' + _curMonth)
         .then(r => r.json())
         .then(s => {
             // Savings rate
@@ -504,7 +490,7 @@ function updateDashboard() {
             const net   = s.net_this_month;
             const netEl = document.getElementById('kpi-net-cash');
             netEl.textContent = (net >= 0 ? '+' : '') + fmtM(net) + ' ₫';
-            netEl.className   = 'text-2xl font-bold leading-tight ' + (net >= 0 ? 'text-green-600' : 'text-red-500');
+            netEl.className   = 'text-3xl font-bold leading-tight ' + (net >= 0 ? 'text-green-600' : 'text-red-500');
 
             document.getElementById('kpi-income-sub').textContent  = 'In: '  + fmtM(s.total_income_month) + ' ₫';
             document.getElementById('kpi-expense-sub').textContent = 'Out: ' + fmtM(s.total_expense_month + s.total_savings_month) + ' ₫';

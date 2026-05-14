@@ -448,10 +448,47 @@
 
             let totalIncome = 0, totalExpense = 0;
 
+            // Group transactions by date for visual grouping with daily net
+            const dateGroups = {};
+            const dateOrder = [];
             transactions.forEach(function(t) {
+                if (!dateGroups[t.date]) { dateGroups[t.date] = []; dateOrder.push(t.date); }
+                dateGroups[t.date].push(t);
                 if (t.type === 'income') totalIncome += t.amount;
                 else totalExpense += t.amount;
+            });
 
+            dateOrder.forEach(function(date) {
+                const txsForDate = dateGroups[date];
+                let dayIncome = 0, dayExpense = 0;
+                txsForDate.forEach(function(t) {
+                    if (t.type === 'income') dayIncome += t.amount;
+                    else dayExpense += t.amount;
+                });
+                const dayNet = dayIncome - dayExpense;
+
+                // Date group header row
+                const headerTr = document.createElement('tr');
+                headerTr.className = 'bg-gray-50 border-t border-b border-gray-100';
+                headerTr.addEventListener('click', function(e) { e.stopPropagation(); });
+                const headerTd = document.createElement('td');
+                headerTd.colSpan = 4;
+                headerTd.className = 'px-6 py-1.5';
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'flex items-center justify-between';
+                const dateSpan = document.createElement('span');
+                dateSpan.className = 'text-xs font-semibold text-gray-400 uppercase tracking-widest';
+                dateSpan.textContent = formatDate(date);
+                const netSpan = document.createElement('span');
+                netSpan.className = 'text-xs font-semibold ' + (dayNet >= 0 ? 'text-green-600' : 'text-red-500');
+                netSpan.textContent = (dayNet >= 0 ? '+' : '') + formatVND(Math.abs(dayNet));
+                headerDiv.appendChild(dateSpan);
+                headerDiv.appendChild(netSpan);
+                headerTd.appendChild(headerDiv);
+                headerTr.appendChild(headerTd);
+                tbody.appendChild(headerTr);
+
+                txsForDate.forEach(function(t) {
                 const row = document.createElement('tr');
                 if (t.is_advance && !t.advance_settled) {
                     row.className = 'border-b border-l-4 border-amber-400 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer select-none';
@@ -501,7 +538,8 @@
                 row.appendChild(amtCell);
 
                 tbody.appendChild(row);
-            });
+                }); // end txsForDate.forEach
+            }); // end dateOrder.forEach
 
             const totalsRow = document.getElementById('totals-row');
             if (transactions.length > 0) {
@@ -547,6 +585,7 @@
         document.getElementById('transaction-id').value = '';
         document.getElementById('date').valueAsDate = new Date();
         document.getElementById('transaction-modal').classList.remove('hidden');
+        setTimeout(function() { document.getElementById('amount').focus(); }, 50);
     }
     
     function closeModal() {

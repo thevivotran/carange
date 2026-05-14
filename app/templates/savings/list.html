@@ -397,6 +397,32 @@
         const grid = document.getElementById('savings-grid');
         while (grid.firstChild) grid.removeChild(grid.firstChild);
 
+        if (savingsBundles.length === 0) {
+            const emptyDiv = document.createElement('div');
+            emptyDiv.className = 'col-span-full flex flex-col items-center justify-center py-20 text-center';
+            const ico = document.createElement('i');
+            ico.className = 'fas fa-piggy-bank text-6xl mb-4 text-gray-200';
+            const title = document.createElement('p');
+            title.className = 'text-xl font-medium text-gray-500 mb-2';
+            title.textContent = 'No savings bundles yet';
+            const sub = document.createElement('p');
+            sub.className = 'text-sm text-gray-400 mb-6';
+            sub.textContent = 'Track your fixed deposits and savings goals';
+            const btn = document.createElement('button');
+            btn.className = 'bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition flex items-center gap-2 text-sm mx-auto';
+            btn.addEventListener('click', openAddModal);
+            const plusIco = document.createElement('i');
+            plusIco.className = 'fas fa-plus';
+            btn.appendChild(plusIco);
+            btn.appendChild(document.createTextNode(' Add savings bundle'));
+            emptyDiv.appendChild(ico);
+            emptyDiv.appendChild(title);
+            emptyDiv.appendChild(sub);
+            emptyDiv.appendChild(btn);
+            grid.appendChild(emptyDiv);
+            return;
+        }
+
         savingsBundles.forEach(function(bundle) {
             const interest = bundle.future_amount - bundle.initial_deposit;
             const interestPercent = bundle.initial_deposit > 0
