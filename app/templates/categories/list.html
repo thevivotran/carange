@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="p-6 pb-28 max-w-7xl mx-auto">
+<div class="p-6 pb-28 max-w-4xl mx-auto">
     <!-- Page Header -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
@@ -12,22 +12,63 @@
             <i class="fas fa-plus mr-2"></i>Add Category
         </button>
     </div>
-    
+
     <!-- Tabs -->
-    <div class="bg-white rounded-xl shadow-md mb-6">
+    <div class="bg-white rounded-xl shadow-md mb-4">
         <div class="flex border-b">
-            <button onclick="switchTab('expense')" id="tab-expense" class="flex-1 py-4 px-6 text-center font-medium text-primary border-b-2 border-primary bg-blue-50">
-                <i class="fas fa-arrow-up mr-2"></i>Expense Categories
+            <button onclick="switchTab('expense')" id="tab-expense"
+                    class="flex-1 py-4 px-6 text-center font-medium text-primary border-b-2 border-primary bg-blue-50">
+                <i class="fas fa-arrow-up mr-2"></i>Expense
             </button>
-            <button onclick="switchTab('income')" id="tab-income" class="flex-1 py-4 px-6 text-center font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700">
-                <i class="fas fa-arrow-down mr-2"></i>Income Categories
+            <button onclick="switchTab('income')" id="tab-income"
+                    class="flex-1 py-4 px-6 text-center font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700">
+                <i class="fas fa-arrow-down mr-2"></i>Income
             </button>
         </div>
     </div>
-    
-    <!-- Categories Grid -->
-    <div id="categories-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <!-- Dynamic content -->
+
+    <!-- Sortable Table -->
+    <div class="bg-white rounded-xl shadow-md overflow-hidden">
+        <table class="w-full">
+            <thead class="bg-gray-50 border-b">
+                <tr>
+                    <th class="text-left py-3 px-4 w-8"></th>
+                    <th class="text-left py-3 px-4">
+                        <button onclick="setSort('name')" class="flex items-center gap-1 text-sm font-semibold text-gray-700 hover:text-primary transition group">
+                            Category
+                            <i id="sort-icon-name" class="fas fa-sort text-gray-300 group-hover:text-primary text-xs"></i>
+                        </button>
+                    </th>
+                    <th class="text-left py-3 px-4 hidden sm:table-cell">
+                        <button onclick="setSort('count')" class="flex items-center gap-1 text-sm font-semibold text-gray-700 hover:text-primary transition group">
+                            Transactions
+                            <i id="sort-icon-count" class="fas fa-sort text-gray-300 group-hover:text-primary text-xs"></i>
+                        </button>
+                    </th>
+                    <th class="text-left py-3 px-4 hidden md:table-cell">
+                        <button onclick="setSort('status')" class="flex items-center gap-1 text-sm font-semibold text-gray-700 hover:text-primary transition group">
+                            Status
+                            <i id="sort-icon-status" class="fas fa-sort text-gray-300 group-hover:text-primary text-xs"></i>
+                        </button>
+                    </th>
+                    <th class="py-3 px-4 text-right text-sm font-semibold text-gray-700">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="categories-tbody">
+                <!-- Dynamic content -->
+            </tbody>
+        </table>
+
+        <!-- Empty state (hidden when rows present) -->
+        <div id="categories-empty" class="hidden py-20 text-center text-gray-400">
+            <i class="fas fa-tag text-5xl mb-4 block opacity-20"></i>
+            <p class="text-lg font-medium text-gray-500 mb-2">No categories yet</p>
+            <p class="text-sm text-gray-400 mb-5">Add your first category to organise transactions</p>
+            <button onclick="openAddModal()"
+                    class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition text-sm inline-flex items-center gap-2">
+                <i class="fas fa-plus"></i> Add Category
+            </button>
+        </div>
     </div>
 </div>
 
@@ -40,11 +81,11 @@
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
-        
+
         <form id="category-form" class="p-6 space-y-4">
             <input type="hidden" id="category-id">
             <input type="hidden" id="category-type" value="expense">
-            
+
             <!-- Name -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Category Name</label>
@@ -52,7 +93,7 @@
                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                        placeholder="Enter category name">
             </div>
-            
+
             <!-- Type -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Type</label>
@@ -61,7 +102,7 @@
                     <option value="income">Income</option>
                 </select>
             </div>
-            
+
             <!-- Color -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Color</label>
@@ -76,7 +117,7 @@
                     {% endfor %}
                 </div>
             </div>
-            
+
             <!-- Icon -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Icon</label>
@@ -99,7 +140,7 @@
                     <option value="ellipsis-h">Other</option>
                 </select>
             </div>
-            
+
             <!-- Submit -->
             <div class="flex gap-4 pt-4">
                 <button type="button" onclick="closeModal()"
@@ -118,31 +159,48 @@
 <script>
     let currentTab = 'expense';
     let categories = [];
-    
-    // Initialize
+    let sortCol = 'name';
+    let sortDir = 'asc';
+
     document.addEventListener('DOMContentLoaded', function() {
         loadCategories();
     });
-    
-    // Switch tab
+
+    function setSort(col) {
+        if (sortCol === col) {
+            sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            sortCol = col;
+            sortDir = col === 'count' ? 'desc' : 'asc'; // default desc for count
+        }
+        renderCategories();
+    }
+
+    function updateSortIcons() {
+        ['name', 'count', 'status'].forEach(function(col) {
+            const ico = document.getElementById('sort-icon-' + col);
+            if (!ico) return;
+            if (sortCol === col) {
+                ico.className = 'fas fa-sort-' + (sortDir === 'asc' ? 'up' : 'down') + ' text-primary text-xs';
+            } else {
+                ico.className = 'fas fa-sort text-gray-300 group-hover:text-primary text-xs';
+            }
+        });
+    }
+
     function switchTab(type) {
         currentTab = type;
-        
-        // Update tab styles
-        document.getElementById('tab-expense').className = 
-            type === 'expense' 
+        document.getElementById('tab-expense').className =
+            type === 'expense'
                 ? 'flex-1 py-4 px-6 text-center font-medium text-primary border-b-2 border-primary bg-blue-50'
                 : 'flex-1 py-4 px-6 text-center font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700';
-        
-        document.getElementById('tab-income').className = 
+        document.getElementById('tab-income').className =
             type === 'income'
                 ? 'flex-1 py-4 px-6 text-center font-medium text-primary border-b-2 border-primary bg-blue-50'
                 : 'flex-1 py-4 px-6 text-center font-medium text-gray-500 border-b-2 border-transparent hover:text-gray-700';
-        
         renderCategories();
     }
-    
-    // Load categories
+
     async function loadCategories() {
         try {
             const response = await fetch('/api/categories/');
@@ -152,121 +210,129 @@
             console.error('Error loading categories:', error);
         }
     }
-    
-    // Render categories
-    function renderCategories() {
-        const grid = document.getElementById('categories-grid');
-        while (grid.firstChild) grid.removeChild(grid.firstChild);
 
-        const filtered = categories
-            .filter(function(c) { return c.type === currentTab; })
-            .sort(function(a, b) { return a.name.localeCompare(b.name); });
+    function renderCategories() {
+        updateSortIcons();
+        const tbody = document.getElementById('categories-tbody');
+        const emptyEl = document.getElementById('categories-empty');
+        while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
+
+        const filtered = categories.filter(function(c) { return c.type === currentTab; });
+
+        filtered.sort(function(a, b) {
+            let va, vb;
+            if (sortCol === 'name') {
+                va = a.name.toLowerCase(); vb = b.name.toLowerCase();
+            } else if (sortCol === 'count') {
+                va = a.transaction_count || 0; vb = b.transaction_count || 0;
+            } else {
+                va = a.is_active ? 0 : 1; vb = b.is_active ? 0 : 1;
+            }
+            if (va < vb) return sortDir === 'asc' ? -1 : 1;
+            if (va > vb) return sortDir === 'asc' ? 1 : -1;
+            return 0;
+        });
 
         if (filtered.length === 0) {
-            const empty = document.createElement('div');
-            empty.className = 'col-span-3 text-center py-20 text-gray-400';
-            const ico = document.createElement('i');
-            ico.className = 'fas fa-tag text-5xl mb-4 block opacity-30';
-            const msg = document.createElement('p');
-            msg.className = 'text-lg';
-            msg.textContent = 'No ' + currentTab + ' categories yet.';
-            const btn = document.createElement('button');
-            btn.className = 'mt-3 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-blue-600 transition';
-            btn.textContent = 'Add Category';
-            btn.addEventListener('click', openAddModal);
-            empty.appendChild(ico);
-            empty.appendChild(msg);
-            empty.appendChild(btn);
-            grid.appendChild(empty);
+            emptyEl.classList.remove('hidden');
             return;
         }
+        emptyEl.classList.add('hidden');
 
         filtered.forEach(function(category) {
-            const card = document.createElement('div');
-            card.className = 'bg-white rounded-xl shadow-md p-6' + (!category.is_active ? ' opacity-60' : '');
+            const tr = document.createElement('tr');
+            tr.className = 'border-b hover:bg-gray-50 transition-colors' + (!category.is_active ? ' opacity-60' : '');
 
-            const row = document.createElement('div');
-            row.className = 'flex items-start justify-between';
+            // Color swatch cell
+            const swatchTd = document.createElement('td');
+            swatchTd.className = 'py-3 px-4';
+            const swatch = document.createElement('span');
+            swatch.className = 'block w-3 h-3 rounded-full';
+            swatch.style.backgroundColor = category.color;
+            swatchTd.appendChild(swatch);
+            tr.appendChild(swatchTd);
 
-            // Left: icon + info
-            const left = document.createElement('div');
-            left.className = 'flex items-center';
+            // Name + icon cell
+            const nameTd = document.createElement('td');
+            nameTd.className = 'py-3 px-4';
+            const nameRow = document.createElement('div');
+            nameRow.className = 'flex items-center gap-3';
             const iconWrap = document.createElement('div');
-            iconWrap.className = 'w-12 h-12 rounded-full flex items-center justify-center mr-4';
-            iconWrap.style.backgroundColor = category.color + '20';
+            iconWrap.className = 'w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0';
+            iconWrap.style.backgroundColor = category.color + '25';
             const ico = document.createElement('i');
-            ico.className = 'fas fa-' + category.icon;
+            ico.className = 'fas fa-' + category.icon + ' text-sm';
             ico.style.color = category.color;
-            ico.style.fontSize = '1.25rem';
             iconWrap.appendChild(ico);
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'font-medium text-gray-800';
+            nameSpan.textContent = category.name;
+            nameRow.appendChild(iconWrap);
+            nameRow.appendChild(nameSpan);
+            nameTd.appendChild(nameRow);
+            tr.appendChild(nameTd);
 
-            const info = document.createElement('div');
-            const nameEl = document.createElement('h3');
-            nameEl.className = 'font-semibold text-gray-800';
-            nameEl.textContent = category.name;
-            const typeEl = document.createElement('p');
-            typeEl.className = 'text-sm text-gray-500 capitalize';
-            typeEl.textContent = category.type;
-            const countEl = document.createElement('p');
-            countEl.className = 'text-xs text-gray-400';
-            countEl.textContent = (category.transaction_count || 0) + ' transactions';
-            info.appendChild(nameEl);
-            info.appendChild(typeEl);
-            info.appendChild(countEl);
-            if (!category.is_active) {
-                const inactiveEl = document.createElement('span');
-                inactiveEl.className = 'text-xs text-gray-400';
-                inactiveEl.textContent = '(Inactive)';
-                info.appendChild(inactiveEl);
-            }
+            // Transaction count cell
+            const countTd = document.createElement('td');
+            countTd.className = 'py-3 px-4 text-sm text-gray-500 hidden sm:table-cell';
+            countTd.textContent = (category.transaction_count || 0) + ' txns';
+            tr.appendChild(countTd);
 
-            left.appendChild(iconWrap);
-            left.appendChild(info);
+            // Status badge cell
+            const statusTd = document.createElement('td');
+            statusTd.className = 'py-3 px-4 hidden md:table-cell';
+            const badge = document.createElement('span');
+            badge.className = 'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ' +
+                (category.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500');
+            badge.textContent = category.is_active ? 'Active' : 'Inactive';
+            statusTd.appendChild(badge);
+            tr.appendChild(statusTd);
 
-            // Right: actions
-            const actions = document.createElement('div');
-            actions.className = 'flex gap-2';
+            // Actions cell
+            const actionsTd = document.createElement('td');
+            actionsTd.className = 'py-3 px-4';
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'flex items-center justify-end gap-1';
 
             const editBtn = document.createElement('button');
-            editBtn.className = 'text-blue-600 hover:text-blue-800 p-2';
+            editBtn.className = 'p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition';
             editBtn.setAttribute('aria-label', 'Edit ' + category.name);
+            editBtn.title = 'Edit';
             const editIco = document.createElement('i');
-            editIco.className = 'fas fa-edit';
+            editIco.className = 'fas fa-edit text-sm';
             editBtn.appendChild(editIco);
             editBtn.addEventListener('click', function() { editCategory(category.id); });
 
             const toggleBtn = document.createElement('button');
-            toggleBtn.className = 'text-gray-600 hover:text-gray-800 p-2';
+            toggleBtn.className = 'p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition';
             toggleBtn.title = category.is_active ? 'Deactivate' : 'Activate';
             toggleBtn.setAttribute('aria-label', (category.is_active ? 'Deactivate' : 'Activate') + ' ' + category.name);
             const toggleIco = document.createElement('i');
-            toggleIco.className = 'fas fa-' + (category.is_active ? 'eye-slash' : 'eye');
+            toggleIco.className = 'fas fa-' + (category.is_active ? 'eye-slash' : 'eye') + ' text-sm';
             toggleBtn.appendChild(toggleIco);
             toggleBtn.addEventListener('click', function() { toggleCategory(category.id); });
 
             const delBtn = document.createElement('button');
-            delBtn.className = 'text-red-600 hover:text-red-800 p-2';
+            delBtn.className = 'p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition';
             delBtn.title = 'Delete';
             delBtn.setAttribute('aria-label', 'Delete ' + category.name);
             const delIco = document.createElement('i');
-            delIco.className = 'fas fa-trash';
+            delIco.className = 'fas fa-trash text-sm';
             delBtn.appendChild(delIco);
             delBtn.addEventListener('click', function() {
-                deleteWithUndo(card, '/api/categories/' + category.id, loadCategories, category.name);
+                deleteWithUndo(tr, '/api/categories/' + category.id, loadCategories, category.name);
             });
 
-            actions.appendChild(editBtn);
-            actions.appendChild(toggleBtn);
-            actions.appendChild(delBtn);
+            actionsDiv.appendChild(editBtn);
+            actionsDiv.appendChild(toggleBtn);
+            actionsDiv.appendChild(delBtn);
+            actionsTd.appendChild(actionsDiv);
+            tr.appendChild(actionsTd);
 
-            row.appendChild(left);
-            row.appendChild(actions);
-            card.appendChild(row);
-            grid.appendChild(card);
+            tbody.appendChild(tr);
         });
     }
-    
-    // Modal functions
+
     function openAddModal() {
         document.getElementById('modal-title').textContent = 'Add Category';
         document.getElementById('category-form').reset();
@@ -274,16 +340,15 @@
         document.getElementById('category-type').value = currentTab;
         document.getElementById('type-select').value = currentTab;
         document.getElementById('category-modal').classList.remove('hidden');
+        setTimeout(function() { document.getElementById('name').focus(); }, 50);
     }
-    
+
     function closeModal() {
         document.getElementById('category-modal').classList.add('hidden');
     }
-    
-    // Form submission
+
     document.getElementById('category-form').addEventListener('submit', async function(e) {
         e.preventDefault();
-        
         const categoryId = document.getElementById('category-id').value;
         const data = {
             name: document.getElementById('name').value,
@@ -292,80 +357,47 @@
             icon: document.getElementById('icon').value,
             is_active: true
         };
-        
         try {
-            const url = categoryId ? `/api/categories/${categoryId}` : '/api/categories/';
+            const url = categoryId ? '/api/categories/' + categoryId : '/api/categories/';
             const method = categoryId ? 'PUT' : 'POST';
-            
             const response = await fetch(url, {
                 method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(data)
             });
-            
             if (response.ok) {
                 closeModal();
                 loadCategories();
             } else {
                 const error = await response.json();
-                const errorMessage = typeof error.detail === 'object' ? JSON.stringify(error.detail) : error.detail;
-                showToast('Error: ' + errorMessage, 'error');
+                const msg = typeof error.detail === 'object' ? JSON.stringify(error.detail) : error.detail;
+                showToast('Error: ' + msg, 'error');
             }
         } catch (error) {
-            console.error('Error saving category:', error);
             showToast('Failed to save category', 'error');
         }
     });
-    
-    // Edit category
+
     async function editCategory(id) {
-        const category = categories.find(c => c.id === id);
+        const category = categories.find(function(c) { return c.id === id; });
         if (!category) return;
-        
         document.getElementById('modal-title').textContent = 'Edit Category';
         document.getElementById('category-id').value = category.id;
         document.getElementById('name').value = category.name;
         document.getElementById('type-select').value = category.type;
-        
-        // Set color radio
-        const colorRadio = document.querySelector(`input[name="color"][value="${category.color}"]`);
+        const colorRadio = document.querySelector('input[name="color"][value="' + category.color + '"]');
         if (colorRadio) colorRadio.checked = true;
-        
         document.getElementById('icon').value = category.icon;
         document.getElementById('category-modal').classList.remove('hidden');
     }
-    
-    // Toggle category active status
+
     async function toggleCategory(id) {
         try {
-            const response = await fetch(`/api/categories/${id}/toggle-active`, {
-                method: 'PATCH'
-            });
-            
-            if (response.ok) {
-                loadCategories();
-            }
+            const response = await fetch('/api/categories/' + id + '/toggle-active', { method: 'PATCH' });
+            if (response.ok) { loadCategories(); }
         } catch (error) {
             console.error('Error toggling category:', error);
         }
-    }
-    
-    // deleteCategory kept for compatibility (now wired via deleteWithUndo in card)
-    async function deleteCategory(id) {
-        showConfirm('Delete this category?', async function() {
-            try {
-                const response = await fetch('/api/categories/' + id, { method: 'DELETE' });
-                if (response.ok) {
-                    loadCategories();
-                } else {
-                    const error = await response.json();
-                    const msg = typeof error.detail === 'object' ? JSON.stringify(error.detail) : error.detail;
-                    showToast('Error: ' + msg, 'error');
-                }
-            } catch (error) {
-                console.error('Error deleting category:', error);
-            }
-        });
     }
 </script>
 {% endblock %}
