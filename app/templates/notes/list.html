@@ -112,10 +112,16 @@ function renderNoteList() {
     const filtered = activeFilter ? notes.filter(n => n.type === activeFilter) : notes;
 
     if (filtered.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'text-center py-10 text-gray-400';
+        const ico = document.createElement('i');
+        ico.className = 'fas fa-sticky-note text-3xl mb-3 block opacity-30';
         const msg = document.createElement('p');
-        msg.className = 'text-xs text-gray-400 text-center pt-6';
-        msg.textContent = 'No notes yet';
-        container.appendChild(msg);
+        msg.className = 'text-sm';
+        msg.textContent = activeFilter ? 'No ' + (activeFilter) + ' notes.' : 'No notes yet.';
+        empty.appendChild(ico);
+        empty.appendChild(msg);
+        container.appendChild(empty);
         return;
     }
 

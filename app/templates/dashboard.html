@@ -534,7 +534,8 @@ function updateDashboard() {
             bdsAmt.textContent = bdsOk
                 ? new Intl.NumberFormat('vi-VN').format(Math.round(s.monthly_bds)) + ' ₫ this month'
                 : 'No payment recorded yet';
-        });
+        })
+        .catch(() => showToast('Failed to load dashboard summary', 'error'));
 }
 
 // ── Cash flow chart ────────────────────────────────────────────────────────
@@ -618,7 +619,8 @@ fetch('/api/dashboard/monthly-trend')
                 },
             },
         });
-    });
+    })
+    .catch(() => showToast('Failed to load cash flow chart', 'error'));
 
 // ── Wealth Building Trend chart ───────────────────────────────────────────────
 fetch('/api/dashboard/wealth-building-trend')
@@ -682,7 +684,8 @@ fetch('/api/dashboard/wealth-building-trend')
                 },
             },
         });
-    });
+    })
+    .catch(() => showToast('Failed to load wealth trend chart', 'error'));
 
 // ── Wealth Allocation donut chart ─────────────────────────────────────────────
 (function renderWealthAlloc() {

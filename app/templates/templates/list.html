@@ -71,7 +71,7 @@
     <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div class="p-6 border-b flex justify-between items-center">
             <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Template</h3>
-            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close">
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
@@ -81,7 +81,7 @@
             
             <!-- Name -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Template Name *</label>
+                <label class="field-required block text-sm font-medium text-gray-700 mb-2">Template Name</label>
                 <input type="text" id="name" required
                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                        placeholder="e.g., Monthly Salary, Grocery Shopping">
@@ -110,7 +110,7 @@
             
             <!-- Amount -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Amount (VND) *</label>
+                <label class="field-required block text-sm font-medium text-gray-700 mb-2">Amount (VND)</label>
                 <input type="number" id="amount" required min="0" step="1"
                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                        placeholder="Enter amount">
@@ -118,7 +118,7 @@
             
             <!-- Category -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Category *</label>
+                <label class="field-required block text-sm font-medium text-gray-700 mb-2">Category</label>
                 <select id="category" required
                         class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
                     <option value="">Select Category</option>
@@ -187,21 +187,35 @@
         try {
             const response = await fetch('/api/categories/');
             categories = await response.json();
-            
+
             const type = document.querySelector('input[name="type"]:checked').value;
             const categorySelect = document.getElementById('category');
             const filterCategorySelect = document.getElementById('filter-category');
-            
+
             // Update form category select
-            categorySelect.innerHTML = '<option value="">Select Category</option>';
-            categories.filter(c => c.type === type && c.is_active).forEach(cat => {
-                categorySelect.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+            categorySelect.replaceChildren();
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Select Category';
+            categorySelect.appendChild(placeholder);
+            categories.filter(c => c.type === type && c.is_active).forEach(function(cat) {
+                const opt = document.createElement('option');
+                opt.value = cat.id;
+                opt.textContent = cat.name;
+                categorySelect.appendChild(opt);
             });
-            
+
             // Update filter category select
-            filterCategorySelect.innerHTML = '<option value="">All Categories</option>';
-            categories.filter(c => c.is_active).forEach(cat => {
-                filterCategorySelect.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+            filterCategorySelect.replaceChildren();
+            const allOpt = document.createElement('option');
+            allOpt.value = '';
+            allOpt.textContent = 'All Categories';
+            filterCategorySelect.appendChild(allOpt);
+            categories.filter(c => c.is_active).forEach(function(cat) {
+                const opt = document.createElement('option');
+                opt.value = cat.id;
+                opt.textContent = cat.name;
+                filterCategorySelect.appendChild(opt);
             });
         } catch (error) {
             console.error('Error loading categories:', error);
@@ -307,6 +321,7 @@
                 const useBtn = document.createElement('button');
                 useBtn.className = 'text-green-600 hover:text-green-800 mr-2';
                 useBtn.title = 'Use Template';
+                useBtn.setAttribute('aria-label', 'Use template');
                 const useIco = document.createElement('i');
                 useIco.className = 'fas fa-play';
                 useBtn.appendChild(useIco);
@@ -314,6 +329,7 @@
                 const editBtn = document.createElement('button');
                 editBtn.className = 'text-blue-600 hover:text-blue-800 mr-2';
                 editBtn.title = 'Edit';
+                editBtn.setAttribute('aria-label', 'Edit template');
                 const editIco = document.createElement('i');
                 editIco.className = 'fas fa-edit';
                 editBtn.appendChild(editIco);
@@ -321,6 +337,7 @@
                 const delBtn = document.createElement('button');
                 delBtn.className = 'text-red-600 hover:text-red-800';
                 delBtn.title = 'Delete';
+                delBtn.setAttribute('aria-label', 'Delete template');
                 const delIco = document.createElement('i');
                 delIco.className = 'fas fa-trash';
                 delBtn.appendChild(delIco);

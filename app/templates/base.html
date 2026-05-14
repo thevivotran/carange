@@ -115,7 +115,7 @@
         .dark .text-gray-600 { color: #d1d5db !important; }
         .dark .text-gray-500 { color: #9ca3af !important; }
         .dark .text-gray-400 { color: #6b7280 !important; }
-        .dark .text-gray-300 { color: #4b5563 !important; }
+        .dark .text-gray-300 { color: #9ca3af !important; }
         /* Vivid accent text (green, red, blue, amber, indigo, purple) kept as-is */
 
         /* ── Borders ──────────────────────────────────────── */
@@ -166,6 +166,9 @@
         /* ── Notes page filter pills ──────────────────────── */
         .dark .filter-btn { background: #374151 !important; color: #d1d5db !important; border-color: #4b5563 !important; }
         .dark .filter-btn.active { background: #3b82f6 !important; color: #fff !important; border-color: #3b82f6 !important; }
+
+        /* ── Required field asterisk ─────────────────────── */
+        .field-required::after { content: ' *'; color: #ef4444; }
 
         /* ── Theme toggle icon ────────────────────────────── */
         .dark .theme-icon-dark  { display: none  !important; }
@@ -278,7 +281,7 @@
             <div class="absolute right-0 top-0 bottom-0 w-64 bg-white shadow-xl">
                 <div class="p-4 border-b flex justify-between items-center">
                     <span class="font-semibold">Menu</span>
-                    <button id="close-mobile-menu" class="p-2 text-gray-600">
+                    <button id="close-mobile-menu" class="p-2 text-gray-600" aria-label="Close menu">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -455,7 +458,7 @@
         <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div class="p-6 border-b flex justify-between items-center">
                 <h3 class="text-xl font-bold text-gray-800">Quick Add Transaction</h3>
-                <button onclick="closeGlobalAddModal()" class="text-gray-500 hover:text-gray-700">
+                <button onclick="closeGlobalAddModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close">
                     <i class="fas fa-times text-xl"></i>
                 </button>
             </div>
@@ -482,14 +485,14 @@
                 </div>
                 <!-- Amount -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Amount (VND)</label>
+                    <label class="field-required block text-sm font-medium text-gray-700 mb-2">Amount (VND)</label>
                     <input type="number" id="global-tx-amount" required min="1" step="1"
                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                            placeholder="Enter amount">
                 </div>
                 <!-- Date -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                    <label class="field-required block text-sm font-medium text-gray-700 mb-2">Date</label>
                     <input type="date" id="global-tx-date" required
                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent bg-white">
                 </div>
@@ -544,9 +547,17 @@
             const res  = await fetch('/api/categories/');
             const cats = await res.json();
             const sel  = document.getElementById('global-tx-category');
-            sel.innerHTML = '<option value="">Select Category</option>';
-            cats.filter(c => c.type === type && c.is_active)
-                .forEach(c => sel.innerHTML += `<option value="${c.id}">${c.name}</option>`);
+            sel.replaceChildren();
+            const placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Select Category';
+            sel.appendChild(placeholder);
+            cats.filter(c => c.type === type && c.is_active).forEach(function(c) {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.name;
+                sel.appendChild(opt);
+            });
         }
         document.getElementById('global-tx-form').addEventListener('submit', async function(e) {
             e.preventDefault();

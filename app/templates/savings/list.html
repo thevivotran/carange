@@ -110,17 +110,17 @@
     <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <div class="p-6 border-b flex justify-between items-center">
             <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Savings Bundle</h3>
-            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close">
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
-        
+
         <form id="savings-form" class="p-6 space-y-4">
             <input type="hidden" id="savings-id">
             
             <!-- Name -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Bundle Name</label>
+                <label class="field-required block text-sm font-medium text-gray-700 mb-2">Bundle Name</label>
                 <input type="text" id="name" required
                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                        placeholder="e.g., Vietcombank Fixed Deposit">
@@ -128,7 +128,7 @@
             
             <!-- Bank Name -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Bank Name</label>
+                <label class="field-required block text-sm font-medium text-gray-700 mb-2">Bank Name</label>
                 <input type="text" id="bank-name" required
                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                        placeholder="e.g., Vietcombank">
@@ -148,7 +148,7 @@
             <!-- Amounts -->
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Initial Deposit (VND)</label>
+                    <label class="field-required block text-sm font-medium text-gray-700 mb-2">Initial Deposit (VND)</label>
                     <input type="number" id="initial-deposit" required min="0" step="1"
                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                            placeholder="Amount deposited">
@@ -609,6 +609,7 @@
             const editBtn = document.createElement('button');
             editBtn.className = 'px-3 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition';
             editBtn.title = 'Edit';
+            editBtn.setAttribute('aria-label', 'Edit savings bundle');
             const editIco = document.createElement('i');
             editIco.className = 'fas fa-edit';
             editBtn.appendChild(editIco);
@@ -618,6 +619,7 @@
             const delBtn = document.createElement('button');
             delBtn.className = 'px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition';
             delBtn.title = 'Delete';
+            delBtn.setAttribute('aria-label', 'Delete savings bundle');
             const delIco = document.createElement('i');
             delIco.className = 'fas fa-trash';
             delBtn.appendChild(delIco);

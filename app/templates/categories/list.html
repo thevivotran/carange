@@ -36,7 +36,7 @@
     <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
         <div class="p-6 border-b flex justify-between items-center">
             <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Category</h3>
-            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close">
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
@@ -229,6 +229,7 @@
 
             const editBtn = document.createElement('button');
             editBtn.className = 'text-blue-600 hover:text-blue-800 p-2';
+            editBtn.setAttribute('aria-label', 'Edit ' + category.name);
             const editIco = document.createElement('i');
             editIco.className = 'fas fa-edit';
             editBtn.appendChild(editIco);
@@ -237,6 +238,7 @@
             const toggleBtn = document.createElement('button');
             toggleBtn.className = 'text-gray-600 hover:text-gray-800 p-2';
             toggleBtn.title = category.is_active ? 'Deactivate' : 'Activate';
+            toggleBtn.setAttribute('aria-label', (category.is_active ? 'Deactivate' : 'Activate') + ' ' + category.name);
             const toggleIco = document.createElement('i');
             toggleIco.className = 'fas fa-' + (category.is_active ? 'eye-slash' : 'eye');
             toggleBtn.appendChild(toggleIco);
@@ -245,6 +247,7 @@
             const delBtn = document.createElement('button');
             delBtn.className = 'text-red-600 hover:text-red-800 p-2';
             delBtn.title = 'Delete';
+            delBtn.setAttribute('aria-label', 'Delete ' + category.name);
             const delIco = document.createElement('i');
             delIco.className = 'fas fa-trash';
             delBtn.appendChild(delIco);

@@ -140,11 +140,11 @@
     <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div class="p-6 border-b flex justify-between items-center">
             <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Transaction</h3>
-            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close">
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
-        
+
         <form id="transaction-form" class="p-6 space-y-4">
             <input type="hidden" id="transaction-id">
             
@@ -171,7 +171,7 @@
             
             <!-- Amount -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Amount (VND)</label>
+                <label class="field-required block text-sm font-medium text-gray-700 mb-2">Amount (VND)</label>
                 <input type="number" id="amount" required min="0" step="1"
                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                        placeholder="Enter exact amount">
@@ -179,14 +179,14 @@
             
             <!-- Date -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                <label class="field-required block text-sm font-medium text-gray-700 mb-2">Date</label>
                 <input type="date" id="date" required
                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent bg-white">
             </div>
             
             <!-- Category -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                <label class="field-required block text-sm font-medium text-gray-700 mb-2">Category</label>
                 <select id="category" required
                         class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
                     <option value="">Select Category</option>
@@ -346,15 +346,29 @@
             
             const currentFilterCategory = filterCategorySelect.value;
             
-            categorySelect.innerHTML = '<option value="">Select Category</option>';
-            categories.filter(c => c.type === type && c.is_active).forEach(cat => {
-                categorySelect.innerHTML += `<option value="${cat.id}">${cat.name}</option>`;
+            categorySelect.replaceChildren();
+            const catPlaceholder = document.createElement('option');
+            catPlaceholder.value = '';
+            catPlaceholder.textContent = 'Select Category';
+            categorySelect.appendChild(catPlaceholder);
+            categories.filter(c => c.type === type && c.is_active).forEach(function(cat) {
+                const opt = document.createElement('option');
+                opt.value = cat.id;
+                opt.textContent = cat.name;
+                categorySelect.appendChild(opt);
             });
-            
-            filterCategorySelect.innerHTML = '<option value="">All Categories</option>';
-            categories.filter(c => c.is_active).forEach(cat => {
+
+            filterCategorySelect.replaceChildren();
+            const filterPlaceholder = document.createElement('option');
+            filterPlaceholder.value = '';
+            filterPlaceholder.textContent = 'All Categories';
+            filterCategorySelect.appendChild(filterPlaceholder);
+            categories.filter(c => c.is_active).forEach(function(cat) {
                 const typeLabel = cat.type === 'income' ? '(Income)' : '(Expense)';
-                filterCategorySelect.innerHTML += `<option value="${cat.id}">${typeLabel} ${cat.name}</option>`;
+                const opt = document.createElement('option');
+                opt.value = cat.id;
+                opt.textContent = typeLabel + ' ' + cat.name;
+                filterCategorySelect.appendChild(opt);
             });
             
             if (currentFilterCategory) {
@@ -900,7 +914,12 @@
         
         const formData = new FormData();
         formData.append('file', file);
-        document.getElementById('upload-status').innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Uploading and processing...';
+        const uploadStatus = document.getElementById('upload-status');
+        uploadStatus.replaceChildren();
+        const spinnerIco = document.createElement('i');
+        spinnerIco.className = 'fas fa-spinner fa-spin mr-2';
+        uploadStatus.appendChild(spinnerIco);
+        uploadStatus.appendChild(document.createTextNode(' Uploading and processing...'));
         
         try {
             const response = await fetch('/api/transactions/bulk-upload', { method: 'POST', body: formData });
@@ -910,35 +929,77 @@
             document.getElementById('upload-result').classList.remove('hidden');
             
             if (result.success) {
-                document.getElementById('upload-result').innerHTML = `
-                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                        <p class="text-green-800 font-medium"><i class="fas fa-check-circle mr-2"></i>${result.message}</p>
-                        <div class="mt-3 text-sm text-green-700">
-                            <p>✅ Income: ${result.stats.income}</p>
-                            <p>✅ Expense: ${result.stats.expense}</p>
-                            ${result.stats.skipped > 0 ? `<p>⚠️ Skipped: ${result.stats.skipped}</p>` : ''}
-                        </div>
-                        ${result.stats.errors && result.stats.errors.length > 0 ? `
-                        <details class="mt-2">
-                            <summary class="cursor-pointer text-red-600">Show errors (${result.stats.errors.length})</summary>
-                            <ul class="mt-2 text-xs text-red-600 max-h-32 overflow-y-auto">
-                                ${result.stats.errors.map(e => `<li>• ${e}</li>`).join('')}
-                            </ul>
-                        </details>
-                        ` : ''}
-                    </div>`;
+                const resultEl = document.getElementById('upload-result');
+                resultEl.replaceChildren();
+                const successBox = document.createElement('div');
+                successBox.className = 'bg-green-50 border border-green-200 rounded-lg p-4';
+                const msgP = document.createElement('p');
+                msgP.className = 'text-green-800 font-medium';
+                const checkIco = document.createElement('i');
+                checkIco.className = 'fas fa-check-circle mr-2';
+                msgP.appendChild(checkIco);
+                msgP.appendChild(document.createTextNode(result.message));
+                const statsDiv = document.createElement('div');
+                statsDiv.className = 'mt-3 text-sm text-green-700';
+                const incP = document.createElement('p');
+                incP.textContent = '✅ Income: ' + result.stats.income;
+                const expP = document.createElement('p');
+                expP.textContent = '✅ Expense: ' + result.stats.expense;
+                statsDiv.appendChild(incP);
+                statsDiv.appendChild(expP);
+                if (result.stats.skipped > 0) {
+                    const skipP = document.createElement('p');
+                    skipP.textContent = '⚠️ Skipped: ' + result.stats.skipped;
+                    statsDiv.appendChild(skipP);
+                }
+                successBox.appendChild(msgP);
+                successBox.appendChild(statsDiv);
+                if (result.stats.errors && result.stats.errors.length > 0) {
+                    const details = document.createElement('details');
+                    details.className = 'mt-2';
+                    const summary = document.createElement('summary');
+                    summary.className = 'cursor-pointer text-red-600';
+                    summary.textContent = 'Show errors (' + result.stats.errors.length + ')';
+                    const ul = document.createElement('ul');
+                    ul.className = 'mt-2 text-xs text-red-600 max-h-32 overflow-y-auto';
+                    result.stats.errors.forEach(function(errMsg) {
+                        const li = document.createElement('li');
+                        li.textContent = '• ' + errMsg;
+                        ul.appendChild(li);
+                    });
+                    details.appendChild(summary);
+                    details.appendChild(ul);
+                    successBox.appendChild(details);
+                }
+                resultEl.appendChild(successBox);
                 setTimeout(() => { loadTransactions(); loadMonthlySummary(); }, 1500);
             } else {
-                document.getElementById('upload-result').innerHTML = `
-                    <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-                        <p class="text-red-800 font-medium"><i class="fas fa-exclamation-circle mr-2"></i>${result.error}</p>
-                    </div>`;
+                const resultEl2 = document.getElementById('upload-result');
+                resultEl2.replaceChildren();
+                const errBox = document.createElement('div');
+                errBox.className = 'bg-red-50 border border-red-200 rounded-lg p-4';
+                const errP = document.createElement('p');
+                errP.className = 'text-red-800 font-medium';
+                const errIco = document.createElement('i');
+                errIco.className = 'fas fa-exclamation-circle mr-2';
+                errP.appendChild(errIco);
+                errP.appendChild(document.createTextNode(result.error));
+                errBox.appendChild(errP);
+                resultEl2.appendChild(errBox);
             }
         } catch (error) {
-            document.getElementById('upload-status').innerHTML = `
-                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <p class="text-red-800"><i class="fas fa-exclamation-circle mr-2"></i>Upload failed: ${error.message}</p>
-                </div>`;
+            const statusEl2 = document.getElementById('upload-status');
+            statusEl2.replaceChildren();
+            const catchBox = document.createElement('div');
+            catchBox.className = 'bg-red-50 border border-red-200 rounded-lg p-4';
+            const catchP = document.createElement('p');
+            catchP.className = 'text-red-800';
+            const catchIco = document.createElement('i');
+            catchIco.className = 'fas fa-exclamation-circle mr-2';
+            catchP.appendChild(catchIco);
+            catchP.appendChild(document.createTextNode('Upload failed: ' + error.message));
+            catchBox.appendChild(catchP);
+            statusEl2.appendChild(catchBox);
         }
     }
     

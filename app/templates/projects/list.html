@@ -46,12 +46,12 @@
     <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <div class="p-6 border-b flex justify-between items-center">
             <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Financial Project</h3>
-            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700"><i class="fas fa-times text-xl"></i></button>
+            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close"><i class="fas fa-times text-xl"></i></button>
         </div>
         <form id="project-form" class="p-6 space-y-4">
             <input type="hidden" id="project-id">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Project Name</label>
+                <label class="field-required block text-sm font-medium text-gray-700 mb-2">Project Name</label>
                 <input type="text" id="name" required class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="e.g., Buy an Apartment">
             </div>
             <div>
@@ -304,7 +304,11 @@
     function populateCategorySelects() {
         const expCats = allCategories.filter(c => c.type === 'expense' && c.is_active);
         const defSel = document.getElementById('default-category-id');
-        defSel.innerHTML = '<option value="">None (skip auto-transaction)</option>';
+        defSel.replaceChildren();
+        const defPlaceholder = document.createElement('option');
+        defPlaceholder.value = '';
+        defPlaceholder.textContent = 'None (skip auto-transaction)';
+        defSel.appendChild(defPlaceholder);
         expCats.forEach(c => {
             const opt = document.createElement('option');
             opt.value = c.id;
@@ -312,7 +316,11 @@
             defSel.appendChild(opt);
         });
         const mpSel = document.getElementById('mark-paid-category');
-        mpSel.innerHTML = '<option value="">— skip transaction —</option>';
+        mpSel.replaceChildren();
+        const mpPlaceholder = document.createElement('option');
+        mpPlaceholder.value = '';
+        mpPlaceholder.textContent = '— skip transaction —';
+        mpSel.appendChild(mpPlaceholder);
         expCats.forEach(c => {
             const opt = document.createElement('option');
             opt.value = c.id;
@@ -326,7 +334,7 @@
             const res = await fetch('/api/projects/stats/summary');
             const data = await res.json();
             const el = document.getElementById('projects-summary');
-            el.innerHTML = '';
+            el.replaceChildren();
             const cards = [
                 { label: 'Active Projects', value: data.active_projects_count, color: 'text-primary' },
                 { label: 'Completed', value: data.completed_projects_count, color: 'text-green-600' },
@@ -366,7 +374,7 @@
 
     function renderProjects() {
         const grid = document.getElementById('projects-grid');
-        grid.innerHTML = '';
+        grid.replaceChildren();
         projects.forEach(project => {
             const progress = project.target_amount > 0
                 ? Math.round((project.current_amount / project.target_amount) * 100)
@@ -488,14 +496,20 @@
             const editBtn = document.createElement('button');
             editBtn.className = 'px-3 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition';
             editBtn.title = 'Edit';
-            editBtn.innerHTML = '<i class="fas fa-edit"></i>';
+            editBtn.setAttribute('aria-label', 'Edit project');
+            const editIco = document.createElement('i');
+            editIco.className = 'fas fa-edit';
+            editBtn.appendChild(editIco);
             editBtn.onclick = () => editProject(project.id);
             actionsDiv.appendChild(editBtn);
 
             const delBtn = document.createElement('button');
             delBtn.className = 'px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition';
             delBtn.title = 'Delete';
-            delBtn.innerHTML = '<i class="fas fa-trash"></i>';
+            delBtn.setAttribute('aria-label', 'Delete project');
+            const delIco = document.createElement('i');
+            delIco.className = 'fas fa-trash';
+            delBtn.appendChild(delIco);
             delBtn.onclick = () => deleteProject(project.id);
             actionsDiv.appendChild(delBtn);
 
@@ -598,7 +612,7 @@
 
     function renderPaymentsTable(payments) {
         const tbody = document.getElementById('payments-table-body');
-        tbody.innerHTML = '';
+        tbody.replaceChildren();
 
         let totalAmt = 0, paidAmt = 0;
         payments.forEach((p, idx) => {
@@ -658,7 +672,10 @@
                 a.href = '/transactions?highlight=' + p.transaction_id;
                 a.className = 'text-blue-500 hover:text-blue-700';
                 a.title = 'View transaction';
-                a.innerHTML = '<i class="fas fa-link text-xs"></i>';
+                a.setAttribute('aria-label', 'View linked transaction');
+                const linkIco = document.createElement('i');
+                linkIco.className = 'fas fa-link text-xs';
+                a.appendChild(linkIco);
                 tdTx.appendChild(a);
             }
             tr.appendChild(tdTx);
@@ -701,7 +718,7 @@
         const remaining = totalAmt - paidAmt;
         const pct = totalAmt > 0 ? Math.round(paidAmt / totalAmt * 100) : 0;
         const totalsEl = document.getElementById('payments-totals');
-        totalsEl.innerHTML = '';
+        totalsEl.replaceChildren();
         [
             { label: 'Total',     value: formatVND(totalAmt),   cls: '' },
             { label: 'Paid',      value: formatVND(paidAmt),    cls: 'text-green-700' },
