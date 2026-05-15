@@ -72,6 +72,32 @@
     </div>
 </div>
 
+<!-- Category Merge/Delete Modal -->
+<div id="cat-merge-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6 space-y-4">
+        <h3 class="text-lg font-bold text-gray-800" id="cat-merge-title">Delete Category</h3>
+        <p id="cat-merge-msg" class="text-sm text-gray-600"></p>
+        <div class="space-y-2">
+            <label class="block text-sm font-medium text-gray-700">Merge all transactions into:</label>
+            <select id="cat-merge-target" class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary"></select>
+        </div>
+        <div class="flex flex-col gap-2 pt-2">
+            <button onclick="confirmMerge()"
+                    class="w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-600 transition text-sm font-medium">
+                Merge &amp; Delete
+            </button>
+            <button onclick="confirmDeactivate()"
+                    class="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm">
+                Deactivate Instead
+            </button>
+            <button onclick="closeMergeModal()"
+                    class="w-full px-4 py-2 border rounded-lg text-gray-500 hover:bg-gray-50 transition text-sm">
+                Cancel
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Add/Edit Category Modal -->
 <div id="category-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
@@ -320,7 +346,11 @@
             delIco.className = 'fas fa-trash text-sm';
             delBtn.appendChild(delIco);
             delBtn.addEventListener('click', function() {
-                deleteWithUndo(tr, '/api/categories/' + category.id, loadCategories, category.name);
+                if ((category.transaction_count || 0) > 0) {
+                    openMergeModal(category);
+                } else {
+                    deleteWithUndo(tr, '/api/categories/' + category.id, loadCategories, category.name);
+                }
             });
 
             actionsDiv.appendChild(editBtn);
@@ -397,6 +427,64 @@
             if (response.ok) { loadCategories(); }
         } catch (error) {
             console.error('Error toggling category:', error);
+        }
+    }
+
+    let _mergeSourceCategory = null;
+
+    function openMergeModal(category) {
+        _mergeSourceCategory = category;
+        document.getElementById('cat-merge-title').textContent = 'Delete "' + category.name + '"';
+        document.getElementById('cat-merge-msg').textContent =
+            'This category has ' + category.transaction_count + ' transaction' +
+            (category.transaction_count === 1 ? '' : 's') +
+            '. Choose how to handle them before deleting.';
+        const sel = document.getElementById('cat-merge-target');
+        sel.replaceChildren();
+        categories.filter(function(c) {
+            return c.id !== category.id && c.type === category.type && c.is_active;
+        }).forEach(function(c) {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.name;
+            sel.appendChild(opt);
+        });
+        document.getElementById('cat-merge-modal').classList.remove('hidden');
+    }
+
+    function closeMergeModal() {
+        document.getElementById('cat-merge-modal').classList.add('hidden');
+        _mergeSourceCategory = null;
+    }
+
+    async function confirmMerge() {
+        const targetId = document.getElementById('cat-merge-target').value;
+        if (!targetId) { showToast('Please select a target category', 'error'); return; }
+        try {
+            const res = await fetch('/api/categories/' + _mergeSourceCategory.id + '/merge-into/' + targetId, { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) {
+                closeMergeModal();
+                showToast(data.message, 'success');
+                loadCategories();
+            } else {
+                showToast('Error: ' + (data.detail || 'Failed to merge'), 'error');
+            }
+        } catch(e) {
+            showToast('Failed to merge', 'error');
+        }
+    }
+
+    async function confirmDeactivate() {
+        try {
+            const res = await fetch('/api/categories/' + _mergeSourceCategory.id + '/toggle-active', { method: 'PATCH' });
+            if (res.ok) {
+                closeMergeModal();
+                showToast('Category deactivated', 'success');
+                loadCategories();
+            }
+        } catch(e) {
+            showToast('Failed to deactivate', 'error');
         }
     }
 </script>

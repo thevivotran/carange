@@ -463,9 +463,24 @@
             delIco.className = 'fas fa-trash';
             delBtn.appendChild(delIco);
             delBtn.addEventListener('click', function() {
-                deleteWithUndo(card, '/api/savings/' + bundle.id, function() {
-                    loadSavings(); loadSummary();
-                }, bundle.name);
+                if ((bundle.linked_transaction_count || 0) > 0) {
+                    showConfirm(
+                        '"' + bundle.name + '" has ' + bundle.linked_transaction_count + ' linked transaction' +
+                        (bundle.linked_transaction_count === 1 ? '' : 's') +
+                        '. They will remain in your history but will no longer be associated with any savings bundle.',
+                        function() {
+                            deleteWithUndo(card, '/api/savings/' + bundle.id, function() {
+                                loadSavings(); loadSummary();
+                            }, bundle.name);
+                        },
+                        'Delete Anyway',
+                        'bg-red-600 hover:bg-red-700'
+                    );
+                } else {
+                    deleteWithUndo(card, '/api/savings/' + bundle.id, function() {
+                        loadSavings(); loadSummary();
+                    }, bundle.name);
+                }
             });
             actDiv.appendChild(delBtn);
 

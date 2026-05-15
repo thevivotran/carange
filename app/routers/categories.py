@@ -106,6 +106,21 @@ def delete_category(category_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"message": "Category deleted successfully"}
 
+@router.post("/{category_id}/merge-into/{target_id}")
+def merge_category(category_id: int, target_id: int, db: Session = Depends(get_db)):
+    source = db.query(Category).filter(Category.id == category_id).first()
+    if not source:
+        raise HTTPException(status_code=404, detail="Source category not found")
+    target = db.query(Category).filter(Category.id == target_id).first()
+    if not target:
+        raise HTTPException(status_code=404, detail="Target category not found")
+    if source.type != target.type:
+        raise HTTPException(status_code=400, detail="Cannot merge categories of different types")
+    count = db.query(Transaction).filter(Transaction.category_id == category_id).update({"category_id": target_id})
+    db.delete(source)
+    db.commit()
+    return {"message": f"Merged {count} transactions into {target.name}", "moved": count}
+
 @router.patch("/{category_id}/toggle-active")
 def toggle_category_active(category_id: int, db: Session = Depends(get_db)):
     category = db.query(Category).filter(Category.id == category_id).first()

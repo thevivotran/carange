@@ -105,7 +105,8 @@ class SavingsBundle(SavingsBundleBase):
     linked_project_id: Optional[int]
     created_at: datetime
     completed_at: Optional[datetime]
-    
+    linked_transaction_count: int = 0
+
     class Config:
         from_attributes = True
 

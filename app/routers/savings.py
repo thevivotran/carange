@@ -15,12 +15,19 @@ def get_savings_bundles(
     limit: int = 100,
     db: Session = Depends(get_db)
 ):
-    query = db.query(SavingsBundle)
-    
+    from sqlalchemy import func
+    query = db.query(SavingsBundle, func.count(Transaction.id).label('tx_count'))\
+        .outerjoin(Transaction, Transaction.savings_bundle_id == SavingsBundle.id)\
+        .group_by(SavingsBundle.id)
+
     if status:
         query = query.filter(SavingsBundle.status == status)
-    
-    bundles = query.order_by(SavingsBundle.created_at.desc()).offset(skip).limit(limit).all()
+
+    results = query.order_by(SavingsBundle.created_at.desc()).offset(skip).limit(limit).all()
+    bundles = []
+    for bundle, count in results:
+        bundle.linked_transaction_count = count
+        bundles.append(bundle)
     return bundles
 
 @router.get("/{bundle_id}", response_model=SavingsBundleSchema)
