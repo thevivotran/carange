@@ -154,6 +154,17 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
     )
     budget_top_cats = sorted(budget_rows, key=lambda r: r['this_month_spent'], reverse=True)[:6]
 
+    # ── Unsettled advances ─────────────────────────────────────────────────
+    _adv = db.query(
+        func.count(Transaction.id),
+        func.sum(Transaction.amount),
+    ).filter(
+        Transaction.is_advance == True,
+        Transaction.advance_settled == False,
+    ).first()
+    unsettled_advance_count = int(_adv[0] or 0)
+    unsettled_advance_total = float(_adv[1] or 0)
+
     # ── Alerts ─────────────────────────────────────────────────────────────
     alert_maturities = db.query(SavingsBundle).filter(
         SavingsBundle.status == SavingsStatus.ACTIVE,
@@ -232,9 +243,11 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
         "budget_top_cats":          budget_top_cats,
         "alert_maturities":         alert_maturities,
         "alert_over_budget":        alert_over_budget,
-        "active_projects_list":     active_projects_list,
-        "at_risk_ids":              at_risk_ids,
-        "today":                    today,
+        "active_projects_list":         active_projects_list,
+        "at_risk_ids":                  at_risk_ids,
+        "today":                        today,
+        "unsettled_advance_count":      unsettled_advance_count,
+        "unsettled_advance_total":      unsettled_advance_total,
         "recent_transactions":      recent_transactions,
         "upcoming_maturities":      upcoming_maturities,
         "expense_by_category":      expense_by_category,

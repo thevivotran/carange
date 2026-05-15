@@ -117,6 +117,7 @@ class TransactionBase(BaseModel):
     category_id: int
     description: Optional[str] = None
     payment_method: str = "cash"
+    source: str = "manual"
     
     @field_validator('amount')
     @classmethod
@@ -143,6 +144,7 @@ class TransactionUpdate(BaseModel):
     is_savings_related: Optional[bool] = None
     is_advance: Optional[bool] = None
     advance_settled: Optional[bool] = None
+    source: Optional[str] = None
     savings_bundle_id: Optional[int] = None
     project_id: Optional[int] = None
 
@@ -190,49 +192,6 @@ class ProjectPayment(ProjectPaymentBase):
         from_attributes = True
 
 
-# Project Schemas
-class ProjectMilestoneBase(BaseModel):
-    name: str
-    target_amount: float
-    is_completed: bool = False
-
-class ProjectMilestoneCreate(ProjectMilestoneBase):
-    project_id: int
-
-class ProjectMilestone(ProjectMilestoneBase):
-    id: int
-    project_id: int
-    completed_at: Optional[datetime]
-    created_at: datetime
-    
-    class Config:
-        from_attributes = True
-
-class ProjectContributionBase(BaseModel):
-    amount: float = Field(gt=0, description="Contribution amount must be greater than 0")
-    date: date
-    source: str = "manual"
-    savings_bundle_id: Optional[int] = None
-    notes: Optional[str] = None
-    
-    @field_validator('amount')
-    @classmethod
-    def validate_contribution_amount(cls, v):
-        if v <= 0:
-            raise ValueError('Contribution amount must be greater than 0')
-        return v
-
-class ProjectContributionCreate(ProjectContributionBase):
-    project_id: int
-
-class ProjectContribution(ProjectContributionBase):
-    id: int
-    project_id: int
-    created_at: datetime
-    
-    class Config:
-        from_attributes = True
-
 class FinancialProjectBase(BaseModel):
     name: str
     type: ProjectType
@@ -260,8 +219,6 @@ class FinancialProject(FinancialProjectBase):
     created_at:          datetime
     completed_at:        Optional[datetime]
     progress_percentage: float = 0.0
-    milestones:          List[ProjectMilestone] = []
-    contributions:       List[ProjectContribution] = []
     linked_savings:      List[SavingsBundle] = []
     payments:            List[ProjectPayment] = []
 

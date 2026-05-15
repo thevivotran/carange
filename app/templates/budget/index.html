@@ -2,46 +2,63 @@
 {% block title %}Budget — Carange{% endblock %}
 
 {% block content %}
-<div class="p-6 pb-28 max-w-5xl mx-auto">
+<div class="p-6 pb-28 max-w-7xl mx-auto">
 
   <!-- Header -->
   <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
     <div>
-      <div class="flex items-center gap-3">
-        <button onclick="prevMonth()" class="p-2 rounded-lg hover:bg-gray-100 transition text-gray-600"><i class="fas fa-chevron-left"></i></button>
-        <h2 class="text-3xl font-bold text-gray-800" id="month-label"></h2>
-        <button onclick="nextMonth()" class="p-2 rounded-lg hover:bg-gray-100 transition text-gray-600"><i class="fas fa-chevron-right"></i></button>
-      </div>
-      <p class="text-gray-600 mt-1 pl-1">Monthly budget allocations and spending</p>
+      <h2 class="text-3xl font-bold text-gray-800">Budget</h2>
+      <p class="text-gray-600 mt-1">Monthly budget allocations and spending</p>
     </div>
-    <div class="flex gap-2 flex-wrap">
-      <button onclick="openHistoryModal()" class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm">
-        <i class="fas fa-history text-xs"></i> History
+    <!-- Controls: month pill + actions all on one line -->
+    <div class="flex items-center gap-2 flex-wrap">
+      <div class="flex items-center gap-1 bg-white rounded-xl shadow-sm border px-2 py-1">
+        <button onclick="prevMonth()"
+                class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 transition select-none">&#8249;</button>
+        <span id="month-label" class="px-3 py-1 text-sm font-semibold text-gray-700 min-w-[110px] text-center select-none"></span>
+        <button onclick="nextMonth()"
+                class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 transition select-none">&#8250;</button>
+        <button id="budget-exit-btn" onclick="exitBudgetMonthTracking()" title="Exit month tracking — reset to current month"
+                class="hidden w-7 h-7 flex items-center justify-center rounded-lg text-base text-gray-400 hover:text-red-500 hover:bg-red-50 transition select-none">&#215;</button>
+      </div>
+      <button onclick="openHistoryModal()" class="flex items-center gap-2 px-4 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">
+        <i class="fas fa-history"></i> History
       </button>
-      <button onclick="openAddModal()" class="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition text-sm">
-        <i class="fas fa-plus text-xs"></i> Add Category
+      <button onclick="openAddModal()" class="flex items-center gap-2 px-4 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">
+        <i class="fas fa-plus"></i> Add Category
       </button>
-      <button onclick="openEditModal()" class="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-blue-700 transition">
+      <button onclick="openEditModal()" class="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-blue-600 transition">
         <i class="fas fa-sliders-h"></i> Edit Budgets
       </button>
     </div>
   </div>
 
-  <!-- Summary bar -->
-  <div id="summary-card" class="bg-white rounded-xl shadow-md p-5 mb-6 hidden">
-    <div class="flex flex-wrap gap-6 mb-3 text-sm">
-      <div><span class="text-gray-400">Total budgeted</span><br><span class="text-xl font-bold text-gray-800" id="sum-budget">—</span></div>
-      <div><span class="text-gray-400">Spent this month</span><br><span class="text-xl font-bold text-red-500" id="sum-spent">—</span></div>
-      <div><span class="text-gray-400">Available balance</span><br><span class="text-xl font-bold text-green-600" id="sum-balance">—</span></div>
+  <!-- Summary cards -->
+  <div id="summary-card" class="hidden">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+      <div class="bg-white rounded-lg shadow p-4">
+        <p class="text-sm text-gray-500">Total Budgeted</p>
+        <p class="text-2xl font-bold text-gray-800" id="sum-budget">—</p>
+      </div>
+      <div class="bg-white rounded-lg shadow p-4">
+        <p class="text-sm text-gray-500">Spent This Month</p>
+        <p class="text-2xl font-bold text-red-500" id="sum-spent">—</p>
+      </div>
+      <div class="bg-white rounded-lg shadow p-4">
+        <p class="text-sm text-gray-500">Available Balance</p>
+        <p class="text-2xl font-bold text-green-600" id="sum-balance">—</p>
+      </div>
     </div>
-    <div class="w-full bg-gray-100 rounded-full h-3">
-      <div id="summary-bar" class="h-3 rounded-full transition-all duration-500 bg-primary" style="width:0%"></div>
+    <div class="bg-white rounded-lg shadow px-4 py-3 mb-6">
+      <div class="w-full bg-gray-100 rounded-full h-3">
+        <div id="summary-bar" class="h-3 rounded-full transition-all duration-500 bg-primary" style="width:0%"></div>
+      </div>
+      <div class="text-right text-xs text-gray-400 mt-1" id="summary-pct"></div>
     </div>
-    <div class="text-right text-xs text-gray-400 mt-1" id="summary-pct"></div>
   </div>
 
   <!-- Category rows -->
-  <div id="rows-container" class="space-y-3"></div>
+  <div id="rows-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
   <div id="empty-state" class="hidden text-center py-20 text-gray-400">
     <i class="fas fa-wallet text-5xl mb-4 opacity-30"></i>
     <p class="text-lg">No budget set for this month.</p>
@@ -123,6 +140,9 @@ let currentYM = getCurrentYM();
 let rows = [];
 
 function getCurrentYM() {
+    const urlParam = new URLSearchParams(window.location.search).get('month');
+    const stored   = urlParam || localStorage.getItem('carange-active-month');
+    if (stored && /^\d{4}-\d{2}$/.test(stored)) return stored;
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
 }
@@ -149,8 +169,42 @@ function addMonths(ym, delta) {
     return `${y}-${String(m).padStart(2,'0')}`;
 }
 
-function prevMonth() { currentYM = addMonths(currentYM, -1); load(); }
-function nextMonth() { currentYM = addMonths(currentYM,  1); load(); }
+function _todayYM() {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+}
+
+function _updateBudgetExitBtn() {
+    const exitBtn = document.getElementById('budget-exit-btn');
+    if (!exitBtn) return;
+    if (currentYM !== _todayYM()) {
+        exitBtn.classList.remove('hidden');
+    } else {
+        exitBtn.classList.add('hidden');
+    }
+}
+
+function prevMonth() {
+    currentYM = addMonths(currentYM, -1);
+    localStorage.setItem('carange-active-month', currentYM);
+    history.replaceState(null, '', '?month=' + currentYM);
+    _updateBudgetExitBtn();
+    load();
+}
+function nextMonth() {
+    currentYM = addMonths(currentYM,  1);
+    localStorage.setItem('carange-active-month', currentYM);
+    history.replaceState(null, '', '?month=' + currentYM);
+    _updateBudgetExitBtn();
+    load();
+}
+function exitBudgetMonthTracking() {
+    localStorage.removeItem('carange-active-month');
+    currentYM = _todayYM();
+    history.replaceState(null, '', '?month=' + currentYM);
+    _updateBudgetExitBtn();
+    load();
+}
 
 function barColor(pct, balance) {
     if (balance < 0) return '#ef4444';
@@ -216,14 +270,6 @@ function renderRows() {
         left.appendChild(dot);
         left.appendChild(name);
 
-        // rollover badge
-        if (Math.abs(rollover) >= 1000) {
-            const badge = document.createElement('span');
-            badge.className = `text-xs px-2 py-0.5 rounded-full flex-shrink-0 ${rollover >= 0 ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-500'}`;
-            badge.textContent = (rollover >= 0 ? '+' : '') + fmtVND(rollover) + ' rollover';
-            left.appendChild(badge);
-        }
-
         const right = document.createElement('div');
         right.className = 'flex items-center gap-4 text-sm flex-shrink-0';
 
@@ -258,11 +304,19 @@ function renderRows() {
         bar.style.background = color;
         progressBg.appendChild(bar);
 
-        // Bottom row: allocation + pct
+        // Bottom row: allocation breakdown + pct
         const bottomRow = document.createElement('div');
         bottomRow.className = 'flex justify-between text-xs text-gray-400 mt-1';
         const allocEl = document.createElement('span');
-        allocEl.textContent = fmtVND(r.monthly_allocation) + '/month';
+        if (Math.abs(rollover) >= 1000) {
+            allocEl.textContent = fmtVND(r.monthly_allocation) + ' new';
+            const sep = document.createElement('span');
+            sep.className = rollover >= 0 ? 'text-blue-400' : 'text-red-400';
+            sep.textContent = (rollover >= 0 ? ' + ' : ' − ') + fmtVND(Math.abs(rollover)) + ' rollover';
+            allocEl.appendChild(sep);
+        } else {
+            allocEl.textContent = fmtVND(r.monthly_allocation) + '/month';
+        }
         const pctEl = document.createElement('span');
         pctEl.textContent = r.usage_pct.toFixed(0) + '%';
         pctEl.style.color = color;
@@ -513,6 +567,7 @@ async function openHistoryModal() {
     wrap.appendChild(table);
 }
 
+_updateBudgetExitBtn();
 load();
 </script>
 {% endblock %}

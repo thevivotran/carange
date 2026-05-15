@@ -29,6 +29,8 @@ def _migrate_db():
             conn.execute(text("ALTER TABLE transactions ADD COLUMN is_advance BOOLEAN DEFAULT 0"))
         if 'advance_settled' not in cols:
             conn.execute(text("ALTER TABLE transactions ADD COLUMN advance_settled BOOLEAN DEFAULT 0"))
+        if 'source' not in cols:
+            conn.execute(text("ALTER TABLE transactions ADD COLUMN source VARCHAR(30) DEFAULT 'manual'"))
 
         existing_idx = {r[0] for r in conn.execute(text(
             "SELECT name FROM sqlite_master WHERE type='index'"
@@ -138,6 +140,13 @@ async def savings_page(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("savings/list.html", {
         "request": request,
         "active_menu": "savings"
+    })
+
+@app.get("/assets", response_class=HTMLResponse)
+async def assets_page(request: Request, db: Session = Depends(get_db)):
+    return templates.TemplateResponse("assets/list.html", {
+        "request": request,
+        "active_menu": "assets"
     })
 
 @app.get("/projects", response_class=HTMLResponse)

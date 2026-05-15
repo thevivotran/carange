@@ -6,18 +6,14 @@ from datetime import date, datetime, timedelta, timezone
 from pydantic import BaseModel, Field
 
 from app.models.database import (
-    get_db, FinancialProject, ProjectMilestone, ProjectContribution,
-    ProjectStatus, ProjectType, SavingsBundle, SavingsStatus,
-    ProjectPayment, PaymentStatus, Transaction, TransactionType, Category,
+    get_db, FinancialProject,
+    ProjectStatus, ProjectType, SavingsBundle,
+    ProjectPayment, PaymentStatus, Transaction, TransactionType,
 )
 from app.models.schemas import (
     FinancialProject as FinancialProjectSchema,
     FinancialProjectCreate,
     FinancialProjectUpdate,
-    ProjectMilestone as ProjectMilestoneSchema,
-    ProjectMilestoneCreate,
-    ProjectContribution as ProjectContributionSchema,
-    ProjectContributionCreate,
     ProjectPayment as ProjectPaymentSchema,
     ProjectPaymentCreate,
     ProjectPaymentUpdate,
@@ -188,6 +184,7 @@ def update_payment(project_id: int, payment_id: int, payment_update: ProjectPaym
             category_id=category_id,
             description=f"[{project.name}] {payment.notes or ''}".strip(),
             project_id=project_id,
+            source='project_payment',
         )
         db.add(tx)
         db.flush()
@@ -274,113 +271,6 @@ def bulk_create_payments(project_id: int, req: RecurringScheduleRequest, db: Ses
     for p in created:
         db.refresh(p)
     return created
-
-
-# ---------------------------------------------------------------------------
-# Milestone Routes (kept for back-compat)
-# ---------------------------------------------------------------------------
-
-@router.get("/{project_id}/milestones")
-def get_milestones(project_id: int, db: Session = Depends(get_db)):
-    project = db.query(FinancialProject).filter(FinancialProject.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    return db.query(ProjectMilestone).filter(
-        ProjectMilestone.project_id == project_id
-    ).order_by(ProjectMilestone.target_amount).all()
-
-
-@router.post("/{project_id}/milestones")
-def add_milestone(project_id: int, milestone: ProjectMilestoneCreate, db: Session = Depends(get_db)):
-    project = db.query(FinancialProject).filter(FinancialProject.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    db_milestone = ProjectMilestone(
-        project_id=project_id,
-        name=milestone.name,
-        target_amount=milestone.target_amount,
-        is_completed=milestone.is_completed,
-    )
-    db.add(db_milestone)
-    db.commit()
-    db.refresh(db_milestone)
-    return db_milestone
-
-
-@router.patch("/{project_id}/milestones/{milestone_id}/complete")
-def complete_milestone(project_id: int, milestone_id: int, db: Session = Depends(get_db)):
-    milestone = db.query(ProjectMilestone).filter(
-        ProjectMilestone.id == milestone_id,
-        ProjectMilestone.project_id == project_id,
-    ).first()
-    if not milestone:
-        raise HTTPException(status_code=404, detail="Milestone not found")
-    milestone.is_completed = True
-    milestone.completed_at = datetime.now(timezone.utc)
-    db.commit()
-    return {"message": "Milestone marked as completed"}
-
-
-@router.delete("/{project_id}/milestones/{milestone_id}")
-def delete_milestone(project_id: int, milestone_id: int, db: Session = Depends(get_db)):
-    milestone = db.query(ProjectMilestone).filter(
-        ProjectMilestone.id == milestone_id,
-        ProjectMilestone.project_id == project_id,
-    ).first()
-    if not milestone:
-        raise HTTPException(status_code=404, detail="Milestone not found")
-    db.delete(milestone)
-    db.commit()
-    return {"message": "Milestone deleted"}
-
-
-# ---------------------------------------------------------------------------
-# Contribution Routes (kept for back-compat)
-# ---------------------------------------------------------------------------
-
-@router.get("/{project_id}/contributions")
-def get_contributions(project_id: int, db: Session = Depends(get_db)):
-    project = db.query(FinancialProject).filter(FinancialProject.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-    return db.query(ProjectContribution).filter(
-        ProjectContribution.project_id == project_id
-    ).order_by(ProjectContribution.date.desc()).all()
-
-
-@router.post("/{project_id}/contribute")
-def add_contribution(project_id: int, contribution: ProjectContributionCreate, db: Session = Depends(get_db)):
-    project = db.query(FinancialProject).filter(FinancialProject.id == project_id).first()
-    if not project:
-        raise HTTPException(status_code=404, detail="Project not found")
-
-    if contribution.source == "savings" and contribution.savings_bundle_id:
-        savings = db.query(SavingsBundle).filter(SavingsBundle.id == contribution.savings_bundle_id).first()
-        if not savings:
-            raise HTTPException(status_code=404, detail="Savings bundle not found")
-        if savings.current_amount < contribution.amount:
-            raise HTTPException(status_code=400, detail="Insufficient funds in savings bundle")
-        savings.current_amount -= contribution.amount
-
-    db_contribution = ProjectContribution(
-        project_id=project_id,
-        amount=contribution.amount,
-        date=contribution.date,
-        source=contribution.source,
-        savings_bundle_id=contribution.savings_bundle_id,
-        notes=contribution.notes,
-    )
-    db.add(db_contribution)
-    project.current_amount += contribution.amount
-    if project.status == ProjectStatus.PLANNING and project.current_amount > 0:
-        project.status = ProjectStatus.IN_PROGRESS
-    db.commit()
-
-    return {
-        "message": "Contribution added successfully",
-        "new_total": project.current_amount,
-        "progress_percentage": round((project.current_amount / project.target_amount * 100), 2) if project.target_amount > 0 else 0,
-    }
 
 
 # ---------------------------------------------------------------------------

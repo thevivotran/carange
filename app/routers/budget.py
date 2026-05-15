@@ -13,7 +13,14 @@ from app.models.schemas import (
 
 router = APIRouter()
 
-BASELINE = "2026-05"   # first month budget tracking begins
+def _get_baseline(db: Session) -> str:
+    """Return the earliest allocation month on record, or current month if none exist."""
+    from datetime import date as _date
+    earliest = db.query(func.min(BudgetAllocation.year_month)).scalar()
+    if earliest:
+        return earliest
+    today = _date.today()
+    return f"{today.year:04d}-{today.month:02d}"
 
 
 def _months_range(from_ym: str, to_ym: str) -> list[str]:
@@ -36,10 +43,11 @@ def _end_of_month(year_month: str) -> str:
 
 
 def _compute_rows(db: Session, year_month: str) -> list[dict]:
-    if year_month < BASELINE:
+    baseline = _get_baseline(db)
+    if year_month < baseline:
         return []
 
-    months = _months_range(BASELINE, year_month)
+    months = _months_range(baseline, year_month)
 
     # All allocation records up to this month, grouped by category
     records = (
@@ -63,8 +71,8 @@ def _compute_rows(db: Session, year_month: str) -> list[dict]:
     # Fetch category metadata
     cats = {c.id: c for c in db.query(Category).filter(Category.id.in_(active_cat_ids)).all()}
 
-    # Cumulative spending per category from BASELINE to end of year_month
-    start_date = f"{BASELINE}-01"
+    # Cumulative spending per category from baseline to end of year_month
+    start_date = f"{baseline}-01"
     end_date   = _end_of_month(year_month)
 
     spent_rows = (

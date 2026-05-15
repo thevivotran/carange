@@ -8,7 +8,17 @@
             <h2 class="text-3xl font-bold text-gray-800">Transactions</h2>
             <p class="text-gray-600 mt-1">Manage your daily income and expenses</p>
         </div>
-        <div class="flex gap-3">
+        <div class="flex items-center gap-3 flex-wrap">
+            <!-- Month pill — same style as Dashboard -->
+            <div class="flex items-center gap-1 bg-white rounded-xl shadow-sm border px-2 py-1">
+                <button onclick="shiftTxMonth(-1)"
+                        class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 transition select-none">&#8249;</button>
+                <span id="tx-month-display" class="px-3 py-1 text-sm font-semibold text-gray-700 min-w-[120px] text-center select-none"></span>
+                <button onclick="shiftTxMonth(1)"
+                        class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 transition select-none">&#8250;</button>
+                <button id="tx-exit-btn" onclick="exitTxMonthTracking()" title="Exit month filter — show all transactions"
+                        class="hidden w-7 h-7 flex items-center justify-center rounded-lg text-base text-gray-400 hover:text-red-500 hover:bg-red-50 transition select-none">&#215;</button>
+            </div>
             <button onclick="openBulkUploadModal()" class="bg-purple-100 text-purple-700 px-6 py-3 rounded-lg hover:bg-purple-200 transition flex items-center">
                 <i class="fas fa-file-upload mr-2"></i>Bulk Upload
             </button>
@@ -64,6 +74,19 @@
 
                 <select id="filter-project" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary min-w-[120px]">
                     <option value="">All Projects</option>
+                </select>
+
+                <select id="filter-advance" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                    <option value="">All Advances</option>
+                    <option value="unsettled">Open Advances</option>
+                    <option value="settled">Settled Advances</option>
+                </select>
+
+                <select id="filter-source" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                    <option value="">All Sources</option>
+                    <option value="manual">Manual</option>
+                    <option value="project_payment">Auto · Project</option>
+                    <option value="savings_maturity">Auto · Savings</option>
                 </select>
 
                 <button onclick="applyFilters()"
@@ -284,12 +307,76 @@
     const pageSize = 20;
     let totalTransactions = 0;
     let categories = [];
-    
+
+    // ── Month pill helpers ────────────────────────────────────────────────────
+    const _TX_MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+    function _txCurrentYM() {
+        // Derive from the active date filter if it spans a full month, else use localStorage or today
+        const start = document.getElementById('filter-start-date').value;
+        if (start && /^\d{4}-\d{2}-\d{2}$/.test(start)) return start.slice(0, 7);
+        const stored = localStorage.getItem('carange-active-month');
+        if (stored && /^\d{4}-\d{2}$/.test(stored)) return stored;
+        const now = new Date();
+        return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    }
+
+    function _fmtTxMonth(ym) {
+        const [y, m] = ym.split('-').map(Number);
+        return _TX_MONTH_NAMES[m - 1] + ' ' + y;
+    }
+
+    function _applyTxMonthFilter(ym) {
+        const [y, m] = ym.split('-').map(Number);
+        const lastDay = new Date(y, m, 0).getDate();
+        document.getElementById('filter-start-date').value = ym + '-01';
+        document.getElementById('filter-end-date').value   = ym + '-' + String(lastDay).padStart(2, '0');
+        localStorage.setItem('carange-active-month', ym);
+        history.replaceState(null, '', '?month=' + ym);
+    }
+
+    function _updateTxPill() {
+        const ym = _txCurrentYM();
+        document.getElementById('tx-month-display').textContent = _fmtTxMonth(ym);
+        // Show × only when a date filter is active (tracking mode)
+        const hasFilter = !!document.getElementById('filter-start-date').value;
+        document.getElementById('tx-exit-btn').classList.toggle('hidden', !hasFilter);
+    }
+
+    function shiftTxMonth(delta) {
+        let [y, m] = _txCurrentYM().split('-').map(Number);
+        m += delta;
+        if (m < 1)  { m = 12; y--; }
+        if (m > 12) { m = 1;  y++; }
+        const ym = `${y}-${String(m).padStart(2,'0')}`;
+        _applyTxMonthFilter(ym);
+        currentPage = 0;
+        _updateTxPill();
+        saveFilters();
+        loadTransactions();
+        updateFilterBadge();
+        document.getElementById('advanced-filters').classList.remove('hidden');
+    }
+
+    function exitTxMonthTracking() {
+        localStorage.removeItem('carange-active-month');
+        history.replaceState(null, '', window.location.pathname);
+        document.getElementById('filter-start-date').value = '';
+        document.getElementById('filter-end-date').value   = '';
+        currentPage = 0;
+        _updateTxPill();
+        saveFilters();
+        loadTransactions();
+        updateFilterBadge();
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     // Initialize
     document.addEventListener('DOMContentLoaded', function() {
         loadCategories();
         loadProjectsFilter();
         restoreFilters();
+        _updateTxPill();
         loadTransactions();
         loadMonthlySummary();
         document.getElementById('date').valueAsDate = new Date();
@@ -400,6 +487,8 @@
             const startDate = document.getElementById('filter-start-date').value;
             const endDate = document.getElementById('filter-end-date').value;
             const search = document.getElementById('filter-search').value;
+            const advanceFilter = document.getElementById('filter-advance').value;
+            const sourceFilter = document.getElementById('filter-source').value;
 
             if (type) params.append('type', type);
             if (categoryId) params.append('category_id', categoryId);
@@ -407,6 +496,9 @@
             if (startDate) params.append('start_date', startDate);
             if (endDate) params.append('end_date', endDate);
             if (search) params.append('search', search);
+            if (advanceFilter === 'unsettled') { params.append('is_advance', 'true'); params.append('advance_settled', 'false'); }
+            if (advanceFilter === 'settled')   { params.append('is_advance', 'true'); params.append('advance_settled', 'true'); }
+            if (sourceFilter) params.append('source', sourceFilter);
 
             const response = await fetch('/api/transactions/?' + params);
             const transactions = await response.json();
@@ -501,6 +593,12 @@
                         badge.textContent = '✓ Settled';
                     }
                     descDiv.appendChild(badge);
+                }
+                if (t.source && t.source !== 'manual') {
+                    const srcBadge = document.createElement('span');
+                    srcBadge.className = 'inline-block ml-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-500';
+                    srcBadge.textContent = t.source === 'project_payment' ? 'Auto · Project' : 'Auto · Savings';
+                    descDiv.appendChild(srcBadge);
                 }
                 row.appendChild(descDiv);
 
@@ -781,7 +879,9 @@
         const hasStart    = !!document.getElementById('filter-start-date').value;
         const hasEnd      = !!document.getElementById('filter-end-date').value;
         const hasProject  = !!document.getElementById('filter-project').value;
-        const count = [hasType, hasCat, hasStart, hasEnd, hasProject].filter(Boolean).length;
+        const hasAdvance  = !!document.getElementById('filter-advance').value;
+        const hasSource   = !!document.getElementById('filter-source').value;
+        const count = [hasType, hasCat, hasStart, hasEnd, hasProject, hasAdvance, hasSource].filter(Boolean).length;
         const badge = document.getElementById('active-filter-count');
         if (count > 0) {
             badge.textContent = count;
@@ -794,12 +894,17 @@
     }
 
     function clearFilters() {
-        document.getElementById('filter-type').value     = '';
-        document.getElementById('filter-category').value = '';
+        document.getElementById('filter-type').value       = '';
+        document.getElementById('filter-category').value   = '';
         document.getElementById('filter-start-date').value = '';
         document.getElementById('filter-end-date').value   = '';
-        document.getElementById('filter-project').value  = '';
-        document.getElementById('filter-search').value   = '';
+        document.getElementById('filter-project').value    = '';
+        document.getElementById('filter-search').value     = '';
+        document.getElementById('filter-advance').value    = '';
+        document.getElementById('filter-source').value     = '';
+        localStorage.removeItem('carange-active-month');
+        history.replaceState(null, '', window.location.pathname);
+        _updateTxPill();
         updateFilterBadge();
         applyFilters();
     }
@@ -818,12 +923,17 @@
             project_id: document.getElementById('filter-project').value,
             start_date: document.getElementById('filter-start-date').value,
             end_date: document.getElementById('filter-end-date').value,
-            search: document.getElementById('filter-search').value
+            search: document.getElementById('filter-search').value,
+            advance: document.getElementById('filter-advance').value,
+            source: document.getElementById('filter-source').value,
         };
         sessionStorage.setItem('transactionFilters', JSON.stringify(filters));
     }
 
     function restoreFilters() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const advanceParam = urlParams.get('advance');
+
         const savedFilters = sessionStorage.getItem('transactionFilters');
         if (savedFilters) {
             const filters = JSON.parse(savedFilters);
@@ -833,11 +943,39 @@
             document.getElementById('filter-start-date').value = filters.start_date || '';
             document.getElementById('filter-end-date').value = filters.end_date || '';
             document.getElementById('filter-search').value = filters.search || '';
-            const hasAdvanced = !!(filters.type || filters.category_id || filters.project_id || filters.start_date || filters.end_date);
-            if (hasAdvanced) {
-                document.getElementById('advanced-filters').classList.remove('hidden');
-                updateFilterBadge();
+            document.getElementById('filter-advance').value = filters.advance || '';
+            document.getElementById('filter-source').value = filters.source || '';
+        }
+
+        // If no date filter is set yet, seed from the shared active-month (set by Dashboard/Budget)
+        const startEl = document.getElementById('filter-start-date');
+        const endEl   = document.getElementById('filter-end-date');
+        if (!startEl.value && !endEl.value) {
+            const ym = localStorage.getItem('carange-active-month');
+            if (ym && /^\d{4}-\d{2}$/.test(ym)) {
+                const [y, m] = ym.split('-').map(Number);
+                const lastDay = new Date(y, m, 0).getDate();
+                startEl.value = ym + '-01';
+                endEl.value   = ym + '-' + String(lastDay).padStart(2, '0');
             }
+        }
+
+        // URL param ?advance=unsettled overrides session (from dashboard link)
+        if (advanceParam === 'unsettled') {
+            document.getElementById('filter-advance').value = 'unsettled';
+        }
+        const hasAdvanced = !!(
+            document.getElementById('filter-type').value ||
+            document.getElementById('filter-category').value ||
+            document.getElementById('filter-project').value ||
+            document.getElementById('filter-start-date').value ||
+            document.getElementById('filter-end-date').value ||
+            document.getElementById('filter-advance').value ||
+            document.getElementById('filter-source').value
+        );
+        if (hasAdvanced) {
+            document.getElementById('advanced-filters').classList.remove('hidden');
+            updateFilterBadge();
         }
     }
     

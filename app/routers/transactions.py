@@ -24,6 +24,9 @@ def get_transactions(
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
     search: Optional[str] = None,
+    is_advance: Optional[bool] = None,
+    advance_settled: Optional[bool] = None,
+    source: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     # Validate date range
@@ -44,6 +47,12 @@ def get_transactions(
         query = query.filter(Transaction.date <= end_date)
     if search:
         query = query.filter(Transaction.description.ilike(f'%{search}%'))
+    if is_advance is not None:
+        query = query.filter(Transaction.is_advance == is_advance)
+    if advance_settled is not None:
+        query = query.filter(Transaction.advance_settled == advance_settled)
+    if source:
+        query = query.filter(Transaction.source == source)
 
     return query.order_by(Transaction.date.desc()).offset(skip).limit(limit).all()
 
@@ -456,7 +465,7 @@ def _process_english_format(reader, fieldnames, db):
                 payment_method = 'cash'
 
             # Skip duplicates
-            if _is_duplicate(db, transaction_date, amount, trans_type, category.id):
+            if _is_duplicate(db, transaction_date, amount, trans_type, category.id, description):
                 stats['skipped'] += 1
                 continue
 
@@ -479,14 +488,19 @@ def _process_english_format(reader, fieldnames, db):
         "stats": stats
     }
 
-def _is_duplicate(db, trans_date: date, amount: float, trans_type: TransactionType, category_id: int) -> bool:
-    """Return True if a transaction with same date/amount/type/category already exists."""
-    return db.query(Transaction).filter(
+def _is_duplicate(db, trans_date: date, amount: float, trans_type: TransactionType, category_id: int, description: str | None = None) -> bool:
+    """Return True if a transaction with same date/amount/type/category/description already exists."""
+    q = db.query(Transaction).filter(
         Transaction.date == trans_date,
         Transaction.amount == amount,
         Transaction.type == trans_type,
-        Transaction.category_id == category_id
-    ).first() is not None
+        Transaction.category_id == category_id,
+    )
+    if description:
+        q = q.filter(Transaction.description == description)
+    else:
+        q = q.filter(Transaction.description.is_(None))
+    return q.first() is not None
 
 
 def _get_or_create_category(db, category_name: str, trans_type: TransactionType):

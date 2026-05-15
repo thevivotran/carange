@@ -74,6 +74,7 @@ class Transaction(Base):
     is_savings_related = Column(Boolean, default=False)
     is_advance      = Column(Boolean, default=False)
     advance_settled = Column(Boolean, default=False)
+    source = Column(String(30), default="manual", nullable=True)
     savings_bundle_id = Column(Integer, ForeignKey("savings_bundles.id"), nullable=True)
     project_id = Column(Integer, ForeignKey("financial_projects.id"), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -109,7 +110,6 @@ class SavingsBundle(Base):
     
     transactions = relationship("Transaction", back_populates="savings_bundle")
     linked_project = relationship("FinancialProject", back_populates="linked_savings")
-    contributions = relationship("ProjectContribution", back_populates="savings_bundle")
 
 class FinancialProject(Base):
     __tablename__ = "financial_projects"
@@ -129,37 +129,7 @@ class FinancialProject(Base):
 
     transactions = relationship("Transaction", back_populates="project")
     linked_savings = relationship("SavingsBundle", back_populates="linked_project")
-    milestones = relationship("ProjectMilestone", back_populates="project")
-    contributions = relationship("ProjectContribution", back_populates="project")
     payments = relationship("ProjectPayment", back_populates="project", cascade="all, delete-orphan")
-
-class ProjectMilestone(Base):
-    __tablename__ = "project_milestones"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("financial_projects.id"), nullable=False)
-    name = Column(String(200), nullable=False)
-    target_amount = Column(Float, nullable=False)
-    is_completed = Column(Boolean, default=False)
-    completed_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    
-    project = relationship("FinancialProject", back_populates="milestones")
-
-class ProjectContribution(Base):
-    __tablename__ = "project_contributions"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    project_id = Column(Integer, ForeignKey("financial_projects.id"), nullable=False)
-    amount = Column(Float, nullable=False)
-    date = Column(Date, nullable=False)
-    source = Column(String(50), default="manual")
-    savings_bundle_id = Column(Integer, ForeignKey("savings_bundles.id"), nullable=True)
-    notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    
-    project = relationship("FinancialProject", back_populates="contributions")
-    savings_bundle = relationship("SavingsBundle", back_populates="contributions")
 
 class ProjectPayment(Base):
     __tablename__ = "project_payments"

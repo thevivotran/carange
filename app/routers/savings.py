@@ -118,6 +118,7 @@ def mark_bundle_completed(bundle_id: int, db: Session = Depends(get_db)):
             payment_method="bank",
             is_savings_related=True,
             savings_bundle_id=bundle.id,
+            source='savings_maturity',
         )
         db.add(transaction)
 
