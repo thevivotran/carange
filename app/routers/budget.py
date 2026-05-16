@@ -7,15 +7,18 @@ import calendar
 
 from app.models.database import get_db, BudgetAllocation, Category, Transaction, TransactionType
 from app.models.schemas import (
-    BudgetAllocationCreate, BudgetAllocationUpdate,
-    BudgetAllocationRecord, BudgetCategoryRow,
+    BudgetAllocationCreate,
+    BudgetAllocationUpdate,
+    BudgetAllocationRecord,
 )
 
 router = APIRouter()
 
+
 def _get_baseline(db: Session) -> str:
     """Return the earliest allocation month on record, or current month if none exist."""
     from datetime import date as _date
+
     earliest = db.query(func.min(BudgetAllocation.year_month)).scalar()
     if earliest:
         return earliest
@@ -59,6 +62,7 @@ def _compute_rows(db: Session, year_month: str) -> list[dict]:
 
     # Build: category_id → sorted list of (year_month, amount, id)
     from collections import defaultdict
+
     alloc_by_cat: dict[int, list] = defaultdict(list)
     for r in records:
         alloc_by_cat[r.category_id].append((r.year_month, r.amount, r.id))
@@ -73,7 +77,7 @@ def _compute_rows(db: Session, year_month: str) -> list[dict]:
 
     # Cumulative spending per category from baseline to end of year_month
     start_date = f"{baseline}-01"
-    end_date   = _end_of_month(year_month)
+    end_date = _end_of_month(year_month)
 
     spent_rows = (
         db.query(Transaction.category_id, func.sum(Transaction.amount).label("total"))
@@ -91,7 +95,7 @@ def _compute_rows(db: Session, year_month: str) -> list[dict]:
 
     # This-month spending
     month_start = f"{year_month}-01"
-    month_end   = _end_of_month(year_month)
+    month_end = _end_of_month(year_month)
     this_month_rows = (
         db.query(Transaction.category_id, func.sum(Transaction.amount).label("total"))
         .filter(
@@ -123,32 +127,34 @@ def _compute_rows(db: Session, year_month: str) -> list[dict]:
         for month in months:
             # Advance pointer through allocation history
             while alloc_idx < len(allocs) and allocs[alloc_idx][0] <= month:
-                current_alloc_ym     = allocs[alloc_idx][0]
+                current_alloc_ym = allocs[alloc_idx][0]
                 current_alloc_amount = allocs[alloc_idx][1]
-                current_alloc_id     = allocs[alloc_idx][2]
+                current_alloc_id = allocs[alloc_idx][2]
                 alloc_idx += 1
             cumulative_allocated += current_alloc_amount
 
-        cumulative_spent  = cumulative_spent_map.get(cat_id, 0)
-        this_month_spent  = this_month_map.get(cat_id, 0)
+        cumulative_spent = cumulative_spent_map.get(cat_id, 0)
+        this_month_spent = this_month_map.get(cat_id, 0)
         available_balance = cumulative_allocated - cumulative_spent
         usage_pct = (this_month_spent / current_alloc_amount * 100) if current_alloc_amount else 0
         cumulative_pct = (cumulative_spent / cumulative_allocated * 100) if cumulative_allocated else 0
 
-        result.append({
-            "category_id":          cat_id,
-            "category_name":        cat.name,
-            "category_color":       cat.color,
-            "monthly_allocation":   current_alloc_amount,
-            "cumulative_allocated": cumulative_allocated,
-            "cumulative_spent":     cumulative_spent,
-            "this_month_spent":     this_month_spent,
-            "available_balance":    available_balance,
-            "usage_pct":            round(usage_pct, 1),
-            "cumulative_pct":       round(cumulative_pct, 1),
-            "allocation_id":        current_alloc_id,
-            "has_own_allocation":   current_alloc_ym == year_month,
-        })
+        result.append(
+            {
+                "category_id": cat_id,
+                "category_name": cat.name,
+                "category_color": cat.color,
+                "monthly_allocation": current_alloc_amount,
+                "cumulative_allocated": cumulative_allocated,
+                "cumulative_spent": cumulative_spent,
+                "this_month_spent": this_month_spent,
+                "available_balance": available_balance,
+                "usage_pct": round(usage_pct, 1),
+                "cumulative_pct": round(cumulative_pct, 1),
+                "allocation_id": current_alloc_id,
+                "has_own_allocation": current_alloc_ym == year_month,
+            }
+        )
 
     # Sort by stress: over-budget first, then by available balance ascending
     result.sort(key=lambda r: r["available_balance"])
@@ -157,6 +163,7 @@ def _compute_rows(db: Session, year_month: str) -> list[dict]:
 
 # ── Routes ────────────────────────────────────────────────────────────────────
 
+
 @router.get("/{year_month}/rows")
 def get_budget_rows(year_month: str, db: Session = Depends(get_db)):
     return _compute_rows(db, year_month)
@@ -164,11 +171,7 @@ def get_budget_rows(year_month: str, db: Session = Depends(get_db)):
 
 @router.get("/allocations/{year_month}", response_model=List[BudgetAllocationRecord])
 def get_allocations_for_month(year_month: str, db: Session = Depends(get_db)):
-    return (
-        db.query(BudgetAllocation)
-        .filter(BudgetAllocation.year_month == year_month)
-        .all()
-    )
+    return db.query(BudgetAllocation).filter(BudgetAllocation.year_month == year_month).all()
 
 
 @router.get("/categories/unbudgeted/{year_month}")
@@ -193,12 +196,12 @@ def set_allocation(data: BudgetAllocationCreate, db: Session = Depends(get_db)):
         db.query(BudgetAllocation)
         .filter(
             BudgetAllocation.category_id == data.category_id,
-            BudgetAllocation.year_month  == data.year_month,
+            BudgetAllocation.year_month == data.year_month,
         )
         .first()
     )
     if existing:
-        existing.amount     = data.amount
+        existing.amount = data.amount
         existing.updated_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(existing)
@@ -216,7 +219,7 @@ def update_allocation(allocation_id: int, data: BudgetAllocationUpdate, db: Sess
     alloc = db.query(BudgetAllocation).filter(BudgetAllocation.id == allocation_id).first()
     if not alloc:
         raise HTTPException(status_code=404, detail="Allocation not found")
-    alloc.amount     = data.amount
+    alloc.amount = data.amount
     alloc.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(alloc)
@@ -227,22 +230,23 @@ def update_allocation(allocation_id: int, data: BudgetAllocationUpdate, db: Sess
 def get_monthly_income(year_month: str, db: Session = Depends(get_db)):
     """Return total income recorded for year_month."""
     month_start = f"{year_month}-01"
-    month_end   = _end_of_month(year_month)
-    total = db.query(func.sum(Transaction.amount)).filter(
-        Transaction.type == TransactionType.INCOME,
-        Transaction.date >= month_start,
-        Transaction.date <= month_end,
-    ).scalar() or 0
+    month_end = _end_of_month(year_month)
+    total = (
+        db.query(func.sum(Transaction.amount))
+        .filter(
+            Transaction.type == TransactionType.INCOME,
+            Transaction.date >= month_start,
+            Transaction.date <= month_end,
+        )
+        .scalar()
+        or 0
+    )
     return {"income": float(total)}
 
 
 @router.delete("/category/{category_id}")
 def delete_category_budget(category_id: int, db: Session = Depends(get_db)):
-    deleted = (
-        db.query(BudgetAllocation)
-        .filter(BudgetAllocation.category_id == category_id)
-        .delete()
-    )
+    deleted = db.query(BudgetAllocation).filter(BudgetAllocation.category_id == category_id).delete()
     db.commit()
     if deleted == 0:
         raise HTTPException(status_code=404, detail="No allocations found for this category")

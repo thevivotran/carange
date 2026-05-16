@@ -6,7 +6,17 @@ from typing import Optional, List
 # When a field is named `date` with default `None`, `date = None` is stored first, causing
 # `Optional[date]` to resolve as `NoneType`. Using an alias avoids this name collision.
 _Date = date
-from app.models.database import TransactionType, SavingsType, SavingsStatus, ProjectType, ProjectStatus, Priority, PaymentStatus, AssetType
+from app.models.database import (
+    TransactionType,
+    SavingsType,
+    SavingsStatus,
+    ProjectType,
+    ProjectStatus,
+    Priority,
+    PaymentStatus,
+    AssetType,
+)
+
 
 # Category Schemas
 class CategoryBase(BaseModel):
@@ -16,11 +26,14 @@ class CategoryBase(BaseModel):
     icon: str = "circle"
     is_active: bool = True
 
+
 class CategoryCreate(CategoryBase):
     pass
 
+
 class CategoryUpdate(CategoryBase):
     pass
+
 
 class Category(CategoryBase):
     id: int
@@ -29,45 +42,54 @@ class Category(CategoryBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 # Savings Schemas
 class SavingsBundleBase(BaseModel):
     name: str
     bank_name: str
     type: SavingsType
     initial_deposit: float = Field(gt=0, description="Initial deposit must be greater than 0")  # Amount deposited
-    current_amount: Optional[float] = Field(default=0, ge=0, description="Current available balance")   # Current available balance
-    future_amount: float = Field(gt=0, description="Future amount must be greater than 0")    # Amount at maturity (including interest)
-    interest_rate: Optional[float] = Field(None, ge=0, le=100, description="Interest rate must be between 0 and 100")  # Annual interest rate
+    current_amount: Optional[float] = Field(
+        default=0, ge=0, description="Current available balance"
+    )  # Current available balance
+    future_amount: float = Field(
+        gt=0, description="Future amount must be greater than 0"
+    )  # Amount at maturity (including interest)
+    interest_rate: Optional[float] = Field(
+        None, ge=0, le=100, description="Interest rate must be between 0 and 100"
+    )  # Annual interest rate
     start_date: date
     maturity_date: Optional[date] = None
     notes: Optional[str] = None
-    
-    @field_validator('initial_deposit', 'future_amount')
+
+    @field_validator("initial_deposit", "future_amount")
     @classmethod
     def validate_positive_amounts(cls, v):
         if v <= 0:
-            raise ValueError('Amount must be greater than 0')
+            raise ValueError("Amount must be greater than 0")
         return v
-    
-    @field_validator('current_amount')
+
+    @field_validator("current_amount")
     @classmethod
     def validate_non_negative_amount(cls, v):
         if v < 0:
-            raise ValueError('Current amount cannot be negative')
+            raise ValueError("Current amount cannot be negative")
         return v
-    
-    @field_validator('maturity_date')
+
+    @field_validator("maturity_date")
     @classmethod
     def validate_maturity_date(cls, v, info):
         if v is not None:
             values = info.data
-            start_date = values.get('start_date')
+            start_date = values.get("start_date")
             if start_date and v < start_date:
-                raise ValueError('Maturity date must be after start date')
+                raise ValueError("Maturity date must be after start date")
         return v
+
 
 class SavingsBundleCreate(SavingsBundleBase):
     linked_project_id: Optional[int] = None
+
 
 class SavingsBundleUpdate(BaseModel):
     name: Optional[str] = None
@@ -82,21 +104,22 @@ class SavingsBundleUpdate(BaseModel):
     notes: Optional[str] = None
     linked_project_id: Optional[int] = None
 
-    @field_validator('initial_deposit', 'future_amount')
+    @field_validator("initial_deposit", "future_amount")
     @classmethod
     def validate_positive_amounts(cls, v):
         if v is not None and v <= 0:
-            raise ValueError('Amount must be greater than 0')
+            raise ValueError("Amount must be greater than 0")
         return v
 
-    @field_validator('maturity_date')
+    @field_validator("maturity_date")
     @classmethod
     def validate_maturity_date(cls, v, info):
         if v is not None:
-            start_date = info.data.get('start_date')
+            start_date = info.data.get("start_date")
             if start_date and v < start_date:
-                raise ValueError('Maturity date must be after start date')
+                raise ValueError("Maturity date must be after start date")
         return v
+
 
 class SavingsBundle(SavingsBundleBase):
     id: int
@@ -108,6 +131,7 @@ class SavingsBundle(SavingsBundleBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 # Transaction Schemas
 class TransactionBase(BaseModel):
     date: date
@@ -117,13 +141,14 @@ class TransactionBase(BaseModel):
     description: Optional[str] = None
     payment_method: str = "cash"
     source: str = "manual"
-    
-    @field_validator('amount')
+
+    @field_validator("amount")
     @classmethod
     def validate_amount(cls, v):
         if v <= 0:
-            raise ValueError('Amount must be greater than 0')
+            raise ValueError("Amount must be greater than 0")
         return v
+
 
 class TransactionCreate(TransactionBase):
     is_savings_related: bool = False
@@ -132,6 +157,7 @@ class TransactionCreate(TransactionBase):
     savings_bundle_id: Optional[int] = None
     project_id: Optional[int] = None
     savings_bundle: Optional[SavingsBundleCreate] = None  # For creating new savings bundle with transaction
+
 
 class TransactionUpdate(BaseModel):
     date: Optional[_Date] = None
@@ -147,6 +173,7 @@ class TransactionUpdate(BaseModel):
     savings_bundle_id: Optional[int] = None
     project_id: Optional[int] = None
 
+
 class Transaction(TransactionBase):
     id: int
     is_savings_related: bool
@@ -157,34 +184,38 @@ class Transaction(TransactionBase):
     created_at: datetime
     updated_at: datetime
     category: Category
-    
+
     model_config = ConfigDict(from_attributes=True)
+
 
 # Payment Schemas
 class ProjectPaymentBase(BaseModel):
-    due_date:   Optional[date] = None
-    amount:     float = Field(gt=0)
-    status:     PaymentStatus = PaymentStatus.PENDING
-    notes:      Optional[str] = None
+    due_date: Optional[date] = None
+    amount: float = Field(gt=0)
+    status: PaymentStatus = PaymentStatus.PENDING
+    notes: Optional[str] = None
     sort_order: int = 0
+
 
 class ProjectPaymentCreate(ProjectPaymentBase):
     pass  # project_id from URL path
 
+
 class ProjectPaymentUpdate(BaseModel):
-    due_date:     Optional[date] = None
-    amount:       Optional[float] = Field(None, gt=0)
-    status:       Optional[PaymentStatus] = None
-    notes:        Optional[str] = None
-    sort_order:   Optional[int] = None
-    category_id:  Optional[int] = None   # triggers auto-transaction creation when marking paid
+    due_date: Optional[date] = None
+    amount: Optional[float] = Field(None, gt=0)
+    status: Optional[PaymentStatus] = None
+    notes: Optional[str] = None
+    sort_order: Optional[int] = None
+    category_id: Optional[int] = None  # triggers auto-transaction creation when marking paid
     payment_date: Optional[date] = None  # actual paid date for the transaction record
 
+
 class ProjectPayment(ProjectPaymentBase):
-    id:             int
-    project_id:     int
+    id: int
+    project_id: int
     transaction_id: Optional[int] = None
-    created_at:     datetime
+    created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -197,29 +228,33 @@ class FinancialProjectBase(BaseModel):
     deadline: Optional[date] = None
     default_category_id: Optional[int] = None
 
+
 class FinancialProjectCreate(FinancialProjectBase):
     pass
 
+
 class FinancialProjectUpdate(BaseModel):
-    name:                Optional[str] = None
-    description:         Optional[str] = None
-    priority:            Optional[Priority] = None
-    status:              Optional[ProjectStatus] = None
-    deadline:            Optional[date] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    priority: Optional[Priority] = None
+    status: Optional[ProjectStatus] = None
+    deadline: Optional[date] = None
     default_category_id: Optional[int] = None
 
+
 class FinancialProject(FinancialProjectBase):
-    id:                  int
-    target_amount:       float
-    current_amount:      float
-    status:              ProjectStatus
-    created_at:          datetime
-    completed_at:        Optional[datetime]
+    id: int
+    target_amount: float
+    current_amount: float
+    status: ProjectStatus
+    created_at: datetime
+    completed_at: Optional[datetime]
     progress_percentage: float = 0.0
-    linked_savings:      List[SavingsBundle] = []
-    payments:            List[ProjectPayment] = []
+    linked_savings: List[SavingsBundle] = []
+    payments: List[ProjectPayment] = []
 
     model_config = ConfigDict(from_attributes=True)
+
 
 # Other Asset Schemas
 class OtherAssetBase(BaseModel):
@@ -233,8 +268,10 @@ class OtherAssetBase(BaseModel):
     notes: Optional[str] = None
     acquired_date: Optional[date] = None
 
+
 class OtherAssetCreate(OtherAssetBase):
     pass
+
 
 class OtherAssetUpdate(BaseModel):
     name: Optional[str] = None
@@ -246,6 +283,7 @@ class OtherAssetUpdate(BaseModel):
     current_value_vnd: Optional[float] = Field(None, ge=0)
     notes: Optional[str] = None
     acquired_date: Optional[date] = None
+
 
 class OtherAsset(OtherAssetBase):
     id: int
@@ -264,16 +302,18 @@ class TransactionTemplateBase(BaseModel):
     description: Optional[str] = None
     payment_method: str = "cash"
     is_active: bool = True
-    
-    @field_validator('amount')
+
+    @field_validator("amount")
     @classmethod
     def validate_amount(cls, v):
         if v <= 0:
-            raise ValueError('Amount must be greater than 0')
+            raise ValueError("Amount must be greater than 0")
         return v
+
 
 class TransactionTemplateCreate(TransactionTemplateBase):
     pass
+
 
 class TransactionTemplateUpdate(BaseModel):
     name: Optional[str] = None
@@ -284,13 +324,15 @@ class TransactionTemplateUpdate(BaseModel):
     payment_method: Optional[str] = None
     is_active: Optional[bool] = None
 
+
 class TransactionTemplate(TransactionTemplateBase):
     id: int
     created_at: datetime
     updated_at: datetime
     category: Category
-    
+
     model_config = ConfigDict(from_attributes=True)
+
 
 # Dashboard Schemas
 class DashboardSummary(BaseModel):
@@ -313,17 +355,20 @@ class DashboardSummary(BaseModel):
     active_projects_count: int
     completed_projects_count: int
 
+
 class MonthlyData(BaseModel):
     month: str
     income: float
     expense: float
     savings: float
 
+
 class CategorySummary(BaseModel):
     category_name: str
     category_color: str
     total: float
     percentage: float
+
 
 class DashboardData(BaseModel):
     summary: DashboardSummary
@@ -333,19 +378,24 @@ class DashboardData(BaseModel):
     recent_transactions: List[Transaction]
     upcoming_maturities: List[SavingsBundle]
     active_projects: List[FinancialProject]
+
+
 # Note Schemas
 class NoteBase(BaseModel):
     title: str
     content: Optional[str] = None
     type: Optional[str] = None
 
+
 class NoteCreate(NoteBase):
     pass
+
 
 class NoteUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
     type: Optional[str] = None
+
 
 class Note(NoteBase):
     id: int
@@ -354,14 +404,17 @@ class Note(NoteBase):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 # Budget Schemas
 class BudgetAllocationCreate(BaseModel):
     category_id: int
-    year_month: str   # "2026-05"
+    year_month: str  # "2026-05"
     amount: float = Field(gt=0)
+
 
 class BudgetAllocationUpdate(BaseModel):
     amount: float = Field(gt=0)
+
 
 class BudgetAllocationRecord(BaseModel):
     id: int
@@ -373,14 +426,15 @@ class BudgetAllocationRecord(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+
 class BudgetCategoryRow(BaseModel):
     category_id: int
     category_name: str
     category_color: str
-    monthly_allocation: float     # amount set for this specific month
-    cumulative_allocated: float   # sum of all allocations up to this month
-    cumulative_spent: float       # sum of all spending since 2026-05-01 up to end of month
+    monthly_allocation: float  # amount set for this specific month
+    cumulative_allocated: float  # sum of all allocations up to this month
+    cumulative_spent: float  # sum of all spending since 2026-05-01 up to end of month
     this_month_spent: float
-    available_balance: float      # cumulative_allocated - cumulative_spent
-    usage_pct: float              # this_month_spent / monthly_allocation * 100
+    available_balance: float  # cumulative_allocated - cumulative_spent
+    usage_pct: float  # this_month_spent / monthly_allocation * 100
     allocation_id: Optional[int]  # None if inherited

@@ -3,9 +3,11 @@
 
 def _asset_payload(**overrides):
     base = {
-        "name": "USD Cash", "asset_type": "currency",
+        "name": "USD Cash",
+        "asset_type": "currency",
         "symbol": "USD",
-        "quantity": 1000.0, "unit": "USD",
+        "quantity": 1000.0,
+        "unit": "USD",
         "purchase_price_vnd": 24_000_000,
         "current_value_vnd": 25_000_000,
     }

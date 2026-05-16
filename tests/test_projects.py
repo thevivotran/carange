@@ -1,4 +1,5 @@
 """Tests for project CRUD and transaction drill-down."""
+
 import pytest
 from datetime import date
 
@@ -24,6 +25,7 @@ def expense_category(client):
 
 
 # ── Project CRUD ──────────────────────────────────────────────────────────────
+
 
 def test_create_project(client):
     r = client.post("/api/projects/", json=_project_payload())
@@ -61,9 +63,11 @@ def test_delete_project(client, project_id):
 
 # ── Project transactions drill-down ──────────────────────────────────────────
 
+
 def test_filter_transactions_by_project_id(client, project_id, expense_category, db_session):
     """GET /api/transactions/?project_id must return only that project's transactions."""
     from app.models.database import Transaction, TransactionType
+
     tx_linked = Transaction(
         date=date(2026, 4, 15),
         amount=5_000_000,
@@ -97,10 +101,21 @@ def test_filter_by_nonexistent_project_returns_empty(client):
 def test_transactions_without_project_filter_unaffected(client, project_id, expense_category, db_session):
     """When no project_id filter is set, all transactions are returned regardless of project linkage."""
     from app.models.database import Transaction, TransactionType
-    tx1 = Transaction(date=date(2026, 4, 1), amount=1_000_000, type=TransactionType.EXPENSE,
-                      category_id=expense_category, project_id=project_id)
-    tx2 = Transaction(date=date(2026, 4, 2), amount=2_000_000, type=TransactionType.EXPENSE,
-                      category_id=expense_category, project_id=None)
+
+    tx1 = Transaction(
+        date=date(2026, 4, 1),
+        amount=1_000_000,
+        type=TransactionType.EXPENSE,
+        category_id=expense_category,
+        project_id=project_id,
+    )
+    tx2 = Transaction(
+        date=date(2026, 4, 2),
+        amount=2_000_000,
+        type=TransactionType.EXPENSE,
+        category_id=expense_category,
+        project_id=None,
+    )
     db_session.add_all([tx1, tx2])
     db_session.commit()
 

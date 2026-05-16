@@ -2,19 +2,14 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
-from app.models.database import get_db, OtherAsset, AssetType
+from app.models.database import get_db, OtherAsset
 from app.models.schemas import OtherAsset as OtherAssetSchema, OtherAssetCreate, OtherAssetUpdate
 
 router = APIRouter()
 
 
 @router.get("/", response_model=List[OtherAssetSchema])
-def get_assets(
-    asset_type: Optional[str] = None,
-    skip: int = 0,
-    limit: int = 100,
-    db: Session = Depends(get_db)
-):
+def get_assets(asset_type: Optional[str] = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     query = db.query(OtherAsset)
     if asset_type:
         query = query.filter(OtherAsset.asset_type == asset_type)

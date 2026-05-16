@@ -1,0 +1,19 @@
+line-length = 120
+
+[lint]
+select = ["E", "F", "W"]
+ignore = [
+    # SQLAlchemy ORM filter expressions use == True / == False to generate SQL —
+    # rewriting them to `is True` or `not col` would break the queries.
+    "E712",
+    # Lazy imports inside functions are intentional in several routers to avoid
+    # circular imports or to keep heavy imports out of the module-level scope.
+    "E402",
+]
+
+[lint.per-file-ignores]
+# __init__.py re-exports are intentional public API — unused-import warnings are false positives.
+"app/models/__init__.py" = ["F401"]
+# Schema file has a deliberate mid-file import to work around a Python 3.12
+# annotation evaluation order issue (see comment in the file).
+"app/models/schemas.py" = ["F401"]

@@ -5,10 +5,10 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy.orm import Session
 from contextlib import asynccontextmanager
-import os
 
 # Load environment variables
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from app.models.database import create_tables, get_db, SessionLocal
@@ -23,26 +23,21 @@ from app.routers.dashboard import get_dashboard_page_data
 def _migrate_db():
     from sqlalchemy import text
     from app.models.database import engine as _engine
+
     with _engine.connect() as conn:
         cols = [r[1] for r in conn.execute(text("PRAGMA table_info(transactions)"))]
-        if 'is_advance' not in cols:
+        if "is_advance" not in cols:
             conn.execute(text("ALTER TABLE transactions ADD COLUMN is_advance BOOLEAN DEFAULT 0"))
-        if 'advance_settled' not in cols:
+        if "advance_settled" not in cols:
             conn.execute(text("ALTER TABLE transactions ADD COLUMN advance_settled BOOLEAN DEFAULT 0"))
-        if 'source' not in cols:
+        if "source" not in cols:
             conn.execute(text("ALTER TABLE transactions ADD COLUMN source VARCHAR(30) DEFAULT 'manual'"))
 
-        existing_idx = {r[0] for r in conn.execute(text(
-            "SELECT name FROM sqlite_master WHERE type='index'"
-        ))}
-        if 'ix_transactions_type_date' not in existing_idx:
-            conn.execute(text(
-                "CREATE INDEX ix_transactions_type_date ON transactions (type, date)"
-            ))
-        if 'ix_transactions_category_id' not in existing_idx:
-            conn.execute(text(
-                "CREATE INDEX ix_transactions_category_id ON transactions (category_id)"
-            ))
+        existing_idx = {r[0] for r in conn.execute(text("SELECT name FROM sqlite_master WHERE type='index'"))}
+        if "ix_transactions_type_date" not in existing_idx:
+            conn.execute(text("CREATE INDEX ix_transactions_type_date ON transactions (type, date)"))
+        if "ix_transactions_category_id" not in existing_idx:
+            conn.execute(text("CREATE INDEX ix_transactions_category_id ON transactions (category_id)"))
 
         conn.commit()
 
@@ -54,6 +49,7 @@ async def lifespan(app: FastAPI):
     seed_default_categories()
     yield
 
+
 # Create FastAPI app
 app = FastAPI(title="Carange - Family Finance Tracker", lifespan=lifespan)
 
@@ -64,6 +60,7 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # Templates
 templates = Jinja2Templates(directory="app/templates")
+
 
 def seed_default_categories():
     db = SessionLocal()
@@ -82,7 +79,6 @@ def seed_default_categories():
                 Category(name="Housing", type=TransactionType.EXPENSE, color="#78350F", icon="home"),
                 Category(name="Insurance", type=TransactionType.EXPENSE, color="#F97316", icon="shield-alt"),
                 Category(name="Others", type=TransactionType.EXPENSE, color="#6B7280", icon="ellipsis-h"),
-                
                 # Income categories
                 Category(name="Salary", type=TransactionType.INCOME, color="#10B981", icon="money-bill-wave"),
                 Category(name="Bonus", type=TransactionType.INCOME, color="#34D399", icon="gift"),
@@ -96,6 +92,7 @@ def seed_default_categories():
     finally:
         db.close()
 
+
 # Include routers
 app.include_router(dashboard.router, prefix="/api")
 app.include_router(transactions.router, prefix="/api/transactions")
@@ -107,67 +104,67 @@ app.include_router(assets.router, prefix="/api/assets")
 app.include_router(notes.router, prefix="/api/notes")
 app.include_router(budget.router, prefix="/api/budget")
 
+
 @app.get("/health")
 async def health():
     return JSONResponse({"status": "ok"})
+
 
 # Main routes for HTML pages
 @app.get("/", response_class=HTMLResponse)
 async def dashboard_page(request: Request, db: Session = Depends(get_db)):
     data = get_dashboard_page_data(db)
-    return templates.TemplateResponse(request, "dashboard.html", {
-        "active_menu": "dashboard",
-        **data,
-    })
+    return templates.TemplateResponse(
+        request,
+        "dashboard.html",
+        {
+            "active_menu": "dashboard",
+            **data,
+        },
+    )
+
 
 @app.get("/transactions", response_class=HTMLResponse)
 async def transactions_page(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request, "transactions/list.html", {
-        "active_menu": "transactions"
-    })
+    return templates.TemplateResponse(request, "transactions/list.html", {"active_menu": "transactions"})
+
 
 @app.get("/categories", response_class=HTMLResponse)
 async def categories_page(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request, "categories/list.html", {
-        "active_menu": "categories"
-    })
+    return templates.TemplateResponse(request, "categories/list.html", {"active_menu": "categories"})
+
 
 @app.get("/savings", response_class=HTMLResponse)
 async def savings_page(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request, "savings/list.html", {
-        "active_menu": "savings"
-    })
+    return templates.TemplateResponse(request, "savings/list.html", {"active_menu": "savings"})
+
 
 @app.get("/assets", response_class=HTMLResponse)
 async def assets_page(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request, "assets/list.html", {
-        "active_menu": "assets"
-    })
+    return templates.TemplateResponse(request, "assets/list.html", {"active_menu": "assets"})
+
 
 @app.get("/projects", response_class=HTMLResponse)
 async def projects_page(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request, "projects/list.html", {
-        "active_menu": "projects"
-    })
+    return templates.TemplateResponse(request, "projects/list.html", {"active_menu": "projects"})
+
 
 @app.get("/templates", response_class=HTMLResponse)
 async def templates_page(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request, "templates/list.html", {
-        "active_menu": "templates"
-    })
+    return templates.TemplateResponse(request, "templates/list.html", {"active_menu": "templates"})
+
 
 @app.get("/notes", response_class=HTMLResponse)
 async def notes_page(request: Request):
-    return templates.TemplateResponse(request, "notes/list.html", {
-        "active_menu": "notes"
-    })
+    return templates.TemplateResponse(request, "notes/list.html", {"active_menu": "notes"})
+
 
 @app.get("/budget", response_class=HTMLResponse)
 async def budget_page(request: Request):
-    return templates.TemplateResponse(request, "budget/index.html", {
-        "active_menu": "budget"
-    })
+    return templates.TemplateResponse(request, "budget/index.html", {"active_menu": "budget"})
+
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=6868)

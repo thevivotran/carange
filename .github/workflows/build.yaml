@@ -1,32 +1,69 @@
-name: Build and push Docker image
+name: CI / Build
 
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 env:
   IMAGE: ghcr.io/thevivotran/carange
+  PYTHON_VERSION: "3.12"   # must match Dockerfile
 
 jobs:
-  test:
+  # ── 1. Lint ───────────────────────────────────────────────────────────────────
+  lint:
+    name: Lint
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install ruff
+        run: pip install ruff
+
+      - name: Check code style and errors
+        run: ruff check .
+
+      - name: Check formatting
+        run: ruff format --check .
+
+  # ── 2. Test ───────────────────────────────────────────────────────────────────
+  test:
+    name: Test
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
 
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run pytest
+      - name: Audit dependencies for CVEs
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt
+
+      - name: App import smoke test
+        run: python -c "from main import app; print('App startup OK')"
+
+      - name: Run test suite
         run: pytest
 
+  # ── 3. Build & push (main branch only) ────────────────────────────────────────
   build:
+    name: Build & Push
     needs: test
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -45,12 +82,42 @@ jobs:
 
       - name: Generate image tag
         id: tag
-        run: echo "value=main-$(date -u '+%Y%m%d-%H%M%S')-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+        run: |
+          TAG="main-$(date -u '+%Y%m%d-%H%M%S')-$(git rev-parse --short HEAD)"
+          echo "value=${TAG}" >> $GITHUB_OUTPUT
 
-      - uses: docker/build-push-action@v6
+      - name: Build image locally for smoke test
+        uses: docker/build-push-action@v6
         with:
           context: .
-          push: true
-          tags: ${{ env.IMAGE }}:${{ steps.tag.outputs.value }}
+          load: true
+          push: false
+          tags: carange:smoke
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Container smoke test
+        run: |
+          docker run -d --name carange-smoke \
+            -e DATABASE_URL=sqlite:////tmp/carange-test.db \
+            -p 6868:6868 carange:smoke
+
+          echo "Waiting for app to start..."
+          for i in $(seq 1 15); do
+            curl -sf http://localhost:6868/health && break
+            sleep 2
+          done
+
+          RESPONSE=$(curl -sf http://localhost:6868/health)
+          echo "Health response: $RESPONSE"
+          echo "$RESPONSE" | grep -q '"status":"ok"'
+
+          docker stop carange-smoke
+          docker rm carange-smoke
+
+      - name: Tag and push verified image
+        env:
+          TAG: ${{ steps.tag.outputs.value }}
+        run: |
+          docker tag carange:smoke "$IMAGE:$TAG"
+          docker push "$IMAGE:$TAG"

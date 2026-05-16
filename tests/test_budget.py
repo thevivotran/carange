@@ -3,6 +3,7 @@
 _compute_rows is the most complex function in the codebase: it accumulates
 allocations and spending across months with a carry-forward envelope model.
 """
+
 from datetime import date
 import pytest
 
@@ -11,6 +12,7 @@ from app.routers.budget import _compute_rows
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
+
 
 @pytest.fixture()
 def food_cat(db_session):
@@ -40,8 +42,10 @@ def _add_alloc(db, category_id, year_month, amount):
 def _add_expense(db, category_id, date_val, amount, income_cat_id=None):
     """Add an expense transaction. income_cat_id unused but kept for clarity."""
     t = Transaction(
-        date=date_val, amount=amount,
-        type=TransactionType.EXPENSE, category_id=category_id,
+        date=date_val,
+        amount=amount,
+        type=TransactionType.EXPENSE,
+        category_id=category_id,
     )
     db.add(t)
     db.commit()
@@ -49,6 +53,7 @@ def _add_expense(db, category_id, date_val, amount, income_cat_id=None):
 
 
 # ── Basic functionality ───────────────────────────────────────────────────────
+
 
 def test_empty_budget_returns_empty_list(db_session):
     assert _compute_rows(db_session, "2026-05") == []
@@ -88,6 +93,7 @@ def test_over_budget_gives_negative_balance(db_session, food_cat):
 
 
 # ── Rollover behaviour ────────────────────────────────────────────────────────
+
 
 def test_unspent_budget_carries_forward(db_session, food_cat):
     """Unspent May budget should roll into June's available balance."""

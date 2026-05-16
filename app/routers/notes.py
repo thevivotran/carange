@@ -7,9 +7,11 @@ from app.models.schemas import Note as NoteSchema, NoteCreate, NoteUpdate
 
 router = APIRouter()
 
+
 @router.get("/", response_model=List[NoteSchema])
 def get_notes(db: Session = Depends(get_db)):
     return db.query(Note).order_by(Note.updated_at.desc()).all()
+
 
 @router.post("/", response_model=NoteSchema)
 def create_note(note: NoteCreate, db: Session = Depends(get_db)):
@@ -18,6 +20,7 @@ def create_note(note: NoteCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_note)
     return db_note
+
 
 @router.put("/{note_id}", response_model=NoteSchema)
 def update_note(note_id: int, note: NoteUpdate, db: Session = Depends(get_db)):
@@ -29,6 +32,7 @@ def update_note(note_id: int, note: NoteUpdate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_note)
     return db_note
+
 
 @router.delete("/{note_id}")
 def delete_note(note_id: int, db: Session = Depends(get_db)):

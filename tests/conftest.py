@@ -3,8 +3,8 @@
 Each test function gets a fresh in-memory SQLite database so tests are
 fully isolated from the production carange.db and from each other.
 """
+
 import pytest
-from datetime import date
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -47,6 +47,7 @@ def client(db_session):
 
 # ── Category fixtures ─────────────────────────────────────────────────────────
 
+
 @pytest.fixture()
 def income_cat(db_session):
     cat = Category(name="Salary", type=TransactionType.INCOME, color="#10B981", icon="money")
@@ -88,6 +89,7 @@ def bds_cat(db_session):
 def make_transaction(db, *, date_val, amount, type_, category_id, is_savings_related=False):
     """Helper: insert a Transaction directly and return it."""
     from app.models.database import Transaction
+
     t = Transaction(
         date=date_val,
         amount=amount,

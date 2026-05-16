@@ -1,24 +1,41 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Date, Boolean, ForeignKey, Text, Enum, Index
+from sqlalchemy import (
+    create_engine,
+    Column,
+    Integer,
+    String,
+    Float,
+    DateTime,
+    Date,
+    Boolean,
+    ForeignKey,
+    Text,
+    Enum,
+    Index,
+)
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from datetime import datetime, timezone
 import enum
 
 Base = declarative_base()
 
+
 # Enums
 class TransactionType(str, enum.Enum):
     EXPENSE = "expense"
     INCOME = "income"
+
 
 class SavingsType(str, enum.Enum):
     FIXED_DEPOSIT = "fixed_deposit"
     RECURRING_DEPOSIT = "recurring_deposit"
     SAVINGS_GOAL = "savings_goal"
 
+
 class SavingsStatus(str, enum.Enum):
     ACTIVE = "active"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
+
 
 class ProjectType(str, enum.Enum):
     REAL_ESTATE = "real_estate"
@@ -28,29 +45,34 @@ class ProjectType(str, enum.Enum):
     VACATION = "vacation"
     CUSTOM = "custom"
 
+
 class ProjectStatus(str, enum.Enum):
     PLANNING = "planning"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     CANCELLED = "cancelled"
 
+
 class Priority(str, enum.Enum):
     HIGH = "high"
     MEDIUM = "medium"
     LOW = "low"
 
+
 class PaymentStatus(str, enum.Enum):
     PENDING = "pending"
-    PAID    = "paid"
+    PAID = "paid"
+
 
 class AssetType(str, enum.Enum):
     CURRENCY = "currency"
     GOLD = "gold"
     OTHER = "other"
 
+
 class Category(Base):
     __tablename__ = "categories"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
     type = Column(Enum(TransactionType), nullable=False)
@@ -58,13 +80,14 @@ class Category(Base):
     icon = Column(String(50), default="circle")
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    
+
     transactions = relationship("Transaction", back_populates="category")
     budget_allocations = relationship("BudgetAllocation", cascade="all, delete-orphan")
 
+
 class Transaction(Base):
     __tablename__ = "transactions"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     date = Column(Date, nullable=False, index=True)
     amount = Column(Float, nullable=False)
@@ -73,34 +96,37 @@ class Transaction(Base):
     description = Column(Text, nullable=True)
     payment_method = Column(String(50), default="cash")
     is_savings_related = Column(Boolean, default=False)
-    is_advance      = Column(Boolean, default=False)
+    is_advance = Column(Boolean, default=False)
     advance_settled = Column(Boolean, default=False)
     source = Column(String(30), default="manual", nullable=True)
     savings_bundle_id = Column(Integer, ForeignKey("savings_bundles.id"), nullable=True)
     project_id = Column(Integer, ForeignKey("financial_projects.id"), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    
+    updated_at = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+    )
+
     category = relationship("Category", back_populates="transactions")
     savings_bundle = relationship("SavingsBundle", back_populates="transactions")
     project = relationship("FinancialProject", back_populates="transactions")
 
     __table_args__ = (
-        Index('ix_transactions_type_date', 'type', 'date'),
-        Index('ix_transactions_category_id', 'category_id'),
+        Index("ix_transactions_type_date", "type", "date"),
+        Index("ix_transactions_category_id", "category_id"),
     )
+
 
 class SavingsBundle(Base):
     __tablename__ = "savings_bundles"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
     bank_name = Column(String(100), nullable=False)
     type = Column(Enum(SavingsType), nullable=False)
     initial_deposit = Column(Float, nullable=False)  # Amount deposited
-    current_amount = Column(Float, nullable=False)   # Current available balance
-    future_amount = Column(Float, nullable=False)    # Amount at maturity (including interest)
-    interest_rate = Column(Float, nullable=True)     # Annual interest rate
+    current_amount = Column(Float, nullable=False)  # Current available balance
+    future_amount = Column(Float, nullable=False)  # Amount at maturity (including interest)
+    interest_rate = Column(Float, nullable=True)  # Annual interest rate
     start_date = Column(Date, nullable=False)
     maturity_date = Column(Date, nullable=True)
     status = Column(Enum(SavingsStatus), default=SavingsStatus.ACTIVE)
@@ -108,9 +134,10 @@ class SavingsBundle(Base):
     linked_project_id = Column(Integer, ForeignKey("financial_projects.id"), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime, nullable=True)
-    
+
     transactions = relationship("Transaction", back_populates="savings_bundle")
     linked_project = relationship("FinancialProject", back_populates="linked_savings")
+
 
 class FinancialProject(Base):
     __tablename__ = "financial_projects"
@@ -132,20 +159,21 @@ class FinancialProject(Base):
     linked_savings = relationship("SavingsBundle", back_populates="linked_project")
     payments = relationship("ProjectPayment", back_populates="project", cascade="all, delete-orphan")
 
+
 class ProjectPayment(Base):
     __tablename__ = "project_payments"
 
-    id             = Column(Integer, primary_key=True, index=True)
-    project_id     = Column(Integer, ForeignKey("financial_projects.id"), nullable=False)
-    due_date       = Column(Date, nullable=True)
-    amount         = Column(Float, nullable=False)
-    status         = Column(Enum(PaymentStatus), default=PaymentStatus.PENDING, nullable=False)
-    notes          = Column(Text, nullable=True)
-    sort_order     = Column(Integer, default=0)
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("financial_projects.id"), nullable=False)
+    due_date = Column(Date, nullable=True)
+    amount = Column(Float, nullable=False)
+    status = Column(Enum(PaymentStatus), default=PaymentStatus.PENDING, nullable=False)
+    notes = Column(Text, nullable=True)
+    sort_order = Column(Integer, default=0)
     transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=True)
-    created_at     = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
-    project     = relationship("FinancialProject", back_populates="payments")
+    project = relationship("FinancialProject", back_populates="payments")
     transaction = relationship("Transaction")
 
 
@@ -155,20 +183,22 @@ class OtherAsset(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
     asset_type = Column(Enum(AssetType), nullable=False)
-    symbol = Column(String(20), nullable=True)           # e.g., USD, EUR, SJC
-    quantity = Column(Float, nullable=False)              # amount held
-    unit = Column(String(50), nullable=False)             # display unit, e.g., USD, tael, gram
-    purchase_price_vnd = Column(Float, nullable=False)   # total VND cost basis
-    current_value_vnd = Column(Float, nullable=False)    # current estimated VND value
+    symbol = Column(String(20), nullable=True)  # e.g., USD, EUR, SJC
+    quantity = Column(Float, nullable=False)  # amount held
+    unit = Column(String(50), nullable=False)  # display unit, e.g., USD, tael, gram
+    purchase_price_vnd = Column(Float, nullable=False)  # total VND cost basis
+    current_value_vnd = Column(Float, nullable=False)  # current estimated VND value
     notes = Column(Text, nullable=True)
     acquired_date = Column(Date, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+    )
 
 
 class TransactionTemplate(Base):
     __tablename__ = "transaction_templates"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
     amount = Column(Float, nullable=False)
@@ -178,25 +208,31 @@ class TransactionTemplate(Base):
     payment_method = Column(String(50), default="cash")
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
-    
+    updated_at = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+    )
+
     category = relationship("Category")
+
 
 class BudgetAllocation(Base):
     __tablename__ = "budget_allocations"
 
-    id          = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
-    year_month  = Column(String(7), nullable=False)   # "2026-05"
-    amount      = Column(Float, nullable=False)
-    created_at  = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at  = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    year_month = Column(String(7), nullable=False)  # "2026-05"
+    amount = Column(Float, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+    )
 
     category = relationship("Category", back_populates="budget_allocations")
 
     __table_args__ = (
         __import__("sqlalchemy").UniqueConstraint("category_id", "year_month", name="uq_budget_category_month"),
     )
+
 
 class Note(Base):
     __tablename__ = "notes"
@@ -206,7 +242,10 @@ class Note(Base):
     content = Column(Text, nullable=True)
     type = Column(String(50), nullable=True)  # e.g. 'money_owed', 'general'
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+    )
+
 
 # Database configuration
 import os
@@ -214,24 +253,25 @@ from sqlalchemy import event
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./carange.db")
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False}
-)
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+
 
 @event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_conn, _):
     cursor = dbapi_conn.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA synchronous=NORMAL")
-    cursor.execute("PRAGMA cache_size=-16000")   # 16 MB page cache
-    cursor.execute("PRAGMA temp_store=MEMORY")   # temp tables in RAM
+    cursor.execute("PRAGMA cache_size=-16000")  # 16 MB page cache
+    cursor.execute("PRAGMA temp_store=MEMORY")  # temp tables in RAM
     cursor.close()
+
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+
 def create_tables():
     Base.metadata.create_all(bind=engine)
+
 
 def get_db():
     db = SessionLocal()

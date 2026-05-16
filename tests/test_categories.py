@@ -1,11 +1,12 @@
 """CRUD tests for categories endpoint."""
+
 from datetime import date
 
 
 def test_create_expense_category(client):
-    r = client.post("/api/categories/", json={
-        "name": "Groceries", "type": "expense", "color": "#FF0000", "icon": "shopping-cart"
-    })
+    r = client.post(
+        "/api/categories/", json={"name": "Groceries", "type": "expense", "color": "#FF0000", "icon": "shopping-cart"}
+    )
     assert r.status_code == 200
     d = r.json()
     assert d["name"] == "Groceries"
@@ -14,9 +15,7 @@ def test_create_expense_category(client):
 
 
 def test_create_income_category(client):
-    r = client.post("/api/categories/", json={
-        "name": "Bonus", "type": "income", "color": "#00FF00", "icon": "gift"
-    })
+    r = client.post("/api/categories/", json={"name": "Bonus", "type": "income", "color": "#00FF00", "icon": "gift"})
     assert r.status_code == 200
     assert r.json()["type"] == "income"
 
@@ -31,9 +30,9 @@ def test_list_categories(client):
 
 
 def test_get_single_category(client):
-    cat_id = client.post("/api/categories/", json={
-        "name": "Solo", "type": "expense", "color": "#123456", "icon": "circle"
-    }).json()["id"]
+    cat_id = client.post(
+        "/api/categories/", json={"name": "Solo", "type": "expense", "color": "#123456", "icon": "circle"}
+    ).json()["id"]
     r = client.get(f"/api/categories/{cat_id}")
     assert r.status_code == 200
     assert r.json()["name"] == "Solo"
@@ -45,20 +44,20 @@ def test_get_nonexistent_category_returns_404(client):
 
 
 def test_update_category(client):
-    cat_id = client.post("/api/categories/", json={
-        "name": "Old", "type": "expense", "color": "#111111", "icon": "circle"
-    }).json()["id"]
-    r = client.put(f"/api/categories/{cat_id}", json={
-        "name": "New", "type": "expense", "color": "#222222", "icon": "circle"
-    })
+    cat_id = client.post(
+        "/api/categories/", json={"name": "Old", "type": "expense", "color": "#111111", "icon": "circle"}
+    ).json()["id"]
+    r = client.put(
+        f"/api/categories/{cat_id}", json={"name": "New", "type": "expense", "color": "#222222", "icon": "circle"}
+    )
     assert r.status_code == 200
     assert r.json()["name"] == "New"
 
 
 def test_delete_category(client):
-    cat_id = client.post("/api/categories/", json={
-        "name": "ToDelete", "type": "expense", "color": "#333333", "icon": "circle"
-    }).json()["id"]
+    cat_id = client.post(
+        "/api/categories/", json={"name": "ToDelete", "type": "expense", "color": "#333333", "icon": "circle"}
+    ).json()["id"]
     r = client.delete(f"/api/categories/{cat_id}")
     assert r.status_code == 200
     assert client.get(f"/api/categories/{cat_id}").status_code == 404
@@ -72,11 +71,11 @@ def test_delete_nonexistent_category_returns_404(client):
 def test_get_single_category_has_correct_transaction_count(client, db_session):
     """Single category GET must return accurate transaction_count (not always 0)."""
     from app.models.database import Category as CatModel, Transaction as TxModel, TransactionType
+
     cat = CatModel(name="TxCount", type=TransactionType.EXPENSE, color="#000", icon="x")
     db_session.add(cat)
     db_session.commit()
     db_session.refresh(cat)
-    from datetime import date
     tx = TxModel(date=date(2026, 4, 1), amount=100, type=TransactionType.EXPENSE, category_id=cat.id)
     db_session.add(tx)
     db_session.commit()
