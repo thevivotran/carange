@@ -25,10 +25,22 @@ UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
 REVIEW_THRESHOLD = float(os.getenv("REVIEW_THRESHOLD", "0.80"))
 
 
+def _resolve_file_path(stored: str) -> str:
+    """Resolve job.file_path to an absolute path across all storage formats.
+
+    - bare filename  "abc123.png"        → UPLOAD_DIR/abc123.png  (current)
+    - legacy prefix  "uploads/abc123.png"→ UPLOAD_DIR/abc123.png  (old format)
+    - absolute path  "/old/test/img.png" → as-is (legacy test records)
+    """
+    if os.path.isabs(stored):
+        return stored
+    return os.path.join(UPLOAD_DIR, os.path.basename(stored))
+
+
 def process_job(job: ImportJob, db: Session) -> None:
     log.info("Processing job %d: %s", job.id, job.filename)
 
-    file_path = os.path.join(UPLOAD_DIR, job.file_path)
+    file_path = _resolve_file_path(job.file_path)
     if not os.path.isfile(file_path):
         _fail(db, job, f"Image not found on disk: {file_path}")
         return
@@ -162,7 +174,7 @@ def _resolve_category(db: Session, pt: ParsedTransaction) -> Optional[int]:
 def _cleanup_file(job: ImportJob) -> None:
     if not job.file_path:
         return
-    full_path = os.path.join(UPLOAD_DIR, job.file_path)
+    full_path = _resolve_file_path(job.file_path)
     if os.path.isfile(full_path):
         try:
             os.remove(full_path)

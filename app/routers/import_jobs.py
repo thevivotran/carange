@@ -12,6 +12,13 @@ from app.models.schemas import ImportJobUpdate
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
 
+
+def _resolve_path(stored: str) -> str:
+    if os.path.isabs(stored):
+        return stored
+    return os.path.join(UPLOAD_DIR, os.path.basename(stored))
+
+
 router = APIRouter()
 
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
@@ -133,7 +140,7 @@ def delete_import_job(job_id: int, db: Session = Depends(get_db)):
     if not job:
         raise HTTPException(status_code=404, detail="Import job not found")
 
-    full_path = os.path.join(UPLOAD_DIR, job.file_path) if job.file_path else None
+    full_path = _resolve_path(job.file_path) if job.file_path else None
     if full_path and os.path.isfile(full_path):
         os.remove(full_path)
 
