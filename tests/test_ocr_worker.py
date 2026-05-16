@@ -3,9 +3,7 @@ Integration tests for the OCR worker skeleton.
 Spins up an in-memory SQLite DB, creates jobs, runs the processor directly.
 """
 import os
-import tempfile
 import pytest
-from datetime import datetime, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -23,7 +21,8 @@ def session_factory(tmp_path):
 @pytest.fixture()
 def image_file(tmp_path):
     """Minimal valid 1×1 PNG."""
-    import struct, zlib
+    import struct
+    import zlib
     sig  = b'\x89PNG\r\n\x1a\n'
     ihdr = b'\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde'
     raw  = zlib.compress(b'\x00\xff\xff\xff')

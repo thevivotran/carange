@@ -2,7 +2,6 @@
 PaddleOCR wrapper — lazy singleton, GPU auto-detect, Vietnamese language model.
 """
 import logging
-import os
 from typing import List
 
 from ocr_worker.types import TextBlock
