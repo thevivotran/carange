@@ -283,8 +283,14 @@
                     <span class="sidebar-label">Projects</span>
                 </a>
 
-                <!-- Settings -->
-                <div class="px-6 pt-5 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest sidebar-section-label">Settings</div>
+                <!-- Settings (collapsible) -->
+                <button id="settings-toggle-btn" onclick="toggleSettingsNav()"
+                        class="sidebar-link w-full flex items-center px-6 pt-5 pb-1 text-gray-400 hover:text-gray-600 transition">
+                    <i class="fas fa-cog w-6 flex-shrink-0 text-xs"></i>
+                    <span class="sidebar-label text-xs font-semibold uppercase tracking-widest">Settings</span>
+                    <i id="settings-nav-chevron" class="fas fa-chevron-right text-xs ml-auto sidebar-label transition-transform"></i>
+                </button>
+                <div id="settings-nav-items" class="hidden">
                 <a href="/categories" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'categories' %}active font-semibold{% endif %}" title="Categories">
                     <i class="fas fa-tags w-6 flex-shrink-0"></i>
                     <span class="sidebar-label">Categories</span>
@@ -297,6 +303,7 @@
                     <i class="fas fa-sticky-note w-6 flex-shrink-0"></i>
                     <span class="sidebar-label">Notes</span>
                 </a>
+                </div>
 
             </nav>
 
@@ -408,6 +415,29 @@
             if (localStorage.getItem('carange-sidebar-collapsed') === '1') {
                 const s = document.getElementById('sidebar');
                 if (s) s.classList.add('collapsed');
+            }
+        })();
+
+        // Settings nav section collapse
+        function toggleSettingsNav() {
+            const items = document.getElementById('settings-nav-items');
+            const chevron = document.getElementById('settings-nav-chevron');
+            if (!items) return;
+            const isHidden = items.classList.contains('hidden');
+            items.classList.toggle('hidden', !isHidden);
+            if (chevron) chevron.className = isHidden ? 'fas fa-chevron-down text-xs ml-auto sidebar-label transition-transform' : 'fas fa-chevron-right text-xs ml-auto sidebar-label transition-transform';
+            localStorage.setItem('carange-settings-nav-open', isHidden ? '1' : '0');
+        }
+        (function() {
+            const items = document.getElementById('settings-nav-items');
+            const chevron = document.getElementById('settings-nav-chevron');
+            if (!items) return;
+            // Auto-expand if a settings page is currently active
+            const activeSettingsPage = items.querySelector('.active');
+            const isOpen = localStorage.getItem('carange-settings-nav-open') === '1' || !!activeSettingsPage;
+            if (isOpen) {
+                items.classList.remove('hidden');
+                if (chevron) chevron.className = 'fas fa-chevron-down text-xs ml-auto sidebar-label transition-transform';
             }
         })();
         

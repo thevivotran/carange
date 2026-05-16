@@ -190,6 +190,15 @@
 
   </div>
 
+  <!-- ── Wealth Building Toggle ───────────────────────────────────── -->
+  <button id="wealth-toggle-btn" onclick="toggleWealthSection()"
+          class="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-widest hover:text-gray-600 transition w-full mb-3 px-1">
+    <i id="wealth-toggle-icon" class="fas fa-chevron-right text-xs"></i>
+    <span>Wealth Building Analysis</span>
+  </button>
+
+  <div id="wealth-section" class="hidden">
+
   <!-- ── Row 2b: Wealth Building Charts ───────────────────────────── -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
@@ -255,6 +264,8 @@
 
     </div>
   </div>
+
+  </div><!-- end #wealth-section -->
 
   <!-- ── Row 4: Alerts ──────────────────────────────────────────────── -->
   {% if alert_maturities or alert_over_budget or unsettled_advance_count > 0 %}
@@ -412,7 +423,7 @@
     {% if recent_transactions %}
     <div class="divide-y divide-gray-50">
       {% for t in recent_transactions %}
-      <div class="flex items-center justify-between py-2.5">
+      <div class="flex items-center justify-between py-2.5 {% if loop.index > 5 %}recent-txn-extra hidden{% endif %}">
         <div class="flex items-center gap-3 min-w-0">
           <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0
             {{ 'bg-green-100' if t.type.value == 'income' else 'bg-red-100' }}">
@@ -430,6 +441,13 @@
       </div>
       {% endfor %}
     </div>
+    {% if recent_transactions|length > 5 %}
+    <button id="recent-txns-toggle" onclick="toggleRecentTransactions()"
+            class="w-full mt-2 py-2 text-xs text-gray-400 hover:text-gray-600 transition text-center">
+      Show {{ recent_transactions|length - 5 }} more
+      <i id="recent-txns-arrow" class="fas fa-chevron-down ml-1"></i>
+    </button>
+    {% endif %}
     {% else %}
     <p class="text-sm text-gray-400 text-center py-8">No transactions yet</p>
     {% endif %}
@@ -909,6 +927,43 @@ document.addEventListener('click', e => {
         hideKpiInfo();
     }
 });
+
+// ── Wealth Building section toggle ────────────────────────────────────────
+(function initWealthSection() {
+    const isOpen = localStorage.getItem('carange_wealth_section_open') === 'true';
+    const section = document.getElementById('wealth-section');
+    const icon = document.getElementById('wealth-toggle-icon');
+    if (isOpen) {
+        section.classList.remove('hidden');
+        icon.className = 'fas fa-chevron-down text-xs';
+    }
+})();
+
+function toggleWealthSection() {
+    const section = document.getElementById('wealth-section');
+    const icon = document.getElementById('wealth-toggle-icon');
+    const isHidden = section.classList.contains('hidden');
+    section.classList.toggle('hidden', !isHidden);
+    icon.className = isHidden ? 'fas fa-chevron-down text-xs' : 'fas fa-chevron-right text-xs';
+    localStorage.setItem('carange_wealth_section_open', isHidden ? 'true' : 'false');
+}
+
+// ── Recent Transactions expand/collapse ───────────────────────────────────
+function toggleRecentTransactions() {
+    const extras = document.querySelectorAll('.recent-txn-extra');
+    const arrow = document.getElementById('recent-txns-arrow');
+    const btn = document.getElementById('recent-txns-toggle');
+    if (!extras.length) return;
+    const isHidden = extras[0].classList.contains('hidden');
+    extras.forEach(function(el) { el.classList.toggle('hidden', !isHidden); });
+    if (isHidden) {
+        arrow.className = 'fas fa-chevron-up ml-1';
+        btn.firstChild.textContent = 'Show less ';
+    } else {
+        arrow.className = 'fas fa-chevron-down ml-1';
+        btn.firstChild.textContent = 'Show ' + extras.length + ' more ';
+    }
+}
 </script>
 
 <!-- KPI info popover -->

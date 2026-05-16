@@ -19,8 +19,9 @@
                 <button id="tx-exit-btn" onclick="exitTxMonthTracking()" title="Exit month filter — show all transactions"
                         class="hidden w-7 h-7 flex items-center justify-center rounded-lg text-base text-gray-400 hover:text-red-500 hover:bg-red-50 transition select-none">&#215;</button>
             </div>
-            <button onclick="openBulkUploadModal()" class="bg-purple-100 text-purple-700 px-6 py-3 rounded-lg hover:bg-purple-200 transition flex items-center">
-                <i class="fas fa-file-upload mr-2"></i>Bulk Upload
+            <button onclick="openBulkUploadModal()" title="Bulk Upload" aria-label="Bulk Upload"
+                    class="bg-purple-100 text-purple-700 w-11 h-11 rounded-lg hover:bg-purple-200 transition flex items-center justify-center flex-shrink-0">
+                <i class="fas fa-file-upload"></i>
             </button>
             <button onclick="openAddModal()" class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition flex items-center">
                 <i class="fas fa-plus mr-2"></i>Add Transaction
@@ -45,9 +46,9 @@
                 Filters
                 <span id="active-filter-count" class="hidden bg-primary text-white text-xs rounded-full w-5 h-5 items-center justify-center font-semibold">0</span>
             </button>
-            <button onclick="exportCSV()"
-                    class="bg-green-100 text-green-700 px-3 py-2 rounded-lg hover:bg-green-200 transition text-sm flex items-center gap-2">
-                <i class="fas fa-download"></i><span class="hidden sm:inline">Export CSV</span>
+            <button onclick="exportCSV()" title="Export CSV" aria-label="Export CSV"
+                    class="bg-green-100 text-green-700 w-9 h-9 rounded-lg hover:bg-green-200 transition flex items-center justify-center flex-shrink-0">
+                <i class="fas fa-download text-sm"></i>
             </button>
         </div>
 
