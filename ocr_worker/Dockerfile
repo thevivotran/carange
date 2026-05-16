@@ -15,6 +15,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY ocr_worker/requirements.txt ./ocr_worker/requirements.txt
 RUN pip install --no-cache-dir -r ocr_worker/requirements.txt
 
+# Disable MKL-DNN/oneDNN to avoid double-free crash on CI/non-AVX2 hosts
+ENV FLAGS_use_mkldnn=0
+ENV DATABASE_URL=sqlite:////data/carange.db
+ENV UPLOAD_DIR=/data/uploads
+ENV PYTHONUNBUFFERED=1
+
 # App code
 COPY . .
 
@@ -24,9 +30,5 @@ RUN python -c "\
 from paddleocr import PaddleOCR; \
 PaddleOCR(use_angle_cls=True, lang='vi', use_gpu=False, show_log=False); \
 print('Models downloaded OK')"
-
-ENV DATABASE_URL=sqlite:////data/carange.db
-ENV UPLOAD_DIR=/data/uploads
-ENV PYTHONUNBUFFERED=1
 
 CMD ["python", "-m", "ocr_worker.worker"]
