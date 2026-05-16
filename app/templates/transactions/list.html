@@ -969,19 +969,7 @@
         if (advanceParam === 'unsettled') {
             document.getElementById('filter-advance').value = 'unsettled';
         }
-        const hasAdvanced = !!(
-            document.getElementById('filter-type').value ||
-            document.getElementById('filter-category').value ||
-            document.getElementById('filter-project').value ||
-            document.getElementById('filter-start-date').value ||
-            document.getElementById('filter-end-date').value ||
-            document.getElementById('filter-advance').value ||
-            document.getElementById('filter-source').value
-        );
-        if (hasAdvanced) {
-            document.getElementById('advanced-filters').classList.remove('hidden');
-            updateFilterBadge();
-        }
+        updateFilterBadge();
     }
     
     let _txTemplates = [];

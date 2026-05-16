@@ -204,6 +204,10 @@
         #sidebar.collapsed .sidebar-section-label,
         #sidebar.collapsed .sidebar-footer-text { display: none !important; }
         #sidebar.collapsed #sidebar-brand-text { display: none !important; }
+        /* Hide brand link so expand button doesn't crowd/overlap it */
+        #sidebar.collapsed #sidebar-brand-link { display: none !important; }
+        /* Center the header when only expand button remains */
+        #sidebar.collapsed #sidebar-header { justify-content: center !important; }
         #sidebar.collapsed .sidebar-link {
             justify-content: center;
             padding-left: 0.75rem;
@@ -236,8 +240,8 @@
     <div class="flex h-screen" style="height:100vh;height:100dvh;">
         <!-- Sidebar -->
         <aside id="sidebar" class="hidden md:flex w-64 bg-white shadow-lg flex-col">
-            <div class="p-5 border-b flex items-center justify-between gap-2">
-                <a href="/" class="hover:opacity-80 transition flex items-center gap-2 min-w-0">
+            <div id="sidebar-header" class="p-5 border-b flex items-center justify-between gap-2">
+                <a id="sidebar-brand-link" href="/" class="hover:opacity-80 transition flex items-center gap-2 min-w-0">
                     <i class="fas fa-wallet text-primary text-xl flex-shrink-0"></i>
                     <div id="sidebar-brand-text" class="min-w-0">
                         <h1 class="text-lg font-bold text-primary leading-none">Carange</h1>
@@ -284,10 +288,12 @@
                 </a>
 
                 <!-- Settings (collapsible) -->
+                <div class="mx-4 mt-4 mb-1 border-t border-gray-100 sidebar-section-label"></div>
                 <button id="settings-toggle-btn" onclick="toggleSettingsNav()"
-                        class="sidebar-link w-full flex items-center px-6 pt-5 pb-1 text-gray-400 hover:text-gray-600 transition">
-                    <i class="fas fa-cog w-6 flex-shrink-0 text-xs"></i>
-                    <span class="sidebar-label text-xs font-semibold uppercase tracking-widest">Settings</span>
+                        class="sidebar-link w-full flex items-center px-6 py-3 text-gray-700 transition"
+                        title="Settings">
+                    <i class="fas fa-cog w-6 flex-shrink-0"></i>
+                    <span class="sidebar-label">Settings</span>
                     <i id="settings-nav-chevron" class="fas fa-chevron-right text-xs ml-auto sidebar-label transition-transform"></i>
                 </button>
                 <div id="settings-nav-items" class="hidden">
