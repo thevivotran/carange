@@ -24,11 +24,4 @@ ENV PYTHONUNBUFFERED=1
 # App code
 COPY . .
 
-# Pre-download Vietnamese OCR models so the first job starts immediately.
-# This bakes the model weights (~80 MB) into the image layer.
-RUN python -c "\
-from paddleocr import PaddleOCR; \
-PaddleOCR(use_angle_cls=True, lang='vi', use_gpu=False, show_log=False); \
-print('Models downloaded OK')"
-
 CMD ["python", "-m", "ocr_worker.worker"]
