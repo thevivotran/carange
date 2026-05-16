@@ -59,17 +59,18 @@ async def create_import_jobs(
             results.append(existing)
             continue
 
-        # Persist file
+        # Persist file — store only the bare filename so the path is
+        # portable across environments (dev vs prod UPLOAD_DIR differ).
         os.makedirs(UPLOAD_DIR, exist_ok=True)
         ext = os.path.splitext(upload.filename or "image")[1] or ".jpg"
-        filename = f"{digest}{ext}"
-        file_path = os.path.join(UPLOAD_DIR, filename)
-        with open(file_path, "wb") as fh:
+        stored_filename = f"{digest}{ext}"
+        full_path = os.path.join(UPLOAD_DIR, stored_filename)
+        with open(full_path, "wb") as fh:
             fh.write(raw)
 
         job = ImportJob(
-            filename=upload.filename or filename,
-            file_path=file_path,
+            filename=upload.filename or stored_filename,
+            file_path=stored_filename,
             image_hash=digest,
             source_hint=hint,
             status=ImportJobStatus.PENDING,
@@ -132,8 +133,9 @@ def delete_import_job(job_id: int, db: Session = Depends(get_db)):
     if not job:
         raise HTTPException(status_code=404, detail="Import job not found")
 
-    if job.file_path and os.path.isfile(job.file_path):
-        os.remove(job.file_path)
+    full_path = os.path.join(UPLOAD_DIR, job.file_path) if job.file_path else None
+    if full_path and os.path.isfile(full_path):
+        os.remove(full_path)
 
     db.delete(job)
     db.commit()
