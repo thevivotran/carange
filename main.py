@@ -115,65 +115,56 @@ async def health():
 @app.get("/", response_class=HTMLResponse)
 async def dashboard_page(request: Request, db: Session = Depends(get_db)):
     data = get_dashboard_page_data(db)
-    return templates.TemplateResponse("dashboard.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "dashboard.html", {
         "active_menu": "dashboard",
         **data,
     })
 
 @app.get("/transactions", response_class=HTMLResponse)
 async def transactions_page(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse("transactions/list.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "transactions/list.html", {
         "active_menu": "transactions"
     })
 
 @app.get("/categories", response_class=HTMLResponse)
 async def categories_page(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse("categories/list.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "categories/list.html", {
         "active_menu": "categories"
     })
 
 @app.get("/savings", response_class=HTMLResponse)
 async def savings_page(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse("savings/list.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "savings/list.html", {
         "active_menu": "savings"
     })
 
 @app.get("/assets", response_class=HTMLResponse)
 async def assets_page(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse("assets/list.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "assets/list.html", {
         "active_menu": "assets"
     })
 
 @app.get("/projects", response_class=HTMLResponse)
 async def projects_page(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse("projects/list.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "projects/list.html", {
         "active_menu": "projects"
     })
 
 @app.get("/templates", response_class=HTMLResponse)
 async def templates_page(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse("templates/list.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "templates/list.html", {
         "active_menu": "templates"
     })
 
 @app.get("/notes", response_class=HTMLResponse)
 async def notes_page(request: Request):
-    return templates.TemplateResponse("notes/list.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "notes/list.html", {
         "active_menu": "notes"
     })
 
 @app.get("/budget", response_class=HTMLResponse)
 async def budget_page(request: Request):
-    return templates.TemplateResponse("budget/index.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "budget/index.html", {
         "active_menu": "budget"
     })
 
