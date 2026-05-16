@@ -75,12 +75,14 @@ class TimoParser(BaseParser):
             # ── Date markers ──────────────────────────────────────────────────
             if _TODAY_RE.match(stripped):
                 if pending:
-                    _flush(pending['fallback_desc']); pending = None
+                    _flush(pending['fallback_desc'])
+                    pending = None
                 current_date = date.today()
                 continue
             if _YESTERDAY_RE.match(stripped):
                 if pending:
-                    _flush(pending['fallback_desc']); pending = None
+                    _flush(pending['fallback_desc'])
+                    pending = None
                 current_date = date.today() - timedelta(days=1)
                 continue
 
@@ -88,7 +90,8 @@ class TimoParser(BaseParser):
             d = parse_date(stripped)
             if d and not parse_vnd(stripped):
                 if pending:
-                    _flush(pending['fallback_desc']); pending = None
+                    _flush(pending['fallback_desc'])
+                    pending = None
                 current_date = d
                 continue
 
@@ -104,7 +107,8 @@ class TimoParser(BaseParser):
             if result:
                 # Flush any previous pending (no row B was found between them)
                 if pending:
-                    _flush(pending['fallback_desc']); pending = None
+                    _flush(pending['fallback_desc'])
+                    pending = None
 
                 amount, tx_type = result
                 fallback = _SIGNED_TOKEN_RE.sub('', stripped).strip() or stripped

@@ -5,7 +5,7 @@ and the BaseParser ABC.
 import re
 import unicodedata
 from abc import ABC, abstractmethod
-from datetime import date, datetime
+from datetime import date
 from typing import List, Optional
 
 from ocr_worker.types import TextBlock, ParsedTransaction

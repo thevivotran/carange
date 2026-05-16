@@ -6,14 +6,14 @@ No PaddleOCR dependency — all tests feed pre-built TextBlock lists directly.
 import pytest
 from datetime import date
 
-from ocr_worker.types import TextBlock, ParsedTransaction
+from ocr_worker.types import TextBlock
 from ocr_worker.parsers.base import parse_vnd, parse_date, group_rows, row_text
 from ocr_worker.parsers.timo import TimoParser
 from ocr_worker.parsers.shopee import ShopeeParser
 from ocr_worker.parsers.grab import GrabParser
 from ocr_worker.parsers.generic import GenericParser
 from ocr_worker.source_detector import detect_source
-from app.models.database import ImportSource, TransactionType
+from app.models.database import ImportSource
 
 
 # ── TextBlock factory ──────────────────────────────────────────────────────────
@@ -309,7 +309,8 @@ def test_processor_full_pipeline(tmp_path, monkeypatch):
     End-to-end: fake OCR output → processor commits transactions to DB.
     PaddleOCR is monkeypatched so this runs in CI without the heavy dep.
     """
-    import struct, zlib
+    import struct
+    import zlib
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
     from app.models.database import Base, ImportJob, ImportJobStatus, ImportSource, Category

@@ -1,7 +1,6 @@
-from typing import List, Optional
+from typing import Optional
 
 from app.models.database import ImportSource
-from ocr_worker.types import TextBlock, ParsedTransaction
 
 
 def get_parser(source: Optional[ImportSource]):
