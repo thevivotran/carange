@@ -48,6 +48,17 @@ carange.db
 .DS_Store
 Thumbs.db
 
+# Test / lint caches
+.coverage
+.pytest_cache/
+.ruff_cache/
+
+# Runtime upload directory
+uploads/
+
+# Claude Code session data
+.claude/
+
 # Backup files
 backups/
 *.bak
