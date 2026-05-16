@@ -226,7 +226,7 @@
         /* pb-16 (64px) isn't enough when the home indicator adds ~34px to the nav.
            Use env() so the main scroll area always clears the full nav height. */
         @media (max-width: 767px) {
-          main { padding-bottom: calc(3.5rem + env(safe-area-inset-bottom)) !important; }
+          main { padding-bottom: calc(3.5rem + max(env(safe-area-inset-bottom), 0.75rem)) !important; }
         }
     </style>
     
@@ -326,7 +326,7 @@
         </div>
         
         <!-- Mobile More Sheet (bottom sheet) -->
-        <div id="mobile-menu" class="hidden md:hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-40 flex items-end">
+        <div id="mobile-menu" class="hidden md:hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[110] flex items-end">
             <div class="w-full bg-white rounded-t-2xl shadow-xl max-h-[80vh] overflow-y-auto"
                  style="padding-bottom:env(safe-area-inset-bottom)">
                 <!-- Drag handle -->
@@ -725,7 +725,7 @@
 
     <!-- Mobile Bottom Navigation Bar -->
     <nav id="mobile-bottom-nav" class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-[90]"
-         style="padding-bottom:env(safe-area-inset-bottom)">
+         style="padding-bottom:max(env(safe-area-inset-bottom), 0.75rem)">
         <div class="flex items-center justify-around h-14">
             <a href="/" class="bottom-nav-link {% if active_menu == 'dashboard' %}active{% endif %} flex flex-col items-center justify-center flex-1 h-full gap-0.5">
                 <i class="fas fa-chart-line text-lg"></i>
