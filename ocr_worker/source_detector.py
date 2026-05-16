@@ -47,6 +47,7 @@ _RULES: dict[ImportSource, List[tuple[str, float]]] = {
         (r"grabbike", 2.0),
         (r"grabpay", 2.0),
         (r"grab express", 1.5),
+        (r"grabcoins", 2.0),         # Activity History screenshot — "+N GrabCoins" per transaction
     ],
 }
 

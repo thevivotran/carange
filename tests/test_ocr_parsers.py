@@ -236,6 +236,7 @@ def test_shopee_category_hint():
 # ── Grab parser ───────────────────────────────────────────────────────────────
 
 def _grab_blocks():
+    """Mirrors the real Grab Activity History (Transport tab) layout."""
     all_blocks = []
     y = 0.0
 
@@ -244,14 +245,15 @@ def _grab_blocks():
         all_blocks.extend(row_at(y, *texts))
         y += dy
 
-    add_row("GrabFood")
-    add_row("15/05/2026 12:30")
-    add_row("McDonald's Phan Văn Trị")
-    add_row("Tổng tiền ₫125,000")
+    # Transaction 1 — Row A: desc + amount, Row B: desc cont + GrabCoins, Row D: date
+    add_row("Trung Tam Hoi Nghi Tiec Cuoi Riverside", "52.000d")
+    add_row("Palace destination more details here", "+7 GrabCoins")
+    add_row("16 May 2026,20:59")
 
-    add_row("GrabCar")
-    add_row("14/05/2026 08:15")
-    add_row("₫89,000")
+    # Transaction 2
+    add_row("Havanna Tower to Ham Nghi destination", "89.000d")
+    add_row("Gate to full address line two here", "+16 GrabCoins")
+    add_row("14 May 2026,08:15")
     return all_blocks
 
 
@@ -267,7 +269,7 @@ def test_grab_all_expenses():
 
 def test_grab_category_hint():
     txns = GrabParser().parse(_grab_blocks())
-    assert all(t.category_hint == "Transportation" for t in txns)
+    assert all(t.category_hint == "Đi lại" for t in txns)
 
 
 # ── Generic parser ────────────────────────────────────────────────────────────
