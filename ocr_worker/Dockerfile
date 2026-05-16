@@ -4,7 +4,7 @@ WORKDIR /app
 
 # System libs required by OpenCV and PaddlePaddle
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libglib2.0-0 libsm6 libxext6 libxrender1 libgomp1 \
+        libglib2.0-0 libsm6 libxext6 libxrender1 libgomp1 libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Base carange deps first (shared layer with the app image)
