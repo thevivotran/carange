@@ -1,33 +1,46 @@
 """
-Timo bank transaction history parser.
+Timo bank transaction parser.
 
-Timo's history view renders one transaction per logical block:
-  - Date appears as a group header (DD/MM or DD/MM/YYYY)
-  - Each transaction row: [time?]  description  [± amount]
-  - Amount is right-aligned; positive = credit (green), negative = debit (red)
-
-We sort all rows top-to-bottom, carry the most recent date header forward,
-and extract transactions whenever we find an amount.
+Real screenshot layout (chat-style):
+  - Date header:  "Today" / "Yesterday" / "DD/MM/YYYY"
+  - Per transaction:
+      row A (y≈N):     [counterparty]               [±amount]   ← signed
+      row B (y≈N+70):  [note / merchant name]       [balance]   ← unsigned balance, strip it
+      row C (y≈N+160): [category label]                         ← left-aligned, skip
 """
 import re
-from datetime import date
+from datetime import date, timedelta
 from typing import List, Optional
 
-from ocr_worker.parsers.base import BaseParser, Row, group_rows, row_text, parse_vnd, parse_date, mean_confidence
+from ocr_worker.parsers.base import (
+    BaseParser, group_rows, row_text, parse_vnd, parse_date, mean_confidence,
+)
 from ocr_worker.types import TextBlock, ParsedTransaction
 
-# Timo date header looks like "15/05" or "15/05/2026" on a line by itself
-_DATE_HEADER_RE = re.compile(r'^\s*\d{1,2}[/\-]\d{1,2}(?:[/\-]\d{4})?\s*$')
-
-# Noise rows to skip
 _SKIP_RE = re.compile(
     r'^\s*('
-    r'lịch sử|giao dịch|transaction|history|timo|số dư|balance'
-    r'|hôm nay|hôm qua|yesterday|today'
-    r'|\d{2}:\d{2}(?::\d{2})?'   # lone time stamps like "15:30"
+    r'lịch sử|transaction list|transaction history|timo'
+    r'|spend account|view all|hold to react|pending|transfer|transactions'
+    r'|\d{2}:\d{2}(?::\d{2})?'
     r')\s*$',
     re.IGNORECASE,
 )
+
+_TODAY_RE     = re.compile(r'^\s*(?:today|hôm nay)\s*$',     re.IGNORECASE)
+_YESTERDAY_RE = re.compile(r'^\s*(?:yesterday|hôm qua)\s*$', re.IGNORECASE)
+
+# Strips the signed amount token so we can extract a clean description from row A
+_SIGNED_TOKEN_RE = re.compile(r'[+\-]\s*\d{1,3}(?:[.,]\d{3})+(?:\s*[₫đ])?')
+
+# Strips the unsigned running balance from row B (e.g. "1,022,428")
+_BALANCE_RE = re.compile(r'\b\d{1,3}(?:[.,]\d{3})+\b')
+
+
+def _signed_amount(text: str):
+    """Return (amount, tx_type) only if text contains an explicit +/- sign."""
+    if not re.search(r'[+\-]', text):
+        return None
+    return parse_vnd(text)
 
 
 class TimoParser(BaseParser):
@@ -36,7 +49,21 @@ class TimoParser(BaseParser):
         rows = group_rows(blocks)
         transactions: List[ParsedTransaction] = []
         current_date: Optional[date] = None
-        desc_buffer: List[str] = []
+
+        # Pending transaction: waiting for row B to supply the real description
+        pending: Optional[dict] = None
+
+        def _flush(desc: str) -> None:
+            if pending is None:
+                return
+            transactions.append(ParsedTransaction(
+                date=pending['date'],
+                amount=pending['amount'],
+                tx_type=pending['tx_type'],
+                description=desc or pending['fallback_desc'],
+                confidence=pending['confidence'],
+                raw_text=pending['raw_text'],
+            ))
 
         for row in rows:
             text = row_text(row)
@@ -45,53 +72,61 @@ class TimoParser(BaseParser):
             if not stripped:
                 continue
 
-            # ── Date header ───────────────────────────────────────────────────
-            if _DATE_HEADER_RE.match(stripped):
-                parsed = parse_date(stripped)
-                if parsed:
-                    current_date = parsed
-                    desc_buffer.clear()
-                    continue
+            # ── Date markers ──────────────────────────────────────────────────
+            if _TODAY_RE.match(stripped):
+                if pending:
+                    _flush(pending['fallback_desc']); pending = None
+                current_date = date.today()
+                continue
+            if _YESTERDAY_RE.match(stripped):
+                if pending:
+                    _flush(pending['fallback_desc']); pending = None
+                current_date = date.today() - timedelta(days=1)
+                continue
+
+            # Explicit date header (DD/MM or DD/MM/YYYY)
+            d = parse_date(stripped)
+            if d and not parse_vnd(stripped):
+                if pending:
+                    _flush(pending['fallback_desc']); pending = None
+                current_date = d
+                continue
 
             # ── Noise ─────────────────────────────────────────────────────────
             if _SKIP_RE.match(stripped):
                 continue
 
-            # ── Amount extraction ─────────────────────────────────────────────
-            result = parse_vnd(stripped)
-            if result and current_date:
-                amount, tx_type = result
-                description = " ".join(desc_buffer).strip() or stripped
-                desc_buffer.clear()
-
-                # Confidence: OCR quality × field completeness
-                ocr_conf = mean_confidence(row)
-                field_conf = 0.5 + (0.3 if current_date else 0) + (0.2 if description else 0)
-                confidence = min(ocr_conf * field_conf, 1.0)
-
-                transactions.append(ParsedTransaction(
-                    date=current_date,
-                    amount=amount,
-                    tx_type=tx_type,
-                    description=description,
-                    confidence=confidence,
-                    raw_text=stripped,
-                    category_hint="Transportation" if tx_type == "expense" else None,
-                ))
+            if current_date is None:
                 continue
 
-            # ── Accumulate description lines ──────────────────────────────────
-            # Inline date on same row as description (e.g. "15/05  Coffee Shop")
-            inline_date = parse_date(stripped)
-            if inline_date:
-                current_date = inline_date
-                # Strip the date portion and keep the rest as description
-                remainder = re.sub(r'\d{1,2}[/\-]\d{1,2}(?:[/\-]\d{4})?', '', stripped).strip()
-                if remainder:
-                    desc_buffer = [remainder]
-                else:
-                    desc_buffer.clear()
-            else:
-                desc_buffer.append(stripped)
+            # ── Row A: signed amount → start pending transaction ──────────────
+            result = _signed_amount(stripped)
+            if result:
+                # Flush any previous pending (no row B was found between them)
+                if pending:
+                    _flush(pending['fallback_desc']); pending = None
+
+                amount, tx_type = result
+                fallback = _SIGNED_TOKEN_RE.sub('', stripped).strip() or stripped
+                pending = {
+                    'date': current_date,
+                    'amount': amount,
+                    'tx_type': tx_type,
+                    'fallback_desc': fallback,
+                    'confidence': min(mean_confidence(row) * 0.9, 1.0),
+                    'raw_text': stripped,
+                }
+                continue
+
+            # ── Row B: description + unsigned balance ─────────────────────────
+            if pending is not None:
+                desc = _BALANCE_RE.sub('', stripped).strip()
+                _flush(desc)
+                pending = None
+                # don't continue — fall through would just skip it anyway
+
+        # Flush any trailing pending
+        if pending:
+            _flush(pending['fallback_desc'])
 
         return transactions

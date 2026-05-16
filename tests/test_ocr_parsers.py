@@ -116,7 +116,7 @@ def _blocks_from_text(text: str) -> list[TextBlock]:
     ("Timo\nLịch sử giao dịch\n+1,500,000", ImportSource.TIMO),
     ("UOB Bank\nTransaction History\n-45,000", ImportSource.UOB),
     ("LioBank\nGiao dịch gần đây", ImportSource.LIOBANK),
-    ("Shopee Mall\nĐã giao\nTổng đơn hàng: ₫350,000", ImportSource.SHOPEE),
+    ("Don da mua\nShopee Mall\nHoan thanh\nTong so tien: 350.000d", ImportSource.SHOPEE),
     ("GrabFood\nMcDonald's\n₫125,000", ImportSource.GRAB),
 ])
 def test_detect_source(text, expected_source):
@@ -188,6 +188,7 @@ def test_timo_parser_confidence():
 # ── Shopee parser ─────────────────────────────────────────────────────────────
 
 def _shopee_blocks():
+    """Mirrors the real 'Đơn đã mua' (delivered orders) screenshot layout."""
     all_blocks = []
     y = 0.0
 
@@ -196,17 +197,17 @@ def _shopee_blocks():
         all_blocks.extend(row_at(y, *texts))
         y += dy
 
-    add_row("Shopee Mall")
-    add_row("Đã giao")
-    add_row("15 tháng 5 2026")
-    add_row("Sản phẩm A x1")
-    add_row("Tổng đơn hàng: ₫350,000")
+    # Order 1 — header row contains "Hoàn thành" as order status
+    add_row("Shopee Mall", "Shop A", "Hoàn thành")
+    add_row("Bot Cao Rau GILLETTE Huong Chanh san pham A")   # product name (len > 15)
+    add_row("Variant description here")                      # variant (also long — comes second)
+    add_row("350.000d")                                      # per-item price
+    add_row("Tổng số tiền (1 sản phẩm): 350.000đ")          # total line
 
-    add_row("Shopee Siêu Thị")
-    add_row("Đã giao")
-    add_row("14 tháng 5 2026")
-    add_row("Rau củ x3")
-    add_row("Tổng đơn hàng: ₫125,000")
+    # Order 2
+    add_row("Yeu thich+", "Shop B", "Hoàn thành")
+    add_row("Bot cacao nguyen chat 100 phan tram san pham B")
+    add_row("Tổng số tiền (1 sản phẩm): 125.000đ")
     return all_blocks
 
 
@@ -332,12 +333,11 @@ def test_processor_full_pipeline(tmp_path, monkeypatch):
     img  = tmp_path / "test.png"
     img.write_bytes(sig + ihdr + idat + iend)
 
-    # Fake OCR: return Shopee-like blocks
+    # Fake OCR: return Shopee-like blocks matching the real "Đơn đã mua" layout
     fake_blocks = (
-        row_at(0,   "Shopee Mall") +
-        row_at(40,  "Đã giao") +
-        row_at(80,  "15 tháng 5 2026") +
-        row_at(120, "Tổng đơn hàng: ₫350,000")
+        row_at(0,   "Shopee Mall", "Hoàn thành") +
+        row_at(40,  "San pham A la ten san pham rat dai va ro rang") +
+        row_at(80,  "Tổng số tiền (1 sản phẩm): 350.000đ")
     )
     monkeypatch.setattr("ocr_worker.ocr.extract_blocks", lambda _path: fake_blocks)
 

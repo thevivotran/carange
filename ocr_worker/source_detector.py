@@ -36,6 +36,9 @@ _RULES: dict[ImportSource, List[tuple[str, float]]] = {
         (r"đơn hàng shopee", 1.5),
         (r"shopee mall", 1.5),
         (r"shopee siêu thị", 1.5),
+        (r"don\s+da\s+mua", 2.0),      # OCR of "Đơn đã mua" — Shopee My Orders page
+        (r"đơn\s+đã\s+mua", 2.0),
+        (r"hoan\s+thanh.*tong.*tien", 1.5),  # order status + total — very Shopee-specific
     ],
     ImportSource.GRAB: [
         (r"\bgrab\b", 1.0),          # "grab" alone is lower weight (could be ambiguous)
