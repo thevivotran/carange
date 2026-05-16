@@ -1,7 +1,6 @@
 """Extended project tests — payments CRUD, bulk schedule, filters, stats."""
 
 import pytest
-from datetime import date
 
 
 def _project(client, **overrides):
@@ -238,8 +237,11 @@ def test_link_savings_to_project(client, project_id):
     bundle_id = client.post(
         "/api/savings/",
         json={
-            "name": "Bundle", "bank_name": "VCB", "type": "fixed_deposit",
-            "initial_deposit": 10_000_000, "future_amount": 10_500_000,
+            "name": "Bundle",
+            "bank_name": "VCB",
+            "type": "fixed_deposit",
+            "initial_deposit": 10_000_000,
+            "future_amount": 10_500_000,
             "start_date": "2026-01-01",
         },
     ).json()["id"]
@@ -257,8 +259,11 @@ def test_link_savings_nonexistent_project_returns_404(client):
     bundle_id = client.post(
         "/api/savings/",
         json={
-            "name": "Bundle", "bank_name": "VCB", "type": "fixed_deposit",
-            "initial_deposit": 10_000_000, "future_amount": 10_500_000,
+            "name": "Bundle",
+            "bank_name": "VCB",
+            "type": "fixed_deposit",
+            "initial_deposit": 10_000_000,
+            "future_amount": 10_500_000,
             "start_date": "2026-01-01",
         },
     ).json()["id"]

@@ -33,10 +33,12 @@ def test_dashboard_summary_with_transactions(client, db_session):
     db_session.add_all([inc_cat, exp_cat])
     db_session.commit()
 
-    db_session.add_all([
-        Transaction(date=date(2026, 5, 1), amount=10_000_000, type=TransactionType.INCOME, category_id=inc_cat.id),
-        Transaction(date=date(2026, 5, 2), amount=2_000_000, type=TransactionType.EXPENSE, category_id=exp_cat.id),
-    ])
+    db_session.add_all(
+        [
+            Transaction(date=date(2026, 5, 1), amount=10_000_000, type=TransactionType.INCOME, category_id=inc_cat.id),
+            Transaction(date=date(2026, 5, 2), amount=2_000_000, type=TransactionType.EXPENSE, category_id=exp_cat.id),
+        ]
+    )
     db_session.commit()
 
     r = client.get("/api/dashboard/summary?year=2026&month=5")
@@ -74,12 +76,14 @@ def test_monthly_trend_with_data(client, db_session):
     db_session.add_all([inc_cat, exp_cat])
     db_session.commit()
 
-    db_session.add(Transaction(
-        date=date.today().replace(day=1),
-        amount=15_000_000,
-        type=TransactionType.INCOME,
-        category_id=inc_cat.id,
-    ))
+    db_session.add(
+        Transaction(
+            date=date.today().replace(day=1),
+            amount=15_000_000,
+            type=TransactionType.INCOME,
+            category_id=inc_cat.id,
+        )
+    )
     db_session.commit()
 
     r = client.get("/api/dashboard/monthly-trend")
@@ -102,10 +106,14 @@ def test_expense_by_category_with_data(client, db_session):
     db_session.add(cat)
     db_session.commit()
 
-    db_session.add(Transaction(
-        date=date(2026, 5, 10), amount=3_000_000,
-        type=TransactionType.EXPENSE, category_id=cat.id,
-    ))
+    db_session.add(
+        Transaction(
+            date=date(2026, 5, 10),
+            amount=3_000_000,
+            type=TransactionType.EXPENSE,
+            category_id=cat.id,
+        )
+    )
     db_session.commit()
 
     r = client.get("/api/dashboard/expense-by-category?year=2026&month=5")
@@ -147,13 +155,15 @@ def test_wealth_building_trend_with_savings_category(client, db_session):
     db_session.add(tk_cat)
     db_session.commit()
 
-    db_session.add(Transaction(
-        date=date.today().replace(day=1),
-        amount=5_000_000,
-        type=TransactionType.EXPENSE,
-        category_id=tk_cat.id,
-        is_savings_related=True,
-    ))
+    db_session.add(
+        Transaction(
+            date=date.today().replace(day=1),
+            amount=5_000_000,
+            type=TransactionType.EXPENSE,
+            category_id=tk_cat.id,
+            is_savings_related=True,
+        )
+    )
     db_session.commit()
 
     r = client.get("/api/dashboard/wealth-building-trend")

@@ -61,26 +61,48 @@ def test_filter_by_category_id(client, cat_ids):
 
 
 def test_filter_by_is_advance(client, cat_ids):
-    _make_tx(client, date_str="2026-05-01", amount=1_000, type_="expense", category_id=cat_ids["expense"], is_advance=True)
-    _make_tx(client, date_str="2026-05-02", amount=2_000, type_="expense", category_id=cat_ids["expense"], is_advance=False)
+    _make_tx(
+        client, date_str="2026-05-01", amount=1_000, type_="expense", category_id=cat_ids["expense"], is_advance=True
+    )
+    _make_tx(
+        client, date_str="2026-05-02", amount=2_000, type_="expense", category_id=cat_ids["expense"], is_advance=False
+    )
     r = client.get("/api/transactions/?is_advance=true")
     assert r.status_code == 200
     assert all(t["is_advance"] is True for t in r.json())
 
 
 def test_filter_by_advance_settled(client, cat_ids):
-    _make_tx(client, date_str="2026-05-01", amount=1_000, type_="expense", category_id=cat_ids["expense"],
-             is_advance=True, advance_settled=True)
-    _make_tx(client, date_str="2026-05-02", amount=2_000, type_="expense", category_id=cat_ids["expense"],
-             is_advance=True, advance_settled=False)
+    _make_tx(
+        client,
+        date_str="2026-05-01",
+        amount=1_000,
+        type_="expense",
+        category_id=cat_ids["expense"],
+        is_advance=True,
+        advance_settled=True,
+    )
+    _make_tx(
+        client,
+        date_str="2026-05-02",
+        amount=2_000,
+        type_="expense",
+        category_id=cat_ids["expense"],
+        is_advance=True,
+        advance_settled=False,
+    )
     r = client.get("/api/transactions/?advance_settled=false")
     assert r.status_code == 200
     assert all(t["advance_settled"] is False for t in r.json())
 
 
 def test_filter_by_source(client, cat_ids):
-    _make_tx(client, date_str="2026-05-01", amount=1_000, type_="income", category_id=cat_ids["income"], source="manual")
-    _make_tx(client, date_str="2026-05-02", amount=2_000, type_="income", category_id=cat_ids["income"], source="import")
+    _make_tx(
+        client, date_str="2026-05-01", amount=1_000, type_="income", category_id=cat_ids["income"], source="manual"
+    )
+    _make_tx(
+        client, date_str="2026-05-02", amount=2_000, type_="income", category_id=cat_ids["income"], source="import"
+    )
     r = client.get("/api/transactions/?source=import")
     assert r.status_code == 200
     assert all(t["source"] == "import" for t in r.json())
@@ -160,10 +182,7 @@ def test_bulk_upload_english_csv(client, cat_ids):
 
 def test_bulk_upload_skips_duplicates_across_calls(client, cat_ids):
     """A row already committed to the DB is skipped on a second upload call."""
-    csv_content = (
-        "date,amount,type,category,description\n"
-        "2026-05-01,1000000,income,Salary,May salary\n"
-    )
+    csv_content = "date,amount,type,category,description\n2026-05-01,1000000,income,Salary,May salary\n"
     client.post(
         "/api/transactions/bulk-upload",
         files={"file": ("import.csv", io.BytesIO(csv_content.encode()), "text/csv")},
@@ -180,10 +199,7 @@ def test_bulk_upload_skips_duplicates_across_calls(client, cat_ids):
 
 
 def test_bulk_upload_invalid_date_skipped(client):
-    csv_content = (
-        "date,amount,type,category\n"
-        "not-a-date,1000,income,Salary\n"
-    )
+    csv_content = "date,amount,type,category\nnot-a-date,1000,income,Salary\n"
     r = client.post(
         "/api/transactions/bulk-upload",
         files={"file": ("import.csv", io.BytesIO(csv_content.encode()), "text/csv")},
@@ -211,11 +227,7 @@ def test_bulk_upload_empty_file_returns_400(client):
 
 
 def test_bulk_upload_vietnamese_csv(client):
-    csv_content = (
-        "Năm,Tháng,Thu,Chi,Loại,Ghi chú\n"
-        "2026,5,10000000,0,Lương,Tháng 5\n"
-        "2026,5,0,3000000,Ăn uống,Bữa trưa\n"
-    )
+    csv_content = "Năm,Tháng,Thu,Chi,Loại,Ghi chú\n2026,5,10000000,0,Lương,Tháng 5\n2026,5,0,3000000,Ăn uống,Bữa trưa\n"
     r = client.post(
         "/api/transactions/bulk-upload",
         files={"file": ("vn.csv", io.BytesIO(csv_content.encode("utf-8")), "text/csv")},
@@ -228,10 +240,7 @@ def test_bulk_upload_vietnamese_csv(client):
 
 
 def test_bulk_upload_invalid_type_skipped(client):
-    csv_content = (
-        "date,amount,type,category\n"
-        "2026-05-01,1000,badtype,Salary\n"
-    )
+    csv_content = "date,amount,type,category\n2026-05-01,1000,badtype,Salary\n"
     r = client.post(
         "/api/transactions/bulk-upload",
         files={"file": ("import.csv", io.BytesIO(csv_content.encode()), "text/csv")},
@@ -241,10 +250,7 @@ def test_bulk_upload_invalid_type_skipped(client):
 
 
 def test_bulk_upload_zero_amount_skipped(client):
-    csv_content = (
-        "date,amount,type,category\n"
-        "2026-05-01,0,income,Salary\n"
-    )
+    csv_content = "date,amount,type,category\n2026-05-01,0,income,Salary\n"
     r = client.post(
         "/api/transactions/bulk-upload",
         files={"file": ("import.csv", io.BytesIO(csv_content.encode()), "text/csv")},
@@ -255,10 +261,7 @@ def test_bulk_upload_zero_amount_skipped(client):
 
 def test_bulk_upload_alternative_column_names(client):
     """Accepts 'transaction_date' and 'amount_vnd' as alternative column names."""
-    csv_content = (
-        "transaction_date,amount_vnd,transaction_type,category_name\n"
-        "2026-05-01,500000,income,Salary\n"
-    )
+    csv_content = "transaction_date,amount_vnd,transaction_type,category_name\n2026-05-01,500000,income,Salary\n"
     r = client.post(
         "/api/transactions/bulk-upload",
         files={"file": ("import.csv", io.BytesIO(csv_content.encode()), "text/csv")},
@@ -268,10 +271,7 @@ def test_bulk_upload_alternative_column_names(client):
 
 
 def test_bulk_upload_invalid_amount_format_skipped(client):
-    csv_content = (
-        "date,amount,type,category\n"
-        "2026-05-01,not_a_number,income,Salary\n"
-    )
+    csv_content = "date,amount,type,category\n2026-05-01,not_a_number,income,Salary\n"
     r = client.post(
         "/api/transactions/bulk-upload",
         files={"file": ("import.csv", io.BytesIO(csv_content.encode()), "text/csv")},
@@ -281,10 +281,7 @@ def test_bulk_upload_invalid_amount_format_skipped(client):
 
 
 def test_bulk_upload_empty_category_skipped(client):
-    csv_content = (
-        "date,amount,type,category\n"
-        "2026-05-01,1000,income,\n"
-    )
+    csv_content = "date,amount,type,category\n2026-05-01,1000,income,\n"
     r = client.post(
         "/api/transactions/bulk-upload",
         files={"file": ("import.csv", io.BytesIO(csv_content.encode()), "text/csv")},
@@ -295,10 +292,7 @@ def test_bulk_upload_empty_category_skipped(client):
 
 def test_bulk_upload_invalid_payment_method_defaults_to_cash(client):
     """Invalid payment_method is silently normalized to 'cash'."""
-    csv_content = (
-        "date,amount,type,category,payment_method\n"
-        "2026-05-01,500000,income,Salary,carrier_pigeon\n"
-    )
+    csv_content = "date,amount,type,category,payment_method\n2026-05-01,500000,income,Salary,carrier_pigeon\n"
     r = client.post(
         "/api/transactions/bulk-upload",
         files={"file": ("import.csv", io.BytesIO(csv_content.encode()), "text/csv")},
@@ -330,10 +324,7 @@ def test_bulk_upload_vietnamese_missing_required_column(client):
 
 def test_bulk_upload_vietnamese_missing_year_skipped(client):
     """Row without year/month is skipped."""
-    csv_content = (
-        "Năm,Tháng,Thu,Chi,Loại\n"
-        ",,10000000,0,Lương\n"
-    )
+    csv_content = "Năm,Tháng,Thu,Chi,Loại\n,,10000000,0,Lương\n"
     r = client.post(
         "/api/transactions/bulk-upload",
         files={"file": ("vn.csv", io.BytesIO(csv_content.encode("utf-8")), "text/csv")},
@@ -344,10 +335,7 @@ def test_bulk_upload_vietnamese_missing_year_skipped(client):
 
 def test_bulk_upload_vietnamese_missing_category_error(client):
     """Row with empty category name logs an error and is skipped."""
-    csv_content = (
-        "Năm,Tháng,Thu,Chi,Loại\n"
-        "2026,5,10000000,0,\n"
-    )
+    csv_content = "Năm,Tháng,Thu,Chi,Loại\n2026,5,10000000,0,\n"
     r = client.post(
         "/api/transactions/bulk-upload",
         files={"file": ("vn.csv", io.BytesIO(csv_content.encode("utf-8")), "text/csv")},
@@ -358,10 +346,7 @@ def test_bulk_upload_vietnamese_missing_category_error(client):
 
 def test_bulk_upload_vietnamese_zero_amounts_skipped(client):
     """Row with both Thu=0 and Chi=0 is skipped."""
-    csv_content = (
-        "Năm,Tháng,Thu,Chi,Loại\n"
-        "2026,5,0,0,Tiết kiệm\n"
-    )
+    csv_content = "Năm,Tháng,Thu,Chi,Loại\n2026,5,0,0,Tiết kiệm\n"
     r = client.post(
         "/api/transactions/bulk-upload",
         files={"file": ("vn.csv", io.BytesIO(csv_content.encode("utf-8")), "text/csv")},

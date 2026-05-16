@@ -1,6 +1,5 @@
 """Extended category tests — duplicate guard, filters, merge, toggle-active."""
 
-import pytest
 from datetime import date
 
 from app.models.database import Category as CatModel, Transaction as TxModel, TransactionType
@@ -36,7 +35,9 @@ def test_update_category_name_collision_returns_400(client):
     cat_b_id = client.post(
         "/api/categories/", json={"name": "CatB", "type": "expense", "color": "#bbb", "icon": "x"}
     ).json()["id"]
-    r = client.put(f"/api/categories/{cat_b_id}", json={"name": "CatA", "type": "expense", "color": "#ccc", "icon": "x"})
+    r = client.put(
+        f"/api/categories/{cat_b_id}", json={"name": "CatA", "type": "expense", "color": "#ccc", "icon": "x"}
+    )
     assert r.status_code == 400
     assert "already exists" in r.json()["detail"]
 

@@ -147,10 +147,14 @@ def test_get_monthly_income_with_data(client, db_session):
     inc_cat = Category(name="IncBE", type=TransactionType.INCOME, color="#10B981", icon="money")
     db_session.add(inc_cat)
     db_session.commit()
-    db_session.add(Transaction(
-        date=date(2026, 5, 15), amount=10_000_000,
-        type=TransactionType.INCOME, category_id=inc_cat.id,
-    ))
+    db_session.add(
+        Transaction(
+            date=date(2026, 5, 15),
+            amount=10_000_000,
+            type=TransactionType.INCOME,
+            category_id=inc_cat.id,
+        )
+    )
     db_session.commit()
     r = client.get("/api/budget/2026-05/monthly-income")
     assert r.status_code == 200

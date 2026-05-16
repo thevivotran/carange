@@ -26,10 +26,17 @@ def _bundle(client, **overrides):
 
 def test_list_savings_filter_by_status(client):
     active_id = _bundle(client, name="Active Bundle")["id"]
-    client.post("/api/savings/", json={
-        "name": "Bundle2", "bank_name": "VCB", "type": "fixed_deposit",
-        "initial_deposit": 10_000_000, "future_amount": 10_500_000, "start_date": "2026-01-01",
-    })
+    client.post(
+        "/api/savings/",
+        json={
+            "name": "Bundle2",
+            "bank_name": "VCB",
+            "type": "fixed_deposit",
+            "initial_deposit": 10_000_000,
+            "future_amount": 10_500_000,
+            "start_date": "2026-01-01",
+        },
+    )
     client.post(f"/api/savings/{active_id}/mark-completed")
 
     r = client.get("/api/savings/?status=active")
@@ -48,21 +55,35 @@ def test_create_bundle_with_linked_project(client):
     project_id = client.post(
         "/api/projects/", json={"name": "House", "type": "real_estate", "priority": "high"}
     ).json()["id"]
-    r = client.post("/api/savings/", json={
-        "name": "Linked Bundle", "bank_name": "VCB", "type": "fixed_deposit",
-        "initial_deposit": 50_000_000, "future_amount": 53_000_000,
-        "start_date": "2026-01-01", "linked_project_id": project_id,
-    })
+    r = client.post(
+        "/api/savings/",
+        json={
+            "name": "Linked Bundle",
+            "bank_name": "VCB",
+            "type": "fixed_deposit",
+            "initial_deposit": 50_000_000,
+            "future_amount": 53_000_000,
+            "start_date": "2026-01-01",
+            "linked_project_id": project_id,
+        },
+    )
     assert r.status_code == 200
     assert r.json()["linked_project_id"] == project_id
 
 
 def test_create_bundle_with_nonexistent_project_returns_404(client):
-    r = client.post("/api/savings/", json={
-        "name": "Ghost Bundle", "bank_name": "VCB", "type": "fixed_deposit",
-        "initial_deposit": 50_000_000, "future_amount": 53_000_000,
-        "start_date": "2026-01-01", "linked_project_id": 999999,
-    })
+    r = client.post(
+        "/api/savings/",
+        json={
+            "name": "Ghost Bundle",
+            "bank_name": "VCB",
+            "type": "fixed_deposit",
+            "initial_deposit": 50_000_000,
+            "future_amount": 53_000_000,
+            "start_date": "2026-01-01",
+            "linked_project_id": 999999,
+        },
+    )
     assert r.status_code == 404
 
 
@@ -77,11 +98,17 @@ def test_update_bundle_with_nonexistent_linked_project_returns_404(client):
 
 def test_create_bundle_without_current_amount_defaults_to_zero(client):
     """When current_amount is omitted, the schema default of 0 is used."""
-    r = client.post("/api/savings/", json={
-        "name": "No Current", "bank_name": "VCB", "type": "fixed_deposit",
-        "initial_deposit": 50_000_000, "future_amount": 53_000_000,
-        "start_date": "2026-01-01",
-    })
+    r = client.post(
+        "/api/savings/",
+        json={
+            "name": "No Current",
+            "bank_name": "VCB",
+            "type": "fixed_deposit",
+            "initial_deposit": 50_000_000,
+            "future_amount": 53_000_000,
+            "start_date": "2026-01-01",
+        },
+    )
     assert r.status_code == 200
     assert r.json()["current_amount"] == pytest.approx(0)
 
@@ -148,11 +175,18 @@ def test_update_nonexistent_bundle_returns_404(client):
 
 def test_create_bundle_with_explicit_current_amount(client):
     """Providing current_amount explicitly persists the given value."""
-    r = client.post("/api/savings/", json={
-        "name": "Explicit Current", "bank_name": "VCB", "type": "fixed_deposit",
-        "initial_deposit": 50_000_000, "current_amount": 25_000_000, "future_amount": 53_000_000,
-        "start_date": "2026-01-01",
-    })
+    r = client.post(
+        "/api/savings/",
+        json={
+            "name": "Explicit Current",
+            "bank_name": "VCB",
+            "type": "fixed_deposit",
+            "initial_deposit": 50_000_000,
+            "current_amount": 25_000_000,
+            "future_amount": 53_000_000,
+            "start_date": "2026-01-01",
+        },
+    )
     assert r.status_code == 200
     assert r.json()["current_amount"] == pytest.approx(25_000_000)
 

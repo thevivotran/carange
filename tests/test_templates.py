@@ -14,9 +14,7 @@ def expense_cat(client):
 
 @pytest.fixture()
 def income_cat(client):
-    r = client.post(
-        "/api/categories/", json={"name": "Salary", "type": "income", "color": "#10B981", "icon": "money"}
-    )
+    r = client.post("/api/categories/", json={"name": "Salary", "type": "income", "color": "#10B981", "icon": "money"})
     assert r.status_code == 200
     return r.json()["id"]
 
@@ -91,8 +89,10 @@ def test_list_templates_filter_by_category(client, expense_cat, income_cat):
 def test_list_templates_filter_by_is_active(client, expense_cat):
     t = _template(client, expense_cat, name="ActiveTpl")
     _template(client, expense_cat, name="InactiveTpl")
-    client.put(f"/api/templates/{t['id']}", json={"is_active": False, "name": "ActiveTpl",
-               "amount": 50_000, "type": "expense", "category_id": expense_cat})
+    client.put(
+        f"/api/templates/{t['id']}",
+        json={"is_active": False, "name": "ActiveTpl", "amount": 50_000, "type": "expense", "category_id": expense_cat},
+    )
     r = client.get("/api/templates/?is_active=true")
     assert r.status_code == 200
     assert all(t["is_active"] is True for t in r.json())
