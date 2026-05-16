@@ -3,6 +3,7 @@ Shared utilities: row grouping, VND amount parsing, Vietnamese date parsing,
 and the BaseParser ABC.
 """
 import re
+import unicodedata
 from abc import ABC, abstractmethod
 from datetime import date, datetime
 from typing import List, Optional
@@ -142,6 +143,16 @@ def mean_confidence(blocks: List[TextBlock]) -> float:
     if not blocks:
         return 0.0
     return sum(b.confidence for b in blocks) / len(blocks)
+
+
+# ── Vietnamese normalisation ───────────────────────────────────────────────────
+
+def normalize_vi(text: str) -> str:
+    """Remove Vietnamese tonal marks and diacritics, keeping plain Latin letters."""
+    nfd = unicodedata.normalize('NFD', text)
+    stripped = ''.join(c for c in nfd if unicodedata.category(c) != 'Mn')
+    # đ/Đ has no combining form — replace explicitly
+    return stripped.replace('đ', 'd').replace('Đ', 'D')
 
 
 # ── Base parser ────────────────────────────────────────────────────────────────

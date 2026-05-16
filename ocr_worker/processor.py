@@ -16,6 +16,7 @@ from app.models.database import (
 )
 from ocr_worker import ocr as _ocr_mod   # module ref — allows monkeypatching in tests
 from ocr_worker.parsers import get_parser
+from ocr_worker.parsers.base import normalize_vi
 from ocr_worker.source_detector import detect_source
 from ocr_worker.types import ParsedTransaction
 
@@ -91,7 +92,7 @@ def _commit_transactions(
             amount=pt.amount,
             type=TransactionType(pt.tx_type),
             category_id=category_id,
-            description=pt.description or None,
+            description=normalize_vi(pt.description) if pt.description else None,
             payment_method="bank_transfer",
             source=source.value if source else "ocr",
             import_job_id=job.id,
