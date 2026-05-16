@@ -156,11 +156,21 @@ def _resolve_category(db: Session, pt: ParsedTransaction) -> Optional[int]:
     return cat.id if cat else None
 
 
+def _cleanup_file(job: ImportJob) -> None:
+    if job.file_path and os.path.isfile(job.file_path):
+        try:
+            os.remove(job.file_path)
+            log.info("Job %d: deleted image %s", job.id, job.file_path)
+        except OSError as exc:
+            log.warning("Job %d: could not delete image %s: %s", job.id, job.file_path, exc)
+
+
 def _done(db: Session, job: ImportJob, *, transaction_count: int) -> None:
     job.status = ImportJobStatus.DONE
     job.transaction_count = transaction_count
     job.processed_at = datetime.now(timezone.utc)
     db.commit()
+    _cleanup_file(job)
     log.info("Job %d → DONE (%d transactions)", job.id, transaction_count)
 
 
@@ -169,4 +179,5 @@ def _fail(db: Session, job: ImportJob, reason: str) -> None:
     job.error_message = reason
     job.processed_at = datetime.now(timezone.utc)
     db.commit()
+    _cleanup_file(job)
     log.warning("Job %d → FAILED: %s", job.id, reason)
