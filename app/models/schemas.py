@@ -15,6 +15,8 @@ from app.models.database import (
     Priority,
     PaymentStatus,
     AssetType,
+    ImportJobStatus,
+    ImportSource,
 )
 
 
@@ -172,6 +174,7 @@ class TransactionUpdate(BaseModel):
     source: Optional[str] = None
     savings_bundle_id: Optional[int] = None
     project_id: Optional[int] = None
+    needs_review: Optional[bool] = None  # human clears the review flag after correction
 
 
 class Transaction(TransactionBase):
@@ -181,6 +184,9 @@ class Transaction(TransactionBase):
     advance_settled: bool = False
     savings_bundle_id: Optional[int]
     project_id: Optional[int]
+    import_job_id: Optional[int] = None
+    confidence_score: Optional[float] = None
+    needs_review: bool = False
     created_at: datetime
     updated_at: datetime
     category: Category
@@ -438,3 +444,35 @@ class BudgetCategoryRow(BaseModel):
     available_balance: float  # cumulative_allocated - cumulative_spent
     usage_pct: float  # this_month_spent / monthly_allocation * 100
     allocation_id: Optional[int]  # None if inherited
+
+
+# Import Job Schemas
+class ImportJobCreate(BaseModel):
+    filename: str
+    file_path: str
+    image_hash: str
+    source_hint: Optional[ImportSource] = None
+
+
+class ImportJobUpdate(BaseModel):
+    status: Optional[ImportJobStatus] = None
+    detected_source: Optional[ImportSource] = None
+    error_message: Optional[str] = None
+    transaction_count: Optional[int] = None
+    processed_at: Optional[datetime] = None
+
+
+class ImportJob(BaseModel):
+    id: int
+    filename: str
+    file_path: str
+    image_hash: str
+    source_hint: Optional[ImportSource]
+    detected_source: Optional[ImportSource]
+    status: ImportJobStatus
+    error_message: Optional[str]
+    transaction_count: int
+    created_at: datetime
+    processed_at: Optional[datetime]
+
+    model_config = ConfigDict(from_attributes=True)

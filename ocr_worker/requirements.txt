@@ -1,0 +1,7 @@
+# OCR worker dependencies — installed in the separate carange-ocr-worker image.
+# NOT included in the main carange requirements.txt to keep the app image lean.
+
+paddlepaddle>=3.0.0
+paddleocr>=2.9.1
+opencv-python-headless>=4.9.0
+pillow>=10.0.0

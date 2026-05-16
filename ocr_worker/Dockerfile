@@ -1,0 +1,32 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# System libs required by OpenCV and PaddlePaddle
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        libglib2.0-0 libsm6 libxext6 libxrender1 libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Base carange deps first (shared layer with the app image)
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Worker-specific deps in a separate layer so the heavy layer is cached
+COPY ocr_worker/requirements.txt ./ocr_worker/requirements.txt
+RUN pip install --no-cache-dir -r ocr_worker/requirements.txt
+
+# App code
+COPY . .
+
+# Pre-download Vietnamese OCR models so the first job starts immediately.
+# This bakes the model weights (~80 MB) into the image layer.
+RUN python -c "\
+from paddleocr import PaddleOCR; \
+PaddleOCR(use_angle_cls=True, lang='vi', use_gpu=False, show_log=False); \
+print('Models downloaded OK')"
+
+ENV DATABASE_URL=sqlite:////data/carange.db
+ENV UPLOAD_DIR=/data/uploads
+ENV PYTHONUNBUFFERED=1
+
+CMD ["python", "-m", "ocr_worker.worker"]

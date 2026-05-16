@@ -17,6 +17,7 @@ from app.routers import transactions, categories, savings, projects, dashboard, 
 from app.routers import assets
 from app.routers import notes
 from app.routers import budget
+from app.routers import import_jobs
 from app.routers.dashboard import get_dashboard_page_data
 
 
@@ -32,6 +33,12 @@ def _migrate_db():
             conn.execute(text("ALTER TABLE transactions ADD COLUMN advance_settled BOOLEAN DEFAULT 0"))
         if "source" not in cols:
             conn.execute(text("ALTER TABLE transactions ADD COLUMN source VARCHAR(30) DEFAULT 'manual'"))
+        if "import_job_id" not in cols:
+            conn.execute(text("ALTER TABLE transactions ADD COLUMN import_job_id INTEGER"))
+        if "confidence_score" not in cols:
+            conn.execute(text("ALTER TABLE transactions ADD COLUMN confidence_score REAL"))
+        if "needs_review" not in cols:
+            conn.execute(text("ALTER TABLE transactions ADD COLUMN needs_review BOOLEAN NOT NULL DEFAULT 0"))
 
         existing_idx = {r[0] for r in conn.execute(text("SELECT name FROM sqlite_master WHERE type='index'"))}
         if "ix_transactions_type_date" not in existing_idx:
@@ -103,6 +110,7 @@ app.include_router(templates_router.router, prefix="/api/templates")
 app.include_router(assets.router, prefix="/api/assets")
 app.include_router(notes.router, prefix="/api/notes")
 app.include_router(budget.router, prefix="/api/budget")
+app.include_router(import_jobs.router, prefix="/api/import")
 
 
 @app.get("/health")
@@ -162,6 +170,11 @@ async def notes_page(request: Request):
 @app.get("/budget", response_class=HTMLResponse)
 async def budget_page(request: Request):
     return templates.TemplateResponse(request, "budget/index.html", {"active_menu": "budget"})
+
+
+@app.get("/import", response_class=HTMLResponse)
+async def import_page(request: Request):
+    return templates.TemplateResponse(request, "import/upload.html", {"active_menu": "import"})
 
 
 if __name__ == "__main__":

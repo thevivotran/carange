@@ -28,6 +28,7 @@ def get_transactions(
     is_advance: Optional[bool] = None,
     advance_settled: Optional[bool] = None,
     source: Optional[str] = None,
+    needs_review: Optional[bool] = None,
     db: Session = Depends(get_db),
 ):
     # Validate date range
@@ -54,6 +55,8 @@ def get_transactions(
         query = query.filter(Transaction.advance_settled == advance_settled)
     if source:
         query = query.filter(Transaction.source == source)
+    if needs_review is not None:
+        query = query.filter(Transaction.needs_review == needs_review)
 
     return query.order_by(Transaction.date.desc()).offset(skip).limit(limit).all()
 

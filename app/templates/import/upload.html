@@ -1,0 +1,466 @@
+{% extends "base.html" %}
+
+{% block title %}Import Transactions — Carange{% endblock %}
+
+{% block content %}
+<div class="p-6 pb-28 max-w-4xl mx-auto">
+
+    <!-- Page Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-800">Import Transactions</h2>
+            <p class="text-gray-600 mt-1">Upload screenshots from Timo, UOB, LioBank, Shopee or Grab</p>
+        </div>
+        <div id="upload-action-area" class="flex items-center gap-3">
+            <button id="upload-btn"
+                    class="hidden bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition flex items-center gap-2">
+                <i class="fas fa-upload"></i>
+                <span id="upload-btn-label">Upload</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Drop Zone -->
+    <div id="drop-zone"
+         class="relative border-2 border-dashed border-gray-300 rounded-xl p-10 mb-6 text-center bg-white
+                transition hover:border-primary hover:bg-blue-50 cursor-pointer">
+        <input id="file-input" type="file" accept="image/*" multiple class="hidden">
+        <div id="drop-prompt">
+            <i class="fas fa-cloud-upload-alt text-4xl text-gray-300 mb-3"></i>
+            <p class="text-gray-500 font-medium">Drag &amp; drop screenshots here</p>
+            <p class="text-gray-400 text-sm mt-1">or click to browse &nbsp;·&nbsp; JPEG, PNG, WebP, HEIC &nbsp;·&nbsp; max 20 MB each</p>
+            <div class="mt-4">
+                <label class="block text-xs font-medium text-gray-500 mb-1">Source (optional — helps OCR accuracy)</label>
+                <select id="source-hint"
+                        class="border rounded-lg px-3 py-2 text-sm text-gray-700 bg-white focus:ring-2 focus:ring-primary">
+                    <option value="">Auto-detect</option>
+                    <option value="timo">Timo</option>
+                    <option value="uob">UOB</option>
+                    <option value="liobank">LioBank</option>
+                    <option value="shopee">Shopee</option>
+                    <option value="grab">Grab</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Staged file list (before upload) -->
+    <div id="staged-section" class="hidden mb-6">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold text-gray-700">Ready to upload</h3>
+            <button onclick="clearStaged()" class="text-sm text-gray-400 hover:text-red-500 transition">Clear all</button>
+        </div>
+        <div id="staged-list" class="space-y-2"></div>
+    </div>
+
+    <!-- Upload progress bar -->
+    <div id="progress-section" class="hidden mb-6">
+        <div class="flex items-center justify-between text-sm text-gray-600 mb-1">
+            <span id="progress-label">Uploading…</span>
+            <span id="progress-pct">0%</span>
+        </div>
+        <div class="w-full bg-gray-100 rounded-full h-2">
+            <div id="progress-bar" class="bg-primary h-2 rounded-full transition-all duration-300" style="width:0%"></div>
+        </div>
+    </div>
+
+    <!-- Job History -->
+    <div>
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold text-gray-700">Job History</h3>
+            <div class="flex gap-2">
+                <button onclick="loadJobs('all')" id="filter-all"
+                        class="job-filter-btn text-xs px-3 py-1 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition active-filter">
+                    All
+                </button>
+                <button onclick="loadJobs('pending')" id="filter-pending"
+                        class="job-filter-btn text-xs px-3 py-1 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition">
+                    Pending
+                </button>
+                <button onclick="loadJobs('done')" id="filter-done"
+                        class="job-filter-btn text-xs px-3 py-1 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition">
+                    Done
+                </button>
+                <button onclick="loadJobs('failed')" id="filter-failed"
+                        class="job-filter-btn text-xs px-3 py-1 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition">
+                    Failed
+                </button>
+            </div>
+        </div>
+        <div id="job-list" class="space-y-3">
+            <div class="text-center py-10 text-gray-400">
+                <i class="fas fa-inbox text-3xl mb-2"></i>
+                <p class="text-sm">No import jobs yet</p>
+            </div>
+        </div>
+        <div id="job-list-empty" class="hidden text-center py-10 text-gray-400">
+            <i class="fas fa-inbox text-3xl mb-2"></i>
+            <p class="text-sm">No jobs match this filter</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .job-filter-btn.active-filter {
+        background-color: #3B82F6;
+        color: #fff;
+        border-color: #3B82F6;
+    }
+    #drop-zone.drag-over {
+        border-color: #3B82F6;
+        background-color: rgba(59, 130, 246, 0.06);
+    }
+    .status-badge-pending    { background:rgba(107,114,128,.15); color:#6b7280; }
+    .status-badge-processing { background:rgba(245,158,11,.15);  color:#d97706; }
+    .status-badge-done       { background:rgba(16,185,129,.15);  color:#059669; }
+    .status-badge-failed     { background:rgba(239,68,68,.15);   color:#dc2626; }
+
+    .dark .status-badge-pending    { background:rgba(107,114,128,.25); color:#9ca3af; }
+    .dark .status-badge-processing { background:rgba(245,158,11,.25);  color:#fbbf24; }
+    .dark .status-badge-done       { background:rgba(16,185,129,.25);  color:#34d399; }
+    .dark .status-badge-failed     { background:rgba(239,68,68,.25);   color:#f87171; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── State ─────────────────────────────────────────────────────────────────────
+const stagedFiles = [];        // File objects waiting to upload
+let currentFilter = 'all';
+let pollTimer = null;
+
+// ── Drop zone ─────────────────────────────────────────────────────────────────
+const dropZone   = document.getElementById('drop-zone');
+const fileInput  = document.getElementById('file-input');
+
+dropZone.addEventListener('click', function(e) {
+    if (e.target.closest('select')) return;   // don't open picker when clicking source dropdown
+    fileInput.click();
+});
+dropZone.addEventListener('dragover',  function(e) { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', function()  { dropZone.classList.remove('drag-over'); });
+dropZone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    stageFiles(Array.from(e.dataTransfer.files));
+});
+fileInput.addEventListener('change', function() {
+    stageFiles(Array.from(fileInput.files));
+    fileInput.value = '';
+});
+
+function stageFiles(files) {
+    files.forEach(function(f) {
+        if (!f.type.startsWith('image/') && !f.name.match(/\.(heic|heif)$/i)) {
+            showToast(f.name + ': not an image', 'error');
+            return;
+        }
+        if (f.size > 20 * 1024 * 1024) {
+            showToast(f.name + ' exceeds 20 MB', 'error');
+            return;
+        }
+        if (stagedFiles.some(function(s) { return s.name === f.name && s.size === f.size; })) return;
+        stagedFiles.push(f);
+    });
+    renderStaged();
+}
+
+function renderStaged() {
+    const section  = document.getElementById('staged-section');
+    const list     = document.getElementById('staged-list');
+    const uploadBtn = document.getElementById('upload-btn');
+    const btnLabel  = document.getElementById('upload-btn-label');
+
+    while (list.firstChild) list.removeChild(list.firstChild);
+
+    if (!stagedFiles.length) {
+        section.classList.add('hidden');
+        uploadBtn.classList.add('hidden');
+        return;
+    }
+
+    section.classList.remove('hidden');
+    uploadBtn.classList.remove('hidden');
+    btnLabel.textContent = 'Upload ' + stagedFiles.length + (stagedFiles.length === 1 ? ' file' : ' files');
+
+    stagedFiles.forEach(function(f, idx) {
+        const card = document.createElement('div');
+        card.className = 'flex items-center gap-3 bg-white border rounded-lg px-4 py-3 shadow-sm';
+
+        // Thumbnail
+        const thumb = document.createElement('img');
+        thumb.className = 'w-12 h-12 object-cover rounded-md flex-shrink-0 bg-gray-100';
+        thumb.alt = f.name;
+        const reader = new FileReader();
+        reader.onload = function(ev) { thumb.src = ev.target.result; };
+        reader.readAsDataURL(f);
+
+        // Info
+        const info = document.createElement('div');
+        info.className = 'flex-1 min-w-0';
+        const nameEl = document.createElement('p');
+        nameEl.className = 'text-sm font-medium text-gray-700 truncate';
+        nameEl.textContent = f.name;
+        const sizeEl = document.createElement('p');
+        sizeEl.className = 'text-xs text-gray-400 mt-0.5';
+        sizeEl.textContent = (f.size / 1024).toFixed(0) + ' KB';
+        info.appendChild(nameEl);
+        info.appendChild(sizeEl);
+
+        // Remove button
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'flex-shrink-0 text-gray-300 hover:text-red-500 transition p-1';
+        removeBtn.setAttribute('aria-label', 'Remove');
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-times';
+        removeBtn.appendChild(icon);
+        removeBtn.addEventListener('click', function() {
+            stagedFiles.splice(idx, 1);
+            renderStaged();
+        });
+
+        card.appendChild(thumb);
+        card.appendChild(info);
+        card.appendChild(removeBtn);
+        list.appendChild(card);
+    });
+}
+
+function clearStaged() {
+    stagedFiles.length = 0;
+    renderStaged();
+}
+
+// ── Upload ────────────────────────────────────────────────────────────────────
+document.getElementById('upload-btn').addEventListener('click', doUpload);
+
+async function doUpload() {
+    if (!stagedFiles.length) return;
+
+    const progressSection = document.getElementById('progress-section');
+    const progressBar     = document.getElementById('progress-bar');
+    const progressPct     = document.getElementById('progress-pct');
+    const progressLabel   = document.getElementById('progress-label');
+    const uploadBtn       = document.getElementById('upload-btn');
+
+    uploadBtn.disabled = true;
+    progressSection.classList.remove('hidden');
+    progressLabel.textContent = 'Uploading…';
+    progressBar.style.width = '0%';
+    progressPct.textContent  = '0%';
+
+    const hint = document.getElementById('source-hint').value;
+    let done = 0;
+    let errCount = 0;
+
+    // Upload one at a time so we can show progress
+    for (let i = 0; i < stagedFiles.length; i++) {
+        const f = stagedFiles[i];
+        const fd = new FormData();
+        fd.append('files', f);
+        if (hint) fd.append('source_hint', hint);
+
+        try {
+            const res = await fetch('/api/import/jobs', { method: 'POST', body: fd });
+            if (!res.ok) {
+                const err = await res.json().catch(function() { return {}; });
+                showToast((err.detail || 'Upload failed') + ': ' + f.name, 'error');
+                errCount++;
+            }
+        } catch(e) {
+            showToast('Network error uploading ' + f.name, 'error');
+            errCount++;
+        }
+        done++;
+        const pct = Math.round(done / stagedFiles.length * 100);
+        progressBar.style.width = pct + '%';
+        progressPct.textContent  = pct + '%';
+    }
+
+    uploadBtn.disabled = false;
+    progressLabel.textContent = 'Done';
+
+    setTimeout(function() { progressSection.classList.add('hidden'); }, 1500);
+
+    if (errCount === 0) {
+        showToast(stagedFiles.length + ' file(s) queued for processing', 'success');
+    } else {
+        showToast((stagedFiles.length - errCount) + ' queued, ' + errCount + ' failed', 'warning');
+    }
+
+    clearStaged();
+    loadJobs(currentFilter);
+    schedulePoll();
+}
+
+// ── Job list ──────────────────────────────────────────────────────────────────
+async function loadJobs(filter) {
+    currentFilter = filter || 'all';
+
+    // Update filter button styles
+    document.querySelectorAll('.job-filter-btn').forEach(function(btn) {
+        btn.classList.remove('active-filter');
+    });
+    const activeBtn = document.getElementById('filter-' + currentFilter);
+    if (activeBtn) activeBtn.classList.add('active-filter');
+
+    const url = currentFilter === 'all'
+        ? '/api/import/jobs?limit=50'
+        : '/api/import/jobs?status=' + currentFilter + '&limit=50';
+
+    let jobs;
+    try {
+        const res = await fetch(url);
+        if (!res.ok) return;
+        jobs = await res.json();
+    } catch(e) { return; }
+
+    const container = document.getElementById('job-list');
+    while (container.firstChild) container.removeChild(container.firstChild);
+
+    if (!jobs.length) {
+        const empty = document.createElement('div');
+        empty.className = 'text-center py-10 text-gray-400';
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-inbox text-3xl mb-2';
+        const msg = document.createElement('p');
+        msg.className = 'text-sm';
+        msg.textContent = currentFilter === 'all' ? 'No import jobs yet' : 'No jobs match this filter';
+        empty.appendChild(icon);
+        empty.appendChild(msg);
+        container.appendChild(empty);
+        return;
+    }
+
+    jobs.forEach(function(job) { container.appendChild(buildJobCard(job)); });
+
+    // Keep polling if any jobs are active
+    const hasActive = jobs.some(function(j) {
+        return j.status === 'pending' || j.status === 'processing';
+    });
+    if (hasActive) schedulePoll();
+    else stopPoll();
+}
+
+function buildJobCard(job) {
+    const card = document.createElement('div');
+    card.className = 'bg-white border rounded-xl px-4 py-3 shadow-sm flex items-center gap-4';
+    card.id = 'job-' + job.id;
+
+    // Status indicator
+    const dot = document.createElement('div');
+    dot.className = 'flex-shrink-0 w-2.5 h-2.5 rounded-full';
+    const dotColors = { pending: 'bg-gray-400', processing: 'bg-amber-400 animate-pulse', done: 'bg-green-500', failed: 'bg-red-500' };
+    dot.classList.add(...(dotColors[job.status] || 'bg-gray-400').split(' '));
+
+    // Info block
+    const info = document.createElement('div');
+    info.className = 'flex-1 min-w-0';
+
+    const topRow = document.createElement('div');
+    topRow.className = 'flex items-center gap-2 flex-wrap';
+
+    const nameEl = document.createElement('span');
+    nameEl.className = 'text-sm font-medium text-gray-700 truncate max-w-xs';
+    nameEl.textContent = job.filename;
+
+    const badge = document.createElement('span');
+    badge.className = 'status-badge-' + job.status + ' text-xs font-semibold px-2 py-0.5 rounded-full';
+    badge.textContent = job.status.charAt(0).toUpperCase() + job.status.slice(1);
+
+    topRow.appendChild(nameEl);
+    topRow.appendChild(badge);
+
+    if (job.detected_source || job.source_hint) {
+        const src = document.createElement('span');
+        src.className = 'text-xs text-gray-400 ml-1';
+        src.textContent = '· ' + (job.detected_source || job.source_hint);
+        topRow.appendChild(src);
+    }
+
+    const metaRow = document.createElement('div');
+    metaRow.className = 'flex items-center gap-3 mt-0.5';
+
+    const ts = document.createElement('span');
+    ts.className = 'text-xs text-gray-400';
+    ts.textContent = formatJobDate(job.created_at);
+    metaRow.appendChild(ts);
+
+    if (job.status === 'done' && job.transaction_count > 0) {
+        const txBadge = document.createElement('span');
+        txBadge.className = 'text-xs text-green-600 font-medium';
+        txBadge.textContent = job.transaction_count + ' transaction' + (job.transaction_count !== 1 ? 's' : '') + ' extracted';
+        metaRow.appendChild(txBadge);
+    }
+
+    if (job.status === 'failed' && job.error_message) {
+        const errMsg = document.createElement('span');
+        errMsg.className = 'text-xs text-red-500 truncate max-w-xs';
+        errMsg.textContent = job.error_message;
+        metaRow.appendChild(errMsg);
+    }
+
+    info.appendChild(topRow);
+    info.appendChild(metaRow);
+
+    // Action area
+    const actions = document.createElement('div');
+    actions.className = 'flex-shrink-0 flex items-center gap-2';
+
+    if (job.status === 'failed') {
+        const manualBtn = document.createElement('a');
+        manualBtn.href = '/transactions';
+        manualBtn.className = 'text-xs text-blue-600 hover:underline font-medium';
+        manualBtn.textContent = 'Create manually';
+        actions.appendChild(manualBtn);
+    }
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.className = 'text-gray-300 hover:text-red-500 transition p-1';
+    deleteBtn.setAttribute('aria-label', 'Delete job');
+    const delIcon = document.createElement('i');
+    delIcon.className = 'fas fa-trash-alt text-sm';
+    deleteBtn.appendChild(delIcon);
+    deleteBtn.addEventListener('click', function() { deleteJob(job.id); });
+    actions.appendChild(deleteBtn);
+
+    card.appendChild(dot);
+    card.appendChild(info);
+    card.appendChild(actions);
+    return card;
+}
+
+function formatJobDate(isoStr) {
+    if (!isoStr) return '';
+    const d = new Date(isoStr);
+    return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+}
+
+async function deleteJob(id) {
+    showConfirm('Delete this import job?', async function() {
+        const res = await fetch('/api/import/jobs/' + id, { method: 'DELETE' });
+        if (res.ok) {
+            const card = document.getElementById('job-' + id);
+            if (card) card.remove();
+            showToast('Job deleted', 'info');
+        } else {
+            showToast('Failed to delete job', 'error');
+        }
+    }, 'Delete', 'bg-red-600 hover:bg-red-700');
+}
+
+// ── Polling for active jobs ───────────────────────────────────────────────────
+function schedulePoll() {
+    if (pollTimer) return;
+    pollTimer = setInterval(function() { loadJobs(currentFilter); }, 5000);
+}
+function stopPoll() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadJobs('all');
+</script>
+{% endblock %}

@@ -50,6 +50,12 @@
                     class="bg-green-100 text-green-700 w-9 h-9 rounded-lg hover:bg-green-200 transition flex items-center justify-center flex-shrink-0">
                 <i class="fas fa-download text-sm"></i>
             </button>
+            <button id="filter-review-btn" data-active="false" onclick="toggleReviewFilter()"
+                    title="Show transactions needing review" aria-label="Review filter"
+                    class="flex items-center gap-1.5 border rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 transition">
+                <i class="fas fa-eye text-orange-400 text-sm"></i>
+                <span>Review</span>
+            </button>
         </div>
 
         <!-- Advanced filters (collapsible) -->
@@ -88,6 +94,12 @@
                     <option value="manual">Manual</option>
                     <option value="project_payment">Auto · Project</option>
                     <option value="savings_maturity">Auto · Savings</option>
+                    <option value="timo">OCR · Timo</option>
+                    <option value="uob">OCR · UOB</option>
+                    <option value="liobank">OCR · LioBank</option>
+                    <option value="shopee">OCR · Shopee</option>
+                    <option value="grab">OCR · Grab</option>
+                    <option value="ocr">OCR · Generic</option>
                 </select>
 
                 <button onclick="applyFilters()"
@@ -311,6 +323,7 @@
     const pageSize = 20;
     let totalTransactions = 0;
     let categories = [];
+    const _OCR_SOURCES = new Set(['timo', 'uob', 'liobank', 'shopee', 'grab', 'ocr']);
 
     // ── Month pill helpers ────────────────────────────────────────────────────
     const _TX_MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -502,6 +515,7 @@
             if (advanceFilter === 'unsettled') { params.append('is_advance', 'true'); params.append('advance_settled', 'false'); }
             if (advanceFilter === 'settled')   { params.append('is_advance', 'true'); params.append('advance_settled', 'true'); }
             if (sourceFilter) params.append('source', sourceFilter);
+            if (document.getElementById('filter-review-btn').dataset.active === 'true') params.append('needs_review', 'true');
 
             const response = await fetch('/api/transactions/?' + params);
             const transactions = await response.json();
@@ -568,6 +582,8 @@
                     row.className = 'flex items-center gap-3 px-4 py-3 border-b border-l-4 border-amber-400 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer select-none';
                 } else if (t.is_advance && t.advance_settled) {
                     row.className = 'flex items-center gap-3 px-4 py-3 border-b border-l-4 border-green-300 bg-green-50 hover:bg-green-100 transition-colors cursor-pointer select-none';
+                } else if (t.needs_review) {
+                    row.className = 'flex items-center gap-3 px-4 py-3 border-b border-l-4 border-orange-400 bg-orange-50 hover:bg-orange-100 transition-colors cursor-pointer select-none';
                 } else {
                     row.className = 'flex items-center gap-3 px-4 py-3 border-b hover:bg-gray-50 transition-colors cursor-pointer select-none';
                 }
@@ -597,10 +613,21 @@
                     }
                     descDiv.appendChild(badge);
                 }
+                if (t.needs_review) {
+                    const reviewBadge = document.createElement('span');
+                    reviewBadge.className = 'inline-block ml-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700';
+                    reviewBadge.textContent = '⚠ Review';
+                    descDiv.appendChild(reviewBadge);
+                }
                 if (t.source && t.source !== 'manual') {
                     const srcBadge = document.createElement('span');
-                    srcBadge.className = 'inline-block ml-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-500';
-                    srcBadge.textContent = t.source === 'project_payment' ? 'Auto · Project' : 'Auto · Savings';
+                    if (_OCR_SOURCES.has(t.source)) {
+                        srcBadge.className = 'inline-block ml-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-600';
+                        srcBadge.textContent = 'OCR · ' + t.source.charAt(0).toUpperCase() + t.source.slice(1);
+                    } else {
+                        srcBadge.className = 'inline-block ml-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-500';
+                        srcBadge.textContent = t.source === 'project_payment' ? 'Auto · Project' : 'Auto · Savings';
+                    }
                     descDiv.appendChild(srcBadge);
                 }
                 row.appendChild(descDiv);
@@ -823,6 +850,12 @@
             bar.appendChild(settleBtn);
         }
 
+        if (t.needs_review) {
+            const approveBtn = mkBtn('fa-check', 'Approve', 'text-orange-700 bg-white border-orange-200 hover:bg-orange-50');
+            approveBtn.addEventListener('click', function(e) { e.stopPropagation(); collapseActions(); approveTransaction(t.id); });
+            bar.appendChild(approveBtn);
+        }
+
         const delBtn = mkBtn('fa-trash', 'Delete', 'text-red-700 bg-white border-red-200 hover:bg-red-50');
         delBtn.addEventListener('click', function(e) {
             e.stopPropagation();
@@ -851,6 +884,35 @@
             if (_activeRowOrigClass !== null) _activeRow.className = _activeRowOrigClass;
             _activeRow = null;
             _activeRowOrigClass = null;
+        }
+    }
+
+    async function approveTransaction(id) {
+        const res = await fetch('/api/transactions/' + id, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ needs_review: false })
+        });
+        if (res.ok) { showToast('Transaction approved', 'success'); loadTransactions(); }
+        else showToast('Failed to approve transaction', 'error');
+    }
+
+    function toggleReviewFilter() {
+        const btn = document.getElementById('filter-review-btn');
+        btn.dataset.active = (btn.dataset.active !== 'true').toString();
+        _updateReviewBtn();
+        currentPage = 0;
+        saveFilters();
+        updateFilterBadge();
+        loadTransactions();
+    }
+
+    function _updateReviewBtn() {
+        const btn = document.getElementById('filter-review-btn');
+        if (btn.dataset.active === 'true') {
+            btn.className = 'flex items-center gap-1.5 border border-orange-300 rounded-lg px-3 py-2 text-sm font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 transition';
+        } else {
+            btn.className = 'flex items-center gap-1.5 border rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 transition';
         }
     }
 
@@ -886,7 +948,8 @@
         const hasProject  = !!document.getElementById('filter-project').value;
         const hasAdvance  = !!document.getElementById('filter-advance').value;
         const hasSource   = !!document.getElementById('filter-source').value;
-        const count = [hasType, hasCat, hasStart, hasEnd, hasProject, hasAdvance, hasSource].filter(Boolean).length;
+        const hasReview   = document.getElementById('filter-review-btn').dataset.active === 'true';
+        const count = [hasType, hasCat, hasStart, hasEnd, hasProject, hasAdvance, hasSource, hasReview].filter(Boolean).length;
         const badge = document.getElementById('active-filter-count');
         if (count > 0) {
             badge.textContent = count;
@@ -907,6 +970,8 @@
         document.getElementById('filter-search').value     = '';
         document.getElementById('filter-advance').value    = '';
         document.getElementById('filter-source').value     = '';
+        document.getElementById('filter-review-btn').dataset.active = 'false';
+        _updateReviewBtn();
         localStorage.removeItem('carange-active-month');
         history.replaceState(null, '', window.location.pathname);
         _updateTxPill();
@@ -931,6 +996,7 @@
             search: document.getElementById('filter-search').value,
             advance: document.getElementById('filter-advance').value,
             source: document.getElementById('filter-source').value,
+            needs_review: document.getElementById('filter-review-btn').dataset.active === 'true',
         };
         sessionStorage.setItem('transactionFilters', JSON.stringify(filters));
     }
@@ -950,6 +1016,10 @@
             document.getElementById('filter-search').value = filters.search || '';
             document.getElementById('filter-advance').value = filters.advance || '';
             document.getElementById('filter-source').value = filters.source || '';
+            if (filters.needs_review) {
+                document.getElementById('filter-review-btn').dataset.active = 'true';
+                _updateReviewBtn();
+            }
         }
 
         // If no date filter is set yet, seed from the shared active-month (set by Dashboard/Budget)

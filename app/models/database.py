@@ -70,6 +70,39 @@ class AssetType(str, enum.Enum):
     OTHER = "other"
 
 
+class ImportJobStatus(str, enum.Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    DONE = "done"
+    FAILED = "failed"
+
+
+class ImportSource(str, enum.Enum):
+    TIMO = "timo"
+    UOB = "uob"
+    LIOBANK = "liobank"
+    SHOPEE = "shopee"
+    GRAB = "grab"
+
+
+class ImportJob(Base):
+    __tablename__ = "import_jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    filename = Column(String(255), nullable=False)
+    file_path = Column(String(500), nullable=False)
+    image_hash = Column(String(64), nullable=False, unique=True)  # SHA-256, dedup guard
+    source_hint = Column(Enum(ImportSource), nullable=True)       # manual override at upload
+    detected_source = Column(Enum(ImportSource), nullable=True)   # set by OCR worker
+    status = Column(Enum(ImportJobStatus), default=ImportJobStatus.PENDING, nullable=False)
+    error_message = Column(Text, nullable=True)
+    transaction_count = Column(Integer, default=0)                # how many tx were extracted
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    processed_at = Column(DateTime, nullable=True)
+
+    transactions = relationship("Transaction", back_populates="import_job")
+
+
 class Category(Base):
     __tablename__ = "categories"
 
@@ -101,6 +134,9 @@ class Transaction(Base):
     source = Column(String(30), default="manual", nullable=True)
     savings_bundle_id = Column(Integer, ForeignKey("savings_bundles.id"), nullable=True)
     project_id = Column(Integer, ForeignKey("financial_projects.id"), nullable=True)
+    import_job_id = Column(Integer, ForeignKey("import_jobs.id"), nullable=True)
+    confidence_score = Column(Float, nullable=True)   # NULL for manual entries
+    needs_review = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
@@ -109,6 +145,7 @@ class Transaction(Base):
     category = relationship("Category", back_populates="transactions")
     savings_bundle = relationship("SavingsBundle", back_populates="transactions")
     project = relationship("FinancialProject", back_populates="transactions")
+    import_job = relationship("ImportJob", back_populates="transactions")
 
     __table_args__ = (
         Index("ix_transactions_type_date", "type", "date"),

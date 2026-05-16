@@ -8,6 +8,7 @@ on:
 
 env:
   IMAGE: ghcr.io/thevivotran/carange
+  IMAGE_WORKER: ghcr.io/thevivotran/carange-ocr-worker
   PYTHON_VERSION: "3.12"   # must match Dockerfile
 
 jobs:
@@ -121,3 +122,41 @@ jobs:
         run: |
           docker tag carange:smoke "$IMAGE:$TAG"
           docker push "$IMAGE:$TAG"
+
+  # ── 4. Build & push OCR worker image (main branch only) ───────────────────────
+  build-worker:
+    name: Build & Push OCR Worker
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image tag
+        id: tag
+        run: |
+          TAG="main-$(date -u '+%Y%m%d-%H%M%S')-$(git rev-parse --short HEAD)"
+          echo "value=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Build and push OCR worker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ocr_worker/Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_WORKER }}:${{ steps.tag.outputs.value }}
+          # PaddleOCR layer is large — GHA cache prevents re-downloading on every build.
+          cache-from: type=gha,scope=ocr-worker
+          cache-to: type=gha,mode=max,scope=ocr-worker
