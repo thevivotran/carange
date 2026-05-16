@@ -3,6 +3,7 @@ Parser and source-detector unit tests.
 
 No PaddleOCR dependency — all tests feed pre-built TextBlock lists directly.
 """
+
 import pytest
 from datetime import date
 
@@ -17,6 +18,7 @@ from app.models.database import ImportSource
 
 
 # ── TextBlock factory ──────────────────────────────────────────────────────────
+
 
 def block(text: str, x: float = 0, y: float = 0, w: float = 200, h: float = 30, conf: float = 0.95) -> TextBlock:
     return TextBlock(text=text, confidence=conf, x=x, y=y, w=w, h=h)
@@ -34,16 +36,20 @@ def row_at(y: float, *texts: str) -> list[TextBlock]:
 
 # ── VND amount parsing ─────────────────────────────────────────────────────────
 
-@pytest.mark.parametrize("text,expected_amount,expected_type", [
-    ("-45,000",          45_000,      "expense"),
-    ("+1,500,000",     1_500_000,     "income"),
-    ("-1.500.000",     1_500_000,     "expense"),
-    ("1.500.000đ",     1_500_000,     "income"),   # no sign → income (credit)
-    ("₫125,000",         125_000,     "income"),
-    ("+15.000.000",   15_000_000,     "income"),
-    ("-89000",            89_000,     "expense"),
-    ("350,000",          350_000,     "income"),
-])
+
+@pytest.mark.parametrize(
+    "text,expected_amount,expected_type",
+    [
+        ("-45,000", 45_000, "expense"),
+        ("+1,500,000", 1_500_000, "income"),
+        ("-1.500.000", 1_500_000, "expense"),
+        ("1.500.000đ", 1_500_000, "income"),  # no sign → income (credit)
+        ("₫125,000", 125_000, "income"),
+        ("+15.000.000", 15_000_000, "income"),
+        ("-89000", 89_000, "expense"),
+        ("350,000", 350_000, "income"),
+    ],
+)
 def test_parse_vnd(text, expected_amount, expected_type):
     result = parse_vnd(text)
     assert result is not None, f"parse_vnd({text!r}) returned None"
@@ -59,20 +65,25 @@ def test_parse_vnd_returns_none(text):
 
 # ── Date parsing ──────────────────────────────────────────────────────────────
 
-@pytest.mark.parametrize("text,expected", [
-    ("15/05/2026",                     date(2026, 5, 15)),
-    ("15-05-2026",                     date(2026, 5, 15)),
-    ("2026-05-15",                     date(2026, 5, 15)),
-    ("15 tháng 5 2026",               date(2026, 5, 15)),
-    ("Thứ Tư, 15/05/2026 12:30",      date(2026, 5, 15)),
-    ("giao dịch ngày 14/05/2026",     date(2026, 5, 14)),
-])
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("15/05/2026", date(2026, 5, 15)),
+        ("15-05-2026", date(2026, 5, 15)),
+        ("2026-05-15", date(2026, 5, 15)),
+        ("15 tháng 5 2026", date(2026, 5, 15)),
+        ("Thứ Tư, 15/05/2026 12:30", date(2026, 5, 15)),
+        ("giao dịch ngày 14/05/2026", date(2026, 5, 14)),
+    ],
+)
 def test_parse_date(text, expected):
     assert parse_date(text) == expected
 
 
 def test_parse_date_fallback_year():
     from datetime import date as _date
+
     result = parse_date("15/05", fallback_year=2026)
     assert result == _date(2026, 5, 15)
 
@@ -82,6 +93,7 @@ def test_parse_date_returns_none():
 
 
 # ── Row grouping ──────────────────────────────────────────────────────────────
+
 
 def test_group_rows_single_row():
     blocks = [block("A", x=0, y=0), block("B", x=100, y=5)]  # within threshold
@@ -108,15 +120,19 @@ def test_group_rows_sorted_by_x():
 
 # ── Source detector ───────────────────────────────────────────────────────────
 
+
 def _blocks_from_text(text: str) -> list[TextBlock]:
     return [block(line.strip()) for line in text.splitlines() if line.strip()]
 
 
-@pytest.mark.parametrize("text,expected_source", [
-    ("Timo\nLịch sử giao dịch\n+1,500,000", ImportSource.TIMO),
-    ("Don da mua\nShopee Mall\nHoan thanh\nTong so tien: 350.000d", ImportSource.SHOPEE),
-    ("GrabFood\nMcDonald's\n₫125,000", ImportSource.GRAB),
-])
+@pytest.mark.parametrize(
+    "text,expected_source",
+    [
+        ("Timo\nLịch sử giao dịch\n+1,500,000", ImportSource.TIMO),
+        ("Don da mua\nShopee Mall\nHoan thanh\nTong so tien: 350.000d", ImportSource.SHOPEE),
+        ("GrabFood\nMcDonald's\n₫125,000", ImportSource.GRAB),
+    ],
+)
 def test_detect_source(text, expected_source):
     bs = _blocks_from_text(text)
     assert detect_source(bs) == expected_source
@@ -128,6 +144,7 @@ def test_detect_source_returns_none_for_unknown():
 
 
 # ── Timo parser ───────────────────────────────────────────────────────────────
+
 
 def _timo_blocks():
     """Simulate a Timo history screenshot with 3 transactions."""
@@ -185,6 +202,7 @@ def test_timo_parser_confidence():
 
 # ── Shopee parser ─────────────────────────────────────────────────────────────
 
+
 def _shopee_blocks():
     """Mirrors the real 'Đơn đã mua' (delivered orders) screenshot layout."""
     all_blocks = []
@@ -197,10 +215,10 @@ def _shopee_blocks():
 
     # Order 1 — header row contains "Hoàn thành" as order status
     add_row("Shopee Mall", "Shop A", "Hoàn thành")
-    add_row("Bot Cao Rau GILLETTE Huong Chanh san pham A")   # product name (len > 15)
-    add_row("Variant description here")                      # variant (also long — comes second)
-    add_row("350.000d")                                      # per-item price
-    add_row("Tổng số tiền (1 sản phẩm): 350.000đ")          # total line
+    add_row("Bot Cao Rau GILLETTE Huong Chanh san pham A")  # product name (len > 15)
+    add_row("Variant description here")  # variant (also long — comes second)
+    add_row("350.000d")  # per-item price
+    add_row("Tổng số tiền (1 sản phẩm): 350.000đ")  # total line
 
     # Order 2
     add_row("Yeu thich+", "Shop B", "Hoàn thành")
@@ -232,6 +250,7 @@ def test_shopee_category_hint():
 
 
 # ── Grab parser ───────────────────────────────────────────────────────────────
+
 
 def _grab_blocks():
     """Mirrors the real Grab Activity History (Transport tab) layout."""
@@ -272,6 +291,7 @@ def test_grab_category_hint():
 
 # ── Generic parser ────────────────────────────────────────────────────────────
 
+
 def _generic_blocks():
     all_blocks = []
     y = 0.0
@@ -296,13 +316,14 @@ def test_generic_parser_count():
 
 def test_generic_parser_lower_confidence():
     specific = TimoParser().parse(_timo_blocks())
-    generic  = GenericParser().parse(_generic_blocks())
+    generic = GenericParser().parse(_generic_blocks())
     avg_specific = sum(t.confidence for t in specific) / len(specific)
-    avg_generic  = sum(t.confidence for t in generic)  / len(generic)
+    avg_generic = sum(t.confidence for t in generic) / len(generic)
     assert avg_generic < avg_specific
 
 
 # ── Processor integration (no PaddleOCR) ─────────────────────────────────────
+
 
 def test_processor_full_pipeline(tmp_path, monkeypatch):
     """
@@ -322,23 +343,23 @@ def test_processor_full_pipeline(tmp_path, monkeypatch):
     # Seed categories
     with SF() as db:
         db.add(Category(name="Đồ dùng", type="expense", color="#EC4899", icon="shopping-bag", is_active=True))
-        db.add(Category(name="Others",  type="income",  color="#6B7280", icon="circle",       is_active=True))
+        db.add(Category(name="Others", type="income", color="#6B7280", icon="circle", is_active=True))
         db.commit()
 
     # Create a real image file
-    sig  = b'\x89PNG\r\n\x1a\n'
-    ihdr = b'\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde'
-    raw  = zlib.compress(b'\x00\xff\xff\xff')
-    idat = struct.pack('>I', len(raw)) + b'IDAT' + raw + struct.pack('>I', zlib.crc32(b'IDAT'+raw) & 0xffffffff)
-    iend = b'\x00\x00\x00\x00IEND\xaeB\x60\x82'
-    img  = tmp_path / "test.png"
+    sig = b"\x89PNG\r\n\x1a\n"
+    ihdr = b"\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde"
+    raw = zlib.compress(b"\x00\xff\xff\xff")
+    idat = struct.pack(">I", len(raw)) + b"IDAT" + raw + struct.pack(">I", zlib.crc32(b"IDAT" + raw) & 0xFFFFFFFF)
+    iend = b"\x00\x00\x00\x00IEND\xaeB\x60\x82"
+    img = tmp_path / "test.png"
     img.write_bytes(sig + ihdr + idat + iend)
 
     # Fake OCR: return Shopee-like blocks matching the real "Đơn đã mua" layout
     fake_blocks = (
-        row_at(0,   "Shopee Mall", "Hoàn thành") +
-        row_at(40,  "San pham A la ten san pham rat dai va ro rang") +
-        row_at(80,  "Tổng số tiền (1 sản phẩm): 350.000đ")
+        row_at(0, "Shopee Mall", "Hoàn thành")
+        + row_at(40, "San pham A la ten san pham rat dai va ro rang")
+        + row_at(80, "Tổng số tiền (1 sản phẩm): 350.000đ")
     )
     monkeypatch.setattr("ocr_worker.ocr.extract_blocks", lambda _path: fake_blocks)
 
@@ -354,6 +375,7 @@ def test_processor_full_pipeline(tmp_path, monkeypatch):
         db.refresh(job)
 
         from ocr_worker.processor import process_job
+
         process_job(job, db)
         db.refresh(job)
 
@@ -362,6 +384,7 @@ def test_processor_full_pipeline(tmp_path, monkeypatch):
         assert job.detected_source == ImportSource.SHOPEE
 
     from app.models.database import Transaction
+
     with SF() as db:
         txns = db.query(Transaction).all()
         assert len(txns) == 1

@@ -2,6 +2,7 @@
 Integration tests for the OCR worker skeleton.
 Spins up an in-memory SQLite DB, creates jobs, runs the processor directly.
 """
+
 import os
 import pytest
 from sqlalchemy import create_engine
@@ -23,11 +24,12 @@ def image_file(tmp_path):
     """Minimal valid 1×1 PNG."""
     import struct
     import zlib
-    sig  = b'\x89PNG\r\n\x1a\n'
-    ihdr = b'\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde'
-    raw  = zlib.compress(b'\x00\xff\xff\xff')
-    idat = struct.pack('>I', len(raw)) + b'IDAT' + raw + struct.pack('>I', zlib.crc32(b'IDAT'+raw) & 0xffffffff)
-    iend = b'\x00\x00\x00\x00IEND\xaeB\x60\x82'
+
+    sig = b"\x89PNG\r\n\x1a\n"
+    ihdr = b"\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01\x08\x02\x00\x00\x00\x90wS\xde"
+    raw = zlib.compress(b"\x00\xff\xff\xff")
+    idat = struct.pack(">I", len(raw)) + b"IDAT" + raw + struct.pack(">I", zlib.crc32(b"IDAT" + raw) & 0xFFFFFFFF)
+    iend = b"\x00\x00\x00\x00IEND\xaeB\x60\x82"
     p = tmp_path / "test.png"
     p.write_bytes(sig + ihdr + idat + iend)
     return str(p)

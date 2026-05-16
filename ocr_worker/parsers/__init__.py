@@ -11,9 +11,9 @@ def get_parser(source: Optional[ImportSource]):
     from ocr_worker.parsers.generic import GenericParser
 
     registry = {
-        ImportSource.TIMO:   TimoParser,
+        ImportSource.TIMO: TimoParser,
         ImportSource.SHOPEE: ShopeeParser,
-        ImportSource.GRAB:   GrabParser,
+        ImportSource.GRAB: GrabParser,
     }
     cls = registry.get(source, GenericParser)
     return cls()

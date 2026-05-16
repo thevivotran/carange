@@ -2,6 +2,7 @@
 Shared utilities: row grouping, VND amount parsing, Vietnamese date parsing,
 and the BaseParser ABC.
 """
+
 import re
 import unicodedata
 from abc import ABC, abstractmethod
@@ -14,12 +15,12 @@ from ocr_worker.types import TextBlock, ParsedTransaction
 
 # Matches optional sign, then digits grouped by dots/commas (VND thousands separators)
 _AMOUNT_RE = re.compile(
-    r'([+\-])\s*(\d{1,3}(?:[.,]\d{3})+)'   # signed: +1.500.000
-    r'|(\d{1,3}(?:[.,]\d{3})+)'             # unsigned: 1.500.000
-    r'|([+\-])\s*(\d{4,})',                 # signed bare: -45000
+    r"([+\-])\s*(\d{1,3}(?:[.,]\d{3})+)"  # signed: +1.500.000
+    r"|(\d{1,3}(?:[.,]\d{3})+)"  # unsigned: 1.500.000
+    r"|([+\-])\s*(\d{4,})",  # signed bare: -45000
     re.IGNORECASE,
 )
-_CURRENCY_STRIP_RE = re.compile(r'[₫đVND\s]', re.IGNORECASE)
+_CURRENCY_STRIP_RE = re.compile(r"[₫đVND\s]", re.IGNORECASE)
 
 
 def parse_vnd(text: str) -> Optional[tuple[float, str]]:
@@ -33,11 +34,11 @@ def parse_vnd(text: str) -> Optional[tuple[float, str]]:
     if not m:
         return None
 
-    if m.group(1) is not None:           # signed long form
+    if m.group(1) is not None:  # signed long form
         sign_char, digits = m.group(1), m.group(2)
-    elif m.group(3) is not None:         # unsigned long form
+    elif m.group(3) is not None:  # unsigned long form
         sign_char, digits = "+", m.group(3)
-    else:                                 # signed bare
+    else:  # signed bare
         sign_char, digits = m.group(4), m.group(5)
 
     # Strip separators — all of them; VND has no decimal part
@@ -57,22 +58,41 @@ def parse_vnd(text: str) -> Optional[tuple[float, str]]:
 # ── Date parsing ───────────────────────────────────────────────────────────────
 
 _VI_MONTHS = {
-    "tháng 1": 1, "tháng 2": 2, "tháng 3": 3, "tháng 4": 4,
-    "tháng 5": 5, "tháng 6": 6, "tháng 7": 7, "tháng 8": 8,
-    "tháng 9": 9, "tháng 10": 10, "tháng 11": 11, "tháng 12": 12,
-    "th1": 1, "th2": 2, "th3": 3, "th4": 4, "th5": 5, "th6": 6,
-    "th7": 7, "th8": 8, "th9": 9, "th10": 10, "th11": 11, "th12": 12,
+    "tháng 1": 1,
+    "tháng 2": 2,
+    "tháng 3": 3,
+    "tháng 4": 4,
+    "tháng 5": 5,
+    "tháng 6": 6,
+    "tháng 7": 7,
+    "tháng 8": 8,
+    "tháng 9": 9,
+    "tháng 10": 10,
+    "tháng 11": 11,
+    "tháng 12": 12,
+    "th1": 1,
+    "th2": 2,
+    "th3": 3,
+    "th4": 4,
+    "th5": 5,
+    "th6": 6,
+    "th7": 7,
+    "th8": 8,
+    "th9": 9,
+    "th10": 10,
+    "th11": 11,
+    "th12": 12,
 }
 
 _DATE_PATTERNS = [
     # DD/MM/YYYY or DD-MM-YYYY
-    (re.compile(r'\b(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})\b'), "dmy"),
+    (re.compile(r"\b(\d{1,2})[/\-](\d{1,2})[/\-](\d{4})\b"), "dmy"),
     # YYYY-MM-DD
-    (re.compile(r'\b(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})\b'), "ymd"),
+    (re.compile(r"\b(\d{4})[/\-](\d{1,2})[/\-](\d{1,2})\b"), "ymd"),
     # DD/MM (no year — use current year)
-    (re.compile(r'\b(\d{1,2})[/\-](\d{1,2})\b'), "dm"),
+    (re.compile(r"\b(\d{1,2})[/\-](\d{1,2})\b"), "dm"),
     # 15 Tháng 5 2026 / 15 tháng 5, 2026
-    (re.compile(r'\b(\d{1,2})\s+tháng\s+(\d{1,2})[,\s]+(\d{4})\b', re.IGNORECASE), "dmy"),
+    (re.compile(r"\b(\d{1,2})\s+tháng\s+(\d{1,2})[,\s]+(\d{4})\b", re.IGNORECASE), "dmy"),
 ]
 
 
@@ -147,15 +167,17 @@ def mean_confidence(blocks: List[TextBlock]) -> float:
 
 # ── Vietnamese normalisation ───────────────────────────────────────────────────
 
+
 def normalize_vi(text: str) -> str:
     """Remove Vietnamese tonal marks and diacritics, keeping plain Latin letters."""
-    nfd = unicodedata.normalize('NFD', text)
-    stripped = ''.join(c for c in nfd if unicodedata.category(c) != 'Mn')
+    nfd = unicodedata.normalize("NFD", text)
+    stripped = "".join(c for c in nfd if unicodedata.category(c) != "Mn")
     # đ/Đ has no combining form — replace explicitly
-    return stripped.replace('đ', 'd').replace('Đ', 'D')
+    return stripped.replace("đ", "d").replace("Đ", "D")
 
 
 # ── Base parser ────────────────────────────────────────────────────────────────
+
 
 class BaseParser(ABC):
     """All source-specific parsers inherit from this."""

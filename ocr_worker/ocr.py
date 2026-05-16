@@ -1,6 +1,7 @@
 """
 PaddleOCR wrapper — lazy singleton, GPU auto-detect, Vietnamese language model.
 """
+
 import logging
 from typing import List
 
@@ -14,6 +15,7 @@ _engine = None
 def _has_gpu() -> bool:
     try:
         import paddle  # type: ignore
+
         return paddle.device.get_device().startswith("gpu")
     except Exception:
         return False

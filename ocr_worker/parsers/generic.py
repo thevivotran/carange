@@ -6,17 +6,17 @@ When a row contains an amount, look backward up to 3 rows for a date
 and accumulate adjacent non-amount rows as the description.
 Confidence is lower than source-specific parsers.
 """
+
 from datetime import date
 from typing import List, Optional
 
 from ocr_worker.parsers.base import BaseParser, group_rows, row_text, parse_vnd, parse_date, mean_confidence
 from ocr_worker.types import TextBlock, ParsedTransaction
 
-_LOOKBACK = 3   # rows to scan backwards for a date
+_LOOKBACK = 3  # rows to scan backwards for a date
 
 
 class GenericParser(BaseParser):
-
     def parse(self, blocks: List[TextBlock]) -> List[ParsedTransaction]:
         rows = group_rows(blocks)
         transactions: List[ParsedTransaction] = []
@@ -64,13 +64,15 @@ class GenericParser(BaseParser):
             # Generic parser gets a confidence penalty — human review more likely
             confidence = min(ocr_conf * 0.65, 0.75)
 
-            transactions.append(ParsedTransaction(
-                date=effective_date,
-                amount=amount,
-                tx_type=tx_type,
-                description=description,
-                confidence=confidence,
-                raw_text=stripped,
-            ))
+            transactions.append(
+                ParsedTransaction(
+                    date=effective_date,
+                    amount=amount,
+                    tx_type=tx_type,
+                    description=description,
+                    confidence=confidence,
+                    raw_text=stripped,
+                )
+            )
 
         return transactions

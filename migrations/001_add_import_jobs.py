@@ -40,9 +40,9 @@ def run(conn: sqlite3.Connection) -> None:
 
     # New columns on transactions — ALTER TABLE ADD COLUMN is idempotent-guarded.
     new_columns = [
-        ("import_job_id",    "INTEGER REFERENCES import_jobs(id)"),
+        ("import_job_id", "INTEGER REFERENCES import_jobs(id)"),
         ("confidence_score", "REAL"),
-        ("needs_review",     "BOOLEAN NOT NULL DEFAULT 0"),
+        ("needs_review", "BOOLEAN NOT NULL DEFAULT 0"),
     ]
     for col_name, col_def in new_columns:
         if not column_exists(cur, "transactions", col_name):

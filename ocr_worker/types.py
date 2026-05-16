@@ -7,10 +7,10 @@ from typing import Optional
 class TextBlock:
     text: str
     confidence: float
-    x: float       # left edge (pixels)
-    y: float       # top edge  (pixels)
-    w: float       # width
-    h: float       # height
+    x: float  # left edge (pixels)
+    y: float  # top edge  (pixels)
+    w: float  # width
+    h: float  # height
 
     @property
     def cx(self) -> float:
@@ -32,9 +32,9 @@ class TextBlock:
 @dataclass
 class ParsedTransaction:
     date: date
-    amount: float          # always positive
-    tx_type: str           # "income" | "expense"
+    amount: float  # always positive
+    tx_type: str  # "income" | "expense"
     description: str
-    confidence: float      # 0.0 – 1.0
+    confidence: float  # 0.0 – 1.0
     raw_text: str = ""
-    category_hint: Optional[str] = None   # suggested category name for lookup
+    category_hint: Optional[str] = None  # suggested category name for lookup

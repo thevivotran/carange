@@ -4,6 +4,7 @@ Job processor — drives the full OCR pipeline for one ImportJob.
 Phase 1 skeleton → Phase 2 (now):
   image file → PaddleOCR → source detection → source parser → transactions → DB commit
 """
+
 import logging
 import os
 from datetime import datetime, timezone
@@ -11,10 +12,8 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from app.models.database import (
-    Category, ImportJob, ImportJobStatus, ImportSource, Transaction, TransactionType
-)
-from ocr_worker import ocr as _ocr_mod   # module ref — allows monkeypatching in tests
+from app.models.database import Category, ImportJob, ImportJobStatus, ImportSource, Transaction, TransactionType
+from ocr_worker import ocr as _ocr_mod  # module ref — allows monkeypatching in tests
 from ocr_worker.parsers import get_parser
 from ocr_worker.parsers.base import normalize_vi
 from ocr_worker.source_detector import detect_source
@@ -22,8 +21,8 @@ from ocr_worker.types import ParsedTransaction
 
 log = logging.getLogger("ocr_worker.processor")
 
-UPLOAD_DIR        = os.getenv("UPLOAD_DIR", "uploads")
-REVIEW_THRESHOLD  = float(os.getenv("REVIEW_THRESHOLD", "0.80"))
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
+REVIEW_THRESHOLD = float(os.getenv("REVIEW_THRESHOLD", "0.80"))
 
 
 def process_job(job: ImportJob, db: Session) -> None:
@@ -70,6 +69,7 @@ def process_job(job: ImportJob, db: Session) -> None:
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def _commit_transactions(
     db: Session,
     job: ImportJob,
@@ -108,11 +108,16 @@ def _commit_transactions(
 
 def _is_duplicate(db: Session, pt: ParsedTransaction) -> bool:
     """Dedup on (date, amount, tx_type). Loose enough to catch re-uploads."""
-    return db.query(Transaction).filter(
-        Transaction.date == pt.date,
-        Transaction.amount == pt.amount,
-        Transaction.type == TransactionType(pt.tx_type),
-    ).first() is not None
+    return (
+        db.query(Transaction)
+        .filter(
+            Transaction.date == pt.date,
+            Transaction.amount == pt.amount,
+            Transaction.type == TransactionType(pt.tx_type),
+        )
+        .first()
+        is not None
+    )
 
 
 def _resolve_category(db: Session, pt: ParsedTransaction) -> Optional[int]:
@@ -149,11 +154,7 @@ def _resolve_category(db: Session, pt: ParsedTransaction) -> Optional[int]:
         return cat.id
 
     # Last resort: any active category of the right type
-    cat = (
-        db.query(Category)
-        .filter(Category.type == tx_type, Category.is_active == True)
-        .first()
-    )
+    cat = db.query(Category).filter(Category.type == tx_type, Category.is_active == True).first()
     return cat.id if cat else None
 
 

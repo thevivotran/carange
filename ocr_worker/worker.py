@@ -6,6 +6,7 @@ Environment variables:
   UPLOAD_DIR     Where images are stored  default: uploads
   POLL_INTERVAL  Seconds between polls    default: 10
 """
+
 import logging
 import os
 import time
@@ -22,8 +23,8 @@ logging.basicConfig(
 )
 log = logging.getLogger("ocr_worker")
 
-DATABASE_URL   = os.getenv("DATABASE_URL", "sqlite:///./carange.db")
-POLL_INTERVAL  = int(os.getenv("POLL_INTERVAL", "10"))
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./carange.db")
+POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", "10"))
 
 
 def _make_session_factory():
@@ -40,12 +41,7 @@ def _claim_next(db: Session) -> ImportJob | None:
     SQLite doesn't support SELECT … FOR UPDATE SKIP LOCKED, so we rely on
     WAL-mode serialised writes and single-worker deployment for safety.
     """
-    job = (
-        db.query(ImportJob)
-        .filter(ImportJob.status == ImportJobStatus.PENDING)
-        .order_by(ImportJob.created_at)
-        .first()
-    )
+    job = db.query(ImportJob).filter(ImportJob.status == ImportJobStatus.PENDING).order_by(ImportJob.created_at).first()
     if not job:
         return None
 
