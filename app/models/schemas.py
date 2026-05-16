@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from datetime import date, datetime
 from typing import Optional, List
 
@@ -27,8 +27,7 @@ class Category(CategoryBase):
     created_at: datetime
     transaction_count: int = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Savings Schemas
 class SavingsBundleBase(BaseModel):
@@ -107,8 +106,7 @@ class SavingsBundle(SavingsBundleBase):
     completed_at: Optional[datetime]
     linked_transaction_count: int = 0
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Transaction Schemas
 class TransactionBase(BaseModel):
@@ -160,8 +158,7 @@ class Transaction(TransactionBase):
     updated_at: datetime
     category: Category
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Payment Schemas
 class ProjectPaymentBase(BaseModel):
@@ -189,8 +186,7 @@ class ProjectPayment(ProjectPaymentBase):
     transaction_id: Optional[int] = None
     created_at:     datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class FinancialProjectBase(BaseModel):
@@ -223,8 +219,7 @@ class FinancialProject(FinancialProjectBase):
     linked_savings:      List[SavingsBundle] = []
     payments:            List[ProjectPayment] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Other Asset Schemas
 class OtherAssetBase(BaseModel):
@@ -257,8 +252,7 @@ class OtherAsset(OtherAssetBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Transaction Template Schemas
@@ -296,8 +290,7 @@ class TransactionTemplate(TransactionTemplateBase):
     updated_at: datetime
     category: Category
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Dashboard Schemas
 class DashboardSummary(BaseModel):
@@ -359,8 +352,7 @@ class Note(NoteBase):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # Budget Schemas
 class BudgetAllocationCreate(BaseModel):
@@ -379,8 +371,7 @@ class BudgetAllocationRecord(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class BudgetCategoryRow(BaseModel):
     category_id: int

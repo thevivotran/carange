@@ -148,9 +148,11 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
 
     budget_total     = len(budget_rows)
     alert_over_budget = [r for r in budget_rows if r['available_balance'] < 0]
+    _total_allocated    = sum(r['cumulative_allocated'] for r in budget_rows)
+    _on_track_allocated = sum(r['cumulative_allocated'] for r in budget_rows if r['available_balance'] >= 0)
     budget_adherence_pct = (
-        round((budget_total - len(alert_over_budget)) / budget_total * 100)
-        if budget_total > 0 else None
+        round(_on_track_allocated / _total_allocated * 100)
+        if _total_allocated > 0 else None
     )
     budget_top_cats = sorted(budget_rows, key=lambda r: r['this_month_spent'], reverse=True)[:6]
 

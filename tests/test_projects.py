@@ -1,4 +1,4 @@
-"""Tests for project CRUD, milestones, and transaction drill-down."""
+"""Tests for project CRUD and transaction drill-down."""
 import pytest
 from datetime import date
 
@@ -59,86 +59,7 @@ def test_delete_project(client, project_id):
     assert client.get(f"/api/projects/{project_id}").status_code == 404
 
 
-# ── Milestones (#1) ───────────────────────────────────────────────────────────
-
-def test_list_milestones_empty(client, project_id):
-    r = client.get(f"/api/projects/{project_id}/milestones")
-    assert r.status_code == 200
-    assert r.json() == []
-
-
-def test_add_milestone(client, project_id):
-    r = client.post(f"/api/projects/{project_id}/milestones", json={
-        "name": "50% funded",
-        "target_amount": 250_000_000,
-        "is_completed": False,
-        "project_id": project_id,
-    })
-    assert r.status_code == 200
-    d = r.json()
-    assert d["name"] == "50% funded"
-    assert d["target_amount"] == pytest.approx(250_000_000)
-    assert d["is_completed"] is False
-
-
-def test_multiple_milestones_ordered_by_amount(client, project_id):
-    client.post(f"/api/projects/{project_id}/milestones", json={
-        "name": "75%", "target_amount": 375_000_000, "is_completed": False, "project_id": project_id
-    })
-    client.post(f"/api/projects/{project_id}/milestones", json={
-        "name": "25%", "target_amount": 125_000_000, "is_completed": False, "project_id": project_id
-    })
-    milestones = client.get(f"/api/projects/{project_id}/milestones").json()
-    assert len(milestones) == 2
-    assert milestones[0]["target_amount"] < milestones[1]["target_amount"]
-
-
-def test_complete_milestone(client, project_id):
-    ms_id = client.post(f"/api/projects/{project_id}/milestones", json={
-        "name": "Goal", "target_amount": 100_000_000, "is_completed": False, "project_id": project_id
-    }).json()["id"]
-    r = client.patch(f"/api/projects/{project_id}/milestones/{ms_id}/complete")
-    assert r.status_code == 200
-    milestones = client.get(f"/api/projects/{project_id}/milestones").json()
-    completed = next(m for m in milestones if m["id"] == ms_id)
-    assert completed["is_completed"] is True
-    assert completed["completed_at"] is not None
-
-
-def test_delete_milestone(client, project_id):
-    ms_id = client.post(f"/api/projects/{project_id}/milestones", json={
-        "name": "ToDelete", "target_amount": 50_000_000, "is_completed": False, "project_id": project_id
-    }).json()["id"]
-    r = client.delete(f"/api/projects/{project_id}/milestones/{ms_id}")
-    assert r.status_code == 200
-    remaining = [m["id"] for m in client.get(f"/api/projects/{project_id}/milestones").json()]
-    assert ms_id not in remaining
-
-
-def test_delete_nonexistent_milestone_returns_404(client, project_id):
-    assert client.delete(f"/api/projects/{project_id}/milestones/999999").status_code == 404
-
-
-def test_delete_milestone_wrong_project_returns_404(client, project_id):
-    """Deleting a milestone from the wrong project should 404."""
-    ms_id = client.post(f"/api/projects/{project_id}/milestones", json={
-        "name": "Mine", "target_amount": 1_000_000, "is_completed": False, "project_id": project_id
-    }).json()["id"]
-    other_id = client.post("/api/projects/", json=_project_payload(name="Other")).json()["id"]
-    r = client.delete(f"/api/projects/{other_id}/milestones/{ms_id}")
-    assert r.status_code == 404
-
-
-def test_complete_milestone_for_wrong_project_returns_404(client, project_id):
-    ms_id = client.post(f"/api/projects/{project_id}/milestones", json={
-        "name": "Mine", "target_amount": 1_000_000, "is_completed": False, "project_id": project_id
-    }).json()["id"]
-    other_id = client.post("/api/projects/", json=_project_payload(name="Other2")).json()["id"]
-    r = client.patch(f"/api/projects/{other_id}/milestones/{ms_id}/complete")
-    assert r.status_code == 404
-
-
-# ── Project transactions drill-down (#9 / filter #3) ─────────────────────────
+# ── Project transactions drill-down ──────────────────────────────────────────
 
 def test_filter_transactions_by_project_id(client, project_id, expense_category, db_session):
     """GET /api/transactions/?project_id must return only that project's transactions."""

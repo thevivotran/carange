@@ -79,6 +79,7 @@ def _compute_rows(db: Session, year_month: str) -> list[dict]:
         db.query(Transaction.category_id, func.sum(Transaction.amount).label("total"))
         .filter(
             Transaction.type == TransactionType.EXPENSE,
+            Transaction.is_savings_related == False,
             Transaction.category_id.in_(active_cat_ids),
             Transaction.date >= start_date,
             Transaction.date <= end_date,
@@ -95,6 +96,7 @@ def _compute_rows(db: Session, year_month: str) -> list[dict]:
         db.query(Transaction.category_id, func.sum(Transaction.amount).label("total"))
         .filter(
             Transaction.type == TransactionType.EXPENSE,
+            Transaction.is_savings_related == False,
             Transaction.category_id.in_(active_cat_ids),
             Transaction.date >= month_start,
             Transaction.date <= month_end,
@@ -115,11 +117,13 @@ def _compute_rows(db: Session, year_month: str) -> list[dict]:
         cumulative_allocated = 0.0
         current_alloc_amount = 0.0
         current_alloc_id = None
+        current_alloc_ym = None
         alloc_idx = 0
 
         for month in months:
             # Advance pointer through allocation history
             while alloc_idx < len(allocs) and allocs[alloc_idx][0] <= month:
+                current_alloc_ym     = allocs[alloc_idx][0]
                 current_alloc_amount = allocs[alloc_idx][1]
                 current_alloc_id     = allocs[alloc_idx][2]
                 alloc_idx += 1
@@ -129,6 +133,7 @@ def _compute_rows(db: Session, year_month: str) -> list[dict]:
         this_month_spent  = this_month_map.get(cat_id, 0)
         available_balance = cumulative_allocated - cumulative_spent
         usage_pct = (this_month_spent / current_alloc_amount * 100) if current_alloc_amount else 0
+        cumulative_pct = (cumulative_spent / cumulative_allocated * 100) if cumulative_allocated else 0
 
         result.append({
             "category_id":          cat_id,
@@ -140,10 +145,13 @@ def _compute_rows(db: Session, year_month: str) -> list[dict]:
             "this_month_spent":     this_month_spent,
             "available_balance":    available_balance,
             "usage_pct":            round(usage_pct, 1),
+            "cumulative_pct":       round(cumulative_pct, 1),
             "allocation_id":        current_alloc_id,
+            "has_own_allocation":   current_alloc_ym == year_month,
         })
 
-    result.sort(key=lambda r: r["category_name"])
+    # Sort by stress: over-budget first, then by available balance ascending
+    result.sort(key=lambda r: r["available_balance"])
     return result
 
 
@@ -213,6 +221,19 @@ def update_allocation(allocation_id: int, data: BudgetAllocationUpdate, db: Sess
     db.commit()
     db.refresh(alloc)
     return alloc
+
+
+@router.get("/{year_month}/monthly-income")
+def get_monthly_income(year_month: str, db: Session = Depends(get_db)):
+    """Return total income recorded for year_month."""
+    month_start = f"{year_month}-01"
+    month_end   = _end_of_month(year_month)
+    total = db.query(func.sum(Transaction.amount)).filter(
+        Transaction.type == TransactionType.INCOME,
+        Transaction.date >= month_start,
+        Transaction.date <= month_end,
+    ).scalar() or 0
+    return {"income": float(total)}
 
 
 @router.delete("/category/{category_id}")

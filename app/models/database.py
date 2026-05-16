@@ -60,6 +60,7 @@ class Category(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
     transactions = relationship("Transaction", back_populates="category")
+    budget_allocations = relationship("BudgetAllocation", cascade="all, delete-orphan")
 
 class Transaction(Base):
     __tablename__ = "transactions"
@@ -191,7 +192,7 @@ class BudgetAllocation(Base):
     created_at  = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at  = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
-    category = relationship("Category")
+    category = relationship("Category", back_populates="budget_allocations")
 
     __table_args__ = (
         __import__("sqlalchemy").UniqueConstraint("category_id", "year_month", name="uq_budget_category_month"),

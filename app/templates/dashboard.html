@@ -102,19 +102,17 @@
         <button onclick="showKpiInfo('budget-health', this)" class="text-gray-300 hover:text-gray-500 focus:outline-none"><i class="fas fa-info-circle text-xs"></i></button>
       </div>
       {% if summary.budget_adherence_pct is not none %}
-        {% set ok = summary.budget_total - summary.budget_over_count %}
         <p class="text-3xl font-bold
           {% if summary.budget_over_count == 0 %}text-green-600
-          {% elif summary.budget_over_count <= 2 %}text-yellow-500
+          {% elif summary.budget_adherence_pct >= 70 %}text-yellow-500
           {% else %}text-red-500{% endif %}">
-          {{ ok }}<span class="text-lg text-gray-400">/{{ summary.budget_total }}</span>
+          {{ summary.budget_adherence_pct }}<span class="text-lg text-gray-400">%</span>
         </p>
-        <p class="text-xs text-gray-400 mt-2">categories in control</p>
-        {% set bh_pct = ((ok / summary.budget_total) * 100) | int if summary.budget_total > 0 else 0 %}
+        <p class="text-xs text-gray-400 mt-2">of budget amount in control</p>
         <div class="mt-2 w-full bg-gray-100 rounded-full h-2">
           <div id="kpi-bh-bar" class="h-2 rounded-full transition-all duration-500"
-            style="width: {{ bh_pct }}%;
-                   background: {% if summary.budget_over_count == 0 %}#22c55e{% elif summary.budget_over_count <= 2 %}#f59e0b{% else %}#ef4444{% endif %}">
+            style="width: {{ summary.budget_adherence_pct }}%;
+                   background: {% if summary.budget_over_count == 0 %}#22c55e{% elif summary.budget_adherence_pct >= 70 %}#f59e0b{% else %}#ef4444{% endif %}">
           </div>
         </div>
         <div class="mt-2 flex items-center justify-between">
@@ -165,15 +163,15 @@
             </span>
             <span class="ml-2 flex-shrink-0
               {% if cat.available_balance < 0 %}text-red-500 font-semibold
-              {% elif cat.usage_pct >= 75 %}text-yellow-600
+              {% elif cat.cumulative_pct >= 75 %}text-yellow-600
               {% else %}text-gray-400{% endif %}">
-              {{ cat.usage_pct | int }}%
+              {{ cat.cumulative_pct | int }}%
             </span>
           </div>
           <div class="w-full bg-gray-100 rounded-full h-2">
             <div class="h-2 rounded-full transition-all duration-500"
-              style="width: {{ [cat.usage_pct, 100]|min }}%;
-                     background: {% if cat.available_balance < 0 %}#ef4444{% elif cat.usage_pct >= 75 %}#f59e0b{% else %}#22c55e{% endif %}">
+              style="width: {{ [cat.cumulative_pct, 100]|min }}%;
+                     background: {% if cat.available_balance < 0 %}#ef4444{% elif cat.cumulative_pct >= 75 %}#f59e0b{% else %}#22c55e{% endif %}">
             </div>
           </div>
           <div class="text-xs text-gray-400 mt-0.5 text-right">
