@@ -7,7 +7,7 @@ from datetime import date
 import pytest
 
 from app.models.database import BudgetAllocation, Category, Transaction, TransactionType
-from app.routers.budget import _compute_rows, BASELINE
+from app.routers.budget import _compute_rows
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
