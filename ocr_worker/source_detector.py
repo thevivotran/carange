@@ -18,17 +18,6 @@ _RULES: dict[ImportSource, List[tuple[str, float]]] = {
         (r"timo\.vn", 2.0),
         (r"ví timo", 1.5),
     ],
-    ImportSource.UOB: [
-        (r"\buob\b", 2.0),
-        (r"united overseas", 2.0),
-        (r"uob personal", 1.5),
-        (r"uob bank", 1.5),
-    ],
-    ImportSource.LIOBANK: [
-        (r"liobank", 2.0),
-        (r"lio bank", 2.0),
-        (r"\blio\b", 0.8),
-    ],
     ImportSource.SHOPEE: [
         (r"\bshopee\b", 2.0),
         (r"shopee pay", 2.0),

@@ -85,7 +85,7 @@ class ShopeeParser(BaseParser):
                     description=desc,
                     confidence=conf,
                     raw_text=text,
-                    category_hint="Shopping",
+                    category_hint="Đồ dùng",
                 ))
                 in_order = False
                 pending_product = None

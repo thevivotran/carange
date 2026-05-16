@@ -13,7 +13,7 @@ from ocr_worker.parsers.shopee import ShopeeParser
 from ocr_worker.parsers.grab import GrabParser
 from ocr_worker.parsers.generic import GenericParser
 from ocr_worker.source_detector import detect_source
-from app.models.database import ImportSource
+from app.models.database import ImportSource, TransactionType
 
 
 # ── TextBlock factory ──────────────────────────────────────────────────────────
@@ -114,8 +114,6 @@ def _blocks_from_text(text: str) -> list[TextBlock]:
 
 @pytest.mark.parametrize("text,expected_source", [
     ("Timo\nLịch sử giao dịch\n+1,500,000", ImportSource.TIMO),
-    ("UOB Bank\nTransaction History\n-45,000", ImportSource.UOB),
-    ("LioBank\nGiao dịch gần đây", ImportSource.LIOBANK),
     ("Don da mua\nShopee Mall\nHoan thanh\nTong so tien: 350.000d", ImportSource.SHOPEE),
     ("GrabFood\nMcDonald's\n₫125,000", ImportSource.GRAB),
 ])
@@ -230,7 +228,7 @@ def test_shopee_amounts():
 
 def test_shopee_category_hint():
     txns = ShopeeParser().parse(_shopee_blocks())
-    assert all(t.category_hint == "Shopping" for t in txns)
+    assert all(t.category_hint == "Đồ dùng" for t in txns)
 
 
 # ── Grab parser ───────────────────────────────────────────────────────────────
@@ -314,7 +312,7 @@ def test_processor_full_pipeline(tmp_path, monkeypatch):
     import struct, zlib
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
-    from app.models.database import Base, ImportJob, ImportJobStatus, ImportSource, Category, TransactionType
+    from app.models.database import Base, ImportJob, ImportJobStatus, ImportSource, Category
 
     engine = create_engine(f"sqlite:///{tmp_path}/t.db", connect_args={"check_same_thread": False})
     Base.metadata.create_all(engine)
@@ -322,8 +320,8 @@ def test_processor_full_pipeline(tmp_path, monkeypatch):
 
     # Seed categories
     with SF() as db:
-        db.add(Category(name="Shopping", type=TransactionType.EXPENSE, color="#EC4899", icon="shopping-bag", is_active=True))
-        db.add(Category(name="Others",   type=TransactionType.INCOME,  color="#6B7280", icon="circle",       is_active=True))
+        db.add(Category(name="Đồ dùng", type="expense", color="#EC4899", icon="shopping-bag", is_active=True))
+        db.add(Category(name="Others",  type="income",  color="#6B7280", icon="circle",       is_active=True))
         db.commit()
 
     # Create a real image file

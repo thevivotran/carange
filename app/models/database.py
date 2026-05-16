@@ -79,8 +79,6 @@ class ImportJobStatus(str, enum.Enum):
 
 class ImportSource(str, enum.Enum):
     TIMO = "timo"
-    UOB = "uob"
-    LIOBANK = "liobank"
     SHOPEE = "shopee"
     GRAB = "grab"
 
