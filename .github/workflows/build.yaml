@@ -12,6 +12,28 @@ env:
   PYTHON_VERSION: "3.12"   # must match Dockerfile
 
 jobs:
+  # ── 0. Detect changed paths ───────────────────────────────────────────────────
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      app: ${{ steps.filter.outputs.app }}
+      worker: ${{ steps.filter.outputs.worker }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            app:
+              - 'app/**'
+              - 'main.py'
+              - 'requirements.txt'
+              - 'Dockerfile'
+              - 'migrations/**'
+            worker:
+              - 'ocr_worker/**'
+
   # ── 1. Lint ───────────────────────────────────────────────────────────────────
   lint:
     name: Lint
@@ -60,11 +82,11 @@ jobs:
       - name: Run test suite with coverage
         run: pytest --cov=app --cov-report=term-missing --cov-fail-under=95
 
-  # ── 3. Build & push (main branch only) ────────────────────────────────────────
+  # ── 3. Build & push (main branch only, app files changed) ────────────────────
   build:
     name: Build & Push
-    needs: test
-    if: github.ref == 'refs/heads/main'
+    needs: [test, changes]
+    if: github.ref == 'refs/heads/main' && needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -123,11 +145,11 @@ jobs:
           docker tag carange:smoke "$IMAGE:$TAG"
           docker push "$IMAGE:$TAG"
 
-  # ── 4. Build & push OCR worker image (main branch only) ───────────────────────
+  # ── 4. Build & push OCR worker image (main branch only, worker files changed) ─
   build-worker:
     name: Build & Push OCR Worker
-    needs: test
-    if: github.ref == 'refs/heads/main'
+    needs: [test, changes]
+    if: github.ref == 'refs/heads/main' && needs.changes.outputs.worker == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
