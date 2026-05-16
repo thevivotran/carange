@@ -56,8 +56,8 @@ jobs:
       - name: App import smoke test
         run: python -c "from main import app; print('App startup OK')"
 
-      - name: Run test suite
-        run: pytest
+      - name: Run test suite with coverage
+        run: pytest --cov=app --cov-report=term-missing --cov-fail-under=95
 
   # ── 3. Build & push (main branch only) ────────────────────────────────────────
   build:
