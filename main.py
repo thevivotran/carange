@@ -42,7 +42,8 @@ def _migrate_db():
         if "deleted_at" not in cols:
             conn.execute(text("ALTER TABLE transactions ADD COLUMN deleted_at DATETIME"))
 
-        conn.execute(text("""
+        conn.execute(
+            text("""
             CREATE TABLE IF NOT EXISTS transaction_audit_logs (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 transaction_id INTEGER NOT NULL REFERENCES transactions(id),
@@ -51,7 +52,8 @@ def _migrate_db():
                 old_value TEXT,
                 new_value TEXT
             )
-        """))
+        """)
+        )
 
         existing_idx = {r[0] for r in conn.execute(text("SELECT name FROM sqlite_master WHERE type='index'"))}
         if "ix_transactions_type_date" not in existing_idx:
