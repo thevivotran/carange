@@ -87,6 +87,7 @@ def _compute_rows(db: Session, year_month: str) -> list[dict]:
             Transaction.category_id.in_(active_cat_ids),
             Transaction.date >= start_date,
             Transaction.date <= end_date,
+            Transaction.deleted_at.is_(None),
         )
         .group_by(Transaction.category_id)
         .all()
@@ -104,6 +105,7 @@ def _compute_rows(db: Session, year_month: str) -> list[dict]:
             Transaction.category_id.in_(active_cat_ids),
             Transaction.date >= month_start,
             Transaction.date <= month_end,
+            Transaction.deleted_at.is_(None),
         )
         .group_by(Transaction.category_id)
         .all()
@@ -237,6 +239,7 @@ def get_monthly_income(year_month: str, db: Session = Depends(get_db)):
             Transaction.type == TransactionType.INCOME,
             Transaction.date >= month_start,
             Transaction.date <= month_end,
+            Transaction.deleted_at.is_(None),
         )
         .scalar()
         or 0

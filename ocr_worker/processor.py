@@ -22,7 +22,7 @@ from ocr_worker.types import ParsedTransaction
 log = logging.getLogger("ocr_worker.processor")
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
-REVIEW_THRESHOLD = float(os.getenv("REVIEW_THRESHOLD", "0.80"))
+REVIEW_THRESHOLD = float(os.getenv("REVIEW_THRESHOLD", "0.95"))
 
 
 def _resolve_file_path(stored: str) -> str:

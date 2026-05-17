@@ -137,7 +137,9 @@ class Transaction(Base):
     import_job_id = Column(Integer, ForeignKey("import_jobs.id"), nullable=True)
     confidence_score = Column(Float, nullable=True)  # NULL for manual entries
     needs_review = Column(Boolean, default=False)
+    deleted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
     updated_at = Column(
         DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
     )
@@ -146,11 +148,25 @@ class Transaction(Base):
     savings_bundle = relationship("SavingsBundle", back_populates="transactions")
     project = relationship("FinancialProject", back_populates="transactions")
     import_job = relationship("ImportJob", back_populates="transactions")
+    audit_logs = relationship("TransactionAuditLog", back_populates="transaction", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index("ix_transactions_type_date", "type", "date"),
         Index("ix_transactions_category_id", "category_id"),
     )
+
+
+class TransactionAuditLog(Base):
+    __tablename__ = "transaction_audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=False)
+    changed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    field_name = Column(String(100), nullable=False)
+    old_value = Column(Text, nullable=True)
+    new_value = Column(Text, nullable=True)
+
+    transaction = relationship("Transaction", back_populates="audit_logs")
 
 
 class SavingsBundle(Base):

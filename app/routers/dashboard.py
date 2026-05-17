@@ -270,7 +270,7 @@ def get_dashboard_page_data(db: Session, year: int = None, month: int = None) ->
     }
 
     # ── Recent transactions & maturities ──────────────────────────────────
-    recent_transactions = db.query(Transaction).order_by(Transaction.date.desc()).limit(10).all()
+    recent_transactions = db.query(Transaction).filter(Transaction.deleted_at.is_(None)).order_by(Transaction.date.desc()).limit(10).all()
 
     upcoming_maturities = (
         db.query(SavingsBundle)

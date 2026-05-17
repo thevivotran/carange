@@ -187,6 +187,7 @@ class Transaction(TransactionBase):
     import_job_id: Optional[int] = None
     confidence_score: Optional[float] = None
     needs_review: bool = False
+    deleted_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
     category: Category
@@ -444,6 +445,18 @@ class BudgetCategoryRow(BaseModel):
     available_balance: float  # cumulative_allocated - cumulative_spent
     usage_pct: float  # this_month_spent / monthly_allocation * 100
     allocation_id: Optional[int]  # None if inherited
+
+
+# Audit Log Schemas
+class TransactionAuditLogEntry(BaseModel):
+    id: int
+    transaction_id: int
+    changed_at: datetime
+    field_name: str
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Import Job Schemas

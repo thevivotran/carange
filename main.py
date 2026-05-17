@@ -39,6 +39,19 @@ def _migrate_db():
             conn.execute(text("ALTER TABLE transactions ADD COLUMN confidence_score REAL"))
         if "needs_review" not in cols:
             conn.execute(text("ALTER TABLE transactions ADD COLUMN needs_review BOOLEAN NOT NULL DEFAULT 0"))
+        if "deleted_at" not in cols:
+            conn.execute(text("ALTER TABLE transactions ADD COLUMN deleted_at DATETIME"))
+
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS transaction_audit_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                transaction_id INTEGER NOT NULL REFERENCES transactions(id),
+                changed_at DATETIME NOT NULL,
+                field_name VARCHAR(100) NOT NULL,
+                old_value TEXT,
+                new_value TEXT
+            )
+        """))
 
         existing_idx = {r[0] for r in conn.execute(text("SELECT name FROM sqlite_master WHERE type='index'"))}
         if "ix_transactions_type_date" not in existing_idx:

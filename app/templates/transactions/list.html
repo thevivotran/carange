@@ -66,6 +66,12 @@
                 <i class="fas fa-eye text-orange-400 text-sm"></i>
                 <span>Review</span>
             </button>
+            <button id="filter-trash-btn" data-active="false" onclick="toggleTrashMode()"
+                    title="Show deleted transactions" aria-label="Trash"
+                    class="flex items-center gap-1.5 border rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 transition">
+                <i class="fas fa-trash text-gray-400 text-sm"></i>
+                <span>Trash</span>
+            </button>
         </div>
 
         <!-- Advanced filters (collapsible) -->
@@ -126,7 +132,7 @@
     </div>
     
     <!-- Monthly Summary (compact) -->
-    <div class="bg-white rounded-xl shadow-sm border px-5 py-2.5 mb-4 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+    <div id="monthly-summary-bar" class="bg-white rounded-xl shadow-sm border px-5 py-2.5 mb-4 flex flex-wrap gap-x-5 gap-y-1 text-sm">
         <span class="text-gray-500">Income <span class="font-semibold text-green-700" id="monthly-income">—</span></span>
         <span class="text-gray-300 hidden sm:inline">|</span>
         <span class="text-gray-500">Expense <span class="font-semibold text-red-600" id="monthly-expense">—</span></span>
@@ -136,6 +142,13 @@
         <span class="text-gray-500">Cash on Hand <span class="font-semibold text-blue-600" id="cash-on-hand">—</span></span>
     </div>
     
+    <!-- Trash mode banner -->
+    <div id="trash-mode-banner" class="hidden mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-3 text-sm text-red-800">
+        <i class="fas fa-trash flex-shrink-0"></i>
+        <span class="flex-1">You are viewing deleted transactions. Click <strong>Restore</strong> on any row to recover it, or <strong>Delete Forever</strong> to permanently remove it.</span>
+        <button onclick="toggleTrashMode()" class="font-medium underline flex-shrink-0 hover:opacity-75 transition">Exit Trash</button>
+    </div>
+
     <!-- Transactions List -->
     <div class="bg-white rounded-xl shadow-md overflow-hidden">
         <div id="transactions-table-body">
@@ -314,6 +327,17 @@
                 </div>
             </div>
 
+            <!-- Clear review flag (shown only when editing a needs_review transaction) -->
+            <div id="needs-review-section" class="hidden rounded-lg bg-orange-50 border border-orange-200 p-3">
+                <div class="flex items-center">
+                    <input type="checkbox" id="clear-review-flag"
+                           class="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-400" checked>
+                    <label for="clear-review-flag" class="ml-2.5 text-sm font-medium text-orange-700">
+                        Mark as reviewed (clear ⚠ Review flag on save)
+                    </label>
+                </div>
+            </div>
+
             <!-- Submit -->
             <div class="flex gap-4 pt-4">
                 <button type="button" onclick="closeModal()"
@@ -336,6 +360,242 @@
     let categories = [];
     const _OCR_SOURCES = new Set(['timo', 'uob', 'liobank', 'shopee', 'grab', 'ocr']);
     let activeImportJobId = null;  // set when navigating from import page
+    let trashMode = false;
+
+    // ── Trash mode ───────────────────────────────────────────────────────────
+    function toggleTrashMode() {
+        trashMode = !trashMode;
+        _updateTrashBtn();
+        currentPage = 0;
+        loadTransactions();
+        // Hide/show monthly summary — it doesn't apply to trash
+        document.getElementById('monthly-summary-bar').classList.toggle('hidden', trashMode);
+    }
+
+    function _updateTrashBtn() {
+        const btn = document.getElementById('filter-trash-btn');
+        const banner = document.getElementById('trash-mode-banner');
+        if (trashMode) {
+            btn.className = 'flex items-center gap-1.5 border border-red-300 rounded-lg px-3 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 transition';
+            banner.classList.remove('hidden');
+        } else {
+            btn.className = 'flex items-center gap-1.5 border rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 transition';
+            banner.classList.add('hidden');
+        }
+    }
+
+    // ── Safe delete with cascade warning ────────────────────────────────────
+    async function deleteTransactionSafe(t, row) {
+        let links = { savings_bundle: null, project_payment: null };
+        try {
+            const res = await fetch('/api/transactions/' + t.id + '/links');
+            if (res.ok) links = await res.json();
+        } catch(e) { /* proceed without links info */ }
+
+        const hasLinks = links.savings_bundle || links.project_payment;
+
+        if (hasLinks) {
+            showCascadeWarning(t, links, row);
+        } else {
+            collapseActions();
+            deleteWithUndo(row, '/api/transactions/' + t.id, function() {
+                saveFilters(); loadTransactions(); loadMonthlySummary();
+            }, formatDate(t.date) + ' ' + t.category.name);
+        }
+    }
+
+    function showCascadeWarning(t, links, row) {
+        const listEl = document.getElementById('cascade-items-list');
+        while (listEl.firstChild) listEl.removeChild(listEl.firstChild);
+
+        const makeItem = function(iconClass, iconColor, text) {
+            const li = document.createElement('li');
+            li.className = 'flex items-start gap-2.5 text-sm bg-gray-50 rounded-lg px-3 py-2';
+            const ico = document.createElement('i');
+            ico.className = 'fas ' + iconClass + ' mt-0.5 flex-shrink-0 ' + iconColor;
+            const span = document.createElement('span');
+            span.className = 'text-gray-700';
+            span.textContent = text;
+            li.appendChild(ico);
+            li.appendChild(span);
+            return li;
+        };
+
+        if (links.savings_bundle) {
+            listEl.appendChild(makeItem('fa-piggy-bank', 'text-indigo-500',
+                'Savings Bundle "' + links.savings_bundle.name + '" (' + links.savings_bundle.bank_name + ') — this transaction is its backing deposit'));
+        }
+        if (links.project_payment) {
+            listEl.appendChild(makeItem('fa-project-diagram', 'text-blue-500',
+                'Project payment for "' + links.project_payment.project_name + '" — the payment will revert to Pending'));
+        }
+
+        document.getElementById('cascade-modal').classList.remove('hidden');
+
+        const oldConfirm = document.getElementById('cascade-confirm-btn');
+        const newConfirm = oldConfirm.cloneNode(true);
+        oldConfirm.replaceWith(newConfirm);
+        newConfirm.addEventListener('click', function() {
+            document.getElementById('cascade-modal').classList.add('hidden');
+            collapseActions();
+            deleteWithUndo(row, '/api/transactions/' + t.id, function() {
+                saveFilters(); loadTransactions(); loadMonthlySummary();
+            }, formatDate(t.date) + ' ' + t.category.name);
+        });
+
+        const oldCancel = document.getElementById('cascade-cancel-btn');
+        const newCancel = oldCancel.cloneNode(true);
+        oldCancel.replaceWith(newCancel);
+        newCancel.addEventListener('click', function() {
+            document.getElementById('cascade-modal').classList.add('hidden');
+        });
+    }
+
+    async function restoreTransaction(id) {
+        const res = await fetch('/api/transactions/' + id + '/restore', { method: 'POST' });
+        if (res.ok) {
+            showToast('Transaction restored', 'success');
+            loadTransactions();
+            loadMonthlySummary();
+        } else {
+            showToast('Failed to restore transaction', 'error');
+        }
+    }
+
+    async function openHistoryModal(txId) {
+        document.getElementById('history-modal').classList.remove('hidden');
+        const content = document.getElementById('history-modal-content');
+        while (content.firstChild) content.removeChild(content.firstChild);
+
+        const spinner = document.createElement('div');
+        spinner.className = 'py-8 text-center text-gray-400';
+        const spinIco = document.createElement('i');
+        spinIco.className = 'fas fa-spinner fa-spin text-2xl';
+        spinner.appendChild(spinIco);
+        content.appendChild(spinner);
+
+        try {
+            const res = await fetch('/api/transactions/' + txId + '/history');
+            if (!res.ok) throw new Error('Failed');
+            const logs = await res.json();
+            content.removeChild(spinner);
+
+            if (!logs.length) {
+                const empty = document.createElement('p');
+                empty.className = 'py-6 text-center text-gray-400 text-sm';
+                empty.textContent = 'No changes recorded yet.';
+                content.appendChild(empty);
+                return;
+            }
+
+            logs.forEach(function(log) {
+                const row = document.createElement('div');
+                row.className = 'flex items-start gap-3 py-3 border-b last:border-b-0';
+
+                const iconWrap = document.createElement('div');
+                iconWrap.className = 'flex-shrink-0 w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center mt-0.5';
+                const ico = document.createElement('i');
+                ico.className = 'fas fa-pen text-xs text-purple-600';
+                iconWrap.appendChild(ico);
+
+                const info = document.createElement('div');
+                info.className = 'flex-1 min-w-0';
+
+                const fieldBadge = document.createElement('span');
+                fieldBadge.className = 'text-xs font-semibold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded';
+                fieldBadge.textContent = log.field_name;
+
+                const changeRow = document.createElement('p');
+                changeRow.className = 'text-xs text-gray-600 mt-1';
+                if (log.old_value !== null && log.old_value !== undefined) {
+                    const oldSpan = document.createElement('span');
+                    oldSpan.className = 'line-through text-gray-400 mr-1';
+                    oldSpan.textContent = log.old_value;
+                    changeRow.appendChild(oldSpan);
+                    changeRow.appendChild(document.createTextNode('→ '));
+                }
+                const newSpan = document.createElement('span');
+                newSpan.className = 'text-gray-700 font-medium';
+                newSpan.textContent = log.new_value !== null && log.new_value !== undefined ? log.new_value : '(cleared)';
+                changeRow.appendChild(newSpan);
+
+                const timeEl = document.createElement('p');
+                timeEl.className = 'text-xs text-gray-400 mt-0.5';
+                timeEl.textContent = new Date(log.changed_at).toLocaleString('vi-VN');
+
+                info.appendChild(fieldBadge);
+                info.appendChild(changeRow);
+                info.appendChild(timeEl);
+                row.appendChild(iconWrap);
+                row.appendChild(info);
+                content.appendChild(row);
+            });
+        } catch(e) {
+            if (content.contains(spinner)) content.removeChild(spinner);
+            const err = document.createElement('p');
+            err.className = 'py-6 text-center text-red-500 text-sm';
+            err.textContent = 'Failed to load history.';
+            content.appendChild(err);
+        }
+    }
+
+    function showDuplicateWarning(matches, originalData) {
+        const list = document.getElementById('duplicate-matches-list');
+        while (list.firstChild) list.removeChild(list.firstChild);
+
+        matches.forEach(function(m) {
+            const item = document.createElement('div');
+            item.className = 'flex items-center gap-2 text-xs bg-amber-50 rounded-lg px-3 py-2';
+            const dateSpan = document.createElement('span');
+            dateSpan.className = 'text-gray-500 flex-shrink-0';
+            dateSpan.textContent = m.date;
+            const amtSpan = document.createElement('span');
+            amtSpan.className = 'font-semibold text-gray-700 flex-shrink-0';
+            amtSpan.textContent = formatVND(m.amount);
+            const descSpan = document.createElement('span');
+            descSpan.className = 'text-gray-500 truncate flex-1';
+            descSpan.textContent = m.description || '—';
+            item.appendChild(dateSpan);
+            item.appendChild(amtSpan);
+            item.appendChild(descSpan);
+            list.appendChild(item);
+        });
+
+        document.getElementById('duplicate-modal').classList.remove('hidden');
+
+        const oldConfirm = document.getElementById('duplicate-confirm-btn');
+        const newConfirm = oldConfirm.cloneNode(true);
+        oldConfirm.replaceWith(newConfirm);
+        newConfirm.addEventListener('click', async function() {
+            document.getElementById('duplicate-modal').classList.add('hidden');
+            try {
+                const res = await fetch('/api/transactions/?force=true', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(originalData),
+                });
+                if (res.ok) {
+                    closeModal();
+                    saveFilters();
+                    loadTransactions();
+                    loadMonthlySummary();
+                } else {
+                    const err = await res.json();
+                    showToast('Error: ' + (err.detail || 'Failed'), 'error');
+                }
+            } catch(e) {
+                showToast('Failed to save transaction', 'error');
+            }
+        });
+
+        const oldCancel = document.getElementById('duplicate-cancel-btn');
+        const newCancel = oldCancel.cloneNode(true);
+        oldCancel.replaceWith(newCancel);
+        newCancel.addEventListener('click', function() {
+            document.getElementById('duplicate-modal').classList.add('hidden');
+        });
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     // ── Month pill helpers ────────────────────────────────────────────────────
     const _TX_MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -533,28 +793,34 @@
                 limit: pageSize
             });
 
-            const type = document.getElementById('filter-type').value;
-            const categoryId = document.getElementById('filter-category').value;
-            const projectId = document.getElementById('filter-project').value;
-            const startDate = document.getElementById('filter-start-date').value;
-            const endDate = document.getElementById('filter-end-date').value;
-            const search = document.getElementById('filter-search').value;
-            const advanceFilter = document.getElementById('filter-advance').value;
-            const sourceFilter = document.getElementById('filter-source').value;
+            let endpoint;
+            if (trashMode) {
+                endpoint = '/api/transactions/trash';
+            } else {
+                endpoint = '/api/transactions/';
+                const type = document.getElementById('filter-type').value;
+                const categoryId = document.getElementById('filter-category').value;
+                const projectId = document.getElementById('filter-project').value;
+                const startDate = document.getElementById('filter-start-date').value;
+                const endDate = document.getElementById('filter-end-date').value;
+                const search = document.getElementById('filter-search').value;
+                const advanceFilter = document.getElementById('filter-advance').value;
+                const sourceFilter = document.getElementById('filter-source').value;
 
-            if (type) params.append('type', type);
-            if (categoryId) params.append('category_id', categoryId);
-            if (projectId) params.append('project_id', projectId);
-            if (startDate) params.append('start_date', startDate);
-            if (endDate) params.append('end_date', endDate);
-            if (search) params.append('search', search);
-            if (advanceFilter === 'unsettled') { params.append('is_advance', 'true'); params.append('advance_settled', 'false'); }
-            if (advanceFilter === 'settled')   { params.append('is_advance', 'true'); params.append('advance_settled', 'true'); }
-            if (sourceFilter) params.append('source', sourceFilter);
-            if (document.getElementById('filter-review-btn').dataset.active === 'true') params.append('needs_review', 'true');
-            if (activeImportJobId) params.append('import_job_id', activeImportJobId);
+                if (type) params.append('type', type);
+                if (categoryId) params.append('category_id', categoryId);
+                if (projectId) params.append('project_id', projectId);
+                if (startDate) params.append('start_date', startDate);
+                if (endDate) params.append('end_date', endDate);
+                if (search) params.append('search', search);
+                if (advanceFilter === 'unsettled') { params.append('is_advance', 'true'); params.append('advance_settled', 'false'); }
+                if (advanceFilter === 'settled')   { params.append('is_advance', 'true'); params.append('advance_settled', 'true'); }
+                if (sourceFilter) params.append('source', sourceFilter);
+                if (document.getElementById('filter-review-btn').dataset.active === 'true') params.append('needs_review', 'true');
+                if (activeImportJobId) params.append('import_job_id', activeImportJobId);
+            }
 
-            const response = await fetch('/api/transactions/?' + params);
+            const response = await fetch(endpoint + '?' + params);
             const transactions = await response.json();
 
             collapseActions();
@@ -656,6 +922,12 @@
                     reviewBadge.textContent = '⚠ Review';
                     descDiv.appendChild(reviewBadge);
                 }
+                if (t.updated_at && t.created_at && (new Date(t.updated_at) - new Date(t.created_at)) > 2000) {
+                    const editedBadge = document.createElement('span');
+                    editedBadge.className = 'inline-block ml-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400';
+                    editedBadge.textContent = '✎ Edited';
+                    descDiv.appendChild(editedBadge);
+                }
                 if (t.source && t.source !== 'manual') {
                     const srcBadge = document.createElement('span');
                     if (_OCR_SOURCES.has(t.source)) {
@@ -750,6 +1022,7 @@
         document.getElementById('date').valueAsDate = new Date();
         document.getElementById('template-picker-list').classList.add('hidden');
         document.getElementById('template-picker-arrow').className = 'fas fa-chevron-down text-gray-400 text-xs';
+        document.getElementById('needs-review-section').classList.add('hidden');
         document.getElementById('transaction-modal').classList.remove('hidden');
         setTimeout(function() { document.getElementById('amount').focus(); }, 50);
     }
@@ -787,6 +1060,14 @@
             data.advance_settled = false;
         }
 
+        // Clear review flag if editing a needs_review tx and the checkbox is checked
+        if (transactionId) {
+            const nrSection = document.getElementById('needs-review-section');
+            if (!nrSection.classList.contains('hidden') && document.getElementById('clear-review-flag').checked) {
+                data.needs_review = false;
+            }
+        }
+
         if (isSavingsRelated && !transactionId) {
             const amount = parseFloat(document.getElementById('amount').value) || 0;
             const futureAmount = parseFloat(document.getElementById('savings-future-amount').value) || amount;
@@ -814,6 +1095,11 @@
             });
 
             if (response.ok) {
+                const result = await response.json();
+                if (!transactionId && result.duplicate_warning) {
+                    showDuplicateWarning(result.matches, data);
+                    return;
+                }
                 closeModal();
                 saveFilters();
                 loadTransactions();
@@ -846,6 +1132,14 @@
             document.getElementById('description').value = transaction.description || '';
             document.getElementById('is-advance').checked = transaction.is_advance || false;
 
+            const nrSection = document.getElementById('needs-review-section');
+            if (transaction.needs_review) {
+                nrSection.classList.remove('hidden');
+                document.getElementById('clear-review-flag').checked = true;
+            } else {
+                nrSection.classList.add('hidden');
+            }
+
             const isSavingsRelated = transaction.is_savings_related;
             document.getElementById('is-savings-related').checked = isSavingsRelated;
             toggleSavingsSection();
@@ -862,20 +1156,6 @@
         }
     }
     
-    async function deleteTransaction(id) {
-        showConfirm('Delete this transaction?', async function() {
-            try {
-                const response = await fetch('/api/transactions/' + id, { method: 'DELETE' });
-                if (response.ok) {
-                    saveFilters();
-                    loadTransactions();
-                    loadMonthlySummary();
-                }
-            } catch (error) {
-                console.error('Error deleting transaction:', error);
-            }
-        });
-    }
 
     // ── Inline row action bar ─────────────────────────────────────────────────
     let _activeRow = null, _activeActionTr = null, _activeRowOrigClass = null;
@@ -904,32 +1184,52 @@
             return btn;
         };
 
-        const editBtn = mkBtn('fa-edit', 'Edit', 'text-blue-700 bg-white border-blue-200 hover:bg-blue-50');
-        editBtn.addEventListener('click', function(e) { e.stopPropagation(); collapseActions(); editTransaction(t.id); });
-        bar.appendChild(editBtn);
+        if (trashMode) {
+            const restoreBtn = mkBtn('fa-undo', 'Restore', 'text-green-700 bg-white border-green-200 hover:bg-green-50');
+            restoreBtn.addEventListener('click', function(e) { e.stopPropagation(); collapseActions(); restoreTransaction(t.id); });
+            bar.appendChild(restoreBtn);
 
+            const hardDelBtn = mkBtn('fa-trash', 'Delete Forever', 'text-red-800 bg-white border-red-300 hover:bg-red-50');
+            hardDelBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                collapseActions();
+                showConfirm('Permanently delete this transaction? This cannot be undone.', async function() {
+                    const res = await fetch('/api/transactions/' + t.id + '/hard', { method: 'DELETE' });
+                    if (res.ok) { loadTransactions(); showToast('Permanently deleted', 'success'); }
+                    else showToast('Failed to delete permanently', 'error');
+                }, 'Delete Forever', 'bg-red-700 hover:bg-red-800');
+            });
+            bar.appendChild(hardDelBtn);
+        } else {
+            const editBtn = mkBtn('fa-edit', 'Edit', 'text-blue-700 bg-white border-blue-200 hover:bg-blue-50');
+            editBtn.addEventListener('click', function(e) { e.stopPropagation(); collapseActions(); editTransaction(t.id); });
+            bar.appendChild(editBtn);
 
-        if (t.is_advance && !t.advance_settled) {
-            const settleBtn = mkBtn('fa-check-circle', 'Mark Settled', 'text-green-700 bg-white border-green-200 hover:bg-green-50');
-            settleBtn.addEventListener('click', function(e) { e.stopPropagation(); collapseActions(); settleAdvance(t.id); });
-            bar.appendChild(settleBtn);
+            const histBtn = mkBtn('fa-history', 'History', 'text-purple-700 bg-white border-purple-200 hover:bg-purple-50');
+            histBtn.addEventListener('click', function(e) { e.stopPropagation(); collapseActions(); openHistoryModal(t.id); });
+            bar.appendChild(histBtn);
+
+            if (t.is_advance && !t.advance_settled) {
+                const settleBtn = mkBtn('fa-check-circle', 'Mark Settled', 'text-green-700 bg-white border-green-200 hover:bg-green-50');
+                settleBtn.addEventListener('click', function(e) { e.stopPropagation(); collapseActions(); settleAdvance(t.id); });
+                bar.appendChild(settleBtn);
+            }
+
+            if (t.needs_review) {
+                const approveBtn = mkBtn('fa-check', 'Approve', 'text-orange-700 bg-white border-orange-200 hover:bg-orange-50');
+                approveBtn.addEventListener('click', function(e) { e.stopPropagation(); collapseActions(); approveTransaction(t.id); });
+                bar.appendChild(approveBtn);
+            }
+
+            const isOCR = !!(t.import_job_id);
+            const delLabel = isOCR ? 'Reject' : 'Delete';
+            const delBtn = mkBtn('fa-trash', delLabel, 'text-red-700 bg-white border-red-200 hover:bg-red-50');
+            delBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                deleteTransactionSafe(t, row);
+            });
+            bar.appendChild(delBtn);
         }
-
-        if (t.needs_review) {
-            const approveBtn = mkBtn('fa-check', 'Approve', 'text-orange-700 bg-white border-orange-200 hover:bg-orange-50');
-            approveBtn.addEventListener('click', function(e) { e.stopPropagation(); collapseActions(); approveTransaction(t.id); });
-            bar.appendChild(approveBtn);
-        }
-
-        const delBtn = mkBtn('fa-trash', 'Delete', 'text-red-700 bg-white border-red-200 hover:bg-red-50');
-        delBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            collapseActions();
-            deleteWithUndo(row, '/api/transactions/' + t.id, function() {
-                saveFilters(); loadTransactions(); loadMonthlySummary();
-            }, formatDate(t.date) + ' ' + t.category.name);
-        });
-        bar.appendChild(delBtn);
 
         const hint = document.createElement('span');
         hint.className = 'ml-auto text-xs text-gray-400 hidden sm:block';
@@ -1372,6 +1672,77 @@
                         class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition">Close</button>
                 <button type="button" onclick="submitBulkUpload()"
                         class="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">Upload &amp; Import</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- History Modal -->
+<div id="history-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[80vh] flex flex-col">
+        <div class="p-4 border-b flex justify-between items-center flex-shrink-0">
+            <h3 class="text-base font-bold text-gray-800 flex items-center gap-2">
+                <i class="fas fa-history text-purple-500"></i>
+                Change History
+            </h3>
+            <button onclick="document.getElementById('history-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600" aria-label="Close">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div id="history-modal-content" class="overflow-y-auto px-4 py-2 flex-1"></div>
+    </div>
+</div>
+<!-- Duplicate Warning Modal -->
+<div id="duplicate-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
+        <div class="p-5 border-b flex items-start gap-3">
+            <div class="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <i class="fas fa-exclamation-triangle text-amber-600 text-sm"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-semibold text-gray-800">Possible Duplicate</h3>
+                <p class="text-sm text-gray-500 mt-0.5">Similar transactions already exist within ±1 day:</p>
+            </div>
+        </div>
+        <div class="p-5">
+            <div id="duplicate-matches-list" class="space-y-2 mb-4 max-h-40 overflow-y-auto"></div>
+            <p class="text-xs text-gray-400 mb-4">Are you sure you want to add this transaction anyway?</p>
+            <div class="flex gap-3">
+                <button id="duplicate-cancel-btn"
+                        class="flex-1 px-4 py-2.5 border rounded-lg text-gray-700 hover:bg-gray-50 transition text-sm font-medium">
+                    Cancel
+                </button>
+                <button id="duplicate-confirm-btn"
+                        class="flex-1 px-4 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm font-medium">
+                    Save Anyway
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Cascade Warning Modal -->
+<div id="cascade-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
+        <div class="p-5 border-b flex items-start gap-3">
+            <div class="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <i class="fas fa-exclamation-triangle text-red-600 text-sm"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-semibold text-gray-800">Delete linked transaction?</h3>
+                <p class="text-sm text-gray-500 mt-0.5">This transaction is linked to:</p>
+            </div>
+        </div>
+        <div class="p-5">
+            <ul id="cascade-items-list" class="space-y-2 mb-5"></ul>
+            <p class="text-xs text-gray-400 mb-4">The transaction will move to Trash and can be restored within 30 days.</p>
+            <div class="flex gap-3">
+                <button id="cascade-cancel-btn"
+                        class="flex-1 px-4 py-2.5 border rounded-lg text-gray-700 hover:bg-gray-50 transition text-sm font-medium">
+                    Cancel
+                </button>
+                <button id="cascade-confirm-btn"
+                        class="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition text-sm font-medium">
+                    Delete anyway
+                </button>
             </div>
         </div>
     </div>

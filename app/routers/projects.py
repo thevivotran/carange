@@ -200,6 +200,7 @@ def update_payment(
             description=f"[{project.name}] {payment.notes or ''}".strip(),
             project_id=project_id,
             source="project_payment",
+            needs_review=True,
         )
         db.add(tx)
         db.flush()

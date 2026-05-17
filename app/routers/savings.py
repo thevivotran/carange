@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import and_
 from typing import List, Optional
 from datetime import date, datetime, timezone
 
@@ -23,7 +24,7 @@ def get_savings_bundles(status: Optional[str] = None, skip: int = 0, limit: int 
 
     query = (
         db.query(SavingsBundle, func.count(Transaction.id).label("tx_count"))
-        .outerjoin(Transaction, Transaction.savings_bundle_id == SavingsBundle.id)
+        .outerjoin(Transaction, and_(Transaction.savings_bundle_id == SavingsBundle.id, Transaction.deleted_at.is_(None)))
         .group_by(SavingsBundle.id)
     )
 
@@ -134,6 +135,7 @@ def mark_bundle_completed(bundle_id: int, db: Session = Depends(get_db)):
             is_savings_related=True,
             savings_bundle_id=bundle.id,
             source="savings_maturity",
+            needs_review=True,
         )
         db.add(transaction)
 

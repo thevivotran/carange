@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, and_
 from typing import List
 
 from app.models.database import get_db, Category, Transaction
@@ -13,7 +13,7 @@ router = APIRouter()
 def get_categories(type: str = None, is_active: bool = None, db: Session = Depends(get_db)):
     query = (
         db.query(Category, func.count(Transaction.id).label("tx_count"))
-        .outerjoin(Transaction, Transaction.category_id == Category.id)
+        .outerjoin(Transaction, and_(Transaction.category_id == Category.id, Transaction.deleted_at.is_(None)))
         .group_by(Category.id)
     )
 
@@ -37,7 +37,7 @@ def get_category(category_id: int, db: Session = Depends(get_db)):
             Category,
             func.count(Transaction.id).label("tx_count"),
         )
-        .outerjoin(Transaction, Transaction.category_id == Category.id)
+        .outerjoin(Transaction, and_(Transaction.category_id == Category.id, Transaction.deleted_at.is_(None)))
         .filter(Category.id == category_id)
         .group_by(Category.id)
         .first()
@@ -95,13 +95,20 @@ def delete_category(category_id: int, db: Session = Depends(get_db)):
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
 
-    # Check if category has transactions
+    # Block if ANY transactions reference this category — including soft-deleted ones,
+    # because they may be restored and would need a valid category.
     transaction_count = db.query(Transaction).filter(Transaction.category_id == category_id).count()
     if transaction_count > 0:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Cannot delete category. It has {transaction_count} transactions. Deactivate it instead.",
+        active_count = db.query(Transaction).filter(
+            Transaction.category_id == category_id,
+            Transaction.deleted_at.is_(None),
+        ).count()
+        detail = (
+            f"Cannot delete category. It has {active_count} active transactions. Deactivate it instead."
+            if active_count
+            else f"Cannot delete category. It has {transaction_count - active_count} transactions in Trash that may be restored. Empty the Trash first."
         )
+        raise HTTPException(status_code=400, detail=detail)
 
     db.delete(category)
     db.commit()

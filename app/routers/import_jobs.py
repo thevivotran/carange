@@ -6,7 +6,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from app.models.database import ImportJob, ImportJobStatus, ImportSource, get_db
+from app.models.database import ImportJob, ImportJobStatus, ImportSource, Transaction, get_db
 from app.models.schemas import ImportJob as ImportJobSchema
 from app.models.schemas import ImportJobUpdate
 
@@ -132,6 +132,28 @@ def update_import_job(job_id: int, payload: ImportJobUpdate, db: Session = Depen
     db.commit()
     db.refresh(job)
     return job
+
+
+@router.get("/jobs/{job_id}/summary")
+def get_import_job_summary(job_id: int, db: Session = Depends(get_db)):
+    """Return counts of active/needs_review/rejected transactions for a completed job."""
+    job = db.query(ImportJob).filter(ImportJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=404, detail="Import job not found")
+
+    all_txs = db.query(Transaction).filter(Transaction.import_job_id == job_id).all()
+    active = [t for t in all_txs if t.deleted_at is None]
+    rejected = len(all_txs) - len(active)
+    needs_review = sum(1 for t in active if t.needs_review)
+    auto_approved = len(active) - needs_review
+
+    return {
+        "job_id": job_id,
+        "total": len(active),
+        "auto_approved": auto_approved,
+        "needs_review": needs_review,
+        "rejected": rejected,
+    }
 
 
 @router.delete("/jobs/{job_id}")

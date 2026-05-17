@@ -1,16 +1,38 @@
+import os
+
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case, and_
 from typing import List, Optional
-from datetime import date
+from datetime import date, datetime, timezone, timedelta
 from calendar import monthrange
 import csv
 import io
 import random
 
-from app.models.database import get_db, Transaction, Category, TransactionType, SavingsBundle
-from app.models.schemas import Transaction as TransactionSchema, TransactionCreate, TransactionUpdate
+from app.models.database import (
+    get_db,
+    Transaction,
+    TransactionAuditLog,
+    Category,
+    TransactionType,
+    SavingsBundle,
+    ProjectPayment,
+    FinancialProject,
+    PaymentStatus,
+)
+from app.models.schemas import (
+    Transaction as TransactionSchema,
+    TransactionCreate,
+    TransactionUpdate,
+    TransactionAuditLogEntry,
+)
+
+_AUDIT_FIELDS = [
+    "date", "amount", "type", "category_id", "description",
+    "payment_method", "is_savings_related", "is_advance", "advance_settled", "needs_review",
+]
 
 router = APIRouter()
 
@@ -36,7 +58,7 @@ def get_transactions(
     if start_date and end_date and start_date > end_date:
         raise HTTPException(status_code=400, detail="Start date cannot be after end date")
 
-    query = db.query(Transaction)
+    query = db.query(Transaction).filter(Transaction.deleted_at.is_(None))
 
     if type:
         query = query.filter(Transaction.type == type)
@@ -64,16 +86,76 @@ def get_transactions(
     return query.order_by(Transaction.date.desc()).offset(skip).limit(limit).all()
 
 
+@router.get("/trash", response_model=List[TransactionSchema])
+def get_trashed_transactions(
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db),
+):
+    return (
+        db.query(Transaction)
+        .filter(Transaction.deleted_at.isnot(None))
+        .order_by(Transaction.deleted_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+
+@router.get("/{transaction_id}/links")
+def get_transaction_links(transaction_id: int, db: Session = Depends(get_db)):
+    tx = db.query(Transaction).filter(
+        Transaction.id == transaction_id,
+        Transaction.deleted_at.is_(None),
+    ).first()
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+
+    result = {"savings_bundle": None, "project_payment": None}
+
+    if tx.savings_bundle_id:
+        bundle = db.query(SavingsBundle).filter(SavingsBundle.id == tx.savings_bundle_id).first()
+        if bundle:
+            result["savings_bundle"] = {"id": bundle.id, "name": bundle.name, "bank_name": bundle.bank_name}
+
+    payment = db.query(ProjectPayment).filter(ProjectPayment.transaction_id == transaction_id).first()
+    if payment:
+        project = db.query(FinancialProject).filter(FinancialProject.id == payment.project_id).first()
+        result["project_payment"] = {
+            "payment_id": payment.id,
+            "project_name": project.name if project else "Unknown",
+            "amount": payment.amount,
+        }
+
+    return result
+
+
+@router.get("/{transaction_id}/history", response_model=List[TransactionAuditLogEntry])
+def get_transaction_history(transaction_id: int, db: Session = Depends(get_db)):
+    tx = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    return (
+        db.query(TransactionAuditLog)
+        .filter(TransactionAuditLog.transaction_id == transaction_id)
+        .order_by(TransactionAuditLog.changed_at.desc())
+        .all()
+    )
+
+
 @router.get("/{transaction_id}", response_model=TransactionSchema)
 def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
-    transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    transaction = db.query(Transaction).filter(
+        Transaction.id == transaction_id,
+        Transaction.deleted_at.is_(None),
+    ).first()
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
     return transaction
 
 
 @router.post("/", response_model=TransactionSchema)
-def create_transaction(transaction: TransactionCreate, db: Session = Depends(get_db)):
+def create_transaction(transaction: TransactionCreate, force: bool = False, db: Session = Depends(get_db)):
     from app.models.database import SavingsStatus
 
     # Verify category exists
@@ -87,6 +169,32 @@ def create_transaction(transaction: TransactionCreate, db: Session = Depends(get
             status_code=400,
             detail=f"Transaction type '{transaction.type}' does not match category type '{category.type}'",
         )
+
+    # Duplicate detection: same amount/type/category within ±1 day
+    if not force:
+        similar = (
+            db.query(Transaction)
+            .filter(
+                Transaction.date >= transaction.date - timedelta(days=1),
+                Transaction.date <= transaction.date + timedelta(days=1),
+                Transaction.amount == transaction.amount,
+                Transaction.type == transaction.type,
+                Transaction.category_id == transaction.category_id,
+                Transaction.deleted_at.is_(None),
+            )
+            .limit(5)
+            .all()
+        )
+        if similar:
+            return JSONResponse(
+                content={
+                    "duplicate_warning": True,
+                    "matches": [
+                        {"id": tx.id, "date": str(tx.date), "amount": tx.amount, "description": tx.description}
+                        for tx in similar
+                    ],
+                }
+            )
 
     # Prepare transaction data
     transaction_data = transaction.model_dump(exclude={"savings_bundle"})
@@ -125,7 +233,10 @@ def create_transaction(transaction: TransactionCreate, db: Session = Depends(get
 
 @router.put("/{transaction_id}", response_model=TransactionSchema)
 def update_transaction(transaction_id: int, transaction: TransactionUpdate, db: Session = Depends(get_db)):
-    db_transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    db_transaction = db.query(Transaction).filter(
+        Transaction.id == transaction_id,
+        Transaction.deleted_at.is_(None),
+    ).first()
     if not db_transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
@@ -137,23 +248,84 @@ def update_transaction(transaction_id: int, transaction: TransactionUpdate, db: 
         if not category:
             raise HTTPException(status_code=404, detail="Category not found")
 
+    # Snapshot audited fields before change
+    before = {f: getattr(db_transaction, f) for f in _AUDIT_FIELDS}
+
     for key, value in update_data.items():
         setattr(db_transaction, key, value)
+
+    # Write audit rows for every changed field
+    now = datetime.now(timezone.utc)
+    for field in _AUDIT_FIELDS:
+        old = before.get(field)
+        new = getattr(db_transaction, field)
+        if old != new:
+            db.add(TransactionAuditLog(
+                transaction_id=transaction_id,
+                changed_at=now,
+                field_name=field,
+                old_value=str(old) if old is not None else None,
+                new_value=str(new) if new is not None else None,
+            ))
 
     db.commit()
     db.refresh(db_transaction)
     return db_transaction
 
 
+@router.delete("/{transaction_id}/hard")
+def hard_delete_transaction(transaction_id: int, db: Session = Depends(get_db)):
+    """Permanently delete a transaction that is already in the trash."""
+    transaction = db.query(Transaction).filter(
+        Transaction.id == transaction_id,
+        Transaction.deleted_at.isnot(None),
+    ).first()
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found in trash")
+    db.delete(transaction)
+    db.commit()
+    return {"message": "Transaction permanently deleted"}
+
+
+@router.post("/{transaction_id}/restore", response_model=TransactionSchema)
+def restore_transaction(transaction_id: int, db: Session = Depends(get_db)):
+    """Restore a soft-deleted transaction from trash."""
+    transaction = db.query(Transaction).filter(
+        Transaction.id == transaction_id,
+        Transaction.deleted_at.isnot(None),
+    ).first()
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Transaction not found in trash")
+    transaction.deleted_at = None
+    db.commit()
+    db.refresh(transaction)
+    return transaction
+
+
 @router.delete("/{transaction_id}")
 def delete_transaction(transaction_id: int, db: Session = Depends(get_db)):
-    transaction = db.query(Transaction).filter(Transaction.id == transaction_id).first()
+    """Soft-delete a transaction. Cascades: reverts linked ProjectPayment to PENDING."""
+    transaction = db.query(Transaction).filter(
+        Transaction.id == transaction_id,
+        Transaction.deleted_at.is_(None),
+    ).first()
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
-    db.delete(transaction)
+    # Cascade: revert linked ProjectPayment to PENDING so it can be re-paid
+    payment = db.query(ProjectPayment).filter(ProjectPayment.transaction_id == transaction_id).first()
+    if payment:
+        payment.status = PaymentStatus.PENDING
+        payment.transaction_id = None
+        project = db.query(FinancialProject).filter(FinancialProject.id == payment.project_id).first()
+        if project:
+            all_payments = db.query(ProjectPayment).filter(ProjectPayment.project_id == project.id).all()
+            project.target_amount = sum(p.amount for p in all_payments)
+            project.current_amount = sum(p.amount for p in all_payments if p.status == PaymentStatus.PAID)
+
+    transaction.deleted_at = datetime.now(timezone.utc)
     db.commit()
-    return {"message": "Transaction deleted successfully"}
+    return {"message": "Transaction deleted"}
 
 
 @router.get("/stats/monthly-summary")
@@ -176,6 +348,7 @@ def get_monthly_summary(year: Optional[int] = None, month: Optional[int] = None,
                         Transaction.type == TransactionType.INCOME,
                         Transaction.date >= month_start,
                         Transaction.date <= month_end,
+                        Transaction.deleted_at.is_(None),
                     ),
                     Transaction.amount,
                 ),
@@ -190,6 +363,7 @@ def get_monthly_summary(year: Optional[int] = None, month: Optional[int] = None,
                         Transaction.is_savings_related == False,
                         Transaction.date >= month_start,
                         Transaction.date <= month_end,
+                        Transaction.deleted_at.is_(None),
                     ),
                     Transaction.amount,
                 ),
@@ -204,6 +378,7 @@ def get_monthly_summary(year: Optional[int] = None, month: Optional[int] = None,
                         Transaction.is_savings_related == True,
                         Transaction.date >= month_start,
                         Transaction.date <= month_end,
+                        Transaction.deleted_at.is_(None),
                     ),
                     Transaction.amount,
                 ),
@@ -212,13 +387,19 @@ def get_monthly_summary(year: Optional[int] = None, month: Optional[int] = None,
         ).label("savings"),
         func.sum(
             case(
-                (Transaction.type == TransactionType.INCOME, Transaction.amount),
+                (
+                    and_(Transaction.type == TransactionType.INCOME, Transaction.deleted_at.is_(None)),
+                    Transaction.amount,
+                ),
                 else_=0,
             )
         ).label("total_income"),
         func.sum(
             case(
-                (Transaction.type == TransactionType.EXPENSE, Transaction.amount),
+                (
+                    and_(Transaction.type == TransactionType.EXPENSE, Transaction.deleted_at.is_(None)),
+                    Transaction.amount,
+                ),
                 else_=0,
             )
         ).label("total_expense"),
@@ -256,7 +437,12 @@ def get_transactions_by_category(
     results = (
         db.query(Category.name, Category.color, func.sum(Transaction.amount).label("total"))
         .join(Transaction)
-        .filter(Transaction.date >= month_start, Transaction.date <= month_end, Transaction.type == type)
+        .filter(
+            Transaction.date >= month_start,
+            Transaction.date <= month_end,
+            Transaction.type == type,
+            Transaction.deleted_at.is_(None),
+        )
         .group_by(Category.id)
         .all()
     )
@@ -517,6 +703,7 @@ def _is_duplicate(
         Transaction.amount == amount,
         Transaction.type == trans_type,
         Transaction.category_id == category_id,
+        Transaction.deleted_at.is_(None),
     )
     if description:
         q = q.filter(Transaction.description == description)
@@ -525,8 +712,15 @@ def _is_duplicate(
     return q.first() is not None
 
 
+_KHAC_NAME_MAP = {"income": "Thu nhập khác", "expense": "Chi phí khác"}
+
+
 def _get_or_create_category(db, category_name: str, trans_type: TransactionType):
     """Get or create a category"""
+    # Normalize bare "Khác" so CSV imports never re-create the ambiguous generic name
+    if category_name.strip() == "Khác":
+        category_name = _KHAC_NAME_MAP.get(trans_type.value, category_name)
+
     category = db.query(Category).filter(Category.name == category_name, Category.type == trans_type).first()
 
     if category:
