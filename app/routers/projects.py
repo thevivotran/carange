@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field
+from datetime import date
 
 from app.models.database import (
     get_db,
@@ -12,9 +13,6 @@ from app.models.database import (
     ProjectType,
     SavingsBundle,
     ProjectPayment,
-    PaymentStatus,
-    Transaction,
-    TransactionType,
 )
 from app.models.schemas import (
     FinancialProject as FinancialProjectSchema,
@@ -24,34 +22,58 @@ from app.models.schemas import (
     ProjectPaymentCreate,
     ProjectPaymentUpdate,
 )
+from app.services import project_service
 
 router = APIRouter()
 
 
-# ---------------------------------------------------------------------------
-# Helper
-# ---------------------------------------------------------------------------
-
-
-def _recompute_project_totals(db: Session, project) -> None:
-    """Recompute target_amount and current_amount from payments. Flushes; caller commits."""
-    payments = db.query(ProjectPayment).filter(ProjectPayment.project_id == project.id).all()
-    project.target_amount = sum(p.amount for p in payments)
-    project.current_amount = sum(p.amount for p in payments if p.status == PaymentStatus.PAID)
-    if project.current_amount > 0 and project.status == ProjectStatus.PLANNING:
-        project.status = ProjectStatus.IN_PROGRESS
-    db.flush()
-
-
 def _calc_progress(project) -> float:
-    if project.target_amount > 0:
-        return round((project.current_amount / project.target_amount) * 100, 2)
-    return 0.0
+    return project_service.calc_progress(project)
 
 
 # ---------------------------------------------------------------------------
 # Project CRUD
 # ---------------------------------------------------------------------------
+
+
+@router.get("/trash", response_model=List[FinancialProjectSchema])
+def get_trashed_projects(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    projects = project_service.get_trashed_projects(db, skip=skip, limit=limit)
+    for p in projects:
+        p.progress_percentage = _calc_progress(p)
+    return projects
+
+
+@router.get("/stats/summary")
+def get_projects_summary(db: Session = Depends(get_db)):
+    active_projects = (
+        db.query(FinancialProject)
+        .filter(
+            FinancialProject.status.in_([ProjectStatus.PLANNING, ProjectStatus.IN_PROGRESS]),
+            FinancialProject.deleted_at.is_(None),
+        )
+        .all()
+    )
+
+    total_target = sum(p.target_amount for p in active_projects)
+    total_current = sum(p.current_amount for p in active_projects)
+
+    completed_count = (
+        db.query(FinancialProject)
+        .filter(
+            FinancialProject.status == ProjectStatus.COMPLETED,
+            FinancialProject.deleted_at.is_(None),
+        )
+        .count()
+    )
+
+    return {
+        "active_projects_count": len(active_projects),
+        "completed_projects_count": completed_count,
+        "total_target_amount": total_target,
+        "total_current_amount": total_current,
+        "progress_percentage": round((total_current / total_target * 100), 2) if total_target > 0 else 0,
+    }
 
 
 @router.get("/", response_model=List[FinancialProjectSchema])
@@ -62,7 +84,7 @@ def get_projects(
     limit: int = 100,
     db: Session = Depends(get_db),
 ):
-    query = db.query(FinancialProject)
+    query = db.query(FinancialProject).filter(FinancialProject.deleted_at.is_(None))
     if status:
         query = query.filter(FinancialProject.status == status)
     if project_type:
@@ -76,7 +98,9 @@ def get_projects(
 
 @router.get("/{project_id}", response_model=FinancialProjectSchema)
 def get_project(project_id: int, db: Session = Depends(get_db)):
-    project = db.query(FinancialProject).filter(FinancialProject.id == project_id).first()
+    project = db.query(FinancialProject).filter(
+        FinancialProject.id == project_id, FinancialProject.deleted_at.is_(None)
+    ).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     project.progress_percentage = _calc_progress(project)
@@ -110,13 +134,34 @@ def update_project(project_id: int, project_update: FinancialProjectUpdate, db: 
     return db_project
 
 
+@router.delete("/{project_id}/hard")
+def hard_delete_project(project_id: int, db: Session = Depends(get_db)):
+    """Permanently delete a soft-deleted project."""
+    try:
+        project_service.hard_delete_project(db, project_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Project not found in trash")
+    return {"message": "Project permanently deleted"}
+
+
+@router.post("/{project_id}/restore", response_model=FinancialProjectSchema)
+def restore_project(project_id: int, db: Session = Depends(get_db)):
+    """Restore a soft-deleted project."""
+    try:
+        project = project_service.restore_project(db, project_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Project not found in trash")
+    project.progress_percentage = _calc_progress(project)
+    return project
+
+
 @router.delete("/{project_id}")
 def delete_project(project_id: int, db: Session = Depends(get_db)):
-    project = db.query(FinancialProject).filter(FinancialProject.id == project_id).first()
-    if not project:
+    """Soft-delete a project."""
+    try:
+        project_service.soft_delete_project(db, project_id)
+    except LookupError:
         raise HTTPException(status_code=404, detail="Project not found")
-    db.delete(project)
-    db.commit()
     return {"message": "Project deleted successfully"}
 
 
@@ -135,7 +180,7 @@ def get_payments(project_id: int, db: Session = Depends(get_db)):
         db.query(ProjectPayment)
         .filter(ProjectPayment.project_id == project_id)
         .order_by(
-            ProjectPayment.due_date.is_(None),  # False < True → dated rows first
+            ProjectPayment.due_date.is_(None),
             ProjectPayment.due_date.asc(),
             ProjectPayment.sort_order.asc(),
             ProjectPayment.id.asc(),
@@ -150,14 +195,10 @@ def create_payment(project_id: int, payment: ProjectPaymentCreate, db: Session =
     project = db.query(FinancialProject).filter(FinancialProject.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-
-    db_payment = ProjectPayment(project_id=project_id, **payment.model_dump())
-    db.add(db_payment)
-    db.flush()
-    _recompute_project_totals(db, project)
-    db.commit()
-    db.refresh(db_payment)
-    return db_payment
+    try:
+        return project_service.create_payment(db, project, payment)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to create payment")
 
 
 @router.patch("/{project_id}/payments/{payment_id}", response_model=ProjectPaymentSchema)
@@ -179,38 +220,10 @@ def update_payment(
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
 
-    update_data = payment_update.model_dump(exclude_unset=True)
-
-    # Extract extra fields not on the ORM model
-    category_id = update_data.pop("category_id", None)
-    payment_date = update_data.pop("payment_date", None)
-
-    # Apply core field updates
-    for key, value in update_data.items():
-        setattr(payment, key, value)
-
-    # Auto-create transaction when marking paid
-    if update_data.get("status") == PaymentStatus.PAID and category_id and payment.transaction_id is None:
-        paid_date = payment_date or payment.due_date or date.today()
-        tx = Transaction(
-            date=paid_date,
-            amount=payment.amount,
-            type=TransactionType.EXPENSE,
-            category_id=category_id,
-            description=f"[{project.name}] {payment.notes or ''}".strip(),
-            project_id=project_id,
-            source="project_payment",
-            needs_review=True,
-        )
-        db.add(tx)
-        db.flush()
-        payment.transaction_id = tx.id
-
-    db.flush()
-    _recompute_project_totals(db, project)
-    db.commit()
-    db.refresh(payment)
-    return payment
+    try:
+        return project_service.update_payment(db, project, payment, payment_update)
+    except Exception:
+        raise HTTPException(status_code=500, detail="Failed to update payment")
 
 
 @router.delete("/{project_id}/payments/{payment_id}")
@@ -230,10 +243,7 @@ def delete_payment(project_id: int, payment_id: int, db: Session = Depends(get_d
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
 
-    db.delete(payment)
-    db.flush()
-    _recompute_project_totals(db, project)
-    db.commit()
+    project_service.delete_payment(db, project, payment)
     return {"message": "Payment deleted successfully"}
 
 
@@ -250,49 +260,12 @@ class RecurringScheduleRequest(BaseModel):
     notes: Optional[str] = None
 
 
-def _next_date(d: date, interval: str) -> date:
-    if interval == "weekly":
-        return d + timedelta(weeks=1)
-    if interval == "biweekly":
-        return d + timedelta(weeks=2)
-    if interval == "monthly":
-        month = d.month + 1
-        year = d.year + (month - 1) // 12
-        month = ((month - 1) % 12) + 1
-        # Clamp day for short months
-        import calendar
-
-        day = min(d.day, calendar.monthrange(year, month)[1])
-        return date(year, month, day)
-    raise ValueError(f"Invalid interval: {interval}")
-
-
 @router.post("/{project_id}/payments/bulk", response_model=List[ProjectPaymentSchema])
 def bulk_create_payments(project_id: int, req: RecurringScheduleRequest, db: Session = Depends(get_db)):
     project = db.query(FinancialProject).filter(FinancialProject.id == project_id).first()
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
-
-    created = []
-    current_date = req.start_date
-    for _ in range(req.occurrences):
-        p = ProjectPayment(
-            project_id=project_id,
-            due_date=current_date,
-            amount=req.amount,
-            status=PaymentStatus.PENDING,
-            notes=req.notes,
-        )
-        db.add(p)
-        created.append(p)
-        current_date = _next_date(current_date, req.interval)
-
-    db.flush()
-    _recompute_project_totals(db, project)
-    db.commit()
-    for p in created:
-        db.refresh(p)
-    return created
+    return project_service.bulk_create_payments(db, project, req)
 
 
 # ---------------------------------------------------------------------------
@@ -311,30 +284,3 @@ def link_savings_to_project(project_id: int, savings_id: int, db: Session = Depe
     savings.linked_project_id = project_id
     db.commit()
     return {"message": "Savings bundle linked to project successfully"}
-
-
-# ---------------------------------------------------------------------------
-# Stats
-# ---------------------------------------------------------------------------
-
-
-@router.get("/stats/summary")
-def get_projects_summary(db: Session = Depends(get_db)):
-    active_projects = (
-        db.query(FinancialProject)
-        .filter(FinancialProject.status.in_([ProjectStatus.PLANNING, ProjectStatus.IN_PROGRESS]))
-        .all()
-    )
-
-    total_target = sum(p.target_amount for p in active_projects)
-    total_current = sum(p.current_amount for p in active_projects)
-
-    completed_count = db.query(FinancialProject).filter(FinancialProject.status == ProjectStatus.COMPLETED).count()
-
-    return {
-        "active_projects_count": len(active_projects),
-        "completed_projects_count": completed_count,
-        "total_target_amount": total_target,
-        "total_current_amount": total_current,
-        "progress_percentage": round((total_current / total_target * 100), 2) if total_target > 0 else 0,
-    }

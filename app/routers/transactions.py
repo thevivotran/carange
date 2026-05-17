@@ -5,14 +5,12 @@ from sqlalchemy import func, case, and_
 from typing import List, Optional
 from datetime import date, datetime, timezone, timedelta
 from calendar import monthrange
-import csv
-import io
-import random
 
 from app.models.database import (
     get_db,
     Transaction,
     TransactionAuditLog,
+    AuditField,
     Category,
     TransactionType,
     SavingsBundle,
@@ -26,19 +24,9 @@ from app.models.schemas import (
     TransactionUpdate,
     TransactionAuditLogEntry,
 )
+from app.services import transaction_service
 
-_AUDIT_FIELDS = [
-    "date",
-    "amount",
-    "type",
-    "category_id",
-    "description",
-    "payment_method",
-    "is_savings_related",
-    "is_advance",
-    "advance_settled",
-    "needs_review",
-]
+_AUDIT_FIELDS = list(AuditField)
 
 router = APIRouter()
 
@@ -170,34 +158,18 @@ def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=TransactionSchema)
 def create_transaction(transaction: TransactionCreate, force: bool = False, db: Session = Depends(get_db)):
-    from app.models.database import SavingsStatus
-
-    # Verify category exists
     category = db.query(Category).filter(Category.id == transaction.category_id).first()
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
-
-    # Verify transaction type matches category type
     if category.type != transaction.type:
         raise HTTPException(
             status_code=400,
             detail=f"Transaction type '{transaction.type}' does not match category type '{category.type}'",
         )
 
-    # Duplicate detection: same amount/type/category within ±1 day
     if not force:
-        similar = (
-            db.query(Transaction)
-            .filter(
-                Transaction.date >= transaction.date - timedelta(days=1),
-                Transaction.date <= transaction.date + timedelta(days=1),
-                Transaction.amount == transaction.amount,
-                Transaction.type == transaction.type,
-                Transaction.category_id == transaction.category_id,
-                Transaction.deleted_at.is_(None),
-            )
-            .limit(5)
-            .all()
+        similar = transaction_service.check_duplicate(
+            db, transaction.date, transaction.amount, transaction.type, transaction.category_id
         )
         if similar:
             return JSONResponse(
@@ -210,55 +182,19 @@ def create_transaction(transaction: TransactionCreate, force: bool = False, db: 
                 }
             )
 
-    # Prepare transaction data
-    transaction_data = transaction.model_dump(exclude={"savings_bundle"})
-
-    # If creating savings bundle with transaction
-    savings_bundle_id = None
-    if transaction.is_savings_related and transaction.savings_bundle:
-        # Create the savings bundle first
-        bundle_data = transaction.savings_bundle
-        db_bundle = SavingsBundle(
-            name=bundle_data.name,
-            bank_name=bundle_data.bank_name,
-            type=bundle_data.type,
-            initial_deposit=bundle_data.initial_deposit,
-            current_amount=bundle_data.initial_deposit,  # Initialize current_amount with initial_deposit
-            future_amount=bundle_data.future_amount,
-            interest_rate=bundle_data.interest_rate,
-            start_date=bundle_data.start_date,
-            maturity_date=bundle_data.maturity_date,
-            notes=bundle_data.notes,
-            status=SavingsStatus.ACTIVE,
-        )
-        db.add(db_bundle)
-        db.flush()  # Get the ID without committing
-        savings_bundle_id = db_bundle.id
-
-    # Create transaction with savings_bundle_id if applicable
-    transaction_data["savings_bundle_id"] = savings_bundle_id
-    db_transaction = Transaction(**transaction_data)
-    db.add(db_transaction)
-    db.commit()
-    db.refresh(db_transaction)
-
-    return db_transaction
+    return transaction_service.create_transaction(db, transaction)
 
 
 @router.put("/{transaction_id}", response_model=TransactionSchema)
 def update_transaction(transaction_id: int, transaction: TransactionUpdate, db: Session = Depends(get_db)):
     db_transaction = (
         db.query(Transaction)
-        .filter(
-            Transaction.id == transaction_id,
-            Transaction.deleted_at.is_(None),
-        )
+        .filter(Transaction.id == transaction_id, Transaction.deleted_at.is_(None))
         .first()
     )
     if not db_transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
-    # Update only fields that are provided (not None)
     update_data = transaction.model_dump(exclude_unset=True)
 
     if "category_id" in update_data:
@@ -266,27 +202,12 @@ def update_transaction(transaction_id: int, transaction: TransactionUpdate, db: 
         if not category:
             raise HTTPException(status_code=404, detail="Category not found")
 
-    # Snapshot audited fields before change
-    before = {f: getattr(db_transaction, f) for f in _AUDIT_FIELDS}
+    before = transaction_service.snapshot_audit_fields(db_transaction)
 
     for key, value in update_data.items():
         setattr(db_transaction, key, value)
 
-    # Write audit rows for every changed field
-    now = datetime.now(timezone.utc)
-    for field in _AUDIT_FIELDS:
-        old = before.get(field)
-        new = getattr(db_transaction, field)
-        if old != new:
-            db.add(
-                TransactionAuditLog(
-                    transaction_id=transaction_id,
-                    changed_at=now,
-                    field_name=field,
-                    old_value=str(old) if old is not None else None,
-                    new_value=str(new) if new is not None else None,
-                )
-            )
+    transaction_service.write_audit_log(db, transaction_id, before, db_transaction, datetime.now(timezone.utc))
 
     db.commit()
     db.refresh(db_transaction)
@@ -333,30 +254,10 @@ def restore_transaction(transaction_id: int, db: Session = Depends(get_db)):
 @router.delete("/{transaction_id}")
 def delete_transaction(transaction_id: int, db: Session = Depends(get_db)):
     """Soft-delete a transaction. Cascades: reverts linked ProjectPayment to PENDING."""
-    transaction = (
-        db.query(Transaction)
-        .filter(
-            Transaction.id == transaction_id,
-            Transaction.deleted_at.is_(None),
-        )
-        .first()
-    )
-    if not transaction:
+    try:
+        transaction_service.soft_delete_transaction(db, transaction_id)
+    except LookupError:
         raise HTTPException(status_code=404, detail="Transaction not found")
-
-    # Cascade: revert linked ProjectPayment to PENDING so it can be re-paid
-    payment = db.query(ProjectPayment).filter(ProjectPayment.transaction_id == transaction_id).first()
-    if payment:
-        payment.status = PaymentStatus.PENDING
-        payment.transaction_id = None
-        project = db.query(FinancialProject).filter(FinancialProject.id == payment.project_id).first()
-        if project:
-            all_payments = db.query(ProjectPayment).filter(ProjectPayment.project_id == project.id).all()
-            project.target_amount = sum(p.amount for p in all_payments)
-            project.current_amount = sum(p.amount for p in all_payments if p.status == PaymentStatus.PAID)
-
-    transaction.deleted_at = datetime.now(timezone.utc)
-    db.commit()
     return {"message": "Transaction deleted"}
 
 
@@ -484,132 +385,34 @@ def get_transactions_by_category(
 
 @router.post("/bulk-upload")
 def bulk_upload_transactions(file: UploadFile = File(...), db: Session = Depends(get_db)):
-    """
-    Bulk upload transactions from CSV file.
-
-    CSV Format (Vietnamese headers):
-    - date: Date (YYYY-MM-DD) OR
-    - year: Year (YYYY) AND month: Month (1-12) - will use 1st of month
-    - amount: Amount (positive number)
-    - type: 'income' or 'expense'
-    - category: Category name (will auto-create if not exists)
-    - description: Description (optional)
-    - payment_method: cash, credit_card, debit_card, bank_transfer, mobile_payment, other (optional, default: cash)
-
-    Alternative format (compatible with existing import):
-    - Năm: Year
-    - Tháng: Month
-    - Thu: Income amount
-    - Chi: Expense amount
-    - Loại: Category name
-    - Ghi chú: Description
-    """
-    # Read CSV content
+    """Bulk upload transactions from CSV (Vietnamese or English format)."""
     content = file.file.read()
     try:
-        decoded = content.decode("utf-8-sig")
+        decoded_check = content.decode("utf-8-sig")
     except UnicodeDecodeError:
         try:
-            decoded = content.decode("utf-8")
+            decoded_check = content.decode("utf-8")
         except Exception:
             return JSONResponse(
                 status_code=400, content={"error": "Unable to decode CSV file. Please ensure it's UTF-8 encoded."}
             )
 
-    reader = csv.DictReader(io.StringIO(decoded))
+    import csv as _csv, io as _io
+    reader = _csv.DictReader(_io.StringIO(decoded_check))
     fieldnames = reader.fieldnames
-
     if not fieldnames:
         return JSONResponse(status_code=400, content={"error": "CSV file is empty or has no headers"})
 
-    # Detect CSV format
-    # Format 1: Vietnamese (Năm, Tháng, Thu, Chi, Loại, Ghi chú)
-    # Format 2: English (date, amount, type, category, description, payment_method)
     is_vietnamese_format = "Năm" in fieldnames or "Tháng" in fieldnames
 
-    if is_vietnamese_format:
-        return _process_vietnamese_format(reader, fieldnames, db)
-    else:
-        return _process_english_format(reader, fieldnames, db)
+    try:
+        if is_vietnamese_format:
+            stats = transaction_service.parse_csv_vietnamese(content, db)
+        else:
+            stats = transaction_service.parse_csv_english(content, db)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
 
-
-def _process_vietnamese_format(reader, fieldnames, db):
-    """Process Vietnamese CSV format"""
-    # Map English keys to actual CSV column names (handles extra whitespace in headers)
-    found_columns = {}
-    required_mappings = {"Năm": "year", "Tháng": "month", "Loại": "category"}
-
-    for col in fieldnames:
-        col_stripped = col.strip()
-        if col_stripped in required_mappings:
-            found_columns[required_mappings[col_stripped]] = col  # English key -> actual CSV column name
-
-    # Check for required columns
-    missing = [v for v in required_mappings.values() if v not in found_columns]
-    if missing:
-        return JSONResponse(status_code=400, content={"error": f"Missing required columns: {', '.join(missing)}"})
-
-    stats = {"income": 0, "expense": 0, "skipped": 0, "errors": []}
-
-    for row_num, row in enumerate(reader, start=2):
-        try:
-            year_str = row.get(found_columns["year"], "").strip()
-            month_str = row.get(found_columns["month"], "").strip()
-            year = int(year_str) if year_str else 0
-            month = int(month_str) if month_str else 0
-
-            # Get amounts (dots are thousands separators in Vietnamese format)
-            thu_key = next((col for col in row if col.strip() == "Thu"), None)
-            chi_key = next((col for col in row if col.strip() == "Chi"), None)
-
-            thu_str = row.get(thu_key, "0").strip().replace(",", "").replace(".", "") if thu_key else "0"
-            chi_str = row.get(chi_key, "0").strip().replace(",", "").replace(".", "") if chi_key else "0"
-
-            thu = float(thu_str) if thu_str else 0
-            chi = float(chi_str) if chi_str else 0
-
-            category_name = row.get(found_columns["category"], "").strip()
-            desc_key = next((col for col in row if col.strip() == "Ghi chú"), None)
-            description = row.get(desc_key, "").strip() if desc_key else None
-
-            if not year or not month:
-                stats["skipped"] += 1
-                continue
-
-            if not category_name:
-                stats["errors"].append(f"Row {row_num}: Missing category name")
-                stats["skipped"] += 1
-                continue
-
-            # Create date (1st of month)
-            transaction_date = date(year, month, 1)
-
-            # Process income
-            if thu > 0:
-                category = _get_or_create_category(db, category_name, TransactionType.INCOME)
-                if not _is_duplicate(db, transaction_date, thu, TransactionType.INCOME, category.id):
-                    _create_transaction(db, transaction_date, thu, TransactionType.INCOME, category.id, description)
-                    stats["income"] += 1
-                else:
-                    stats["skipped"] += 1
-
-            # Process expense
-            if chi > 0:
-                category = _get_or_create_category(db, category_name, TransactionType.EXPENSE)
-                if not _is_duplicate(db, transaction_date, chi, TransactionType.EXPENSE, category.id):
-                    _create_transaction(db, transaction_date, chi, TransactionType.EXPENSE, category.id, description)
-                    stats["expense"] += 1
-                else:
-                    stats["skipped"] += 1
-
-            if thu == 0 and chi == 0:
-                stats["skipped"] += 1
-
-        except Exception as e:
-            stats["errors"].append(f"Row {row_num}: {str(e)}")
-            stats["skipped"] += 1
-
-    db.commit()
     return {
         "success": True,
         "message": f"Successfully imported {stats['income']} income and {stats['expense']} expense transactions",
@@ -617,174 +420,3 @@ def _process_vietnamese_format(reader, fieldnames, db):
     }
 
 
-def _process_english_format(reader, fieldnames, db):
-    """Process English CSV format"""
-    # Normalize fieldnames
-    field_map = {}
-    for col in fieldnames:
-        col_lower = col.strip().lower()
-        if col_lower in ["date", "transaction_date"]:
-            field_map["date"] = col
-        elif col_lower in ["amount", "so_tien", "amount_vnd"]:
-            field_map["amount"] = col
-        elif col_lower in ["type", "transaction_type"]:
-            field_map["type"] = col
-        elif col_lower in ["category", "loai", "danh_muc", "category_name"]:
-            field_map["category"] = col
-        elif col_lower in ["description", "desc", "ghi_chu", "note", "notes"]:
-            field_map["description"] = col
-        elif col_lower in ["payment_method", "payment", "pttt", "phuong_thuc"]:
-            field_map["payment_method"] = col
-
-    # Check required fields
-    required = ["date", "amount", "type", "category"]
-    missing = [r for r in required if r not in field_map]
-    if missing:
-        return JSONResponse(
-            status_code=400,
-            content={
-                "error": f"Missing required columns: {', '.join(missing)}. Required: date, amount, type, category"
-            },
-        )
-
-    stats = {"income": 0, "expense": 0, "skipped": 0, "errors": []}
-
-    for row_num, row in enumerate(reader, start=2):
-        try:
-            # Parse date
-            date_str = row.get(field_map["date"], "").strip()
-            try:
-                transaction_date = date.fromisoformat(date_str)
-            except Exception:
-                stats["errors"].append(f"Row {row_num}: Invalid date format '{date_str}'")
-                stats["skipped"] += 1
-                continue
-
-            # Parse amount (commas are thousands separators; dots are decimal points in English format)
-            amount_str = row.get(field_map["amount"], "0").strip().replace(",", "")
-            try:
-                amount = abs(float(amount_str))
-            except Exception:
-                stats["errors"].append(f"Row {row_num}: Invalid amount '{amount_str}'")
-                stats["skipped"] += 1
-                continue
-            if amount <= 0:
-                stats["errors"].append(f"Row {row_num}: Amount must be greater than 0")
-                stats["skipped"] += 1
-                continue
-
-            # Parse type
-            type_str = row.get(field_map["type"], "").strip().lower()
-            if type_str in ["income", "thu", "in"]:
-                trans_type = TransactionType.INCOME
-            elif type_str in ["expense", "chi", "out"]:
-                trans_type = TransactionType.EXPENSE
-            else:
-                stats["errors"].append(f"Row {row_num}: Invalid type '{type_str}'")
-                stats["skipped"] += 1
-                continue
-
-            # Parse category
-            category_name = row.get(field_map["category"], "").strip()
-            if not category_name:
-                stats["errors"].append(f"Row {row_num}: Missing category")
-                stats["skipped"] += 1
-                continue
-
-            # Get or create category
-            category = _get_or_create_category(db, category_name, trans_type)
-
-            # Parse optional fields
-            description = row.get(field_map.get("description", ""), "").strip() or None
-            payment_method = row.get(field_map.get("payment_method", ""), "cash").strip().lower().replace(" ", "_")
-            valid_payments = ["cash", "credit_card", "debit_card", "bank_transfer", "mobile_payment", "other"]
-            if payment_method not in valid_payments:
-                payment_method = "cash"
-
-            # Skip duplicates
-            if _is_duplicate(db, transaction_date, amount, trans_type, category.id, description):
-                stats["skipped"] += 1
-                continue
-
-            # Create transaction
-            _create_transaction(db, transaction_date, amount, trans_type, category.id, description, payment_method)
-
-            if trans_type == TransactionType.INCOME:
-                stats["income"] += 1
-            else:
-                stats["expense"] += 1
-
-        except Exception as e:
-            stats["errors"].append(f"Row {row_num}: {str(e)}")
-            stats["skipped"] += 1
-
-    db.commit()
-    return {
-        "success": True,
-        "message": f"Successfully imported {stats['income']} income and {stats['expense']} expense transactions",
-        "stats": stats,
-    }
-
-
-def _is_duplicate(
-    db, trans_date: date, amount: float, trans_type: TransactionType, category_id: int, description: str | None = None
-) -> bool:
-    """Return True if a transaction with same date/amount/type/category/description already exists."""
-    q = db.query(Transaction).filter(
-        Transaction.date == trans_date,
-        Transaction.amount == amount,
-        Transaction.type == trans_type,
-        Transaction.category_id == category_id,
-        Transaction.deleted_at.is_(None),
-    )
-    if description:
-        q = q.filter(Transaction.description == description)
-    else:
-        q = q.filter(Transaction.description.is_(None))
-    return q.first() is not None
-
-
-_KHAC_NAME_MAP = {"income": "Thu nhập khác", "expense": "Chi phí khác"}
-
-
-def _get_or_create_category(db, category_name: str, trans_type: TransactionType):
-    """Get or create a category"""
-    # Normalize bare "Khác" so CSV imports never re-create the ambiguous generic name
-    if category_name.strip() == "Khác":
-        category_name = _KHAC_NAME_MAP.get(trans_type.value, category_name)
-
-    category = db.query(Category).filter(Category.name == category_name, Category.type == trans_type).first()
-
-    if category:
-        return category
-
-    # Generate random color
-    colors = ["#EF4444", "#F59E0B", "#10B981", "#3B82F6", "#6366F1", "#8B5CF6", "#EC4899"]
-
-    category = Category(name=category_name, type=trans_type, color=random.choice(colors), icon="circle", is_active=True)
-    db.add(category)
-    db.flush()
-    return category
-
-
-def _create_transaction(
-    db,
-    trans_date: date,
-    amount: float,
-    trans_type: TransactionType,
-    category_id: int,
-    description: str = None,
-    payment_method: str = "cash",
-):
-    """Create a transaction"""
-    transaction = Transaction(
-        date=trans_date,
-        amount=amount,
-        type=trans_type,
-        category_id=category_id,
-        description=description,
-        payment_method=payment_method,
-        is_savings_related=False,
-    )
-    db.add(transaction)
-    return transaction

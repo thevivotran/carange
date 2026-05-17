@@ -11,6 +11,9 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from alembic.config import Config as AlembicConfig
+from alembic import command as alembic_command
+
 from app.models.database import create_tables, get_db, SessionLocal
 from app.models.database import Category, TransactionType
 from app.routers import transactions, categories, savings, projects, dashboard, templates as templates_router
@@ -21,57 +24,12 @@ from app.routers import import_jobs
 from app.routers.dashboard import get_dashboard_page_data
 
 
-def _migrate_db():
-    from sqlalchemy import text
-    from app.models.database import engine as _engine
-
-    with _engine.connect() as conn:
-        cols = [r[1] for r in conn.execute(text("PRAGMA table_info(transactions)"))]
-        if "is_advance" not in cols:
-            conn.execute(text("ALTER TABLE transactions ADD COLUMN is_advance BOOLEAN DEFAULT 0"))
-        if "advance_settled" not in cols:
-            conn.execute(text("ALTER TABLE transactions ADD COLUMN advance_settled BOOLEAN DEFAULT 0"))
-        if "source" not in cols:
-            conn.execute(text("ALTER TABLE transactions ADD COLUMN source VARCHAR(30) DEFAULT 'manual'"))
-        if "import_job_id" not in cols:
-            conn.execute(text("ALTER TABLE transactions ADD COLUMN import_job_id INTEGER"))
-        if "confidence_score" not in cols:
-            conn.execute(text("ALTER TABLE transactions ADD COLUMN confidence_score REAL"))
-        if "needs_review" not in cols:
-            conn.execute(text("ALTER TABLE transactions ADD COLUMN needs_review BOOLEAN NOT NULL DEFAULT 0"))
-        if "deleted_at" not in cols:
-            conn.execute(text("ALTER TABLE transactions ADD COLUMN deleted_at DATETIME"))
-
-        conn.execute(
-            text("""
-            CREATE TABLE IF NOT EXISTS transaction_audit_logs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                transaction_id INTEGER NOT NULL REFERENCES transactions(id),
-                changed_at DATETIME NOT NULL,
-                field_name VARCHAR(100) NOT NULL,
-                old_value TEXT,
-                new_value TEXT
-            )
-        """)
-        )
-
-        existing_idx = {r[0] for r in conn.execute(text("SELECT name FROM sqlite_master WHERE type='index'"))}
-        if "ix_transactions_type_date" not in existing_idx:
-            conn.execute(text("CREATE INDEX ix_transactions_type_date ON transactions (type, date)"))
-        if "ix_transactions_category_id" not in existing_idx:
-            conn.execute(text("CREATE INDEX ix_transactions_category_id ON transactions (category_id)"))
-
-        # Rename ambiguous "Khác" to type-specific names (idempotent)
-        conn.execute(text("UPDATE categories SET name = 'Chi phí khác' WHERE name = 'Khác' AND type = 'expense'"))
-        conn.execute(text("UPDATE categories SET name = 'Thu nhập khác' WHERE name = 'Khác' AND type = 'income'"))
-
-        conn.commit()
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # create_tables() ensures fresh test/dev DBs have the full schema before migrations run
     create_tables()
-    _migrate_db()
+    alembic_cfg = AlembicConfig("alembic.ini")
+    alembic_command.upgrade(alembic_cfg, "head")
     seed_default_categories()
     yield
 

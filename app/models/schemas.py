@@ -27,6 +27,7 @@ class CategoryBase(BaseModel):
     color: str = "#3B82F6"
     icon: str = "circle"
     is_active: bool = True
+    is_wealth_building: bool = False
 
 
 class CategoryCreate(CategoryBase):

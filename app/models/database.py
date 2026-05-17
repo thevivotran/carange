@@ -85,6 +85,19 @@ class ImportSource(str, enum.Enum):
     LIOBANK = "liobank"
 
 
+class AuditField(str, enum.Enum):
+    DATE = "date"
+    AMOUNT = "amount"
+    TYPE = "type"
+    CATEGORY_ID = "category_id"
+    DESCRIPTION = "description"
+    PAYMENT_METHOD = "payment_method"
+    IS_SAVINGS_RELATED = "is_savings_related"
+    IS_ADVANCE = "is_advance"
+    ADVANCE_SETTLED = "advance_settled"
+    NEEDS_REVIEW = "needs_review"
+
+
 class ImportJob(Base):
     __tablename__ = "import_jobs"
 
@@ -112,6 +125,7 @@ class Category(Base):
     color = Column(String(7), default="#3B82F6")
     icon = Column(String(50), default="circle")
     is_active = Column(Boolean, default=True)
+    is_wealth_building = Column(Boolean, default=False, nullable=False, server_default="0")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     transactions = relationship("Transaction", back_populates="category")
@@ -162,7 +176,7 @@ class TransactionAuditLog(Base):
     id = Column(Integer, primary_key=True, index=True)
     transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=False)
     changed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    field_name = Column(String(100), nullable=False)
+    field_name = Column(Enum(AuditField), nullable=False)
     old_value = Column(Text, nullable=True)
     new_value = Column(Text, nullable=True)
 
@@ -187,6 +201,7 @@ class SavingsBundle(Base):
     linked_project_id = Column(Integer, ForeignKey("financial_projects.id"), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
 
     transactions = relationship("Transaction", back_populates="savings_bundle")
     linked_project = relationship("FinancialProject", back_populates="linked_savings")
@@ -207,6 +222,7 @@ class FinancialProject(Base):
     default_category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     completed_at = Column(DateTime, nullable=True)
+    deleted_at = Column(DateTime, nullable=True)
 
     transactions = relationship("Transaction", back_populates="project")
     linked_savings = relationship("SavingsBundle", back_populates="linked_project")

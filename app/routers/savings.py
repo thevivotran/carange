@@ -14,6 +14,7 @@ from app.models.database import (
     Category,
 )
 from app.models.schemas import SavingsBundle as SavingsBundleSchema, SavingsBundleCreate, SavingsBundleUpdate
+from app.services import savings_service
 
 router = APIRouter()
 
@@ -28,6 +29,7 @@ def get_savings_bundles(status: Optional[str] = None, skip: int = 0, limit: int 
             Transaction,
             and_(Transaction.savings_bundle_id == SavingsBundle.id, Transaction.deleted_at.is_(None)),
         )
+        .filter(SavingsBundle.deleted_at.is_(None))
         .group_by(SavingsBundle.id)
     )
 
@@ -42,9 +44,16 @@ def get_savings_bundles(status: Optional[str] = None, skip: int = 0, limit: int 
     return bundles
 
 
+@router.get("/trash", response_model=List[SavingsBundleSchema])
+def get_trashed_bundles(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    return savings_service.get_trashed_bundles(db, skip=skip, limit=limit)
+
+
 @router.get("/{bundle_id}", response_model=SavingsBundleSchema)
 def get_savings_bundle(bundle_id: int, db: Session = Depends(get_db)):
-    bundle = db.query(SavingsBundle).filter(SavingsBundle.id == bundle_id).first()
+    bundle = db.query(SavingsBundle).filter(
+        SavingsBundle.id == bundle_id, SavingsBundle.deleted_at.is_(None)
+    ).first()
     if not bundle:
         raise HTTPException(status_code=404, detail="Savings bundle not found")
     return bundle
@@ -94,95 +103,54 @@ def update_savings_bundle(bundle_id: int, bundle_update: SavingsBundleUpdate, db
     return db_bundle
 
 
+@router.delete("/{bundle_id}/hard")
+def hard_delete_savings_bundle(bundle_id: int, db: Session = Depends(get_db)):
+    """Permanently delete a soft-deleted savings bundle."""
+    try:
+        savings_service.hard_delete_bundle(db, bundle_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Savings bundle not found in trash")
+    return {"message": "Savings bundle permanently deleted"}
+
+
+@router.post("/{bundle_id}/restore", response_model=SavingsBundleSchema)
+def restore_savings_bundle(bundle_id: int, db: Session = Depends(get_db)):
+    """Restore a soft-deleted savings bundle."""
+    try:
+        return savings_service.restore_bundle(db, bundle_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail="Savings bundle not found in trash")
+
+
 @router.delete("/{bundle_id}")
 def delete_savings_bundle(bundle_id: int, db: Session = Depends(get_db)):
-    from app.models.database import Transaction
-
-    bundle = db.query(SavingsBundle).filter(SavingsBundle.id == bundle_id).first()
-    if not bundle:
+    """Soft-delete a savings bundle."""
+    try:
+        savings_service.soft_delete_bundle(db, bundle_id)
+    except LookupError:
         raise HTTPException(status_code=404, detail="Savings bundle not found")
-
-    # Unlink any transactions associated with this bundle
-    db.query(Transaction).filter(Transaction.savings_bundle_id == bundle_id).update({"savings_bundle_id": None})
-
-    # Now delete the bundle
-    db.delete(bundle)
-    db.commit()
     return {"message": "Savings bundle deleted successfully"}
 
 
 @router.post("/{bundle_id}/mark-completed")
 def mark_bundle_completed(bundle_id: int, db: Session = Depends(get_db)):
-    bundle = db.query(SavingsBundle).filter(SavingsBundle.id == bundle_id).first()
-    if not bundle:
+    try:
+        bundle = savings_service.mark_bundle_completed(db, bundle_id)
+    except LookupError:
         raise HTTPException(status_code=404, detail="Savings bundle not found")
-
-    if bundle.status != SavingsStatus.ACTIVE:
-        raise HTTPException(status_code=400, detail="Only active bundles can be marked as completed")
-
-    bundle.status = SavingsStatus.COMPLETED
-    bundle.completed_at = datetime.now(timezone.utc)
-
-    category = (
-        db.query(Category).filter(Category.type == TransactionType.INCOME, Category.name == "Investment").first()
-        or db.query(Category).filter(Category.type == TransactionType.INCOME).first()
-    )
-    if category:
-        transaction = Transaction(
-            date=date.today(),
-            amount=bundle.future_amount,
-            type=TransactionType.INCOME,
-            category_id=category.id,
-            description=f"Savings matured: {bundle.name} - {bundle.bank_name}",
-            payment_method="bank",
-            is_savings_related=True,
-            savings_bundle_id=bundle.id,
-            source="savings_maturity",
-            needs_review=True,
-        )
-        db.add(transaction)
-
-    db.commit()
-
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return {"message": "Bundle marked as completed", "completed_at": bundle.completed_at}
 
 
 @router.post("/{bundle_id}/rollover", response_model=SavingsBundleSchema)
 def rollover_bundle(bundle_id: int, db: Session = Depends(get_db)):
-    bundle = db.query(SavingsBundle).filter(SavingsBundle.id == bundle_id).first()
-    if not bundle:
+    try:
+        return savings_service.rollover_bundle(db, bundle_id)
+    except LookupError:
         raise HTTPException(status_code=404, detail="Savings bundle not found")
-
-    if bundle.status != SavingsStatus.ACTIVE:
-        raise HTTPException(status_code=400, detail="Only active bundles can be rolled over")
-
-    # Mark old bundle as completed
-    bundle.status = SavingsStatus.COMPLETED
-    bundle.completed_at = datetime.now(timezone.utc)
-
-    # Create new bundle seeded with the matured amount.
-    # future_amount is left equal to initial_deposit as a placeholder — the user
-    # should edit it once the new term's projected amount is known.
-    today = date.today()
-    original_term_days = (bundle.maturity_date - bundle.start_date).days if bundle.maturity_date else None
-    new_maturity = date.fromordinal(today.toordinal() + original_term_days) if original_term_days else None
-    new_bundle = SavingsBundle(
-        name=f"{bundle.name} (Rollover)",
-        bank_name=bundle.bank_name,
-        type=bundle.type,
-        initial_deposit=bundle.future_amount,
-        current_amount=bundle.future_amount,
-        future_amount=bundle.future_amount,
-        interest_rate=bundle.interest_rate,
-        start_date=today,
-        maturity_date=new_maturity,
-        status=SavingsStatus.ACTIVE,
-        notes=f"Rolled over from bundle #{bundle.id}",
-    )
-    db.add(new_bundle)
-    db.commit()
-    db.refresh(new_bundle)
-    return new_bundle
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @router.get("/stats/summary")
