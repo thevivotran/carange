@@ -436,7 +436,7 @@ def test_import_job_id_filter(client, cats, db_session):
 
 
 def test_category_count_excludes_deleted(client, cats):
-    tx1 = _tx(client, cats=cats)
+    _tx(client, cats=cats)
     tx2 = _tx(client, cats=cats, date="2026-05-02")
     client.delete(f"/api/transactions/{tx2['id']}")
 
@@ -475,8 +475,8 @@ def test_category_delete_allowed_after_trash_emptied(client, cats):
         "/api/categories/", json={"name": "Temp2", "type": "expense", "color": "#ccc", "icon": "x"}
     ).json()
     tx = _tx(client, cats={"expense": new_cat["id"]})
-    client.delete(f"/api/transactions/{tx['id']}")          # soft-delete
-    client.delete(f"/api/transactions/{tx['id']}/hard")     # hard-delete
+    client.delete(f"/api/transactions/{tx['id']}")  # soft-delete
+    client.delete(f"/api/transactions/{tx['id']}/hard")  # hard-delete
     r = client.delete(f"/api/categories/{new_cat['id']}")
     assert r.status_code == 200
 

@@ -24,7 +24,10 @@ def get_savings_bundles(status: Optional[str] = None, skip: int = 0, limit: int 
 
     query = (
         db.query(SavingsBundle, func.count(Transaction.id).label("tx_count"))
-        .outerjoin(Transaction, and_(Transaction.savings_bundle_id == SavingsBundle.id, Transaction.deleted_at.is_(None)))
+        .outerjoin(
+            Transaction,
+            and_(Transaction.savings_bundle_id == SavingsBundle.id, Transaction.deleted_at.is_(None)),
+        )
         .group_by(SavingsBundle.id)
     )
 

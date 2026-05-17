@@ -99,14 +99,21 @@ def delete_category(category_id: int, db: Session = Depends(get_db)):
     # because they may be restored and would need a valid category.
     transaction_count = db.query(Transaction).filter(Transaction.category_id == category_id).count()
     if transaction_count > 0:
-        active_count = db.query(Transaction).filter(
-            Transaction.category_id == category_id,
-            Transaction.deleted_at.is_(None),
-        ).count()
+        active_count = (
+            db.query(Transaction)
+            .filter(
+                Transaction.category_id == category_id,
+                Transaction.deleted_at.is_(None),
+            )
+            .count()
+        )
         detail = (
             f"Cannot delete category. It has {active_count} active transactions. Deactivate it instead."
             if active_count
-            else f"Cannot delete category. It has {transaction_count - active_count} transactions in Trash that may be restored. Empty the Trash first."
+            else (
+                f"Cannot delete category. It has {transaction_count - active_count} transactions"
+                " in Trash that may be restored. Empty the Trash first."
+            )
         )
         raise HTTPException(status_code=400, detail=detail)
 

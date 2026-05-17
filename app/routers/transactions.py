@@ -1,5 +1,3 @@
-import os
-
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
@@ -30,8 +28,16 @@ from app.models.schemas import (
 )
 
 _AUDIT_FIELDS = [
-    "date", "amount", "type", "category_id", "description",
-    "payment_method", "is_savings_related", "is_advance", "advance_settled", "needs_review",
+    "date",
+    "amount",
+    "type",
+    "category_id",
+    "description",
+    "payment_method",
+    "is_savings_related",
+    "is_advance",
+    "advance_settled",
+    "needs_review",
 ]
 
 router = APIRouter()
@@ -104,10 +110,14 @@ def get_trashed_transactions(
 
 @router.get("/{transaction_id}/links")
 def get_transaction_links(transaction_id: int, db: Session = Depends(get_db)):
-    tx = db.query(Transaction).filter(
-        Transaction.id == transaction_id,
-        Transaction.deleted_at.is_(None),
-    ).first()
+    tx = (
+        db.query(Transaction)
+        .filter(
+            Transaction.id == transaction_id,
+            Transaction.deleted_at.is_(None),
+        )
+        .first()
+    )
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
@@ -145,10 +155,14 @@ def get_transaction_history(transaction_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{transaction_id}", response_model=TransactionSchema)
 def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
-    transaction = db.query(Transaction).filter(
-        Transaction.id == transaction_id,
-        Transaction.deleted_at.is_(None),
-    ).first()
+    transaction = (
+        db.query(Transaction)
+        .filter(
+            Transaction.id == transaction_id,
+            Transaction.deleted_at.is_(None),
+        )
+        .first()
+    )
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
     return transaction
@@ -233,10 +247,14 @@ def create_transaction(transaction: TransactionCreate, force: bool = False, db: 
 
 @router.put("/{transaction_id}", response_model=TransactionSchema)
 def update_transaction(transaction_id: int, transaction: TransactionUpdate, db: Session = Depends(get_db)):
-    db_transaction = db.query(Transaction).filter(
-        Transaction.id == transaction_id,
-        Transaction.deleted_at.is_(None),
-    ).first()
+    db_transaction = (
+        db.query(Transaction)
+        .filter(
+            Transaction.id == transaction_id,
+            Transaction.deleted_at.is_(None),
+        )
+        .first()
+    )
     if not db_transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
@@ -260,13 +278,15 @@ def update_transaction(transaction_id: int, transaction: TransactionUpdate, db: 
         old = before.get(field)
         new = getattr(db_transaction, field)
         if old != new:
-            db.add(TransactionAuditLog(
-                transaction_id=transaction_id,
-                changed_at=now,
-                field_name=field,
-                old_value=str(old) if old is not None else None,
-                new_value=str(new) if new is not None else None,
-            ))
+            db.add(
+                TransactionAuditLog(
+                    transaction_id=transaction_id,
+                    changed_at=now,
+                    field_name=field,
+                    old_value=str(old) if old is not None else None,
+                    new_value=str(new) if new is not None else None,
+                )
+            )
 
     db.commit()
     db.refresh(db_transaction)
@@ -276,10 +296,14 @@ def update_transaction(transaction_id: int, transaction: TransactionUpdate, db: 
 @router.delete("/{transaction_id}/hard")
 def hard_delete_transaction(transaction_id: int, db: Session = Depends(get_db)):
     """Permanently delete a transaction that is already in the trash."""
-    transaction = db.query(Transaction).filter(
-        Transaction.id == transaction_id,
-        Transaction.deleted_at.isnot(None),
-    ).first()
+    transaction = (
+        db.query(Transaction)
+        .filter(
+            Transaction.id == transaction_id,
+            Transaction.deleted_at.isnot(None),
+        )
+        .first()
+    )
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found in trash")
     db.delete(transaction)
@@ -290,10 +314,14 @@ def hard_delete_transaction(transaction_id: int, db: Session = Depends(get_db)):
 @router.post("/{transaction_id}/restore", response_model=TransactionSchema)
 def restore_transaction(transaction_id: int, db: Session = Depends(get_db)):
     """Restore a soft-deleted transaction from trash."""
-    transaction = db.query(Transaction).filter(
-        Transaction.id == transaction_id,
-        Transaction.deleted_at.isnot(None),
-    ).first()
+    transaction = (
+        db.query(Transaction)
+        .filter(
+            Transaction.id == transaction_id,
+            Transaction.deleted_at.isnot(None),
+        )
+        .first()
+    )
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found in trash")
     transaction.deleted_at = None
@@ -305,10 +333,14 @@ def restore_transaction(transaction_id: int, db: Session = Depends(get_db)):
 @router.delete("/{transaction_id}")
 def delete_transaction(transaction_id: int, db: Session = Depends(get_db)):
     """Soft-delete a transaction. Cascades: reverts linked ProjectPayment to PENDING."""
-    transaction = db.query(Transaction).filter(
-        Transaction.id == transaction_id,
-        Transaction.deleted_at.is_(None),
-    ).first()
+    transaction = (
+        db.query(Transaction)
+        .filter(
+            Transaction.id == transaction_id,
+            Transaction.deleted_at.is_(None),
+        )
+        .first()
+    )
     if not transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
 

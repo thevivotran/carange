@@ -64,7 +64,7 @@ def test_audit_records_old_and_new_values(client, cats):
     tx = _tx(client, cats=cats, amount=100_000, force=True).json()
     client.put(f"/api/transactions/{tx['id']}", json={"amount": 200_000})
     logs = client.get(f"/api/transactions/{tx['id']}/history").json()
-    amount_log = next(l for l in logs if l["field_name"] == "amount")
+    amount_log = next(log for log in logs if log["field_name"] == "amount")
     assert float(amount_log["old_value"]) == 100_000
     assert float(amount_log["new_value"]) == 200_000
 
@@ -74,14 +74,17 @@ def test_no_audit_when_nothing_changes(client, cats):
     # Update with a field value identical to current
     client.put(f"/api/transactions/{tx['id']}", json={"payment_method": "cash"})
     logs = client.get(f"/api/transactions/{tx['id']}/history").json()
-    assert not any(l["field_name"] == "payment_method" for l in logs)
+    assert not any(log["field_name"] == "payment_method" for log in logs)
 
 
 def test_multiple_fields_logged_in_single_put(client, cats):
     tx = _tx(client, cats=cats, force=True).json()
-    client.put(f"/api/transactions/{tx['id']}", json={"amount": 777_000, "description": "Bulk edit", "payment_method": "bank_transfer"})
+    client.put(
+        f"/api/transactions/{tx['id']}",
+        json={"amount": 777_000, "description": "Bulk edit", "payment_method": "bank_transfer"},
+    )
     logs = client.get(f"/api/transactions/{tx['id']}/history").json()
-    fields = {l["field_name"] for l in logs}
+    fields = {log["field_name"] for log in logs}
     assert {"amount", "description", "payment_method"}.issubset(fields)
 
 
@@ -95,9 +98,9 @@ def test_approve_action_logged_as_needs_review_change(client, cats):
     client.put(f"/api/transactions/{tx['id']}", json={"needs_review": True})
     client.put(f"/api/transactions/{tx['id']}", json={"needs_review": False})
     logs = client.get(f"/api/transactions/{tx['id']}/history").json()
-    nr_logs = [l for l in logs if l["field_name"] == "needs_review"]
+    nr_logs = [log for log in logs if log["field_name"] == "needs_review"]
     assert len(nr_logs) >= 1
-    cleared = next((l for l in nr_logs if l["new_value"] == "False"), None)
+    cleared = next((log for log in nr_logs if log["new_value"] == "False"), None)
     assert cleared is not None
 
 
@@ -106,7 +109,7 @@ def test_history_ordered_newest_first(client, cats):
     client.put(f"/api/transactions/{tx['id']}", json={"description": "First edit"})
     client.put(f"/api/transactions/{tx['id']}", json={"description": "Second edit"})
     logs = client.get(f"/api/transactions/{tx['id']}/history").json()
-    desc_logs = [l for l in logs if l["field_name"] == "description"]
+    desc_logs = [log for log in logs if log["field_name"] == "description"]
     assert len(desc_logs) >= 2
     assert desc_logs[0]["new_value"] == "Second edit"
 
@@ -164,10 +167,16 @@ def test_no_duplicate_warning_different_category(client, cats):
     ).json()["id"]
     _tx(client, cats=cats, amount=50_000, type_="income", force=True)
     # Different category (inc2 vs cats["income"]) same amount same date
-    r = client.post("/api/transactions/", json={
-        "date": "2026-05-01", "amount": 50_000, "type": "income",
-        "category_id": inc2, "payment_method": "cash",
-    })
+    r = client.post(
+        "/api/transactions/",
+        json={
+            "date": "2026-05-01",
+            "amount": 50_000,
+            "type": "income",
+            "category_id": inc2,
+            "payment_method": "cash",
+        },
+    )
     data = r.json()
     assert data.get("duplicate_warning") is not True
     assert "id" in data
@@ -216,24 +225,25 @@ def test_project_payment_auto_tx_needs_review(client, cats):
         f"/api/projects/{project['id']}/payments/{payment['id']}",
         json={"status": "paid", "category_id": cats["expense"]},
     )
-    txs = client.get(
-        f"/api/transactions/?source=project_payment&project_id={project['id']}"
-    ).json()
+    txs = client.get(f"/api/transactions/?source=project_payment&project_id={project['id']}").json()
     assert len(txs) == 1
     assert txs[0]["needs_review"] is True
 
 
 def test_savings_maturity_auto_tx_needs_review(client, cats):
-    bundle = client.post("/api/savings/", json={
-        "name": "Test FD",
-        "bank_name": "TestBank",
-        "type": "fixed_deposit",
-        "initial_deposit": 10_000_000,
-        "future_amount": 10_500_000,
-        "interest_rate": 5.0,
-        "start_date": "2026-01-01",
-        "maturity_date": "2026-12-31",
-    }).json()
+    bundle = client.post(
+        "/api/savings/",
+        json={
+            "name": "Test FD",
+            "bank_name": "TestBank",
+            "type": "fixed_deposit",
+            "initial_deposit": 10_000_000,
+            "future_amount": 10_500_000,
+            "interest_rate": 5.0,
+            "start_date": "2026-01-01",
+            "maturity_date": "2026-12-31",
+        },
+    ).json()
     client.post(f"/api/savings/{bundle['id']}/mark-completed")
     txs = client.get("/api/transactions/?source=savings_maturity").json()
     assert len(txs) >= 1
@@ -252,7 +262,9 @@ def test_import_job_summary_404_unknown_job(client):
 
 def test_import_job_summary_empty_job(client, tmp_path):
     """A job with no transactions → all counts zero."""
-    import hashlib, os
+    import hashlib
+    import os
+
     img = b"\xff\xd8\xff\xe0" + b"\x00" * 100
     digest = hashlib.sha256(img).hexdigest()
     upload_dir = os.getenv("UPLOAD_DIR", "uploads")
@@ -262,6 +274,7 @@ def test_import_job_summary_empty_job(client, tmp_path):
         f.write(img)
 
     from io import BytesIO
+
     r = client.post(
         "/api/import/jobs",
         files=[("files", ("test.jpg", BytesIO(img), "image/jpeg"))],
@@ -290,26 +303,44 @@ def test_import_job_summary_counts_correctly(client, cats, db_session):
 
     tx_date = date(2026, 5, 1)
     tx1 = Transaction(
-        date=tx_date, amount=100_000, type=TransactionType.EXPENSE,
-        category_id=cats["expense"], payment_method="cash", source="timo",
-        import_job_id=job.id, confidence_score=0.98, needs_review=False,
+        date=tx_date,
+        amount=100_000,
+        type=TransactionType.EXPENSE,
+        category_id=cats["expense"],
+        payment_method="cash",
+        source="timo",
+        import_job_id=job.id,
+        confidence_score=0.98,
+        needs_review=False,
     )
     tx2 = Transaction(
-        date=tx_date, amount=200_000, type=TransactionType.EXPENSE,
-        category_id=cats["expense"], payment_method="cash", source="timo",
-        import_job_id=job.id, confidence_score=0.60, needs_review=True,
+        date=tx_date,
+        amount=200_000,
+        type=TransactionType.EXPENSE,
+        category_id=cats["expense"],
+        payment_method="cash",
+        source="timo",
+        import_job_id=job.id,
+        confidence_score=0.60,
+        needs_review=True,
     )
     tx3 = Transaction(
-        date=tx_date, amount=300_000, type=TransactionType.EXPENSE,
-        category_id=cats["expense"], payment_method="cash", source="timo",
-        import_job_id=job.id, confidence_score=0.40, needs_review=True,
+        date=tx_date,
+        amount=300_000,
+        type=TransactionType.EXPENSE,
+        category_id=cats["expense"],
+        payment_method="cash",
+        source="timo",
+        import_job_id=job.id,
+        confidence_score=0.40,
+        needs_review=True,
         deleted_at=datetime.now(timezone.utc),
     )
     db_session.add_all([tx1, tx2, tx3])
     db_session.commit()
 
     s = client.get(f"/api/import/jobs/{job.id}/summary").json()
-    assert s["total"] == 2          # active only
+    assert s["total"] == 2  # active only
     assert s["auto_approved"] == 1
     assert s["needs_review"] == 1
     assert s["rejected"] == 1
@@ -323,4 +354,5 @@ def test_import_job_summary_counts_correctly(client, cats, db_session):
 def test_ocr_review_threshold_default_is_0_95():
     """REVIEW_THRESHOLD default must be 0.95 so high-confidence OCR results auto-approve."""
     from ocr_worker.processor import REVIEW_THRESHOLD
+
     assert REVIEW_THRESHOLD == 0.95
