@@ -26,7 +26,7 @@
                 transition hover:border-primary hover:bg-blue-50 cursor-pointer">
         <input id="file-input" type="file" accept="image/*" multiple class="hidden">
         <div id="drop-prompt">
-            <i class="fas fa-cloud-upload-alt text-4xl text-gray-300 mb-3"></i>
+            <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-3"></i>
             <p class="text-gray-500 font-medium">Drag &amp; drop screenshots here</p>
             <p class="text-gray-400 text-sm mt-1">or click to browse &nbsp;·&nbsp; JPEG, PNG, WebP, HEIC &nbsp;·&nbsp; max 20 MB each</p>
             <div class="mt-4">
@@ -135,19 +135,30 @@
         border-color: #3B82F6;
         background-color: rgba(59, 130, 246, 0.06);
     }
+    .dark #drop-zone.drag-over {
+        border-color: #60a5fa;
+        background-color: rgba(59, 130, 246, 0.14);
+    }
+    /* Processing badge: raised contrast (was ~2.8:1, now ~4.6:1) */
     .status-badge-pending    { background:rgba(107,114,128,.15); color:#6b7280; }
-    .status-badge-processing { background:rgba(245,158,11,.15);  color:#d97706; }
+    .status-badge-processing { background:rgba(245,158,11,.18);  color:#b45309; }
     .status-badge-done       { background:rgba(16,185,129,.15);  color:#059669; }
     .status-badge-failed     { background:rgba(239,68,68,.15);   color:#dc2626; }
 
     .dark .status-badge-pending    { background:rgba(107,114,128,.25); color:#9ca3af; }
-    .dark .status-badge-processing { background:rgba(245,158,11,.25);  color:#fbbf24; }
+    .dark .status-badge-processing { background:rgba(245,158,11,.30);  color:#fcd34d; }
     .dark .status-badge-done       { background:rgba(16,185,129,.25);  color:#34d399; }
     .dark .status-badge-failed     { background:rgba(239,68,68,.25);   color:#f87171; }
 
+    /* Confidence badges: conf-review text deepened to orange-800 for AA on light */
     .conf-high   { background:rgba(16,185,129,.15);  color:#059669; }
-    .conf-medium { background:rgba(245,158,11,.15);  color:#d97706; }
-    .conf-review { background:rgba(249,115,22,.15);  color:#c2410c; }
+    .conf-medium { background:rgba(245,158,11,.18);  color:#b45309; }
+    .conf-review { background:rgba(249,115,22,.15);  color:#9a3412; }
+
+    .dark .conf-high   { background:rgba(16,185,129,.25);  color:#34d399; }
+    .dark .conf-medium { background:rgba(245,158,11,.25);  color:#fcd34d; }
+    .dark .conf-review { background:rgba(249,115,22,.25);  color:#fb923c; }
+
     .job-chevron { transition: transform 0.2s ease; }
 </style>
 {% endblock %}

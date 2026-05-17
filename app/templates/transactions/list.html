@@ -134,11 +134,11 @@
     <!-- Monthly Summary (compact) -->
     <div id="monthly-summary-bar" class="bg-white rounded-xl shadow-sm border px-5 py-2.5 mb-4 flex flex-wrap gap-x-5 gap-y-1 text-sm">
         <span class="text-gray-500">Income <span class="font-semibold text-green-700" id="monthly-income">—</span></span>
-        <span class="text-gray-300 hidden sm:inline">|</span>
+        <span class="text-gray-400 opacity-40 hidden sm:inline">|</span>
         <span class="text-gray-500">Expense <span class="font-semibold text-red-600" id="monthly-expense">—</span></span>
-        <span class="text-gray-300 hidden sm:inline">|</span>
+        <span class="text-gray-400 opacity-40 hidden sm:inline">|</span>
         <span class="text-gray-500">Savings <span class="font-semibold text-indigo-600" id="monthly-savings">—</span></span>
-        <span class="text-gray-300 hidden sm:inline">|</span>
+        <span class="text-gray-400 opacity-40 hidden sm:inline">|</span>
         <span class="text-gray-500">Cash on Hand <span class="font-semibold text-blue-600" id="cash-on-hand">—</span></span>
     </div>
     
@@ -410,7 +410,7 @@
 
         const makeItem = function(iconClass, iconColor, text) {
             const li = document.createElement('li');
-            li.className = 'flex items-start gap-2.5 text-sm bg-gray-50 rounded-lg px-3 py-2';
+            li.className = 'flex items-start gap-2.5 text-sm bg-gray-100 rounded-lg px-3 py-2';
             const ico = document.createElement('i');
             ico.className = 'fas ' + iconClass + ' mt-0.5 flex-shrink-0 ' + iconColor;
             const span = document.createElement('span');
@@ -545,7 +545,7 @@
 
         matches.forEach(function(m) {
             const item = document.createElement('div');
-            item.className = 'flex items-center gap-2 text-xs bg-amber-50 rounded-lg px-3 py-2';
+            item.className = 'flex items-center gap-2 text-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2';
             const dateSpan = document.createElement('span');
             dateSpan.className = 'text-gray-500 flex-shrink-0';
             dateSpan.textContent = m.date;
@@ -882,11 +882,11 @@
                 txsForDate.forEach(function(t) {
                 const row = document.createElement('div');
                 if (t.is_advance && !t.advance_settled) {
-                    row.className = 'flex items-center gap-3 px-4 py-3 border-b border-l-4 border-amber-400 bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer select-none';
+                    row.className = 'flex items-center gap-3 px-4 py-3 border-b border-l-4 border-amber-400 border-l-accent-amber bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer select-none';
                 } else if (t.is_advance && t.advance_settled) {
-                    row.className = 'flex items-center gap-3 px-4 py-3 border-b border-l-4 border-green-300 bg-green-50 hover:bg-green-100 transition-colors cursor-pointer select-none';
+                    row.className = 'flex items-center gap-3 px-4 py-3 border-b border-l-4 border-green-300 border-l-accent-green bg-green-50 hover:bg-green-100 transition-colors cursor-pointer select-none';
                 } else if (t.needs_review) {
-                    row.className = 'flex items-center gap-3 px-4 py-3 border-b border-l-4 border-orange-400 bg-orange-50 hover:bg-orange-100 transition-colors cursor-pointer select-none';
+                    row.className = 'flex items-center gap-3 px-4 py-3 border-b border-l-4 border-rose-500 border-l-accent-rose bg-orange-50 hover:bg-orange-100 transition-colors cursor-pointer select-none';
                 } else {
                     row.className = 'flex items-center gap-3 px-4 py-3 border-b hover:bg-gray-50 transition-colors cursor-pointer select-none';
                 }
@@ -907,25 +907,36 @@
                 descDiv.appendChild(descText);
                 if (t.is_advance) {
                     const badge = document.createElement('span');
+                    const badgeIco = document.createElement('i');
                     if (!t.advance_settled) {
-                        badge.className = 'inline-block px-1.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700';
-                        badge.textContent = '⏳ Pending';
+                        badge.className = 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700';
+                        badgeIco.className = 'fas fa-hand-holding-usd';
+                        badge.appendChild(badgeIco);
+                        badge.appendChild(document.createTextNode(' Unpaid'));
                     } else {
-                        badge.className = 'inline-block px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700';
-                        badge.textContent = '✓ Settled';
+                        badge.className = 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700';
+                        badgeIco.className = 'fas fa-check';
+                        badge.appendChild(badgeIco);
+                        badge.appendChild(document.createTextNode(' Settled'));
                     }
                     descDiv.appendChild(badge);
                 }
                 if (t.needs_review) {
                     const reviewBadge = document.createElement('span');
-                    reviewBadge.className = 'inline-block ml-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700';
-                    reviewBadge.textContent = '⚠ Review';
+                    reviewBadge.className = 'inline-flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700';
+                    const reviewIco = document.createElement('i');
+                    reviewIco.className = 'fas fa-exclamation-triangle';
+                    reviewBadge.appendChild(reviewIco);
+                    reviewBadge.appendChild(document.createTextNode(' Review'));
                     descDiv.appendChild(reviewBadge);
                 }
                 if (t.updated_at && t.created_at && (new Date(t.updated_at) - new Date(t.created_at)) > 2000) {
                     const editedBadge = document.createElement('span');
-                    editedBadge.className = 'inline-block ml-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-400';
-                    editedBadge.textContent = '✎ Edited';
+                    editedBadge.className = 'inline-flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500';
+                    const editedIco = document.createElement('i');
+                    editedIco.className = 'fas fa-pen';
+                    editedBadge.appendChild(editedIco);
+                    editedBadge.appendChild(document.createTextNode(' Edited'));
                     descDiv.appendChild(editedBadge);
                 }
                 if (t.source && t.source !== 'manual') {
@@ -998,7 +1009,7 @@
             icon.className = 'fas fa-check-circle flex-shrink-0 text-green-600';
             text.textContent = 'Showing transactions extracted from import job #' + jobId + '.';
         } else {
-            banner.classList.add('bg-blue-50', 'border-blue-200', 'text-blue-800');
+            banner.classList.add('bg-blue-50', 'border-blue-200', 'text-blue-700');
             icon.className = 'fas fa-info-circle flex-shrink-0 text-blue-600';
             text.textContent = 'OCR failed — add the transaction manually. Check your screenshot for the details.';
         }

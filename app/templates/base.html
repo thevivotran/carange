@@ -42,6 +42,7 @@
                         secondary: '#10B981',
                         danger: '#EF4444',
                         warning: '#F59E0B',
+                        review:  '#F97316',
                     }
                 }
             }
@@ -175,6 +176,31 @@
         .dark .shadow-md { box-shadow: 0 4px 6px -1px rgba(0,0,0,.5)  !important; }
         .dark .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0,0,0,.6) !important; }
         .dark .shadow-xl { box-shadow: 0 20px 25px -5px rgba(0,0,0,.7) !important; }
+
+        /* ── Orange (review semantic color) — no coverage existed ── */
+        .dark .bg-orange-50   { background-color: rgba(249,115,22,.18) !important; }
+        .dark .bg-orange-100  { background-color: rgba(249,115,22,.30) !important; }
+        .dark .border-orange-200 { border-color: rgba(249,115,22,.40) !important; }
+        .dark .border-orange-300 { border-color: rgba(249,115,22,.50) !important; }
+        .dark .text-orange-700   { color: #fb923c !important; }
+        .dark .text-orange-600   { color: #fb923c !important; }
+        .dark .text-orange-400   { color: #fdba74 !important; }
+        .dark .hover\:bg-orange-100:hover { background-color: rgba(249,115,22,.30) !important; }
+
+        /* ── Blue — fill gaps used in import banners & tips ── */
+        .dark .text-blue-700  { color: #60a5fa !important; }
+        .dark .text-blue-800  { color: #93c5fd !important; }
+        .dark .border-blue-100 { border-color: rgba(59,130,246,.35) !important; }
+        .dark .border-blue-200 { border-color: rgba(59,130,246,.45) !important; }
+
+        /* ── Row selection ring ───────────────────────────── */
+        .dark .ring-blue-200  { --tw-ring-color: rgba(59,130,246,.40) !important; }
+
+        /* ── Preserve colored left-border accents on indicator rows ──
+           Must come AFTER the .dark .border-b catch-all so border-left-color wins. ── */
+        .dark .border-l-accent-amber { border-left-color: #fbbf24 !important; }
+        .dark .border-l-accent-green { border-left-color: #6ee7b7 !important; }
+        .dark .border-l-accent-rose  { border-left-color: #fb7185 !important; }
 
         /* ── Sidebar ──────────────────────────────────────── */
         .dark .sidebar-link:hover { background-color: rgba(59,130,246,.18) !important; }
