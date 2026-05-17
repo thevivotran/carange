@@ -47,12 +47,8 @@ def _migrate_db():
             conn.execute(text("CREATE INDEX ix_transactions_category_id ON transactions (category_id)"))
 
         # Rename ambiguous "Khác" to type-specific names (idempotent)
-        conn.execute(text(
-            "UPDATE categories SET name = 'Chi phí khác' WHERE name = 'Khác' AND type = 'expense'"
-        ))
-        conn.execute(text(
-            "UPDATE categories SET name = 'Thu nhập khác' WHERE name = 'Khác' AND type = 'income'"
-        ))
+        conn.execute(text("UPDATE categories SET name = 'Chi phí khác' WHERE name = 'Khác' AND type = 'expense'"))
+        conn.execute(text("UPDATE categories SET name = 'Thu nhập khác' WHERE name = 'Khác' AND type = 'income'"))
 
         conn.commit()
 
