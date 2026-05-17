@@ -145,11 +145,7 @@ def cascade_delete_payment(db: Session, transaction_id: int) -> None:
 
 def soft_delete_transaction(db: Session, transaction_id: int) -> Transaction:
     """Soft-delete a transaction and cascade to linked project payment."""
-    tx = (
-        db.query(Transaction)
-        .filter(Transaction.id == transaction_id, Transaction.deleted_at.is_(None))
-        .first()
-    )
+    tx = db.query(Transaction).filter(Transaction.id == transaction_id, Transaction.deleted_at.is_(None)).first()
     if tx is None:
         raise LookupError("Transaction not found")
     try:
@@ -164,11 +160,7 @@ def soft_delete_transaction(db: Session, transaction_id: int) -> Transaction:
 
 def restore_transaction(db: Session, transaction_id: int) -> Transaction:
     """Restore a soft-deleted transaction."""
-    tx = (
-        db.query(Transaction)
-        .filter(Transaction.id == transaction_id, Transaction.deleted_at.isnot(None))
-        .first()
-    )
+    tx = db.query(Transaction).filter(Transaction.id == transaction_id, Transaction.deleted_at.isnot(None)).first()
     if tx is None:
         raise LookupError("Transaction not found in trash")
     tx.deleted_at = None

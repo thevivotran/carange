@@ -53,57 +53,93 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     _agg = db.query(
         func.sum(
             case(
-                (and_(Transaction.type == TransactionType.INCOME,
-                      Transaction.date >= month_start, Transaction.date <= month_end,
-                      Transaction.deleted_at.is_(None)), Transaction.amount),
+                (
+                    and_(
+                        Transaction.type == TransactionType.INCOME,
+                        Transaction.date >= month_start,
+                        Transaction.date <= month_end,
+                        Transaction.deleted_at.is_(None),
+                    ),
+                    Transaction.amount,
+                ),
                 else_=0,
             )
         ).label("monthly_income"),
         func.sum(
             case(
-                (and_(Transaction.type == TransactionType.EXPENSE,
-                      Transaction.is_savings_related == False,
-                      Transaction.date >= month_start, Transaction.date <= month_end,
-                      Transaction.deleted_at.is_(None)), Transaction.amount),
+                (
+                    and_(
+                        Transaction.type == TransactionType.EXPENSE,
+                        Transaction.is_savings_related == False,
+                        Transaction.date >= month_start,
+                        Transaction.date <= month_end,
+                        Transaction.deleted_at.is_(None),
+                    ),
+                    Transaction.amount,
+                ),
                 else_=0,
             )
         ).label("monthly_expense"),
         func.sum(
             case(
-                (and_(Transaction.type == TransactionType.EXPENSE,
-                      Transaction.is_savings_related == True,
-                      Transaction.date >= month_start, Transaction.date <= month_end,
-                      Transaction.deleted_at.is_(None)), Transaction.amount),
+                (
+                    and_(
+                        Transaction.type == TransactionType.EXPENSE,
+                        Transaction.is_savings_related == True,
+                        Transaction.date >= month_start,
+                        Transaction.date <= month_end,
+                        Transaction.deleted_at.is_(None),
+                    ),
+                    Transaction.amount,
+                ),
                 else_=0,
             )
         ).label("monthly_savings"),
         func.sum(
             case(
-                (and_(Transaction.type == TransactionType.EXPENSE,
-                      Transaction.date >= month_start, Transaction.date <= month_end,
-                      Transaction.deleted_at.is_(None), tk_filter), Transaction.amount),
+                (
+                    and_(
+                        Transaction.type == TransactionType.EXPENSE,
+                        Transaction.date >= month_start,
+                        Transaction.date <= month_end,
+                        Transaction.deleted_at.is_(None),
+                        tk_filter,
+                    ),
+                    Transaction.amount,
+                ),
                 else_=0,
             )
         ).label("monthly_tiet_kiem"),
         func.sum(
             case(
-                (and_(Transaction.type == TransactionType.EXPENSE,
-                      Transaction.date >= month_start, Transaction.date <= month_end,
-                      Transaction.deleted_at.is_(None), bds_filter), Transaction.amount),
+                (
+                    and_(
+                        Transaction.type == TransactionType.EXPENSE,
+                        Transaction.date >= month_start,
+                        Transaction.date <= month_end,
+                        Transaction.deleted_at.is_(None),
+                        bds_filter,
+                    ),
+                    Transaction.amount,
+                ),
                 else_=0,
             )
         ).label("monthly_bds"),
         func.sum(
             case(
-                (and_(Transaction.type == TransactionType.INCOME,
-                      Transaction.deleted_at.is_(None)), Transaction.amount),
+                (
+                    and_(Transaction.type == TransactionType.INCOME, Transaction.deleted_at.is_(None)),
+                    Transaction.amount,
+                ),
                 else_=0,
             )
         ).label("total_income"),
         func.sum(
             case(
-                (and_(Transaction.type == TransactionType.EXPENSE,
-                      Transaction.deleted_at.is_(None)), Transaction.amount),
+                (
+                    and_(Transaction.type == TransactionType.EXPENSE, Transaction.deleted_at.is_(None)),
+                    Transaction.amount,
+                ),
                 else_=0,
             )
         ).label("total_expense"),
@@ -195,8 +231,11 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     # ── Unsettled advances ────────────────────────────────────────────────────
     _adv = (
         db.query(func.count(Transaction.id), func.sum(Transaction.amount))
-        .filter(Transaction.is_advance == True, Transaction.advance_settled == False,  # noqa: E712
-                Transaction.deleted_at.is_(None))
+        .filter(
+            Transaction.is_advance == True,
+            Transaction.advance_settled == False,  # noqa: E712
+            Transaction.deleted_at.is_(None),
+        )
         .first()
     )
     unsettled_advance_count = int(_adv[0] or 0)
@@ -238,11 +277,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
 
     # ── Recent transactions & maturities ─────────────────────────────────────
     recent_transactions = (
-        db.query(Transaction)
-        .filter(Transaction.deleted_at.is_(None))
-        .order_by(Transaction.date.desc())
-        .limit(10)
-        .all()
+        db.query(Transaction).filter(Transaction.deleted_at.is_(None)).order_by(Transaction.date.desc()).limit(10).all()
     )
 
     upcoming_maturities = (

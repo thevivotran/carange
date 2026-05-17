@@ -98,9 +98,11 @@ def get_projects(
 
 @router.get("/{project_id}", response_model=FinancialProjectSchema)
 def get_project(project_id: int, db: Session = Depends(get_db)):
-    project = db.query(FinancialProject).filter(
-        FinancialProject.id == project_id, FinancialProject.deleted_at.is_(None)
-    ).first()
+    project = (
+        db.query(FinancialProject)
+        .filter(FinancialProject.id == project_id, FinancialProject.deleted_at.is_(None))
+        .first()
+    )
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     project.progress_percentage = _calc_progress(project)

@@ -49,9 +49,7 @@ def get_trashed_bundles(skip: int = 0, limit: int = 100, db: Session = Depends(g
 
 @router.get("/{bundle_id}", response_model=SavingsBundleSchema)
 def get_savings_bundle(bundle_id: int, db: Session = Depends(get_db)):
-    bundle = db.query(SavingsBundle).filter(
-        SavingsBundle.id == bundle_id, SavingsBundle.deleted_at.is_(None)
-    ).first()
+    bundle = db.query(SavingsBundle).filter(SavingsBundle.id == bundle_id, SavingsBundle.deleted_at.is_(None)).first()
     if not bundle:
         raise HTTPException(status_code=404, detail="Savings bundle not found")
     return bundle

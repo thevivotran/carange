@@ -187,9 +187,7 @@ def create_transaction(transaction: TransactionCreate, force: bool = False, db: 
 @router.put("/{transaction_id}", response_model=TransactionSchema)
 def update_transaction(transaction_id: int, transaction: TransactionUpdate, db: Session = Depends(get_db)):
     db_transaction = (
-        db.query(Transaction)
-        .filter(Transaction.id == transaction_id, Transaction.deleted_at.is_(None))
-        .first()
+        db.query(Transaction).filter(Transaction.id == transaction_id, Transaction.deleted_at.is_(None)).first()
     )
     if not db_transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
@@ -398,6 +396,7 @@ def bulk_upload_transactions(file: UploadFile = File(...), db: Session = Depends
 
     import csv as _csv
     import io as _io
+
     reader = _csv.DictReader(_io.StringIO(decoded_check))
     fieldnames = reader.fieldnames
     if not fieldnames:
@@ -418,5 +417,3 @@ def bulk_upload_transactions(file: UploadFile = File(...), db: Session = Depends
         "message": f"Successfully imported {stats['income']} income and {stats['expense']} expense transactions",
         "stats": stats,
     }
-
-

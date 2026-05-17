@@ -20,9 +20,7 @@ def upgrade() -> None:
     cat_cols = {r[1] for r in conn.execute(sa.text("PRAGMA table_info(categories)"))}
     if "is_wealth_building" not in cat_cols:
         with op.batch_alter_table("categories") as batch_op:
-            batch_op.add_column(
-                sa.Column("is_wealth_building", sa.Boolean(), server_default="0", nullable=False)
-            )
+            batch_op.add_column(sa.Column("is_wealth_building", sa.Boolean(), server_default="0", nullable=False))
         conn.execute(
             sa.text(
                 "UPDATE categories SET is_wealth_building = 1"

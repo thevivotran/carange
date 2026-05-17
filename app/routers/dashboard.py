@@ -202,12 +202,8 @@ def get_wealth_building_trend(db: Session = Depends(get_db)):
         db.query(
             extract("year", Transaction.date).label("year"),
             extract("month", Transaction.date).label("month"),
-            func.sum(
-                case((tk_filter, Transaction.amount), else_=0)
-            ).label("tiet_kiem"),
-            func.sum(
-                case((bds_filter_wbt, Transaction.amount), else_=0)
-            ).label("bds"),
+            func.sum(case((tk_filter, Transaction.amount), else_=0)).label("tiet_kiem"),
+            func.sum(case((bds_filter_wbt, Transaction.amount), else_=0)).label("bds"),
         )
         .filter(
             Transaction.date >= start_date,

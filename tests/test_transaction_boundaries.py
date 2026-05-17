@@ -1,6 +1,5 @@
 """Tests for DB transaction boundary safety in multi-step mutations."""
 
-
 from app.models.database import SavingsBundle, SavingsStatus, ProjectPayment, PaymentStatus
 
 
@@ -50,9 +49,7 @@ def test_bulk_payments_creates_all_atomically(client, db_session):
     assert r.status_code == 200
     assert len(r.json()) == 3
 
-    count = (
-        db_session.query(ProjectPayment).filter(ProjectPayment.project_id == project_id).count()
-    )
+    count = db_session.query(ProjectPayment).filter(ProjectPayment.project_id == project_id).count()
     assert count == 3
 
 

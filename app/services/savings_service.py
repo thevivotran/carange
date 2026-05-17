@@ -15,9 +15,7 @@ from app.models.database import (
 
 def mark_bundle_completed(db: Session, bundle_id: int) -> SavingsBundle:
     """Mark a bundle as completed and create a maturity income transaction."""
-    bundle = db.query(SavingsBundle).filter(
-        SavingsBundle.id == bundle_id, SavingsBundle.deleted_at.is_(None)
-    ).first()
+    bundle = db.query(SavingsBundle).filter(SavingsBundle.id == bundle_id, SavingsBundle.deleted_at.is_(None)).first()
     if bundle is None:
         raise LookupError("Savings bundle not found")
     if bundle.status != SavingsStatus.ACTIVE:
@@ -56,9 +54,7 @@ def mark_bundle_completed(db: Session, bundle_id: int) -> SavingsBundle:
 
 def rollover_bundle(db: Session, bundle_id: int) -> SavingsBundle:
     """Complete an active bundle and create a new one seeded with the matured amount."""
-    bundle = db.query(SavingsBundle).filter(
-        SavingsBundle.id == bundle_id, SavingsBundle.deleted_at.is_(None)
-    ).first()
+    bundle = db.query(SavingsBundle).filter(SavingsBundle.id == bundle_id, SavingsBundle.deleted_at.is_(None)).first()
     if bundle is None:
         raise LookupError("Savings bundle not found")
     if bundle.status != SavingsStatus.ACTIVE:
@@ -96,9 +92,7 @@ def rollover_bundle(db: Session, bundle_id: int) -> SavingsBundle:
 
 def soft_delete_bundle(db: Session, bundle_id: int) -> None:
     """Soft-delete a savings bundle."""
-    bundle = db.query(SavingsBundle).filter(
-        SavingsBundle.id == bundle_id, SavingsBundle.deleted_at.is_(None)
-    ).first()
+    bundle = db.query(SavingsBundle).filter(SavingsBundle.id == bundle_id, SavingsBundle.deleted_at.is_(None)).first()
     if bundle is None:
         raise LookupError("Savings bundle not found")
     try:
@@ -111,9 +105,7 @@ def soft_delete_bundle(db: Session, bundle_id: int) -> None:
 
 def restore_bundle(db: Session, bundle_id: int) -> SavingsBundle:
     """Restore a soft-deleted savings bundle."""
-    bundle = db.query(SavingsBundle).filter(
-        SavingsBundle.id == bundle_id, SavingsBundle.deleted_at.isnot(None)
-    ).first()
+    bundle = db.query(SavingsBundle).filter(SavingsBundle.id == bundle_id, SavingsBundle.deleted_at.isnot(None)).first()
     if bundle is None:
         raise LookupError("Savings bundle not found in trash")
     try:
@@ -128,15 +120,11 @@ def restore_bundle(db: Session, bundle_id: int) -> SavingsBundle:
 
 def hard_delete_bundle(db: Session, bundle_id: int) -> None:
     """Permanently delete a soft-deleted savings bundle."""
-    bundle = db.query(SavingsBundle).filter(
-        SavingsBundle.id == bundle_id, SavingsBundle.deleted_at.isnot(None)
-    ).first()
+    bundle = db.query(SavingsBundle).filter(SavingsBundle.id == bundle_id, SavingsBundle.deleted_at.isnot(None)).first()
     if bundle is None:
         raise LookupError("Savings bundle not found in trash")
     try:
-        db.query(Transaction).filter(Transaction.savings_bundle_id == bundle_id).update(
-            {"savings_bundle_id": None}
-        )
+        db.query(Transaction).filter(Transaction.savings_bundle_id == bundle_id).update({"savings_bundle_id": None})
         db.delete(bundle)
         db.commit()
     except Exception:

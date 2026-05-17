@@ -156,9 +156,11 @@ def bulk_create_payments(db: Session, project: FinancialProject, req) -> list[Pr
 
 
 def soft_delete_project(db: Session, project_id: int) -> None:
-    project = db.query(FinancialProject).filter(
-        FinancialProject.id == project_id, FinancialProject.deleted_at.is_(None)
-    ).first()
+    project = (
+        db.query(FinancialProject)
+        .filter(FinancialProject.id == project_id, FinancialProject.deleted_at.is_(None))
+        .first()
+    )
     if project is None:
         raise LookupError("Project not found")
     try:
@@ -170,9 +172,11 @@ def soft_delete_project(db: Session, project_id: int) -> None:
 
 
 def restore_project(db: Session, project_id: int) -> FinancialProject:
-    project = db.query(FinancialProject).filter(
-        FinancialProject.id == project_id, FinancialProject.deleted_at.isnot(None)
-    ).first()
+    project = (
+        db.query(FinancialProject)
+        .filter(FinancialProject.id == project_id, FinancialProject.deleted_at.isnot(None))
+        .first()
+    )
     if project is None:
         raise LookupError("Project not found in trash")
     try:
@@ -186,9 +190,11 @@ def restore_project(db: Session, project_id: int) -> FinancialProject:
 
 
 def hard_delete_project(db: Session, project_id: int) -> None:
-    project = db.query(FinancialProject).filter(
-        FinancialProject.id == project_id, FinancialProject.deleted_at.isnot(None)
-    ).first()
+    project = (
+        db.query(FinancialProject)
+        .filter(FinancialProject.id == project_id, FinancialProject.deleted_at.isnot(None))
+        .first()
+    )
     if project is None:
         raise LookupError("Project not found in trash")
     try:
