@@ -55,8 +55,8 @@ def upgrade() -> None:
         conn.execute(sa.text("CREATE INDEX ix_transactions_category_id ON transactions (category_id)"))
 
     # ── category name normalisation ──────────────────────────────────────────
-    conn.execute(sa.text("UPDATE categories SET name = 'Chi phí khác' WHERE name = 'Khác' AND type = 'expense'"))
-    conn.execute(sa.text("UPDATE categories SET name = 'Thu nhập khác' WHERE name = 'Khác' AND type = 'income'"))
+    conn.execute(sa.text("UPDATE categories SET name = 'Chi phí khác' WHERE name = 'Khác' AND type = 'EXPENSE'"))
+    conn.execute(sa.text("UPDATE categories SET name = 'Thu nhập khác' WHERE name = 'Khác' AND type = 'INCOME'"))
 
 
 def downgrade() -> None:
