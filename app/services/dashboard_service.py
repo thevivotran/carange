@@ -152,8 +152,55 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     monthly_bds = float(_agg.monthly_bds or 0)
     monthly_wealth_building = monthly_tiet_kiem + monthly_bds
 
-    # Savings rate: % of income that went to wealth-building categories
     savings_rate = round(monthly_wealth_building / monthly_income * 100, 1) if monthly_income > 0 else 0
+    liquid_savings_rate = round(monthly_tiet_kiem / monthly_income * 100, 1) if monthly_income > 0 else 0
+    bds_rate = round(monthly_bds / monthly_income * 100, 1) if monthly_income > 0 else 0
+    living_expense_ratio = round(monthly_expense / monthly_income * 100, 1) if monthly_income > 0 else 0
+
+    # ── Prev-month aggregates (delta arrows) ─────────────────────────────────
+    if current_month == 1:
+        prev_year_num, prev_month_num = current_year - 1, 12
+    else:
+        prev_year_num, prev_month_num = current_year, current_month - 1
+    prev_month_start = date(prev_year_num, prev_month_num, 1)
+    _, _prev_last = monthrange(prev_year_num, prev_month_num)
+    prev_month_end = date(prev_year_num, prev_month_num, _prev_last)
+
+    _prev = db.query(
+        func.sum(case(
+            (and_(Transaction.type == TransactionType.INCOME,
+                  Transaction.date >= prev_month_start, Transaction.date <= prev_month_end,
+                  Transaction.deleted_at.is_(None)), Transaction.amount), else_=0,
+        )).label("income"),
+        func.sum(case(
+            (and_(Transaction.type == TransactionType.EXPENSE, Transaction.is_savings_related == False,
+                  Transaction.date >= prev_month_start, Transaction.date <= prev_month_end,
+                  Transaction.deleted_at.is_(None)), Transaction.amount), else_=0,
+        )).label("expense"),
+        func.sum(case(
+            (and_(Transaction.type == TransactionType.EXPENSE, Transaction.is_savings_related == True,
+                  Transaction.date >= prev_month_start, Transaction.date <= prev_month_end,
+                  Transaction.deleted_at.is_(None)), Transaction.amount), else_=0,
+        )).label("savings"),
+        func.sum(case(
+            (and_(Transaction.type == TransactionType.EXPENSE,
+                  Transaction.date >= prev_month_start, Transaction.date <= prev_month_end,
+                  Transaction.deleted_at.is_(None), tk_filter), Transaction.amount), else_=0,
+        )).label("tiet_kiem"),
+        func.sum(case(
+            (and_(Transaction.type == TransactionType.EXPENSE,
+                  Transaction.date >= prev_month_start, Transaction.date <= prev_month_end,
+                  Transaction.deleted_at.is_(None), bds_filter), Transaction.amount), else_=0,
+        )).label("bds"),
+    ).first()
+
+    _pi = float(_prev.income or 0)
+    _pe = float(_prev.expense or 0)
+    _ps = float(_prev.savings or 0)
+    prev_liquid_savings_rate = round(float(_prev.tiet_kiem or 0) / _pi * 100, 1) if _pi > 0 else 0
+    prev_bds_rate = round(float(_prev.bds or 0) / _pi * 100, 1) if _pi > 0 else 0
+    prev_net_cash = _pi - _pe - _ps
+    prev_living_expense_ratio = round(_pe / _pi * 100, 1) if _pi > 0 else 0
 
     # ── Project amounts by type ───────────────────────────────────────────────
     _PROJECT_TYPE_META = {
@@ -187,6 +234,30 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     )
     total_savings = float(savings_data[0] or 0) if savings_data else 0
     total_savings_initial = float(savings_data[1] or 0) if savings_data else 0
+
+    # ── Emergency fund coverage ───────────────────────────────────────────────
+    # Avg living expense over last 3 completed months (not counting current month)
+    _ef_m, _ef_y = prev_month_num, prev_year_num
+    _ef_sm = _ef_m - 2
+    _ef_sy = _ef_y
+    if _ef_sm <= 0:
+        _ef_sm += 12
+        _ef_sy -= 1
+    _ef_start = date(_ef_sy, _ef_sm, 1)
+    _ef_end = prev_month_end
+    _ef_total = float(
+        db.query(func.sum(Transaction.amount))
+        .filter(
+            Transaction.type == TransactionType.EXPENSE,
+            Transaction.is_savings_related == False,  # noqa: E712
+            Transaction.date >= _ef_start,
+            Transaction.date <= _ef_end,
+            Transaction.deleted_at.is_(None),
+        )
+        .scalar() or 0
+    )
+    avg_monthly_expense = _ef_total / 3 if _ef_total > 0 else monthly_expense or 1
+    emergency_fund_months = round(total_savings / avg_monthly_expense, 1) if avg_monthly_expense > 0 else 0
 
     active_projects_count = (
         db.query(FinancialProject)
@@ -226,7 +297,11 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     _total_allocated = sum(r["cumulative_allocated"] for r in budget_rows)
     _on_track_allocated = sum(r["cumulative_allocated"] for r in budget_rows if r["available_balance"] >= 0)
     budget_adherence_pct = round(_on_track_allocated / _total_allocated * 100) if _total_allocated > 0 else None
-    budget_top_cats = sorted(budget_rows, key=lambda r: r["this_month_spent"], reverse=True)[:6]
+    # Sort by risk: most over-budget first, then highest usage %, then highest spend
+    budget_top_cats = sorted(
+        budget_rows,
+        key=lambda r: (r["available_balance"], -(r["cumulative_pct"])),
+    )[:6]
 
     # ── Unsettled advances ────────────────────────────────────────────────────
     _adv = (
@@ -264,6 +339,68 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         .all()
     )
     active_projects_list.sort(key=lambda p: p.deadline or date(9999, 12, 31))
+
+    # ── BDS project details ───────────────────────────────────────────────────
+    bds_project = next(
+        (p for p in active_projects_list if p.type == ProjectType.REAL_ESTATE),
+        None,
+    )
+    bds_next_payment = None
+    bds_ytd_paid = 0.0
+    bds_ytd_planned = 0.0
+    bds_completion_date = None
+    bds_days_until_next = None
+
+    if bds_project:
+        bds_next_payment = (
+            db.query(ProjectPayment)
+            .filter(
+                ProjectPayment.project_id == bds_project.id,
+                ProjectPayment.status == PaymentStatus.PENDING,
+                ProjectPayment.due_date.isnot(None),
+            )
+            .order_by(ProjectPayment.due_date)
+            .first()
+        )
+        if bds_next_payment:
+            bds_days_until_next = (bds_next_payment.due_date - today).days
+
+        _year_start = date(current_year, 1, 1)
+        _year_end = date(current_year, 12, 31)
+        bds_ytd_paid = float(
+            db.query(func.sum(ProjectPayment.amount))
+            .filter(
+                ProjectPayment.project_id == bds_project.id,
+                ProjectPayment.status == PaymentStatus.PAID,
+                ProjectPayment.due_date >= _year_start,
+                ProjectPayment.due_date <= _year_end,
+            )
+            .scalar() or 0
+        )
+        bds_ytd_planned = float(
+            db.query(func.sum(ProjectPayment.amount))
+            .filter(
+                ProjectPayment.project_id == bds_project.id,
+                ProjectPayment.due_date >= _year_start,
+                ProjectPayment.due_date <= _year_end,
+            )
+            .scalar() or 0
+        )
+        _last_pmt = (
+            db.query(ProjectPayment)
+            .filter(
+                ProjectPayment.project_id == bds_project.id,
+                ProjectPayment.due_date.isnot(None),
+            )
+            .order_by(ProjectPayment.due_date.desc())
+            .first()
+        )
+        bds_completion_date = _last_pmt.due_date if _last_pmt else None
+
+    # ── One-income stress test ────────────────────────────────────────────────
+    bds_monthly_installment = (bds_next_payment.amount if bds_next_payment else monthly_bds) or 0
+    stress_test_required = avg_monthly_expense + 20_000_000 + bds_monthly_installment
+    stress_test_cushion = monthly_income - stress_test_required
 
     deadline_cutoff = today + timedelta(days=180)
     at_risk_ids = {
@@ -325,6 +462,17 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
             "total_savings_expense": monthly_savings,
             "net_this_month": monthly_income - monthly_expense - monthly_savings,
             "savings_rate": savings_rate,
+            "liquid_savings_rate": liquid_savings_rate,
+            "bds_rate": bds_rate,
+            "living_expense_ratio": living_expense_ratio,
+            "emergency_fund_months": emergency_fund_months,
+            "avg_monthly_expense": avg_monthly_expense,
+            "prev_liquid_savings_rate": prev_liquid_savings_rate,
+            "prev_bds_rate": prev_bds_rate,
+            "prev_net_cash": prev_net_cash,
+            "prev_living_expense_ratio": prev_living_expense_ratio,
+            "stress_test_required": stress_test_required,
+            "stress_test_cushion": stress_test_cushion,
             "net_worth": net_worth,
             "cash_on_hand": cash_on_hand,
             "total_savings": total_savings,
@@ -353,4 +501,10 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         "upcoming_maturities": upcoming_maturities,
         "expense_by_category": expense_by_category,
         "project_amounts_by_type": project_amounts_by_type,
+        "bds_project": bds_project,
+        "bds_next_payment": bds_next_payment,
+        "bds_ytd_paid": bds_ytd_paid,
+        "bds_ytd_planned": bds_ytd_planned,
+        "bds_completion_date": bds_completion_date,
+        "bds_days_until_next": bds_days_until_next,
     }

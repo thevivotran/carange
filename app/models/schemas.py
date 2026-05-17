@@ -349,6 +349,23 @@ class DashboardSummary(BaseModel):
     total_savings_month: float
     net_this_month: float = 0
     savings_rate: float = 0
+    # Split savings rates
+    liquid_savings_rate: float = 0
+    bds_rate: float = 0
+    # Expense health
+    living_expense_ratio: float = 0
+    # Emergency fund
+    emergency_fund_months: float = 0
+    avg_monthly_expense: float = 0
+    # Previous-month deltas (for arrows)
+    prev_liquid_savings_rate: float = 0
+    prev_bds_rate: float = 0
+    prev_net_cash: float = 0
+    prev_living_expense_ratio: float = 0
+    # Stress test
+    stress_test_required: float = 0
+    stress_test_cushion: float = 0
+    # Wealth
     net_worth: float = 0
     budget_adherence_pct: Optional[float] = None
     monthly_tiet_kiem: float = 0

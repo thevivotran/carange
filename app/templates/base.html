@@ -38,8 +38,8 @@
             theme: {
                 extend: {
                     colors: {
-                        primary: '#3B82F6',
-                        secondary: '#10B981',
+                        primary: '#2563EB',
+                        secondary: '#059669',
                         danger: '#EF4444',
                         warning: '#F59E0B',
                         review:  '#F97316',
@@ -52,8 +52,8 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
         body { font-family: 'Inter', sans-serif; }
-        .sidebar-link:hover { background-color: rgba(59, 130, 246, 0.1); }
-        .sidebar-link.active { background-color: rgba(59, 130, 246, 0.15); border-right: 3px solid #3B82F6; }
+        .sidebar-link:hover { background-color: rgba(37, 99, 235, 0.1); }
+        .sidebar-link.active { background-color: rgba(37, 99, 235, 0.15); border-right: 3px solid #2563EB; }
 
         /* Chart container fix to prevent expanding */
         canvas { max-height: 100% !important; }
@@ -81,21 +81,21 @@
            ═══════════════════════════════════════════════════ */
 
         /* Scaffold */
-        .dark body { background-color: #111827; }
+        .dark body { background-color: #0F172A; }
 
         /* ── Surfaces ─────────────────────────────────────── */
-        .dark .bg-white   { background-color: #1f2937 !important; }
-        .dark .bg-gray-50 { background-color: #111827 !important; }
-        .dark .bg-gray-100{ background-color: #374151 !important; }
-        .dark .bg-gray-200{ background-color: #4b5563 !important; }
+        .dark .bg-white   { background-color: #1E293B !important; }
+        .dark .bg-gray-50 { background-color: #0F172A !important; }
+        .dark .bg-gray-100{ background-color: #334155 !important; }
+        .dark .bg-gray-200{ background-color: #475569 !important; }
         /* undo-toast / dark overlays */
-        .dark .bg-gray-800{ background-color: #0f172a !important; }
+        .dark .bg-gray-800{ background-color: #0F172A !important; }
         .dark .bg-gray-900{ background-color: #030712 !important; }
 
         /* Coloured tints — raised to 20% so the status colour reads clearly */
         .dark .bg-green-50  { background-color: rgba(16,185,129,.20) !important; }
         .dark .bg-red-50    { background-color: rgba(239,68,68,.20)  !important; }
-        .dark .bg-blue-50   { background-color: rgba(59,130,246,.20) !important; }
+        .dark .bg-blue-50   { background-color: rgba(37,99,235,.20) !important; }
         .dark .bg-indigo-50 { background-color: rgba(99,102,241,.20) !important; }
         .dark .bg-amber-50  { background-color: rgba(245,158,11,.20) !important; }
         .dark .bg-yellow-50 { background-color: rgba(234,179,8,.20)  !important; }
@@ -104,19 +104,19 @@
         /* Badge/chip tints — raised to 32% for clear chip backgrounds */
         .dark .bg-green-100  { background-color: rgba(16,185,129,.32) !important; }
         .dark .bg-red-100    { background-color: rgba(239,68,68,.32)  !important; }
-        .dark .bg-blue-100   { background-color: rgba(59,130,246,.32) !important; }
+        .dark .bg-blue-100   { background-color: rgba(37,99,235,.32) !important; }
         .dark .bg-indigo-100 { background-color: rgba(99,102,241,.32) !important; }
         .dark .bg-amber-100  { background-color: rgba(245,158,11,.32) !important; }
         .dark .bg-yellow-100 { background-color: rgba(234,179,8,.32)  !important; }
         .dark .bg-purple-100 { background-color: rgba(168,85,247,.32) !important; }
 
         /* ── Text ─────────────────────────────────────────── */
-        .dark .text-gray-800 { color: #f9fafb !important; }
-        .dark .text-gray-700 { color: #e5e7eb !important; }
-        .dark .text-gray-600 { color: #d1d5db !important; }
-        .dark .text-gray-500 { color: #9ca3af !important; }
-        .dark .text-gray-400 { color: #6b7280 !important; }
-        .dark .text-gray-300 { color: #d1d5db !important; } /* fixed: was duplicating gray-500 */
+        .dark .text-gray-800 { color: #F1F5F9 !important; }
+        .dark .text-gray-700 { color: #E2E8F0 !important; }
+        .dark .text-gray-600 { color: #CBD5E1 !important; }
+        .dark .text-gray-500 { color: #94A3B8 !important; }
+        .dark .text-gray-400 { color: #94A3B8 !important; } /* raised from 2.4:1 → 4.1:1 for WCAG AA */
+        .dark .text-gray-300 { color: #CBD5E1 !important; }
 
         /* ── Colored text — flip -600/-700/-800 shades to light equivalents ── */
         /* These were designed for light tinted backgrounds; dark mode needs their inverse */
@@ -145,31 +145,31 @@
         .dark .border-t,
         .dark .border-b,
         .dark .border-r,
-        .dark .border-l      { border-color: #374151 !important; }
-        .dark .border-gray-100{ border-color: #374151 !important; }
-        .dark .border-gray-200{ border-color: #374151 !important; }
-        .dark .border-gray-300{ border-color: #4b5563 !important; }
-        .dark .divide-y > * + *{ border-color: #374151 !important; }
+        .dark .border-l      { border-color: #334155 !important; }
+        .dark .border-gray-100{ border-color: #334155 !important; }
+        .dark .border-gray-200{ border-color: #334155 !important; }
+        .dark .border-gray-300{ border-color: #475569 !important; }
+        .dark .divide-y > * + *{ border-color: #334155 !important; }
 
         /* ── Form controls ────────────────────────────────── */
         .dark input:not([type="radio"]):not([type="checkbox"]),
         .dark select,
         .dark textarea {
-            background-color: #374151 !important;
-            color:            #f9fafb !important;
-            border-color:     #4b5563 !important;
+            background-color: #334155 !important;
+            color:            #F1F5F9 !important;
+            border-color:     #475569 !important;
         }
         .dark input::placeholder,
-        .dark textarea::placeholder { color: #6b7280 !important; }
-        .dark option { background-color: #1f2937; color: #f9fafb; }
+        .dark textarea::placeholder { color: #64748B !important; }
+        .dark option { background-color: #1E293B; color: #F1F5F9; }
 
         /* ── Hover / interaction ──────────────────────────── */
-        .dark .hover\:bg-gray-50:hover  { background-color: #374151 !important; }
-        .dark .hover\:bg-gray-100:hover { background-color: #4b5563 !important; }
+        .dark .hover\:bg-gray-50:hover  { background-color: #334155 !important; }
+        .dark .hover\:bg-gray-100:hover { background-color: #475569 !important; }
 
         /* ── Progress bar tracks ──────────────────────────── */
-        .dark .bg-gray-100.rounded-full { background-color: #374151 !important; }
-        .dark .progress-bg              { background-color: #374151 !important; }
+        .dark .bg-gray-100.rounded-full { background-color: #334155 !important; }
+        .dark .progress-bg              { background-color: #334155 !important; }
 
         /* ── Shadows ──────────────────────────────────────── */
         .dark .shadow, .dark .shadow-sm { box-shadow: 0 1px 3px rgba(0,0,0,.5)   !important; }
@@ -190,11 +190,11 @@
         /* ── Blue — fill gaps used in import banners & tips ── */
         .dark .text-blue-700  { color: #60a5fa !important; }
         .dark .text-blue-800  { color: #93c5fd !important; }
-        .dark .border-blue-100 { border-color: rgba(59,130,246,.35) !important; }
-        .dark .border-blue-200 { border-color: rgba(59,130,246,.45) !important; }
+        .dark .border-blue-100 { border-color: rgba(37,99,235,.35) !important; }
+        .dark .border-blue-200 { border-color: rgba(37,99,235,.45) !important; }
 
         /* ── Row selection ring ───────────────────────────── */
-        .dark .ring-blue-200  { --tw-ring-color: rgba(59,130,246,.40) !important; }
+        .dark .ring-blue-200  { --tw-ring-color: rgba(37,99,235,.40) !important; }
 
         /* ── Preserve colored left-border accents on indicator rows ──
            Must come AFTER the .dark .border-b catch-all so border-left-color wins. ── */
@@ -203,16 +203,16 @@
         .dark .border-l-accent-rose  { border-left-color: #fb7185 !important; }
 
         /* ── Sidebar ──────────────────────────────────────── */
-        .dark .sidebar-link:hover { background-color: rgba(59,130,246,.18) !important; }
-        .dark .sidebar-link.active{ background-color: rgba(59,130,246,.28) !important; border-right-color: #3b82f6; }
+        .dark .sidebar-link:hover { background-color: rgba(37,99,235,.18) !important; }
+        .dark .sidebar-link.active{ background-color: rgba(37,99,235,.28) !important; border-right-color: #2563eb; }
 
         /* ── Budget page custom classes ───────────────────── */
-        .dark .cat-card { background: #1f2937 !important; border-color: #374151 !important; }
+        .dark .cat-card { background: #1E293B !important; border-color: #334155 !important; }
         .dark .cat-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.4); }
 
         /* ── Notes page filter pills ──────────────────────── */
-        .dark .filter-btn { background: #374151 !important; color: #d1d5db !important; border-color: #4b5563 !important; }
-        .dark .filter-btn.active { background: #3b82f6 !important; color: #fff !important; border-color: #3b82f6 !important; }
+        .dark .filter-btn { background: #334155 !important; color: #CBD5E1 !important; border-color: #475569 !important; }
+        .dark .filter-btn.active { background: #2563eb !important; color: #fff !important; border-color: #2563eb !important; }
 
         /* ── Required field asterisk ─────────────────────── */
         .field-required::after { content: ' *'; color: #ef4444; }
@@ -241,15 +241,15 @@
         }
         #sidebar.collapsed .sidebar-link.active {
             border-right: none !important;
-            border-left: 3px solid #3B82F6;
+            border-left: 3px solid #2563EB;
         }
         #sidebar.collapsed #sidebar-collapse-btn i { transform: rotate(180deg); }
 
         /* ── Mobile bottom nav ────────────────────────────── */
-        .bottom-nav-link { transition: color 0.15s; color: #9ca3af; }
-        .bottom-nav-link.active { color: #3B82F6; }
-        .dark #mobile-bottom-nav { background-color: #1f2937 !important; border-color: #374151 !important; }
-        .dark .bottom-nav-link { color: #6b7280; }
+        .bottom-nav-link { transition: color 0.15s; color: #94A3B8; }
+        .bottom-nav-link.active { color: #2563EB; }
+        .dark #mobile-bottom-nav { background-color: #1E293B !important; border-color: #334155 !important; }
+        .dark .bottom-nav-link { color: #64748B; }
         .dark .bottom-nav-link.active { color: #60a5fa; }
 
         /* ── iOS safe-area bottom clearance ──────────────── */

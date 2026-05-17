@@ -19,104 +19,228 @@
     </div>
   </div>
 
-  <!-- ── Row 1: KPI Cards ────────────────────────────────────────── -->
-  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+  <!-- ── Family Safety Score ────────────────────────────────────── -->
+  {% set check_income = summary.total_income > 0 %}
+  {% set check_bds    = summary.monthly_bds > 0 %}
+  {% set check_tk     = summary.monthly_tiet_kiem >= 20000000 %}
+  {% set check_net    = summary.net_this_month > 0 %}
+  {% set ss_score = (1 if check_income else 0) + (1 if check_bds else 0) + (1 if check_tk else 0) + (1 if check_net else 0) %}
 
-    <!-- Savings Rate -->
-    <div class="bg-white rounded-2xl shadow-sm border p-5">
-      <div class="flex justify-between items-center mb-2">
-        <p class="text-xs text-gray-400 uppercase tracking-widest">Savings Rate</p>
-        <button onclick="showKpiInfo('savings-rate', this)" class="text-gray-300 hover:text-gray-500 focus:outline-none"><i class="fas fa-info-circle text-xs"></i></button>
-      </div>
-      <p id="kpi-savings-rate" class="text-3xl font-bold
-        {% if summary.savings_rate >= 50 %}text-green-600
-        {% elif summary.savings_rate >= 10 %}text-yellow-500
-        {% else %}text-red-500{% endif %}">
-        {{ summary.savings_rate }}%
+  <div id="safety-score-card" class="rounded-2xl border p-5 mb-6
+    {% if ss_score == 4 %}bg-green-50 border-green-200
+    {% elif ss_score >= 2 %}bg-amber-50 border-amber-200
+    {% else %}bg-red-50 border-red-200{% endif %}">
+
+    <div class="flex justify-between items-center mb-4">
+      <p id="safety-score-label" class="text-xs uppercase tracking-widest font-semibold
+        {% if ss_score == 4 %}text-green-600{% elif ss_score >= 2 %}text-amber-600{% else %}text-red-600{% endif %}">
+        Family Safety Score
       </p>
-      <div class="mt-2 w-full bg-gray-100 rounded-full h-2">
-        <div id="kpi-rate-bar" class="h-2 rounded-full transition-all duration-500"
-          style="width: {{ [summary.savings_rate, 100]|min }}%;
-                 background: {% if summary.savings_rate >= 50 %}#22c55e{% elif summary.savings_rate >= 10 %}#f59e0b{% else %}#ef4444{% endif %}">
+      <div class="flex items-center gap-2">
+        <div class="flex gap-1" id="safety-dots">
+          {% for i in range(4) %}
+          <span class="w-2.5 h-2.5 rounded-full
+            {% if i < ss_score %}{% if ss_score == 4 %}bg-green-500{% elif ss_score >= 2 %}bg-amber-500{% else %}bg-red-500{% endif %}
+            {% else %}bg-gray-200{% endif %}"></span>
+          {% endfor %}
         </div>
-      </div>
-      <div class="mt-2 flex items-center justify-between">
-        <span class="text-xs text-gray-400">Target: ≥ 50%</span>
-        <span id="kpi-rate-badge" class="text-xs px-2 py-0.5 rounded-full
-          {% if summary.savings_rate >= 50 %}bg-green-100 text-green-700
-          {% elif summary.savings_rate >= 10 %}bg-yellow-100 text-yellow-700
-          {% else %}bg-red-100 text-red-700{% endif %}">
-          {% if summary.savings_rate >= 50 %}On track{% elif summary.savings_rate >= 10 %}Partial{% else %}Below target{% endif %}
+        <span id="safety-score-text" class="text-sm font-bold
+          {% if ss_score == 4 %}text-green-700{% elif ss_score >= 2 %}text-amber-700{% else %}text-red-700{% endif %}">
+          {{ ss_score }} / 4
         </span>
       </div>
     </div>
 
-    <!-- Net Cash This Month -->
-    <div class="bg-white rounded-2xl shadow-sm border p-5">
-      <div class="flex justify-between items-center mb-2">
-        <p class="text-xs text-gray-400 uppercase tracking-widest">Net Cash</p>
-        <button onclick="showKpiInfo('net-cash', this)" class="text-gray-300 hover:text-gray-500 focus:outline-none"><i class="fas fa-info-circle text-xs"></i></button>
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+
+      <!-- Check 1: Salary received -->
+      <div id="check-income" class="rounded-xl p-3 flex items-start gap-2.5 bg-white/60">
+        <span class="text-base leading-none mt-0.5 flex-shrink-0">{{ '✅' if check_income else '❌' }}</span>
+        <div class="min-w-0">
+          <p class="text-xs font-semibold {{ 'text-green-800' if check_income else 'text-red-800' }}">Salary Received</p>
+          <p class="text-xs mt-0.5 {{ 'text-green-600' if check_income else 'text-red-500' }}">
+            {% if check_income %}{{ "{:,.0f}".format(summary.total_income) }} ₫{% else %}No income recorded{% endif %}
+          </p>
+        </div>
       </div>
-      <p id="kpi-net-cash" class="text-3xl font-bold leading-tight
-        {% if summary.net_this_month >= 0 %}text-green-600{% else %}text-red-500{% endif %}">
-        {% set nc = summary.net_this_month %}{% if nc | abs >= 1000000000 %}{% if nc >= 0 %}+{% endif %}{{ "%.2f" | format(nc / 1000000000) }}B{% elif nc | abs >= 1000000 %}{% if nc >= 0 %}+{% endif %}{{ "%.1f" | format(nc / 1000000) }}M{% else %}{{ "{:+,.0f}".format(nc) }}{% endif %} ₫
+
+      <!-- Check 2: BDS paid -->
+      <div id="check-bds" class="rounded-xl p-3 flex items-start gap-2.5 bg-white/60">
+        <span class="text-base leading-none mt-0.5 flex-shrink-0">{{ '✅' if check_bds else '❌' }}</span>
+        <div class="min-w-0">
+          <p class="text-xs font-semibold {{ 'text-green-800' if check_bds else 'text-red-800' }}">BDS Paid</p>
+          <p class="text-xs mt-0.5 {{ 'text-green-600' if check_bds else 'text-red-500' }}">
+            {% if check_bds %}{{ "{:,.0f}".format(summary.monthly_bds) }} ₫{% else %}No payment recorded{% endif %}
+          </p>
+        </div>
+      </div>
+
+      <!-- Check 3: Tiết kiệm ≥ 20M -->
+      <div id="check-tk" class="rounded-xl p-3 flex items-start gap-2.5 bg-white/60">
+        <span class="text-base leading-none mt-0.5 flex-shrink-0">{{ '✅' if check_tk else '❌' }}</span>
+        <div class="min-w-0">
+          <p class="text-xs font-semibold {{ 'text-green-800' if check_tk else 'text-red-800' }}">Tiết kiệm &gt; 20M</p>
+          <p class="text-xs mt-0.5 {{ 'text-green-600' if check_tk else 'text-red-500' }}">
+            {{ "{:,.0f}".format(summary.monthly_tiet_kiem) }} ₫
+          </p>
+        </div>
+      </div>
+
+      <!-- Check 4: Net cash positive -->
+      <div id="check-net" class="rounded-xl p-3 flex items-start gap-2.5 bg-white/60">
+        <span class="text-base leading-none mt-0.5 flex-shrink-0">{{ '✅' if check_net else '❌' }}</span>
+        <div class="min-w-0">
+          <p class="text-xs font-semibold {{ 'text-green-800' if check_net else 'text-red-800' }}">Net Cash &gt; 0</p>
+          <p class="text-xs mt-0.5 {{ 'text-green-600' if check_net else 'text-red-500' }}">
+            {{ "{:+,.0f}".format(summary.net_this_month) }} ₫
+          </p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── Row 1: KPI Cards — 6 cards (3-col desktop) ───────────────── -->
+  {% set liquid_delta  = summary.liquid_savings_rate - summary.prev_liquid_savings_rate %}
+  {% set bds_delta     = summary.bds_rate - summary.prev_bds_rate %}
+  {% set net_delta     = summary.net_this_month - summary.prev_net_cash %}
+  {% set living_delta  = summary.living_expense_ratio - summary.prev_living_expense_ratio %}
+  <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+
+    <!-- Liquid Savings Rate -->
+    <div class="bg-white rounded-2xl shadow-sm border p-5">
+      <div class="flex justify-between items-center mb-1">
+        <p class="text-xs text-gray-500 uppercase tracking-widest">Liquid Savings</p>
+        <span id="kpi-liquid-delta" class="text-xs font-semibold {{ 'text-green-600' if liquid_delta > 0.5 else ('text-red-500' if liquid_delta < -0.5 else 'text-gray-300') }}">
+          {% if liquid_delta > 0.5 %}↑ +{{ "%.1f"|format(liquid_delta) }}%{% elif liquid_delta < -0.5 %}↓ {{ "%.1f"|format(liquid_delta) }}%{% endif %}
+        </span>
+      </div>
+      <p id="kpi-liquid-rate" class="text-3xl font-bold
+        {% if summary.liquid_savings_rate >= 23 %}text-green-600{% elif summary.liquid_savings_rate >= 10 %}text-amber-600{% else %}text-red-500{% endif %}">
+        {{ summary.liquid_savings_rate }}%
       </p>
-      <p class="text-xs text-gray-400 mt-2">Income − Savings − BDS − Living</p>
-      <div class="mt-2 flex gap-3 text-xs text-gray-500">
+      <div class="mt-2 w-full bg-gray-100 rounded-full h-1.5">
+        <div id="kpi-liquid-bar" class="h-1.5 rounded-full transition-all duration-500"
+          style="width:{{ [summary.liquid_savings_rate, 100]|min }}%;
+                 background:{% if summary.liquid_savings_rate >= 23 %}#059669{% elif summary.liquid_savings_rate >= 10 %}#D97706{% else %}#DC2626{% endif %}"></div>
+      </div>
+      <div class="mt-2 flex items-center justify-between">
+        <span class="text-xs text-gray-500">Target: ≥ 23%</span>
+        <span id="kpi-liquid-badge" class="text-xs px-2 py-0.5 rounded-full
+          {% if summary.liquid_savings_rate >= 23 %}bg-green-100 text-green-700{% elif summary.liquid_savings_rate >= 10 %}bg-amber-100 text-amber-700{% else %}bg-red-100 text-red-700{% endif %}">
+          {% if summary.liquid_savings_rate >= 23 %}On track{% elif summary.liquid_savings_rate >= 10 %}Partial{% else %}Below{% endif %}
+        </span>
+      </div>
+    </div>
+
+    <!-- BDS Rate -->
+    <div class="bg-white rounded-2xl shadow-sm border p-5">
+      <div class="flex justify-between items-center mb-1">
+        <p class="text-xs text-gray-500 uppercase tracking-widest">BDS Rate</p>
+        <span id="kpi-bds-delta" class="text-xs font-semibold text-gray-300">
+          {% if bds_delta > 0.5 %}↑ +{{ "%.1f"|format(bds_delta) }}%{% elif bds_delta < -0.5 %}↓ {{ "%.1f"|format(bds_delta) }}%{% endif %}
+        </span>
+      </div>
+      <p id="kpi-bds-rate" class="text-3xl font-bold {{ 'text-green-600' if summary.monthly_bds > 0 else 'text-red-500' }}">
+        {{ summary.bds_rate }}%
+      </p>
+      <p class="text-xs text-gray-500 mt-2">Bất động sản ÷ Income</p>
+      <div class="mt-2 flex items-center justify-between">
+        <span class="text-xs text-gray-500">Min: ≥ 1 payment</span>
+        <span id="kpi-bds-badge" class="text-xs px-2 py-0.5 rounded-full
+          {{ 'bg-green-100 text-green-700' if summary.monthly_bds > 0 else 'bg-red-100 text-red-700' }}">
+          {{ 'Paid' if summary.monthly_bds > 0 else 'Not paid' }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Net Cash -->
+    <div class="bg-white rounded-2xl shadow-sm border p-5">
+      <div class="flex justify-between items-center mb-1">
+        <p class="text-xs text-gray-500 uppercase tracking-widest">Net Cash</p>
+        <span id="kpi-net-delta" class="text-xs font-semibold {{ 'text-green-600' if net_delta > 500000 else ('text-red-500' if net_delta < -500000 else 'text-gray-300') }}">
+          {% if net_delta|abs > 500000 %}{{ '↑ +' if net_delta > 0 else '↓ ' }}{% if net_delta|abs >= 1000000000 %}{{ "%.1f"|format(net_delta|abs / 1000000000) }}B{% elif net_delta|abs >= 1000000 %}{{ "%.0f"|format(net_delta|abs / 1000000) }}M{% else %}{{ "{:,.0f}".format(net_delta|abs) }}{% endif %} ₫{% endif %}
+        </span>
+      </div>
+      <p id="kpi-net-cash" class="text-3xl font-bold leading-tight {{ 'text-green-600' if summary.net_this_month >= 0 else 'text-red-500' }}">
+        {% set nc = summary.net_this_month %}{% if nc|abs >= 1000000000 %}{% if nc >= 0 %}+{% endif %}{{ "%.2f"|format(nc/1000000000) }}B{% elif nc|abs >= 1000000 %}{% if nc >= 0 %}+{% endif %}{{ "%.1f"|format(nc/1000000) }}M{% else %}{{ "{:+,.0f}".format(nc) }}{% endif %} ₫
+      </p>
+      <div class="mt-2 flex gap-2 text-xs text-gray-500 flex-wrap">
         <span id="kpi-income-sub">In: {{ "{:,.0f}".format(summary.total_income) }} ₫</span>
+        <span class="text-gray-300">·</span>
         <span id="kpi-expense-sub">Out: {{ "{:,.0f}".format(summary.total_expense + summary.total_savings_expense) }} ₫</span>
       </div>
     </div>
 
-    <!-- Net Worth -->
-    <div class="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-sm p-5 text-white">
-      <div class="flex justify-between items-center mb-2">
-        <p class="text-xs text-blue-200 uppercase tracking-widest">Net Worth</p>
-        <button onclick="showKpiInfo('net-worth', this)" class="text-blue-300 hover:text-white focus:outline-none"><i class="fas fa-info-circle text-xs"></i></button>
+    <!-- Living Expense Ratio -->
+    <div class="bg-white rounded-2xl shadow-sm border p-5">
+      <div class="flex justify-between items-center mb-1">
+        <p class="text-xs text-gray-500 uppercase tracking-widest">Living Expense</p>
+        <span id="kpi-living-delta" class="text-xs font-semibold {{ 'text-green-600' if living_delta < -0.5 else ('text-red-500' if living_delta > 0.5 else 'text-gray-300') }}">
+          {% if living_delta > 0.5 %}↑ +{{ "%.1f"|format(living_delta) }}%{% elif living_delta < -0.5 %}↓ {{ "%.1f"|format(living_delta) }}%{% endif %}
+        </span>
       </div>
-      <p class="text-3xl font-bold leading-tight">
-        {% set nw = summary.net_worth %}
-        {% if nw >= 1_000_000_000 %}
-          {{ "%.2f"|format(nw / 1_000_000_000) }}B
-        {% else %}
-          {{ "{:,.0f}".format(nw) }}
-        {% endif %} ₫
+      <p id="kpi-living-ratio" class="text-3xl font-bold
+        {% if summary.living_expense_ratio <= 40 %}text-green-600{% elif summary.living_expense_ratio <= 55 %}text-amber-600{% else %}text-red-500{% endif %}">
+        {{ summary.living_expense_ratio }}%
       </p>
-      <div class="mt-3 space-y-0.5 text-xs text-blue-200">
-        <div class="flex justify-between">
-          <span>Cash</span><span>{{ "{:,.0f}".format(summary.cash_on_hand) }} ₫</span>
-        </div>
-        <div class="flex justify-between">
-          <span>Savings</span><span>{{ "{:,.0f}".format(summary.total_savings) }} ₫</span>
-        </div>
-        <div class="flex justify-between">
-          <span>Assets</span><span>{{ "{:,.0f}".format(summary.total_assets_current) }} ₫</span>
-        </div>
+      <div class="mt-2 w-full bg-gray-100 rounded-full h-1.5">
+        <div id="kpi-living-bar" class="h-1.5 rounded-full transition-all duration-500"
+          style="width:{{ [summary.living_expense_ratio, 100]|min }}%;
+                 background:{% if summary.living_expense_ratio <= 40 %}#059669{% elif summary.living_expense_ratio <= 55 %}#D97706{% else %}#DC2626{% endif %}"></div>
+      </div>
+      <div class="mt-2 flex items-center justify-between">
+        <span class="text-xs text-gray-500">Target: &lt; 40%</span>
+        <span id="kpi-living-badge" class="text-xs px-2 py-0.5 rounded-full
+          {% if summary.living_expense_ratio <= 40 %}bg-green-100 text-green-700{% elif summary.living_expense_ratio <= 55 %}bg-amber-100 text-amber-700{% else %}bg-red-100 text-red-700{% endif %}">
+          {% if summary.living_expense_ratio <= 40 %}Healthy{% elif summary.living_expense_ratio <= 55 %}Watch{% else %}High{% endif %}
+        </span>
+      </div>
+    </div>
+
+    <!-- Emergency Fund Coverage -->
+    {% set ef = summary.emergency_fund_months %}
+    <div class="bg-white rounded-2xl shadow-sm border p-5">
+      <div class="flex justify-between items-center mb-1">
+        <p class="text-xs text-gray-500 uppercase tracking-widest">Emergency Fund</p>
+        <button onclick="showKpiInfo('emergency-fund', this)" class="text-gray-300 hover:text-gray-500 focus:outline-none"><i class="fas fa-info-circle text-xs"></i></button>
+      </div>
+      <p class="text-3xl font-bold {{ 'text-green-600' if ef >= 6 else ('text-amber-600' if ef >= 3 else 'text-red-500') }}">
+        {{ ef }}<span class="text-lg font-normal text-gray-400 ml-0.5">mo</span>
+      </p>
+      <div class="mt-2 w-full bg-gray-100 rounded-full h-1.5">
+        <div class="h-1.5 rounded-full transition-all duration-500"
+          style="width:{{ [ef / 12 * 100, 100]|min | int }}%;
+                 background:{{ '#059669' if ef >= 6 else ('#D97706' if ef >= 3 else '#DC2626') }}"></div>
+      </div>
+      <div class="mt-2 flex items-center justify-between">
+        <span class="text-xs text-gray-500">Target: ≥ 6 months</span>
+        <span class="text-xs px-2 py-0.5 rounded-full
+          {{ 'bg-green-100 text-green-700' if ef >= 6 else ('bg-amber-100 text-amber-700' if ef >= 3 else 'bg-red-100 text-red-700') }}">
+          {{ 'Safe' if ef >= 6 else ('Building' if ef >= 3 else 'At risk') }}
+        </span>
       </div>
     </div>
 
     <!-- Budget Health -->
     <div class="bg-white rounded-2xl shadow-sm border p-5">
-      <div class="flex justify-between items-center mb-2">
-        <p class="text-xs text-gray-400 uppercase tracking-widest">Budget Health</p>
+      <div class="flex justify-between items-center mb-1">
+        <p class="text-xs text-gray-500 uppercase tracking-widest">Budget Health</p>
         <button onclick="showKpiInfo('budget-health', this)" class="text-gray-300 hover:text-gray-500 focus:outline-none"><i class="fas fa-info-circle text-xs"></i></button>
       </div>
       {% if summary.budget_adherence_pct is not none %}
         <p class="text-3xl font-bold
-          {% if summary.budget_over_count == 0 %}text-green-600
-          {% elif summary.budget_adherence_pct >= 70 %}text-yellow-500
-          {% else %}text-red-500{% endif %}">
+          {% if summary.budget_over_count == 0 %}text-green-600{% elif summary.budget_adherence_pct >= 70 %}text-amber-600{% else %}text-red-500{% endif %}">
           {{ summary.budget_adherence_pct }}<span class="text-lg text-gray-400">%</span>
         </p>
-        <p class="text-xs text-gray-400 mt-2">of budget amount in control</p>
-        <div class="mt-2 w-full bg-gray-100 rounded-full h-2">
-          <div id="kpi-bh-bar" class="h-2 rounded-full transition-all duration-500"
-            style="width: {{ summary.budget_adherence_pct }}%;
-                   background: {% if summary.budget_over_count == 0 %}#22c55e{% elif summary.budget_adherence_pct >= 70 %}#f59e0b{% else %}#ef4444{% endif %}">
-          </div>
+        <p class="text-xs text-gray-400 mt-2">of budget in control</p>
+        <div class="mt-2 w-full bg-gray-100 rounded-full h-1.5">
+          <div id="kpi-bh-bar" class="h-1.5 rounded-full transition-all duration-500"
+            style="width:{{ summary.budget_adherence_pct }}%;
+                   background:{% if summary.budget_over_count == 0 %}#059669{% elif summary.budget_adherence_pct >= 70 %}#D97706{% else %}#DC2626{% endif %}"></div>
         </div>
         <div class="mt-2 flex items-center justify-between">
-          <span class="text-xs text-gray-400">Target: 100%</span>
+          <span class="text-xs text-gray-500">Target: 100%</span>
           {% if summary.budget_over_count == 0 %}
           <span id="kpi-bh-badge" class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">All good</span>
           {% else %}
@@ -125,12 +249,121 @@
         </div>
       {% else %}
         <p class="text-3xl font-bold text-gray-300">—</p>
-        <p class="text-xs text-gray-400 mt-2">No budget set</p>
+        <p class="text-xs text-gray-500 mt-2">No budget set</p>
         <a href="/budget" class="mt-2 inline-block text-xs text-primary hover:underline">Set up →</a>
       {% endif %}
     </div>
 
   </div>
+
+  <!-- ── Net Worth — full-width ─────────────────────────────────────── -->
+  <div class="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl shadow-sm p-5 mb-4 text-white">
+    <div class="flex justify-between items-start mb-3">
+      <div>
+        <p class="text-xs text-blue-200 uppercase tracking-widest">Net Worth</p>
+        <p class="text-4xl font-bold mt-1 leading-tight">
+          {% set nw = summary.net_worth %}
+          {% if nw >= 1_000_000_000 %}{{ "%.2f"|format(nw / 1_000_000_000) }}B{% else %}{{ "{:,.0f}".format(nw) }}{% endif %} ₫
+        </p>
+      </div>
+      <button onclick="showKpiInfo('net-worth', this)" class="text-blue-300 hover:text-white focus:outline-none mt-1"><i class="fas fa-info-circle text-xs"></i></button>
+    </div>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div class="bg-white/10 rounded-xl p-3">
+        <p class="text-xs text-blue-300">Cash on Hand</p>
+        <p class="text-sm font-semibold text-white mt-0.5">{% set v = summary.cash_on_hand %}{% if v|abs >= 1000000000 %}{{ "%.2f"|format(v/1000000000) }}B{% elif v|abs >= 1000000 %}{{ "%.0f"|format(v/1000000) }}M{% else %}{{ "{:,.0f}".format(v) }}{% endif %} ₫</p>
+      </div>
+      <div class="bg-white/10 rounded-xl p-3">
+        <p class="text-xs text-blue-300">Active Savings</p>
+        <p class="text-sm font-semibold text-white mt-0.5">{% set v = summary.total_savings %}{% if v >= 1000000000 %}{{ "%.2f"|format(v/1000000000) }}B{% elif v >= 1000000 %}{{ "%.0f"|format(v/1000000) }}M{% else %}{{ "{:,.0f}".format(v) }}{% endif %} ₫</p>
+      </div>
+      <div class="bg-white/10 rounded-xl p-3">
+        <p class="text-xs text-blue-300">BDS Equity</p>
+        <p class="text-sm font-semibold text-white mt-0.5">{% set v = summary.total_projects_paid %}{% if v >= 1000000000 %}{{ "%.2f"|format(v/1000000000) }}B{% elif v >= 1000000 %}{{ "%.0f"|format(v/1000000) }}M{% else %}{{ "{:,.0f}".format(v) }}{% endif %} ₫</p>
+      </div>
+      <div class="bg-white/10 rounded-xl p-3">
+        <p class="text-xs text-blue-300">Other Assets</p>
+        <p class="text-sm font-semibold text-white mt-0.5">{% set v = summary.total_assets_current %}{% if v >= 1000000000 %}{{ "%.2f"|format(v/1000000000) }}B{% elif v >= 1000000 %}{{ "%.0f"|format(v/1000000) }}M{% else %}{{ "{:,.0f}".format(v) }}{% endif %} ₫</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── BDS Progress ───────────────────────────────────────────────── -->
+  {% if bds_project %}
+  {% set bds_pct = (bds_project.current_amount / bds_project.target_amount * 100) if bds_project.target_amount > 0 else 0 %}
+  <div class="bg-white rounded-2xl shadow-sm border p-5 mb-6">
+    <div class="flex justify-between items-start mb-3">
+      <div class="min-w-0">
+        <p class="text-xs text-gray-500 uppercase tracking-widest">Apartment Progress</p>
+        <p class="font-semibold text-gray-800 mt-0.5 truncate">{{ bds_project.name }}</p>
+      </div>
+      <span class="flex-shrink-0 ml-3 text-sm font-bold {{ 'text-green-600' if bds_pct >= 75 else ('text-blue-600' if bds_pct >= 40 else 'text-gray-500') }}">
+        {{ bds_pct | int }}% paid
+      </span>
+    </div>
+    <div class="w-full bg-gray-100 rounded-full h-3 mb-1">
+      <div class="h-3 rounded-full transition-all duration-700 {{ 'bg-green-500' if bds_pct >= 75 else ('bg-blue-500' if bds_pct >= 40 else 'bg-indigo-400') }}"
+        style="width:{{ [bds_pct, 100]|min | int }}%"></div>
+    </div>
+    <p class="text-xs text-gray-500 mb-4">
+      {% set paid_v = bds_project.current_amount %}{% set total_v = bds_project.target_amount %}
+      {% if paid_v >= 1000000000 %}{{ "%.2f"|format(paid_v/1000000000) }}B{% elif paid_v >= 1000000 %}{{ "%.0f"|format(paid_v/1000000) }}M{% else %}{{ "{:,.0f}".format(paid_v) }}{% endif %} ₫ paid of
+      {% if total_v >= 1000000000 %}{{ "%.2f"|format(total_v/1000000000) }}B{% elif total_v >= 1000000 %}{{ "%.0f"|format(total_v/1000000) }}M{% else %}{{ "{:,.0f}".format(total_v) }}{% endif %} ₫ total
+    </p>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
+      <!-- Next Payment -->
+      {% if bds_next_payment %}
+      {% set urgency = 'overdue' if bds_days_until_next is not none and bds_days_until_next < 0 else ('hot' if bds_days_until_next is not none and bds_days_until_next <= 15 else ('warn' if bds_days_until_next is not none and bds_days_until_next <= 30 else 'ok')) %}
+      <div class="rounded-xl p-3 border {{ 'bg-red-50 border-red-200' if urgency in ['overdue','hot'] else ('bg-amber-50 border-amber-200' if urgency == 'warn' else 'bg-gray-50 border-gray-100') }}">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Next Payment</p>
+        <p class="text-lg font-bold text-gray-800 mt-1">{{ "{:,.0f}".format(bds_next_payment.amount) }} ₫</p>
+        <p class="text-xs mt-0.5 {{ 'text-red-600 font-semibold' if urgency in ['overdue','hot'] else ('text-amber-600' if urgency == 'warn' else 'text-gray-500') }}">
+          {% if bds_days_until_next is not none %}
+            {% if bds_days_until_next < 0 %}Overdue {{ bds_days_until_next|abs }}d ❗
+            {% elif bds_days_until_next == 0 %}Due today 🔴
+            {% elif bds_days_until_next <= 15 %}Due in {{ bds_days_until_next }}d 🔴
+            {% elif bds_days_until_next <= 30 %}Due in {{ bds_days_until_next }}d ⚠️
+            {% else %}{{ bds_next_payment.due_date.strftime('%d/%m/%Y') }}{% endif %}
+          {% endif %}
+        </p>
+      </div>
+      {% else %}
+      <div class="rounded-xl p-3 bg-green-50 border border-green-100">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Next Payment</p>
+        <p class="text-lg font-bold text-green-700 mt-1">All paid ✅</p>
+        <p class="text-xs text-gray-500 mt-0.5">No pending payments</p>
+      </div>
+      {% endif %}
+
+      <!-- YTD Progress -->
+      {% set ytd_pct = (bds_ytd_paid / bds_ytd_planned * 100) if bds_ytd_planned > 0 else 0 %}
+      <div class="rounded-xl p-3 bg-gray-50 border border-gray-100">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">{{ today.year }} Progress</p>
+        <p class="text-lg font-bold text-gray-800 mt-1">{% set v = bds_ytd_paid %}{% if v >= 1000000000 %}{{ "%.2f"|format(v/1000000000) }}B{% elif v >= 1000000 %}{{ "%.0f"|format(v/1000000) }}M{% else %}{{ "{:,.0f}".format(v) }}{% endif %} ₫</p>
+        <div class="mt-1.5 w-full bg-gray-200 rounded-full h-1.5">
+          <div class="h-1.5 rounded-full {{ 'bg-green-500' if ytd_pct >= 100 else ('bg-blue-400' if ytd_pct >= 50 else 'bg-gray-400') }}"
+               style="width:{{ [ytd_pct, 100]|min | int }}%"></div>
+        </div>
+        <p class="text-xs text-gray-500 mt-1">{{ ytd_pct | int }}% of {% set v = bds_ytd_planned %}{% if v >= 1000000 %}{{ "%.0f"|format(v/1000000) }}M{% else %}{{ "{:,.0f}".format(v) }}{% endif %} ₫ planned</p>
+      </div>
+
+      <!-- Est. Completion -->
+      <div class="rounded-xl p-3 bg-gray-50 border border-gray-100">
+        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Est. Completion</p>
+        {% if bds_completion_date %}
+          {% set months_rem = ((bds_completion_date - today).days // 30) %}
+          <p class="text-lg font-bold text-gray-800 mt-1">{{ bds_completion_date.strftime('%b %Y') }}</p>
+          <p class="text-xs text-gray-500 mt-0.5">~{{ months_rem }} months left</p>
+        {% else %}
+          <p class="text-lg font-bold text-gray-400 mt-1">TBD</p>
+          <a href="/projects" class="text-xs text-primary hover:underline mt-1 block">Add schedule →</a>
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+  {% endif %}
 
   <!-- ── Row 2: Chart + Budget Snapshot ────────────────────────────── -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
@@ -139,7 +372,7 @@
     <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border p-6">
       <div class="flex justify-between items-center mb-4">
         <h3 class="font-semibold text-gray-800">Cash Flow — Last 6 Months</h3>
-        <span class="text-xs text-gray-400">― 50M target</span>
+        <span class="text-xs text-gray-500">― 50M target</span>
       </div>
       <div style="height: 260px; position: relative;">
         <canvas id="cashFlowChart"></canvas>
@@ -163,15 +396,15 @@
             </span>
             <span class="ml-2 flex-shrink-0
               {% if cat.available_balance < 0 %}text-red-500 font-semibold
-              {% elif cat.cumulative_pct >= 75 %}text-yellow-600
-              {% else %}text-gray-400{% endif %}">
+              {% elif cat.cumulative_pct >= 75 %}text-amber-600
+              {% else %}text-gray-500{% endif %}">
               {{ cat.cumulative_pct | int }}%
             </span>
           </div>
           <div class="w-full bg-gray-100 rounded-full h-2">
             <div class="h-2 rounded-full transition-all duration-500"
               style="width: {{ [cat.cumulative_pct, 100]|min }}%;
-                     background: {% if cat.available_balance < 0 %}#ef4444{% elif cat.cumulative_pct >= 75 %}#f59e0b{% else %}#22c55e{% endif %}">
+                     background: {% if cat.available_balance < 0 %}#DC2626{% elif cat.cumulative_pct >= 75 %}#D97706{% else %}#059669{% endif %}">
             </div>
           </div>
           <div class="text-xs text-gray-400 mt-0.5 text-right">
@@ -192,7 +425,7 @@
 
   <!-- ── Wealth Building Toggle ───────────────────────────────────── -->
   <button id="wealth-toggle-btn" onclick="toggleWealthSection()"
-          class="flex items-center gap-2 text-xs font-semibold text-gray-400 uppercase tracking-widest hover:text-gray-600 transition w-full mb-3 px-1">
+          class="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-widest hover:text-gray-600 transition w-full mb-3 px-1">
     <i id="wealth-toggle-icon" class="fas fa-chevron-right text-xs"></i>
     <span>Wealth Building Analysis</span>
   </button>
@@ -207,7 +440,7 @@
       <div class="flex justify-between items-center mb-4">
         <div>
           <h3 class="font-semibold text-gray-800">Wealth Building — Last 6 Months</h3>
-          <p class="text-xs text-gray-400 mt-0.5">Tiết kiệm + Bất động sản monthly deposits</p>
+          <p class="text-xs text-gray-500 mt-0.5">Tiết kiệm + Bất động sản monthly deposits</p>
         </div>
       </div>
       <div style="height: 230px; position: relative;">
@@ -220,7 +453,7 @@
       <div class="flex justify-between items-center mb-4">
         <div>
           <h3 class="font-semibold text-gray-800">Wealth Allocation</h3>
-          <p class="text-xs text-gray-400 mt-0.5">Current distribution of assets</p>
+          <p class="text-xs text-gray-500 mt-0.5">Current distribution of assets</p>
         </div>
       </div>
       <div style="height: 180px; position: relative;" class="mx-auto">
@@ -231,46 +464,64 @@
 
   </div>
 
-  <!-- ── Row 3: Critical Monthly Checks ────────────────────────────── -->
-  <div class="mb-6">
-    <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Critical Checks This Month</p>
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  </div><!-- end #wealth-section -->
 
-      <!-- Tiết kiệm check -->
-      {% set tk_ok = summary.monthly_tiet_kiem >= 20000000 %}
-      <div class="rounded-2xl border p-4 flex items-start gap-3
-        {{ 'bg-green-50 border-green-200' if tk_ok else 'bg-red-50 border-red-200' }}">
-        <span class="text-xl leading-none mt-0.5">{{ '✅' if tk_ok else '❌' }}</span>
-        <div class="min-w-0">
-          <p class="font-semibold text-sm {{ 'text-green-800' if tk_ok else 'text-red-800' }}">Tiết kiệm &gt; 20M</p>
-          <p id="critical-tk-amount" class="text-xs mt-0.5 {{ 'text-green-600' if tk_ok else 'text-red-600' }}">
-            {{ "{:,.0f}".format(summary.monthly_tiet_kiem) }} ₫ this month
+  <!-- ── One-Income Stress Test ────────────────────────────────────── -->
+  <button id="stress-toggle-btn" onclick="toggleStressSection()"
+          class="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-widest hover:text-gray-600 transition w-full mb-3 px-1">
+    <i id="stress-toggle-icon" class="fas fa-chevron-right text-xs"></i>
+    <span>One-Income Stress Test</span>
+  </button>
+
+  <div id="stress-section" class="hidden mb-6">
+    {% set cushion_ok = summary.stress_test_cushion > 0 %}
+    <div class="rounded-2xl border p-5 {{ 'bg-green-50 border-green-200' if cushion_ok else 'bg-red-50 border-red-200' }}">
+      <div class="flex items-center gap-3 mb-4">
+        <span class="text-xl">{{ '✅' if cushion_ok else '❌' }}</span>
+        <div>
+          <p class="font-semibold text-sm {{ 'text-green-800' if cushion_ok else 'text-red-800' }}">
+            {% if cushion_ok %}Household survives on a single income
+            {% else %}Single income is not enough to cover all obligations{% endif %}
+          </p>
+          <p class="text-xs {{ 'text-green-600' if cushion_ok else 'text-red-600' }} mt-0.5">
+            Monthly cushion: {{ '{:+,.0f}'.format(summary.stress_test_cushion) }} ₫
           </p>
         </div>
       </div>
-
-      <!-- Bất động sản check -->
-      {% set bds_ok = summary.monthly_bds > 0 %}
-      <div class="rounded-2xl border p-4 flex items-start gap-3
-        {{ 'bg-green-50 border-green-200' if bds_ok else 'bg-red-50 border-red-200' }}">
-        <span class="text-xl leading-none mt-0.5">{{ '✅' if bds_ok else '❌' }}</span>
-        <div class="min-w-0">
-          <p class="font-semibold text-sm {{ 'text-green-800' if bds_ok else 'text-red-800' }}">Paid for Project (Bất động sản)</p>
-          <p id="critical-bds-amount" class="text-xs mt-0.5 {{ 'text-green-600' if bds_ok else 'text-red-600' }}">
-            {{ "{:,.0f}".format(summary.monthly_bds) if bds_ok else 'No payment recorded yet' }} {{ '₫ this month' if bds_ok else '' }}
-          </p>
+      <div class="space-y-2">
+        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Required monthly minimum</div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-600">Avg living expense (3-mo)</span>
+          <span class="font-medium text-gray-800">{{ "{:,.0f}".format(summary.avg_monthly_expense) }} ₫</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-600">Min. savings deposit</span>
+          <span class="font-medium text-gray-800">20,000,000 ₫</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-600">BDS instalment</span>
+          <span class="font-medium text-gray-800">{{ "{:,.0f}".format(summary.stress_test_required - summary.avg_monthly_expense - 20000000) }} ₫</span>
+        </div>
+        <div class="border-t border-gray-200 pt-2 mt-2 flex justify-between text-sm font-semibold">
+          <span class="text-gray-700">Total required</span>
+          <span class="text-gray-900">{{ "{:,.0f}".format(summary.stress_test_required) }} ₫</span>
+        </div>
+        <div class="flex justify-between text-sm font-semibold pt-1">
+          <span class="text-gray-700">This month's income</span>
+          <span class="text-gray-900">{{ "{:,.0f}".format(summary.total_income) }} ₫</span>
+        </div>
+        <div class="flex justify-between text-sm font-bold pt-1 {{ 'text-green-700' if cushion_ok else 'text-red-700' }}">
+          <span>Monthly cushion</span>
+          <span>{{ '{:+,.0f}'.format(summary.stress_test_cushion) }} ₫</span>
         </div>
       </div>
-
     </div>
   </div>
-
-  </div><!-- end #wealth-section -->
 
   <!-- ── Row 4: Alerts ──────────────────────────────────────────────── -->
   {% if alert_maturities or alert_over_budget or unsettled_advance_count > 0 %}
   <div class="mb-6">
-    <p class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-3">Alerts</p>
+    <p class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Alerts</p>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
       {% if unsettled_advance_count > 0 %}
@@ -375,7 +626,7 @@
         {% endfor %}
       </div>
       {% else %}
-      <p class="text-sm text-gray-400 text-center py-8">No active projects</p>
+      <p class="text-sm text-gray-500 text-center py-8">No active projects</p>
       {% endif %}
     </div>
 
@@ -408,7 +659,7 @@
         {% endfor %}
       </div>
       {% else %}
-      <p class="text-sm text-gray-400 text-center py-8">No upcoming maturities</p>
+      <p class="text-sm text-gray-500 text-center py-8">No upcoming maturities</p>
       {% endif %}
     </div>
 
@@ -431,7 +682,7 @@
           </div>
           <div class="min-w-0">
             <p class="text-sm font-medium text-gray-800 truncate">{{ t.description or t.category.name }}</p>
-            <p class="text-xs text-gray-400">{{ t.date.strftime('%d/%m/%Y') }} · {{ t.category.name }}</p>
+            <p class="text-xs text-gray-500">{{ t.date.strftime('%d/%m/%Y') }} · {{ t.category.name }}</p>
           </div>
         </div>
         <span class="text-sm font-semibold ml-4 flex-shrink-0
@@ -449,7 +700,7 @@
     </button>
     {% endif %}
     {% else %}
-    <p class="text-sm text-gray-400 text-center py-8">No transactions yet</p>
+    <p class="text-sm text-gray-500 text-center py-8">No transactions yet</p>
     {% endif %}
   </div>
 
@@ -496,8 +747,8 @@ function shiftMonth(delta) {
 // ── Dark mode helpers ─────────────────────────────────────────────────────
 const _isDark = () => document.documentElement.classList.contains('dark');
 const _gridColor = () => _isDark() ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.04)';
-const _tickColor = () => _isDark() ? '#9ca3af' : '#6b7280';
-const _legendColor = () => _isDark() ? '#d1d5db' : '#374151';
+const _tickColor = () => _isDark() ? '#94A3B8' : '#6B7280';
+const _legendColor = () => _isDark() ? '#CBD5E1' : '#374151';
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 function fmtVND(v) { return new Intl.NumberFormat('vi-VN').format(Math.round(v)) + ' ₫'; }
@@ -509,67 +760,140 @@ function fmtM(v) {
     return new Intl.NumberFormat('vi-VN').format(Math.round(v));
 }
 
+// ── Safety Score update ───────────────────────────────────────────────────────
+function updateSafetyScore(s) {
+    const checks = [
+        {
+            id: 'check-income',
+            ok: s.total_income_month > 0,
+            value: s.total_income_month > 0
+                ? new Intl.NumberFormat('vi-VN').format(Math.round(s.total_income_month)) + ' ₫'
+                : 'No income recorded',
+        },
+        {
+            id: 'check-bds',
+            ok: s.monthly_bds > 0,
+            value: s.monthly_bds > 0
+                ? new Intl.NumberFormat('vi-VN').format(Math.round(s.monthly_bds)) + ' ₫'
+                : 'No payment recorded',
+        },
+        {
+            id: 'check-tk',
+            ok: s.monthly_tiet_kiem >= 20000000,
+            value: new Intl.NumberFormat('vi-VN').format(Math.round(s.monthly_tiet_kiem)) + ' ₫',
+        },
+        {
+            id: 'check-net',
+            ok: s.net_this_month > 0,
+            value: (s.net_this_month >= 0 ? '+' : '') + new Intl.NumberFormat('vi-VN').format(Math.round(s.net_this_month)) + ' ₫',
+        },
+    ];
+
+    const score = checks.filter(c => c.ok).length;
+
+    const card = document.getElementById('safety-score-card');
+    card.className = 'rounded-2xl border p-5 mb-6 ' + (
+        score === 4 ? 'bg-green-50 border-green-200' :
+        score >= 2  ? 'bg-amber-50 border-amber-200' :
+                      'bg-red-50 border-red-200'
+    );
+
+    const labelEl = document.getElementById('safety-score-label');
+    labelEl.className = 'text-xs uppercase tracking-widest font-semibold ' + (
+        score === 4 ? 'text-green-600' : score >= 2 ? 'text-amber-600' : 'text-red-600'
+    );
+
+    const dotColor = score === 4 ? 'bg-green-500' : score >= 2 ? 'bg-amber-500' : 'bg-red-500';
+    document.querySelectorAll('#safety-dots span').forEach((dot, i) => {
+        dot.className = 'w-2.5 h-2.5 rounded-full ' + (i < score ? dotColor : 'bg-gray-200');
+    });
+
+    const scoreText = document.getElementById('safety-score-text');
+    scoreText.textContent = score + ' / 4';
+    scoreText.className = 'text-sm font-bold ' + (
+        score === 4 ? 'text-green-700' : score >= 2 ? 'text-amber-700' : 'text-red-700'
+    );
+
+    checks.forEach(check => {
+        const el = document.getElementById(check.id);
+        const ps = el.querySelectorAll('p');
+        el.querySelector('span').textContent = check.ok ? '✅' : '❌';
+        ps[0].className = 'text-xs font-semibold ' + (check.ok ? 'text-green-800' : 'text-red-800');
+        ps[1].className = 'text-xs mt-0.5 ' + (check.ok ? 'text-green-600' : 'text-red-500');
+        ps[1].textContent = check.value;
+    });
+}
+
+// ── Delta helper ─────────────────────────────────────────────────────────────
+function setDeltaEl(id, newVal, prevVal, isHigherBetter, threshold, formatFn) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const diff = newVal - prevVal;
+    if (Math.abs(diff) < threshold) { el.textContent = ''; el.className = 'text-xs font-semibold text-gray-300'; return; }
+    const positive = diff > 0;
+    const good = isHigherBetter ? positive : !positive;
+    const sign = positive ? '↑ +' : '↓ ';
+    el.textContent = sign + formatFn(Math.abs(diff));
+    el.className = 'text-xs font-semibold ' + (good ? 'text-green-600' : 'text-red-500');
+}
+const fmtPct = v => v.toFixed(1) + '%';
+const fmtMdelta = v => {
+    if (v >= 1e9) return (v / 1e9).toFixed(1) + 'B ₫';
+    if (v >= 1e6) return Math.round(v / 1e6) + 'M ₫';
+    return new Intl.NumberFormat('vi-VN').format(Math.round(v)) + ' ₫';
+};
+
 // ── KPI update on month change ───────────────────────────────────────────────
 function updateDashboard() {
     fetch('/api/dashboard/summary?year=' + _curYear + '&month=' + _curMonth)
         .then(r => r.json())
         .then(s => {
-            // Savings rate
-            const rate   = s.savings_rate;
-            const rateEl = document.getElementById('kpi-savings-rate');
-            rateEl.textContent = rate + '%';
-            rateEl.className   = 'text-3xl font-bold ' + (rate >= 50 ? 'text-green-600' : rate >= 10 ? 'text-yellow-500' : 'text-red-500');
+            // Liquid savings rate
+            const lr = s.liquid_savings_rate;
+            const lrEl = document.getElementById('kpi-liquid-rate');
+            lrEl.textContent = lr + '%';
+            lrEl.className = 'text-3xl font-bold ' + (lr >= 23 ? 'text-green-600' : lr >= 10 ? 'text-amber-600' : 'text-red-500');
+            const lrBar = document.getElementById('kpi-liquid-bar');
+            lrBar.style.width = Math.min(lr, 100) + '%';
+            lrBar.style.background = lr >= 23 ? '#059669' : lr >= 10 ? '#D97706' : '#DC2626';
+            const lrBadge = document.getElementById('kpi-liquid-badge');
+            lrBadge.textContent = lr >= 23 ? 'On track' : lr >= 10 ? 'Partial' : 'Below';
+            lrBadge.className = 'text-xs px-2 py-0.5 rounded-full ' + (lr >= 23 ? 'bg-green-100 text-green-700' : lr >= 10 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700');
+            setDeltaEl('kpi-liquid-delta', lr, s.prev_liquid_savings_rate, true, 0.5, fmtPct);
 
-            const barEl = document.getElementById('kpi-rate-bar');
-            barEl.style.width      = Math.min(rate, 100) + '%';
-            barEl.style.background = rate >= 50 ? '#22c55e' : rate >= 10 ? '#f59e0b' : '#ef4444';
-
-            const badgeEl = document.getElementById('kpi-rate-badge');
-            if (rate >= 50) {
-                badgeEl.textContent  = 'On track';
-                badgeEl.className    = 'text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700';
-            } else if (rate >= 10) {
-                badgeEl.textContent  = 'Partial';
-                badgeEl.className    = 'text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700';
-            } else {
-                badgeEl.textContent  = 'Below target';
-                badgeEl.className    = 'text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700';
-            }
+            // BDS rate
+            const br = s.bds_rate;
+            const brEl = document.getElementById('kpi-bds-rate');
+            brEl.textContent = br + '%';
+            brEl.className = 'text-3xl font-bold ' + (s.monthly_bds > 0 ? 'text-green-600' : 'text-red-500');
+            const brBadge = document.getElementById('kpi-bds-badge');
+            brBadge.textContent = s.monthly_bds > 0 ? 'Paid' : 'Not paid';
+            brBadge.className = 'text-xs px-2 py-0.5 rounded-full ' + (s.monthly_bds > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700');
+            setDeltaEl('kpi-bds-delta', br, s.prev_bds_rate, false, 0.5, fmtPct);
 
             // Net cash
-            const net   = s.net_this_month;
+            const net = s.net_this_month;
             const netEl = document.getElementById('kpi-net-cash');
             netEl.textContent = (net >= 0 ? '+' : '') + fmtM(net) + ' ₫';
-            netEl.className   = 'text-3xl font-bold leading-tight ' + (net >= 0 ? 'text-green-600' : 'text-red-500');
-
+            netEl.className = 'text-3xl font-bold leading-tight ' + (net >= 0 ? 'text-green-600' : 'text-red-500');
             document.getElementById('kpi-income-sub').textContent  = 'In: '  + fmtM(s.total_income_month) + ' ₫';
             document.getElementById('kpi-expense-sub').textContent = 'Out: ' + fmtM(s.total_expense_month + s.total_savings_month) + ' ₫';
+            setDeltaEl('kpi-net-delta', net, s.prev_net_cash, true, 500000, fmtMdelta);
 
-            // Critical checks
-            const tkOk  = s.monthly_tiet_kiem >= 20000000;
-            const bdsOk = s.monthly_bds > 0;
+            // Living expense ratio
+            const liv = s.living_expense_ratio;
+            const livEl = document.getElementById('kpi-living-ratio');
+            livEl.textContent = liv + '%';
+            livEl.className = 'text-3xl font-bold ' + (liv <= 40 ? 'text-green-600' : liv <= 55 ? 'text-amber-600' : 'text-red-500');
+            const livBar = document.getElementById('kpi-living-bar');
+            livBar.style.width = Math.min(liv, 100) + '%';
+            livBar.style.background = liv <= 40 ? '#059669' : liv <= 55 ? '#D97706' : '#DC2626';
+            const livBadge = document.getElementById('kpi-living-badge');
+            livBadge.textContent = liv <= 40 ? 'Healthy' : liv <= 55 ? 'Watch' : 'High';
+            livBadge.className = 'text-xs px-2 py-0.5 rounded-full ' + (liv <= 40 ? 'bg-green-100 text-green-700' : liv <= 55 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700');
+            setDeltaEl('kpi-living-delta', liv, s.prev_living_expense_ratio, false, 0.5, fmtPct);
 
-            const tkCard = document.getElementById('critical-tk-amount').parentElement.parentElement;
-            tkCard.className = 'rounded-2xl border p-4 flex items-start gap-3 ' + (tkOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200');
-            const tkIcon = tkCard.querySelector('span');
-            tkIcon.textContent = tkOk ? '✅' : '❌';
-            const tkTitle = tkCard.querySelector('p');
-            tkTitle.className = 'font-semibold text-sm ' + (tkOk ? 'text-green-800' : 'text-red-800');
-            const tkAmt = document.getElementById('critical-tk-amount');
-            tkAmt.className = 'text-xs mt-0.5 ' + (tkOk ? 'text-green-600' : 'text-red-600');
-            tkAmt.textContent = new Intl.NumberFormat('vi-VN').format(Math.round(s.monthly_tiet_kiem)) + ' ₫ this month';
-
-            const bdsCard = document.getElementById('critical-bds-amount').parentElement.parentElement;
-            bdsCard.className = 'rounded-2xl border p-4 flex items-start gap-3 ' + (bdsOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200');
-            const bdsIcon = bdsCard.querySelector('span');
-            bdsIcon.textContent = bdsOk ? '✅' : '❌';
-            const bdsTitle = bdsCard.querySelector('p');
-            bdsTitle.className = 'font-semibold text-sm ' + (bdsOk ? 'text-green-800' : 'text-red-800');
-            const bdsAmt = document.getElementById('critical-bds-amount');
-            bdsAmt.className = 'text-xs mt-0.5 ' + (bdsOk ? 'text-green-600' : 'text-red-600');
-            bdsAmt.textContent = bdsOk
-                ? new Intl.NumberFormat('vi-VN').format(Math.round(s.monthly_bds)) + ' ₫ this month'
-                : 'No payment recorded yet';
+            updateSafetyScore(s);
         })
         .catch(() => showToast('Failed to load dashboard summary', 'error'));
 }
@@ -588,16 +912,16 @@ fetch('/api/dashboard/monthly-trend')
                     {
                         label: 'Income',
                         data: data.map(d => d.income),
-                        backgroundColor: 'rgba(34,197,94,0.75)',
-                        borderColor: '#16a34a',
+                        backgroundColor: 'rgba(52,211,153,0.75)',
+                        borderColor: '#059669',
                         borderWidth: 1,
                         borderRadius: 4,
                     },
                     {
                         label: 'Expense',
                         data: data.map(d => d.expense),
-                        backgroundColor: 'rgba(239,68,68,0.75)',
-                        borderColor: '#dc2626',
+                        backgroundColor: 'rgba(248,113,113,0.75)',
+                        borderColor: '#DC2626',
                         borderWidth: 1,
                         borderRadius: 4,
                     },
@@ -605,12 +929,12 @@ fetch('/api/dashboard/monthly-trend')
                         label: 'Net Cash',
                         type: 'line',
                         data: data.map(d => d.net),
-                        borderColor: '#3b82f6',
-                        backgroundColor: 'rgba(59,130,246,0.08)',
+                        borderColor: '#2563EB',
+                        backgroundColor: 'rgba(37,99,235,0.08)',
                         borderWidth: 2,
                         tension: 0.35,
                         pointRadius: 4,
-                        pointBackgroundColor: '#3b82f6',
+                        pointBackgroundColor: '#2563EB',
                         fill: false,
                         order: 0,
                     },
@@ -618,7 +942,7 @@ fetch('/api/dashboard/monthly-trend')
                         label: 'Target (50M)',
                         type: 'line',
                         data: data.map(() => 50_000_000),
-                        borderColor: '#10b981',
+                        borderColor: '#2DD4BF',
                         borderDash: [6, 4],
                         borderWidth: 1.5,
                         pointRadius: 0,
@@ -659,10 +983,16 @@ fetch('/api/dashboard/monthly-trend')
     })
     .catch(() => showToast('Failed to load cash flow chart', 'error'));
 
-// ── Wealth Building Trend chart ───────────────────────────────────────────────
+// ── Wealth Building Trend chart (with savings rate rolling line) ──────────────
 fetch('/api/dashboard/wealth-building-trend')
     .then(r => r.json())
     .then(data => {
+        // 3-month rolling average savings rate
+        const rolling = data.map((_, i) => {
+            if (i < 2) return null;
+            const avg = (data[i].savings_rate + data[i-1].savings_rate + data[i-2].savings_rate) / 3;
+            return Math.round(avg * 10) / 10;
+        });
         const ctx = document.getElementById('wealthTrendChart').getContext('2d');
         new Chart(ctx, {
             type: 'bar',
@@ -672,33 +1002,38 @@ fetch('/api/dashboard/wealth-building-trend')
                     {
                         label: 'Tiết kiệm',
                         data: data.map(d => d.tiet_kiem),
-                        backgroundColor: 'rgba(99,102,241,0.8)',
-                        borderColor: '#4f46e5',
+                        backgroundColor: 'rgba(96,165,250,0.8)',
+                        borderColor: '#2563EB',
                         borderWidth: 1,
                         borderRadius: 4,
                         stack: 'wb',
+                        yAxisID: 'y',
                     },
                     {
                         label: 'Bất động sản',
                         data: data.map(d => d.bds),
-                        backgroundColor: 'rgba(16,185,129,0.8)',
-                        borderColor: '#059669',
+                        backgroundColor: 'rgba(167,139,250,0.8)',
+                        borderColor: '#7C3AED',
                         borderWidth: 1,
                         borderRadius: 4,
                         stack: 'wb',
+                        yAxisID: 'y',
                     },
                     {
-                        label: 'Total',
+                        label: 'Savings Rate (3M avg)',
                         type: 'line',
-                        data: data.map(d => d.total),
-                        borderColor: '#f59e0b',
-                        backgroundColor: 'rgba(245,158,11,0.08)',
+                        data: rolling,
+                        borderColor: '#2DD4BF',
+                        backgroundColor: 'rgba(45,212,191,0.08)',
                         borderWidth: 2,
+                        borderDash: [5, 3],
                         tension: 0.3,
-                        pointRadius: 4,
-                        pointBackgroundColor: '#f59e0b',
+                        pointRadius: 3,
+                        pointBackgroundColor: '#2DD4BF',
                         fill: false,
                         order: 0,
+                        yAxisID: 'yRate',
+                        spanGaps: false,
                     },
                 ],
             },
@@ -711,13 +1046,23 @@ fetch('/api/dashboard/wealth-building-trend')
                     y: {
                         stacked: true,
                         beginAtZero: true,
+                        position: 'left',
                         grid: { color: _gridColor() },
                         ticks: { callback: v => fmtM(v), font: { size: 11 }, color: _tickColor() },
+                    },
+                    yRate: {
+                        beginAtZero: true,
+                        position: 'right',
+                        max: 100,
+                        grid: { display: false },
+                        ticks: { callback: v => v + '%', font: { size: 11 }, color: '#2DD4BF' },
                     },
                 },
                 plugins: {
                     legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 }, padding: 14, color: _legendColor() } },
-                    tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + fmtVND(ctx.raw) } },
+                    tooltip: { callbacks: { label: ctx => ctx.dataset.yAxisID === 'yRate'
+                        ? ' ' + ctx.dataset.label + ': ' + (ctx.raw !== null ? ctx.raw + '%' : '—')
+                        : ' ' + ctx.dataset.label + ': ' + fmtVND(ctx.raw) } },
                 },
             },
         });
@@ -732,7 +1077,7 @@ fetch('/api/dashboard/wealth-building-trend')
 
     const labels = projectSegs.map(s => s.label).concat(['Savings Deposits', 'Other Assets']);
     const values = projectSegs.map(s => s.amount).concat([savings, assets]);
-    const colors = projectSegs.map(s => s.color).concat(['#6366f1', '#f59e0b']);
+    const colors = projectSegs.map(s => s.color).concat(['#60A5FA', '#FBBF24']);
     const total  = values.reduce((a, b) => a + b, 0);
 
     const ctx = document.getElementById('wealthAllocChart').getContext('2d');
@@ -799,35 +1144,65 @@ fetch('/api/dashboard/wealth-building-trend')
 
 // ── KPI info popover ─────────────────────────────────────────────────────────
 const KPI_INFO = {
-    'savings-rate': {
-        title: 'Savings Rate',
-        formula: '(Tiết kiệm + Bất động sản) ÷ Income × 100',
-        target: '≥ 58%  →  saves ≥ 50M from 86M income',
+    'liquid-savings': {
+        title: 'Liquid Savings Rate',
+        formula: 'Tiết kiệm ÷ Income × 100',
+        target: '≥ 23%  (20M from ~86M income)',
         notes: [
-            'Measures wealth-building: only deposits to savings & real-estate',
-            'Green ≥ 58% / Yellow 23–57% / Red < 23%',
+            'Only Tiết kiệm transfers — liquid, earns interest, withdrawable',
+            'Excludes BDS to show true liquid safety net growth',
+            'Green ≥ 23% / Yellow 10–22% / Red < 10%',
             'Reflects the selected month',
+        ],
+    },
+    'bds-rate': {
+        title: 'BDS Rate',
+        formula: 'Bất động sản ÷ Income × 100',
+        target: 'At least one payment made each month',
+        notes: [
+            'Tracks the share of income committed to the apartment',
+            'Illiquid — builds equity over years, not immediately accessible',
+            'Badge turns green when any BDS payment is recorded',
         ],
     },
     'net-cash': {
         title: 'Net Cash',
-        formula: '(Income − Savings Deposits − Bất động sản) − Living Expense',
-        target: '> 0  (discretionary cash after all outflows)',
+        formula: 'Income − Savings Deposits − Bất động sản − Living Expense',
+        target: '> 0  (some discretionary cash remaining)',
         notes: [
-            'Savings Deposits = Tiết kiệm transfers to savings accounts',
-            'Bất động sản = The Gió Riverside instalment payments',
-            'Living Expense = day-to-day spending (food, transport, etc.)',
-            'Positive = cash still sitting in current account this month',
+            'Positive = money still in current account after all outflows',
             'Reflects the selected month',
+        ],
+    },
+    'living-expense': {
+        title: 'Living Expense Ratio',
+        formula: 'Living Expenses ÷ Income × 100',
+        target: '< 40%  (leaves 60%+ for saving & BDS)',
+        notes: [
+            'Living Expenses = non-savings-related spending (food, transport…)',
+            'Green < 40% / Yellow 40–55% / Red > 55%',
+            'Down arrow is good — lower ratio means more wealth-building capacity',
+        ],
+    },
+    'emergency-fund': {
+        title: 'Emergency Fund Coverage',
+        formula: 'Active Savings ÷ Avg Monthly Living Expense (last 3 months)',
+        target: '≥ 6 months  (higher for families with illiquid BDS obligations)',
+        notes: [
+            'How many months you can cover living costs from savings alone',
+            'Uses future maturity value of active savings bundles',
+            'Target is 6 months (not the usual 3) because BDS is illiquid',
+            'Always reflects current savings state',
         ],
     },
     'net-worth': {
         title: 'Net Worth',
-        formula: 'Cash on Hand + Active Savings + Other Assets + Projects Paid',
-        target: 'Increasing month-over-month',
+        formula: 'Cash on Hand + Active Savings + BDS Equity + Other Assets',
+        target: 'Increasing over time',
         notes: [
             'Cash on Hand = all-time income minus all-time expenses',
-            'Active Savings = future maturity value of open bundles',
+            'Active Savings = future maturity value of open savings bundles',
+            'BDS Equity = total paid into the apartment project',
             'Always shows current state — not affected by month selector',
         ],
     },
@@ -837,7 +1212,7 @@ const KPI_INFO = {
         target: '100%  →  all categories within cumulative budget',
         notes: [
             'Uses envelope rollover: unspent months carry forward as credit',
-            'A category is "over" when cumulative spend > cumulative allocation',
+            'Sorted by risk: most over-budget categories shown first',
             'Always shows the current month, not the selected month',
         ],
     },
@@ -875,7 +1250,7 @@ function showKpiInfo(key, btn) {
         const row = document.createElement('div');
         row.className = 'mb-2';
         const lbl = document.createElement('p');
-        lbl.className = 'text-xs font-semibold text-gray-400 uppercase tracking-wide';
+        lbl.className = 'text-xs font-semibold text-gray-500 uppercase tracking-wide';
         lbl.textContent = label;
         const val = document.createElement('p');
         val.className = 'text-xs text-gray-700 mt-0.5 font-mono';
@@ -927,6 +1302,24 @@ document.addEventListener('click', e => {
         hideKpiInfo();
     }
 });
+
+// ── Stress Test section toggle ────────────────────────────────────────────
+function toggleStressSection() {
+    const section = document.getElementById('stress-section');
+    const icon    = document.getElementById('stress-toggle-icon');
+    const isHidden = section.classList.contains('hidden');
+    section.classList.toggle('hidden', !isHidden);
+    icon.className = isHidden ? 'fas fa-chevron-down text-xs' : 'fas fa-chevron-right text-xs';
+    localStorage.setItem('carange_stress_section_open', isHidden ? 'true' : 'false');
+}
+(function initStressSection() {
+    if (localStorage.getItem('carange_stress_section_open') === 'true') {
+        const section = document.getElementById('stress-section');
+        const icon    = document.getElementById('stress-toggle-icon');
+        section.classList.remove('hidden');
+        icon.className = 'fas fa-chevron-down text-xs';
+    }
+})();
 
 // ── Wealth Building section toggle ────────────────────────────────────────
 (function initWealthSection() {

@@ -34,6 +34,17 @@ def get_dashboard_summary(year: Optional[int] = None, month: Optional[int] = Non
         total_savings_month=s["total_savings_expense"],
         net_this_month=s["net_this_month"],
         savings_rate=s["savings_rate"],
+        liquid_savings_rate=s["liquid_savings_rate"],
+        bds_rate=s["bds_rate"],
+        living_expense_ratio=s["living_expense_ratio"],
+        emergency_fund_months=s["emergency_fund_months"],
+        avg_monthly_expense=s["avg_monthly_expense"],
+        prev_liquid_savings_rate=s["prev_liquid_savings_rate"],
+        prev_bds_rate=s["prev_bds_rate"],
+        prev_net_cash=s["prev_net_cash"],
+        prev_living_expense_ratio=s["prev_living_expense_ratio"],
+        stress_test_required=s["stress_test_required"],
+        stress_test_cushion=s["stress_test_cushion"],
         net_worth=s["net_worth"],
         cash_on_hand=s["cash_on_hand"],
         total_savings_active=s["total_savings"],
@@ -182,6 +193,20 @@ def get_wealth_building_trend(db: Session = Depends(get_db)):
 
     start_date = date(months[0][0], months[0][1], 1)
 
+    income_rows = (
+        db.query(
+            extract("year", Transaction.date).label("year"),
+            extract("month", Transaction.date).label("month"),
+            func.sum(
+                case((Transaction.type == TransactionType.INCOME, Transaction.amount), else_=0)
+            ).label("income"),
+        )
+        .filter(Transaction.date >= start_date, Transaction.deleted_at.is_(None))
+        .group_by(extract("year", Transaction.date), extract("month", Transaction.date))
+        .all()
+    )
+    income_map = {(int(r.year), int(r.month)): float(r.income or 0) for r in income_rows}
+
     # Use is_wealth_building flag instead of hardcoded names
     tiet_kiem_ids = [
         r[0]
@@ -224,12 +249,16 @@ def get_wealth_building_trend(db: Session = Depends(get_db)):
         r = data_map.get((year_num, month_num))
         tk = float(r.tiet_kiem) if r else 0
         bds = float(r.bds) if r else 0
+        inc = income_map.get((year_num, month_num), 0)
+        total = tk + bds
         results.append(
             {
                 "month": date(year_num, month_num, 1).strftime("%b %Y"),
                 "tiet_kiem": tk,
                 "bds": bds,
-                "total": tk + bds,
+                "total": total,
+                "income": inc,
+                "savings_rate": round(total / inc * 100, 1) if inc > 0 else 0,
             }
         )
 
