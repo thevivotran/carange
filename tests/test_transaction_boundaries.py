@@ -1,7 +1,5 @@
 """Tests for DB transaction boundary safety in multi-step mutations."""
 
-import pytest
-from datetime import date
 
 from app.models.database import SavingsBundle, SavingsStatus, ProjectPayment, PaymentStatus
 

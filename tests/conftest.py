@@ -69,7 +69,9 @@ def expense_cat(db_session):
 @pytest.fixture()
 def tiet_kiem_cat(db_session):
     """Tiết kiệm expense category — used for savings rate calculation."""
-    cat = Category(name="Tiết kiệm", type=TransactionType.EXPENSE, color="#3B82F6", icon="piggy-bank", is_wealth_building=True)
+    cat = Category(
+        name="Tiết kiệm", type=TransactionType.EXPENSE, color="#3B82F6", icon="piggy-bank", is_wealth_building=True
+    )
     db_session.add(cat)
     db_session.commit()
     db_session.refresh(cat)
@@ -79,7 +81,9 @@ def tiet_kiem_cat(db_session):
 @pytest.fixture()
 def bds_cat(db_session):
     """Bất động sản expense category — used for savings rate and critical check."""
-    cat = Category(name="Bất động sản", type=TransactionType.EXPENSE, color="#8B5CF6", icon="home", is_wealth_building=True)
+    cat = Category(
+        name="Bất động sản", type=TransactionType.EXPENSE, color="#8B5CF6", icon="home", is_wealth_building=True
+    )
     db_session.add(cat)
     db_session.commit()
     db_session.refresh(cat)

@@ -3,7 +3,7 @@
 from datetime import date, timedelta
 from calendar import monthrange
 
-from sqlalchemy import func, case, and_, extract
+from sqlalchemy import func, case, and_
 from sqlalchemy.orm import Session
 
 from app.models.database import (
@@ -31,20 +31,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     _, last_day = monthrange(current_year, current_month)
     month_end = date(current_year, current_month, last_day)
 
-    # ── Wealth-building category IDs via flag ─────────────────────────────────
-    wealth_cat_ids = [
-        r[0]
-        for r in db.query(Category.id)
-        .filter(
-            Category.is_wealth_building == True,  # noqa: E712
-            Category.type == TransactionType.EXPENSE,
-        )
-        .all()
-    ]
-
     from sqlalchemy import false as sqla_false
-
-    wealth_filter = Transaction.category_id.in_(wealth_cat_ids) if wealth_cat_ids else sqla_false()
 
     # Split wealth into per-legacy-name buckets so the template/schema keys are preserved
     tiet_kiem_ids = [

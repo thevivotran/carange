@@ -385,7 +385,9 @@ def parse_csv_english(content: bytes, db: Session) -> dict:
                 stats["skipped"] += 1
                 continue
 
-            _build_transaction_from_row(db, transaction_date, amount, trans_type, category.id, description, payment_method)
+            _build_transaction_from_row(
+                db, transaction_date, amount, trans_type, category.id, description, payment_method
+            )
 
             if trans_type == TransactionType.INCOME:
                 stats["income"] += 1

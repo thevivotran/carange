@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract, case, and_, false as sqla_false
-from datetime import date, timedelta
+from datetime import date
 from calendar import monthrange
 from typing import Optional
 
@@ -9,15 +9,7 @@ from app.models.database import (
     get_db,
     Transaction,
     Category,
-    SavingsBundle,
-    FinancialProject,
-    SavingsStatus,
-    ProjectStatus,
-    ProjectType,
     TransactionType,
-    OtherAsset,
-    ProjectPayment,
-    PaymentStatus,
 )
 from app.models.schemas import DashboardSummary
 from app.services.dashboard_service import get_dashboard_data

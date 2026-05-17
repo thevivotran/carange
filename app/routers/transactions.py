@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case, and_
 from typing import List, Optional
-from datetime import date, datetime, timezone, timedelta
+from datetime import date, datetime, timezone
 from calendar import monthrange
 
 from app.models.database import (
@@ -16,7 +16,6 @@ from app.models.database import (
     SavingsBundle,
     ProjectPayment,
     FinancialProject,
-    PaymentStatus,
 )
 from app.models.schemas import (
     Transaction as TransactionSchema,
@@ -397,7 +396,8 @@ def bulk_upload_transactions(file: UploadFile = File(...), db: Session = Depends
                 status_code=400, content={"error": "Unable to decode CSV file. Please ensure it's UTF-8 encoded."}
             )
 
-    import csv as _csv, io as _io
+    import csv as _csv
+    import io as _io
     reader = _csv.DictReader(_io.StringIO(decoded_check))
     fieldnames = reader.fieldnames
     if not fieldnames:

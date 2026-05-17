@@ -151,7 +151,9 @@ def test_wealth_building_trend_shape(client):
 
 
 def test_wealth_building_trend_with_savings_category(client, db_session):
-    tk_cat = Category(name="Tiết kiệm", type=TransactionType.EXPENSE, color="#3B82F6", icon="piggy-bank", is_wealth_building=True)
+    tk_cat = Category(
+        name="Tiết kiệm", type=TransactionType.EXPENSE, color="#3B82F6", icon="piggy-bank", is_wealth_building=True
+    )
     db_session.add(tk_cat)
     db_session.commit()
 

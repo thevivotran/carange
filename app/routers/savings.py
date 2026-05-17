@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from typing import List, Optional
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
 from app.models.database import (
     get_db,
@@ -10,8 +10,6 @@ from app.models.database import (
     SavingsStatus,
     FinancialProject,
     Transaction,
-    TransactionType,
-    Category,
 )
 from app.models.schemas import SavingsBundle as SavingsBundleSchema, SavingsBundleCreate, SavingsBundleUpdate
 from app.services import savings_service
