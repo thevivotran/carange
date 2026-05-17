@@ -400,7 +400,7 @@
             collapseActions();
             deleteWithUndo(row, '/api/transactions/' + t.id, function() {
                 saveFilters(); loadTransactions(); loadMonthlySummary();
-            }, formatDate(t.date) + ' ' + t.category.name);
+            }, formatDate(t.date) + ' ' + t.category.name, 0);
         }
     }
 
@@ -440,7 +440,7 @@
             collapseActions();
             deleteWithUndo(row, '/api/transactions/' + t.id, function() {
                 saveFilters(); loadTransactions(); loadMonthlySummary();
-            }, formatDate(t.date) + ' ' + t.category.name);
+            }, formatDate(t.date) + ' ' + t.category.name, 0);
         });
 
         const oldCancel = document.getElementById('cascade-cancel-btn');
@@ -884,7 +884,7 @@
                 if (t.is_advance && !t.advance_settled) {
                     row.className = 'flex items-center gap-3 px-4 py-3 border-b border-l-4 border-amber-400 border-l-accent-amber bg-amber-50 hover:bg-amber-100 transition-colors cursor-pointer select-none';
                 } else if (t.is_advance && t.advance_settled) {
-                    row.className = 'flex items-center gap-3 px-4 py-3 border-b border-l-4 border-green-300 border-l-accent-green bg-green-50 hover:bg-green-100 transition-colors cursor-pointer select-none';
+                    row.className = 'flex items-center gap-3 px-4 py-3 border-b hover:bg-gray-50 transition-colors cursor-pointer select-none';
                 } else if (t.needs_review) {
                     row.className = 'flex items-center gap-3 px-4 py-3 border-b border-l-4 border-rose-500 border-l-accent-rose bg-orange-50 hover:bg-orange-100 transition-colors cursor-pointer select-none';
                 } else {

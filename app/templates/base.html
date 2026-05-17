@@ -537,9 +537,21 @@
             document.getElementById('confirm-cancel').addEventListener('click', close);
         }
 
-        // Undo-delete: hides element immediately, calls DELETE after 5 s unless undone
-        function deleteWithUndo(element, deleteUrl, reloadFn, itemName) {
+        // Undo-delete: hides element immediately, calls DELETE after `delay` ms unless undone.
+        // Pass delay=0 for immediate delete (no undo toast) — used when trash/soft-delete exists.
+        function deleteWithUndo(element, deleteUrl, reloadFn, itemName, delay) {
             itemName = itemName || 'item';
+            if (delay === 0) {
+                if (element) element.style.display = 'none';
+                (async function() {
+                    try {
+                        const resp = await fetch(deleteUrl, { method: 'DELETE' });
+                        if (resp.ok) { showToast('Moved to trash', 'info'); reloadFn(); }
+                        else { if (element) element.style.display = ''; showToast('Failed to delete', 'error'); }
+                    } catch(e) { if (element) element.style.display = ''; showToast('Failed to delete', 'error'); }
+                })();
+                return;
+            }
             if (element) element.style.display = 'none';
             let cancelled = false;
             const container = document.getElementById('toast-container');
@@ -568,7 +580,7 @@
                     if (resp.ok) { reloadFn(); }
                     else { if (element) element.style.display = ''; showToast('Failed to delete', 'error'); }
                 } catch(e) { if (element) element.style.display = ''; showToast('Failed to delete', 'error'); }
-            }, 5000);
+            }, delay !== undefined ? delay : 5000);
         }
     </script>
     

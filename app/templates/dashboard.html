@@ -54,7 +54,7 @@
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
 
       <!-- Check 1: Salary received -->
-      <div id="check-income" class="rounded-xl p-3 flex items-start gap-2.5 bg-white/60">
+      <div id="check-income" class="rounded-xl p-3 flex items-start gap-2.5 bg-white">
         <span class="text-base leading-none mt-0.5 flex-shrink-0">{{ '✅' if check_income else '❌' }}</span>
         <div class="min-w-0">
           <p class="text-xs font-semibold {{ 'text-green-800' if check_income else 'text-red-800' }}">Salary Received</p>
@@ -65,7 +65,7 @@
       </div>
 
       <!-- Check 2: BDS paid -->
-      <div id="check-bds" class="rounded-xl p-3 flex items-start gap-2.5 bg-white/60">
+      <div id="check-bds" class="rounded-xl p-3 flex items-start gap-2.5 bg-white">
         <span class="text-base leading-none mt-0.5 flex-shrink-0">{{ '✅' if check_bds else '❌' }}</span>
         <div class="min-w-0">
           <p class="text-xs font-semibold {{ 'text-green-800' if check_bds else 'text-red-800' }}">BDS Paid</p>
@@ -76,7 +76,7 @@
       </div>
 
       <!-- Check 3: Tiết kiệm ≥ 20M -->
-      <div id="check-tk" class="rounded-xl p-3 flex items-start gap-2.5 bg-white/60">
+      <div id="check-tk" class="rounded-xl p-3 flex items-start gap-2.5 bg-white">
         <span class="text-base leading-none mt-0.5 flex-shrink-0">{{ '✅' if check_tk else '❌' }}</span>
         <div class="min-w-0">
           <p class="text-xs font-semibold {{ 'text-green-800' if check_tk else 'text-red-800' }}">Tiết kiệm &gt; 20M</p>
@@ -87,7 +87,7 @@
       </div>
 
       <!-- Check 4: Net cash positive -->
-      <div id="check-net" class="rounded-xl p-3 flex items-start gap-2.5 bg-white/60">
+      <div id="check-net" class="rounded-xl p-3 flex items-start gap-2.5 bg-white">
         <span class="text-base leading-none mt-0.5 flex-shrink-0">{{ '✅' if check_net else '❌' }}</span>
         <div class="min-w-0">
           <p class="text-xs font-semibold {{ 'text-green-800' if check_net else 'text-red-800' }}">Net Cash &gt; 0</p>
