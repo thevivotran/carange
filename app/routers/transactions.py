@@ -29,6 +29,7 @@ def get_transactions(
     advance_settled: Optional[bool] = None,
     source: Optional[str] = None,
     needs_review: Optional[bool] = None,
+    import_job_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
     # Validate date range
@@ -57,6 +58,8 @@ def get_transactions(
         query = query.filter(Transaction.source == source)
     if needs_review is not None:
         query = query.filter(Transaction.needs_review == needs_review)
+    if import_job_id is not None:
+        query = query.filter(Transaction.import_job_id == import_job_id)
 
     return query.order_by(Transaction.date.desc()).offset(skip).limit(limit).all()
 

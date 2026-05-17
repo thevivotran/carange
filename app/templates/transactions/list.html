@@ -29,6 +29,16 @@
         </div>
     </div>
     
+    <!-- Import context banner (shown when navigating from import page) -->
+    <div id="import-context-banner" class="hidden mb-4 rounded-xl border px-4 py-3 flex items-center gap-3 text-sm">
+        <i id="import-banner-icon" class="fas fa-arrow-left flex-shrink-0"></i>
+        <span id="import-banner-text" class="flex-1"></span>
+        <a href="/import" class="font-medium underline flex-shrink-0">Back to Import</a>
+        <button onclick="dismissImportBanner()" class="flex-shrink-0 text-current opacity-60 hover:opacity-100 transition ml-1" aria-label="Dismiss">
+            <i class="fas fa-times text-xs"></i>
+        </button>
+    </div>
+
     <!-- Filters -->
     <div class="bg-white rounded-xl shadow-md p-4 mb-6">
         <!-- Always-visible row -->
@@ -325,6 +335,7 @@
     let totalTransactions = 0;
     let categories = [];
     const _OCR_SOURCES = new Set(['timo', 'uob', 'liobank', 'shopee', 'grab', 'ocr']);
+    let activeImportJobId = null;  // set when navigating from import page
 
     // ── Month pill helpers ────────────────────────────────────────────────────
     const _TX_MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -393,7 +404,19 @@
     document.addEventListener('DOMContentLoaded', function() {
         loadCategories();
         loadProjectsFilter();
-        restoreFilters();
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const importJobParam = urlParams.get('import_job_id');
+        const fromImportParam = urlParams.get('from_import');
+
+        if (importJobParam) {
+            activeImportJobId = parseInt(importJobParam);
+            showImportBanner('import_job', activeImportJobId);
+            // Don't restore saved filters — this is a scoped view
+        } else {
+            restoreFilters();
+        }
+
         _updateTxPill();
         loadTransactions();
         loadMonthlySummary();
@@ -402,6 +425,18 @@
         document.getElementById('amount').addEventListener('input', function() {
             updateSavingsFutureAmount();
         });
+
+        if (fromImportParam) {
+            const hintDescription = urlParams.get('hint_description') || '';
+            const hintDate = urlParams.get('hint_date') || '';
+            showImportBanner('from_import', null);
+            // Wait for categories to load then open modal
+            setTimeout(function() {
+                openAddModal();
+                if (hintDescription) document.getElementById('description').value = hintDescription;
+                if (hintDate) document.getElementById('date').value = hintDate;
+            }, 300);
+        }
     });
 
     function toggleSavingsSection() {
@@ -517,6 +552,7 @@
             if (advanceFilter === 'settled')   { params.append('is_advance', 'true'); params.append('advance_settled', 'true'); }
             if (sourceFilter) params.append('source', sourceFilter);
             if (document.getElementById('filter-review-btn').dataset.active === 'true') params.append('needs_review', 'true');
+            if (activeImportJobId) params.append('import_job_id', activeImportJobId);
 
             const response = await fetch('/api/transactions/?' + params);
             const transactions = await response.json();
@@ -680,6 +716,33 @@
         }
     }
     
+    function showImportBanner(mode, jobId) {
+        const banner = document.getElementById('import-context-banner');
+        const icon   = document.getElementById('import-banner-icon');
+        const text   = document.getElementById('import-banner-text');
+        banner.classList.remove('hidden');
+        if (mode === 'import_job') {
+            banner.classList.add('bg-green-50', 'border-green-200', 'text-green-800');
+            icon.className = 'fas fa-check-circle flex-shrink-0 text-green-600';
+            text.textContent = 'Showing transactions extracted from import job #' + jobId + '.';
+        } else {
+            banner.classList.add('bg-blue-50', 'border-blue-200', 'text-blue-800');
+            icon.className = 'fas fa-info-circle flex-shrink-0 text-blue-600';
+            text.textContent = 'OCR failed — add the transaction manually. Check your screenshot for the details.';
+        }
+    }
+
+    function dismissImportBanner() {
+        const banner = document.getElementById('import-context-banner');
+        banner.classList.add('hidden');
+        if (activeImportJobId) {
+            activeImportJobId = null;
+            history.replaceState(null, '', window.location.pathname);
+            restoreFilters();
+            loadTransactions();
+        }
+    }
+
     function openAddModal() {
         document.getElementById('modal-title').textContent = 'Add Transaction';
         document.getElementById('transaction-form').reset();

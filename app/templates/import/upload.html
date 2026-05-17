@@ -121,6 +121,11 @@
     .dark .status-badge-processing { background:rgba(245,158,11,.25);  color:#fbbf24; }
     .dark .status-badge-done       { background:rgba(16,185,129,.25);  color:#34d399; }
     .dark .status-badge-failed     { background:rgba(239,68,68,.25);   color:#f87171; }
+
+    .conf-high   { background:rgba(16,185,129,.15);  color:#059669; }
+    .conf-medium { background:rgba(245,158,11,.15);  color:#d97706; }
+    .conf-review { background:rgba(249,115,22,.15);  color:#c2410c; }
+    .job-chevron { transition: transform 0.2s ease; }
 </style>
 {% endblock %}
 
@@ -244,55 +249,260 @@ async function doUpload() {
     const progressPct     = document.getElementById('progress-pct');
     const progressLabel   = document.getElementById('progress-label');
     const uploadBtn       = document.getElementById('upload-btn');
+    const total           = stagedFiles.length;
 
     uploadBtn.disabled = true;
     progressSection.classList.remove('hidden');
-    progressLabel.textContent = 'Uploading…';
-    progressBar.style.width = '0%';
-    progressPct.textContent  = '0%';
+    progressLabel.textContent = 'Uploading ' + total + (total === 1 ? ' file' : ' files') + '…';
+    progressBar.style.width = '10%';
+    progressPct.textContent = '';
+    progressBar.classList.add('animate-pulse');
 
     const hint = document.getElementById('source-hint').value;
-    let done = 0;
-    let errCount = 0;
+    const fd   = new FormData();
+    stagedFiles.forEach(function(f) { fd.append('files', f); });
+    if (hint) fd.append('source_hint', hint);
 
-    // Upload one at a time so we can show progress
-    for (let i = 0; i < stagedFiles.length; i++) {
-        const f = stagedFiles[i];
-        const fd = new FormData();
-        fd.append('files', f);
-        if (hint) fd.append('source_hint', hint);
-
-        try {
-            const res = await fetch('/api/import/jobs', { method: 'POST', body: fd });
-            if (!res.ok) {
-                const err = await res.json().catch(function() { return {}; });
-                showToast((err.detail || 'Upload failed') + ': ' + f.name, 'error');
-                errCount++;
-            }
-        } catch(e) {
-            showToast('Network error uploading ' + f.name, 'error');
-            errCount++;
+    let queued = 0;
+    let uploadErr = '';
+    try {
+        progressBar.style.width = '55%';
+        const res = await fetch('/api/import/jobs', { method: 'POST', body: fd });
+        progressBar.style.width = '90%';
+        if (res.ok) {
+            const jobs = await res.json();
+            queued = jobs.length;
+        } else {
+            const err = await res.json().catch(function() { return {}; });
+            uploadErr = err.detail || 'Upload failed';
         }
-        done++;
-        const pct = Math.round(done / stagedFiles.length * 100);
-        progressBar.style.width = pct + '%';
-        progressPct.textContent  = pct + '%';
+    } catch(e) {
+        uploadErr = 'Network error — check your connection and try again';
     }
 
-    uploadBtn.disabled = false;
+    progressBar.classList.remove('animate-pulse');
+    progressBar.style.width = '100%';
+    progressPct.textContent = '';
     progressLabel.textContent = 'Done';
+    uploadBtn.disabled = false;
+    setTimeout(function() { progressSection.classList.add('hidden'); }, 1200);
 
-    setTimeout(function() { progressSection.classList.add('hidden'); }, 1500);
-
-    if (errCount === 0) {
-        showToast(stagedFiles.length + ' file(s) queued for processing', 'success');
+    if (uploadErr) {
+        showToast(uploadErr, 'error');
+    } else if (queued === total) {
+        showToast(total + ' file' + (total !== 1 ? 's' : '') + ' queued for processing', 'success');
     } else {
-        showToast((stagedFiles.length - errCount) + ' queued, ' + errCount + ' failed', 'warning');
+        showToast(queued + ' of ' + total + ' files queued', 'warning');
     }
 
     clearStaged();
     loadJobs(currentFilter);
     schedulePoll();
+}
+
+// ── Empty states ──────────────────────────────────────────────────────────────
+function buildNoJobsMessage() {
+    const wrap = document.createElement('div');
+    wrap.className = 'text-center py-10 text-gray-400';
+    const ico = document.createElement('i');
+    ico.className = 'fas fa-inbox text-3xl mb-2 block';
+    const msg = document.createElement('p');
+    msg.className = 'text-sm';
+    msg.textContent = 'No jobs match this filter';
+    wrap.appendChild(ico);
+    wrap.appendChild(msg);
+    return wrap;
+}
+
+function buildFirstRunGuide() {
+    const wrap = document.createElement('div');
+    wrap.className = 'rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6';
+
+    // ── Header ──
+    const header = document.createElement('div');
+    header.className = 'text-center mb-6';
+    const headerIcon = document.createElement('i');
+    headerIcon.className = 'fas fa-wand-magic-sparkles text-3xl text-primary mb-3 block';
+    const headerTitle = document.createElement('p');
+    headerTitle.className = 'text-base font-semibold text-gray-700';
+    headerTitle.textContent = 'Auto-import transactions from screenshots';
+    const headerSub = document.createElement('p');
+    headerSub.className = 'text-sm text-gray-400 mt-1';
+    headerSub.textContent = 'Upload a payment confirmation and we extract the details automatically.';
+    header.appendChild(headerIcon);
+    header.appendChild(headerTitle);
+    header.appendChild(headerSub);
+    wrap.appendChild(header);
+
+    // ── How it works — 3 steps ──
+    const stepsRow = document.createElement('div');
+    stepsRow.className = 'grid grid-cols-3 gap-4 mb-6';
+
+    const steps = [
+        { icon: 'fa-mobile-screen-button', color: 'text-blue-500',  bg: 'bg-blue-50',   title: '1. Screenshot',  body: 'Open your banking or payment app and screenshot the transaction confirmation.' },
+        { icon: 'fa-cloud-arrow-up',        color: 'text-purple-500', bg: 'bg-purple-50', title: '2. Upload',      body: 'Drag the image here or click to browse. Supports JPEG, PNG, WebP, and HEIC.' },
+        { icon: 'fa-check-circle',          color: 'text-green-500',  bg: 'bg-green-50',  title: '3. Review',     body: 'OCR extracts the amount, date, and merchant. Check the result and you\'re done.' },
+    ];
+    steps.forEach(function(s) {
+        const col = document.createElement('div');
+        col.className = 'flex flex-col items-center text-center gap-2';
+        const iconWrap = document.createElement('div');
+        iconWrap.className = 'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ' + s.bg;
+        const ico = document.createElement('i');
+        ico.className = 'fas ' + s.icon + ' ' + s.color;
+        iconWrap.appendChild(ico);
+        const title = document.createElement('p');
+        title.className = 'text-xs font-semibold text-gray-700';
+        title.textContent = s.title;
+        const body = document.createElement('p');
+        body.className = 'text-xs text-gray-400 leading-relaxed';
+        body.textContent = s.body;
+        col.appendChild(iconWrap);
+        col.appendChild(title);
+        col.appendChild(body);
+        stepsRow.appendChild(col);
+    });
+    wrap.appendChild(stepsRow);
+
+    // ── Mock "done" card example ──
+    const exampleLabel = document.createElement('p');
+    exampleLabel.className = 'text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2';
+    exampleLabel.textContent = 'Example result';
+    wrap.appendChild(exampleLabel);
+
+    const mockCard = document.createElement('div');
+    mockCard.className = 'bg-white border rounded-xl shadow-sm overflow-hidden opacity-80';
+
+    const mockRow = document.createElement('div');
+    mockRow.className = 'px-4 py-3 flex items-center gap-4';
+
+    const mockDot = document.createElement('div');
+    mockDot.className = 'w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0';
+
+    const mockInfo = document.createElement('div');
+    mockInfo.className = 'flex-1 min-w-0';
+    const mockTop = document.createElement('div');
+    mockTop.className = 'flex items-center gap-2';
+    const mockName = document.createElement('span');
+    mockName.className = 'text-sm font-medium text-gray-700';
+    mockName.textContent = 'timo_payment.jpg';
+    const mockBadge = document.createElement('span');
+    mockBadge.className = 'status-badge-done text-xs font-semibold px-2 py-0.5 rounded-full';
+    mockBadge.textContent = 'Done';
+    const mockSrc = document.createElement('span');
+    mockSrc.className = 'text-xs text-gray-400';
+    mockSrc.textContent = '· timo';
+    mockTop.appendChild(mockName);
+    mockTop.appendChild(mockBadge);
+    mockTop.appendChild(mockSrc);
+    const mockMeta = document.createElement('div');
+    mockMeta.className = 'flex items-center gap-3 mt-0.5';
+    const mockTs = document.createElement('span');
+    mockTs.className = 'text-xs text-gray-400';
+    mockTs.textContent = '17/05/2026 09:41';
+    const mockTxText = document.createElement('span');
+    mockTxText.className = 'text-xs text-green-600 font-medium';
+    mockTxText.textContent = '2 transactions extracted';
+    mockMeta.appendChild(mockTs);
+    mockMeta.appendChild(mockTxText);
+    mockInfo.appendChild(mockTop);
+    mockInfo.appendChild(mockMeta);
+
+    const mockChevron = document.createElement('i');
+    mockChevron.className = 'fas fa-chevron-down text-xs text-gray-300';
+
+    mockRow.appendChild(mockDot);
+    mockRow.appendChild(mockInfo);
+    mockRow.appendChild(mockChevron);
+    mockCard.appendChild(mockRow);
+
+    // Mock expanded rows
+    const mockExpand = document.createElement('div');
+    mockExpand.className = 'border-t';
+
+    const mockSummary = document.createElement('div');
+    mockSummary.className = 'px-4 py-2 flex items-center gap-2 bg-gray-50 border-b';
+    const mockSumIco = document.createElement('i');
+    mockSumIco.className = 'fas fa-check-circle text-xs text-green-500';
+    const mockSumTxt = document.createElement('span');
+    mockSumTxt.className = 'text-xs font-medium text-green-700';
+    mockSumTxt.textContent = 'All extractions high confidence';
+    mockSummary.appendChild(mockSumIco);
+    mockSummary.appendChild(mockSumTxt);
+    mockExpand.appendChild(mockSummary);
+
+    const mockTxRows = [
+        { amount: '-45,000 ₫', type: 'expense', cat: 'Ăn uống',    catColor: '#f59e0b', desc: 'Highlands Coffee',  date: '2026-05-17', conf: '91%', confCls: 'conf-high' },
+        { amount: '-28,000 ₫', type: 'expense', cat: 'Di chuyển',  catColor: '#3b82f6', desc: 'Grab bike home',    date: '2026-05-17', conf: '88%', confCls: 'conf-high' },
+    ];
+    mockTxRows.forEach(function(tx) {
+        const r = document.createElement('div');
+        r.className = 'px-4 py-2.5 flex items-center gap-3 border-b last:border-b-0';
+        const amt = document.createElement('span');
+        amt.className = 'text-sm font-semibold flex-shrink-0 w-28 text-right text-red-600';
+        amt.textContent = tx.amount;
+        const cat = document.createElement('span');
+        cat.className = 'text-xs px-2 py-0.5 rounded-full flex-shrink-0';
+        cat.style.backgroundColor = tx.catColor + '20';
+        cat.style.color = tx.catColor;
+        cat.textContent = tx.cat;
+        const desc = document.createElement('div');
+        desc.className = 'flex-1 min-w-0';
+        const descTxt = document.createElement('p');
+        descTxt.className = 'text-xs text-gray-700 truncate';
+        descTxt.textContent = tx.desc;
+        const dateTxt = document.createElement('p');
+        dateTxt.className = 'text-xs text-gray-400 mt-0.5';
+        dateTxt.textContent = tx.date;
+        desc.appendChild(descTxt);
+        desc.appendChild(dateTxt);
+        const conf = document.createElement('span');
+        conf.className = 'text-xs font-medium px-1.5 py-0.5 rounded flex-shrink-0 ' + tx.confCls;
+        conf.textContent = tx.conf;
+        r.appendChild(amt);
+        r.appendChild(cat);
+        r.appendChild(desc);
+        r.appendChild(conf);
+        mockExpand.appendChild(r);
+    });
+    mockCard.appendChild(mockExpand);
+    wrap.appendChild(mockCard);
+
+    // ── Tips ──
+    const tipsBox = document.createElement('div');
+    tipsBox.className = 'mt-5 rounded-lg bg-blue-50 border border-blue-100 px-4 py-3';
+    const tipsTitle = document.createElement('p');
+    tipsTitle.className = 'text-xs font-semibold text-blue-700 mb-1.5 flex items-center gap-1.5';
+    const tipsIco = document.createElement('i');
+    tipsIco.className = 'fas fa-lightbulb text-blue-400';
+    const tipsTitleText = document.createElement('span');
+    tipsTitleText.textContent = 'Tips for best results';
+    tipsTitle.appendChild(tipsIco);
+    tipsTitle.appendChild(tipsTitleText);
+
+    const tipsList = document.createElement('ul');
+    tipsList.className = 'space-y-1';
+    const tips = [
+        'Screenshot the transaction confirmation screen, not the account statement or balance view.',
+        'Crop tightly around the transaction details if the image has a lot of surrounding UI.',
+        'Set the source hint (Timo, UOB, etc.) to help the OCR recognise the layout faster.',
+    ];
+    tips.forEach(function(tip) {
+        const li = document.createElement('li');
+        li.className = 'text-xs text-blue-600 flex items-start gap-1.5';
+        const dot = document.createElement('span');
+        dot.className = 'mt-1 w-1 h-1 rounded-full bg-blue-400 flex-shrink-0';
+        const txt = document.createElement('span');
+        txt.textContent = tip;
+        li.appendChild(dot);
+        li.appendChild(txt);
+        tipsList.appendChild(li);
+    });
+    tipsBox.appendChild(tipsTitle);
+    tipsBox.appendChild(tipsList);
+    wrap.appendChild(tipsBox);
+
+    return wrap;
 }
 
 // ── Job list ──────────────────────────────────────────────────────────────────
@@ -321,16 +531,7 @@ async function loadJobs(filter) {
     while (container.firstChild) container.removeChild(container.firstChild);
 
     if (!jobs.length) {
-        const empty = document.createElement('div');
-        empty.className = 'text-center py-10 text-gray-400';
-        const icon = document.createElement('i');
-        icon.className = 'fas fa-inbox text-3xl mb-2';
-        const msg = document.createElement('p');
-        msg.className = 'text-sm';
-        msg.textContent = currentFilter === 'all' ? 'No import jobs yet' : 'No jobs match this filter';
-        empty.appendChild(icon);
-        empty.appendChild(msg);
-        container.appendChild(empty);
+        container.appendChild(currentFilter === 'all' ? buildFirstRunGuide() : buildNoJobsMessage());
         return;
     }
 
@@ -344,12 +545,31 @@ async function loadJobs(filter) {
     else stopPoll();
 }
 
-function buildJobCard(job) {
-    const card = document.createElement('div');
-    card.className = 'bg-white border rounded-xl px-4 py-3 shadow-sm flex items-center gap-4';
-    card.id = 'job-' + job.id;
+function humanizeError(msg) {
+    if (!msg) return '';
+    const m = msg.toLowerCase();
+    if (m.includes('date') || m.includes('ngày'))
+        return "Couldn't read the transaction date. Try a clearer screenshot.";
+    if (m.includes('amount') || m.includes('price') || m.includes('money') || m.includes('số tiền'))
+        return "Couldn't read the transaction amount. Try cropping closer to the numbers.";
+    if (m.includes('timeout') || m.includes('timed out'))
+        return "Processing timed out. Try again or add the transaction manually.";
+    if (m.includes('unsupported') || m.includes('format') || m.includes('layout'))
+        return "Image layout not recognised. Try setting the source hint manually.";
+    if (m.includes('parse') || m.includes('extract') || m.includes('ocr'))
+        return "Screenshot couldn't be processed. Try cropping to the transaction section.";
+    return "Processing failed. Try a clearer image or add the transaction manually.";
+}
 
-    // Status indicator
+function buildJobCard(job) {
+    const wrapper = document.createElement('div');
+    wrapper.id = 'job-' + job.id;
+    wrapper.className = 'bg-white border rounded-xl shadow-sm overflow-hidden';
+
+    const mainRow = document.createElement('div');
+    mainRow.className = 'px-4 py-3 flex items-center gap-4';
+
+    // Status dot
     const dot = document.createElement('div');
     dot.className = 'flex-shrink-0 w-2.5 h-2.5 rounded-full';
     const dotColors = { pending: 'bg-gray-400', processing: 'bg-amber-400 animate-pulse', done: 'bg-green-500', failed: 'bg-red-500' };
@@ -381,7 +601,7 @@ function buildJobCard(job) {
     }
 
     const metaRow = document.createElement('div');
-    metaRow.className = 'flex items-center gap-3 mt-0.5';
+    metaRow.className = 'flex items-center gap-3 mt-0.5 flex-wrap';
 
     const ts = document.createElement('span');
     ts.className = 'text-xs text-gray-400';
@@ -389,16 +609,29 @@ function buildJobCard(job) {
     metaRow.appendChild(ts);
 
     if (job.status === 'done' && job.transaction_count > 0) {
-        const txBadge = document.createElement('span');
-        txBadge.className = 'text-xs text-green-600 font-medium';
-        txBadge.textContent = job.transaction_count + ' transaction' + (job.transaction_count !== 1 ? 's' : '') + ' extracted';
-        metaRow.appendChild(txBadge);
+        const txLink = document.createElement('a');
+        txLink.href = '/transactions?import_job_id=' + job.id;
+        txLink.className = 'text-xs text-green-600 font-medium hover:underline';
+        txLink.textContent = job.transaction_count + ' transaction' + (job.transaction_count !== 1 ? 's' : '') + ' extracted';
+        metaRow.appendChild(txLink);
+
+        // Placeholder for review flag — revealed after transactions are fetched
+        const reviewFlag = document.createElement('span');
+        reviewFlag.id = 'job-' + job.id + '-review-flag';
+        reviewFlag.className = 'hidden items-center gap-1 text-xs font-medium text-orange-600';
+        const flagIcon = document.createElement('i');
+        flagIcon.className = 'fas fa-exclamation-triangle text-xs';
+        const flagText = document.createElement('span');
+        reviewFlag.appendChild(flagIcon);
+        reviewFlag.appendChild(flagText);
+        metaRow.appendChild(reviewFlag);
     }
 
     if (job.status === 'failed' && job.error_message) {
         const errMsg = document.createElement('span');
         errMsg.className = 'text-xs text-red-500 truncate max-w-xs';
-        errMsg.textContent = job.error_message;
+        errMsg.textContent = humanizeError(job.error_message);
+        errMsg.title = job.error_message;
         metaRow.appendChild(errMsg);
     }
 
@@ -410,8 +643,14 @@ function buildJobCard(job) {
     actions.className = 'flex-shrink-0 flex items-center gap-2';
 
     if (job.status === 'failed') {
+        const source = job.detected_source || job.source_hint || '';
+        const hintDesc = source ? encodeURIComponent('From ' + source.charAt(0).toUpperCase() + source.slice(1)) : '';
+        const hintDate = job.created_at ? job.created_at.split('T')[0] : '';
+        let manualUrl = '/transactions?from_import=' + job.id;
+        if (hintDesc) manualUrl += '&hint_description=' + hintDesc;
+        if (hintDate) manualUrl += '&hint_date=' + hintDate;
         const manualBtn = document.createElement('a');
-        manualBtn.href = '/transactions';
+        manualBtn.href = manualUrl;
         manualBtn.className = 'text-xs text-blue-600 hover:underline font-medium';
         manualBtn.textContent = 'Create manually';
         actions.appendChild(manualBtn);
@@ -426,16 +665,184 @@ function buildJobCard(job) {
     deleteBtn.addEventListener('click', function() { deleteJob(job.id); });
     actions.appendChild(deleteBtn);
 
-    card.appendChild(dot);
-    card.appendChild(info);
-    card.appendChild(actions);
-    return card;
+    // Expand toggle — only for done jobs that have transactions
+    if (job.status === 'done' && job.transaction_count > 0) {
+        const expandSection = document.createElement('div');
+        expandSection.className = 'hidden border-t';
+
+        const expandBtn = document.createElement('button');
+        expandBtn.className = 'flex-shrink-0 text-gray-400 hover:text-gray-600 transition p-1';
+        expandBtn.setAttribute('aria-label', 'Toggle transaction details');
+        const chevron = document.createElement('i');
+        chevron.className = 'fas fa-chevron-down text-xs job-chevron';
+        expandBtn.appendChild(chevron);
+
+        let loaded = false;
+        expandBtn.addEventListener('click', function() {
+            const isOpen = !expandSection.classList.contains('hidden');
+            expandSection.classList.toggle('hidden');
+            chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
+            if (!isOpen && !loaded) {
+                loaded = true;
+                fetchJobTransactions(job.id, expandSection);
+            }
+        });
+
+        actions.appendChild(expandBtn);
+        mainRow.appendChild(dot);
+        mainRow.appendChild(info);
+        mainRow.appendChild(actions);
+        wrapper.appendChild(mainRow);
+        wrapper.appendChild(expandSection);
+    } else {
+        mainRow.appendChild(dot);
+        mainRow.appendChild(info);
+        mainRow.appendChild(actions);
+        wrapper.appendChild(mainRow);
+    }
+
+    return wrapper;
 }
 
 function formatJobDate(isoStr) {
     if (!isoStr) return '';
     const d = new Date(isoStr);
     return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+}
+
+async function fetchJobTransactions(jobId, container) {
+    const loading = document.createElement('div');
+    loading.className = 'px-4 py-3 text-sm text-gray-400 flex items-center gap-2';
+    const spinner = document.createElement('i');
+    spinner.className = 'fas fa-spinner fa-spin text-xs';
+    const loadingText = document.createElement('span');
+    loadingText.textContent = 'Loading transactions…';
+    loading.appendChild(spinner);
+    loading.appendChild(loadingText);
+    container.appendChild(loading);
+
+    let txs;
+    try {
+        const res = await fetch('/api/transactions/?import_job_id=' + jobId + '&limit=50');
+        if (!res.ok) throw new Error('Failed');
+        txs = await res.json();
+    } catch(e) {
+        container.removeChild(loading);
+        const err = document.createElement('p');
+        err.className = 'px-4 py-3 text-sm text-red-500';
+        err.textContent = 'Failed to load transactions.';
+        container.appendChild(err);
+        return;
+    }
+    container.removeChild(loading);
+
+    if (!txs.length) {
+        const empty = document.createElement('p');
+        empty.className = 'px-4 py-3 text-sm text-gray-400';
+        empty.textContent = 'No transactions linked to this import.';
+        container.appendChild(empty);
+        return;
+    }
+
+    // Compute summary stats
+    const needsReviewCount = txs.filter(function(t) { return t.needs_review; }).length;
+    const withScore = txs.filter(function(t) { return t.confidence_score !== null; });
+    const avgConf = withScore.length
+        ? withScore.reduce(function(s, t) { return s + t.confidence_score; }, 0) / withScore.length
+        : null;
+
+    // Update collapsed card review flag
+    const reviewFlag = document.getElementById('job-' + jobId + '-review-flag');
+    if (reviewFlag && needsReviewCount > 0) {
+        reviewFlag.classList.remove('hidden');
+        reviewFlag.classList.add('flex');
+        reviewFlag.querySelector('span').textContent = needsReviewCount + ' need review';
+    }
+
+    // Summary bar
+    const summary = document.createElement('div');
+    summary.className = 'px-4 py-2 flex items-center gap-2 bg-gray-50 border-b';
+    const summaryIcon = document.createElement('i');
+    const summaryText = document.createElement('span');
+    summaryText.className = 'text-xs font-medium';
+    if (needsReviewCount > 0) {
+        summaryIcon.className = 'fas fa-exclamation-triangle text-xs text-orange-500';
+        summaryText.classList.add('text-orange-700');
+        summaryText.textContent = needsReviewCount + ' transaction' + (needsReviewCount !== 1 ? 's' : '') + ' need review';
+    } else if (avgConf !== null && avgConf < 0.75) {
+        summaryIcon.className = 'fas fa-info-circle text-xs text-yellow-500';
+        summaryText.classList.add('text-yellow-700');
+        summaryText.textContent = 'Medium confidence — verify amounts and dates';
+    } else {
+        summaryIcon.className = 'fas fa-check-circle text-xs text-green-500';
+        summaryText.classList.add('text-green-700');
+        summaryText.textContent = 'All extractions high confidence';
+    }
+    summary.appendChild(summaryIcon);
+    summary.appendChild(summaryText);
+    container.appendChild(summary);
+
+    // Transaction rows
+    txs.forEach(function(tx) {
+        const row = document.createElement('div');
+        row.className = 'px-4 py-2.5 flex items-center gap-3 border-b last:border-b-0 hover:bg-gray-50 transition';
+
+        const amountEl = document.createElement('span');
+        amountEl.className = 'text-sm font-semibold flex-shrink-0 w-28 text-right ' + (tx.type === 'income' ? 'text-green-600' : 'text-red-600');
+        amountEl.textContent = (tx.type === 'income' ? '+' : '-') + formatVND(tx.amount);
+
+        const catBadge = document.createElement('span');
+        catBadge.className = 'text-xs px-2 py-0.5 rounded-full flex-shrink-0 max-w-[80px] truncate';
+        catBadge.style.backgroundColor = tx.category.color + '20';
+        catBadge.style.color = tx.category.color;
+        catBadge.textContent = tx.category.name;
+
+        const descEl = document.createElement('div');
+        descEl.className = 'flex-1 min-w-0';
+        const descText = document.createElement('p');
+        descText.className = 'text-xs text-gray-700 truncate';
+        descText.textContent = tx.description || '—';
+        const dateText = document.createElement('p');
+        dateText.className = 'text-xs text-gray-400 mt-0.5';
+        dateText.textContent = tx.date;
+        descEl.appendChild(descText);
+        descEl.appendChild(dateText);
+
+        const confBadge = buildConfidenceBadge(tx.confidence_score, tx.needs_review);
+
+        row.appendChild(amountEl);
+        row.appendChild(catBadge);
+        row.appendChild(descEl);
+        row.appendChild(confBadge);
+        container.appendChild(row);
+    });
+
+    // Footer link
+    const footer = document.createElement('div');
+    footer.className = 'px-4 py-2 text-right bg-gray-50';
+    const viewLink = document.createElement('a');
+    viewLink.href = '/transactions?import_job_id=' + jobId;
+    viewLink.className = 'text-xs text-blue-600 hover:underline font-medium';
+    viewLink.textContent = 'View all in Transactions →';
+    footer.appendChild(viewLink);
+    container.appendChild(footer);
+}
+
+function buildConfidenceBadge(score, needsReview) {
+    const span = document.createElement('span');
+    span.className = 'text-xs font-medium px-1.5 py-0.5 rounded flex-shrink-0';
+    if (score === null && !needsReview) return span;
+    if (needsReview || (score !== null && score < 0.65)) {
+        span.classList.add('conf-review');
+        span.textContent = 'Review' + (score !== null ? ' · ' + Math.round(score * 100) + '%' : '');
+    } else if (score !== null && score < 0.85) {
+        span.classList.add('conf-medium');
+        span.textContent = Math.round(score * 100) + '%';
+    } else if (score !== null) {
+        span.classList.add('conf-high');
+        span.textContent = Math.round(score * 100) + '%';
+    }
+    return span;
 }
 
 async function deleteJob(id) {

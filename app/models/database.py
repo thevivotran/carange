@@ -81,6 +81,8 @@ class ImportSource(str, enum.Enum):
     TIMO = "timo"
     SHOPEE = "shopee"
     GRAB = "grab"
+    UOB = "uob"
+    LIOBANK = "liobank"
 
 
 class ImportJob(Base):
