@@ -61,7 +61,8 @@
         <!-- Advanced filters (collapsible) -->
         <div id="advanced-filters" class="hidden mt-3 pt-3 border-t">
             <div class="flex flex-wrap gap-3 items-center">
-                <select id="filter-type" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                <select id="filter-type" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
+                        onchange="loadCategories()">
                     <option value="">All Types</option>
                     <option value="income">Income</option>
                     <option value="expense">Expense</option>
@@ -456,15 +457,15 @@
             filterPlaceholder.value = '';
             filterPlaceholder.textContent = 'All Categories';
             filterCategorySelect.appendChild(filterPlaceholder);
-            categories.filter(c => c.is_active).forEach(function(cat) {
-                const typeLabel = cat.type === 'income' ? '(Income)' : '(Expense)';
+            const activeTypeFilter = document.getElementById('filter-type').value;
+            categories.filter(c => c.is_active && (!activeTypeFilter || c.type === activeTypeFilter)).forEach(function(cat) {
                 const opt = document.createElement('option');
                 opt.value = cat.id;
-                opt.textContent = typeLabel + ' ' + cat.name;
+                opt.textContent = (!activeTypeFilter ? (cat.type === 'income' ? '(Income) ' : '(Expense) ') : '') + cat.name;
                 filterCategorySelect.appendChild(opt);
             });
             
-            if (currentFilterCategory) {
+            if (currentFilterCategory && !activeTypeFilter) {
                 const optionExists = Array.from(filterCategorySelect.options).some(opt => opt.value === currentFilterCategory);
                 if (optionExists) filterCategorySelect.value = currentFilterCategory;
             }
@@ -599,7 +600,7 @@
                 const descDiv = document.createElement('div');
                 descDiv.className = 'flex-1 min-w-0';
                 const descText = document.createElement('p');
-                descText.className = 'text-sm text-gray-700 truncate';
+                descText.className = 'text-sm text-gray-700 truncate select-text cursor-text';
                 descText.textContent = t.description || '-';
                 descDiv.appendChild(descText);
                 if (t.is_advance) {
@@ -843,6 +844,7 @@
         const editBtn = mkBtn('fa-edit', 'Edit', 'text-blue-700 bg-white border-blue-200 hover:bg-blue-50');
         editBtn.addEventListener('click', function(e) { e.stopPropagation(); collapseActions(); editTransaction(t.id); });
         bar.appendChild(editBtn);
+
 
         if (t.is_advance && !t.advance_settled) {
             const settleBtn = mkBtn('fa-check-circle', 'Mark Settled', 'text-green-700 bg-white border-green-200 hover:bg-green-50');

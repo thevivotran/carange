@@ -41,12 +41,9 @@
                 <thead class="bg-gray-50 border-b">
                     <tr>
                         <th class="text-left py-4 px-6 text-sm font-semibold text-gray-700">Name</th>
-                        <th class="text-left py-4 px-6 text-sm font-semibold text-gray-700">Type</th>
                         <th class="text-left py-4 px-6 text-sm font-semibold text-gray-700">Category</th>
-                        <th class="text-left py-4 px-6 text-sm font-semibold text-gray-700">Description</th>
                         <th class="text-right py-4 px-6 text-sm font-semibold text-gray-700">Amount</th>
-                        <th class="text-center py-4 px-6 text-sm font-semibold text-gray-700">Status</th>
-                        <th class="text-center py-4 px-6 text-sm font-semibold text-gray-700">Actions</th>
+                        <th class="py-4 px-4"></th>
                     </tr>
                 </thead>
                 <tbody id="templates-table-body">
@@ -241,13 +238,14 @@
             const response = await fetch('/api/templates/?' + params);
             const templates = await response.json();
 
+            collapseTemplateActions();
             const tbody = document.getElementById('templates-table-body');
             while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
 
             if (templates.length === 0) {
                 const emptyRow = document.createElement('tr');
                 const emptyCell = document.createElement('td');
-                emptyCell.colSpan = 7;
+                emptyCell.colSpan = 4;
                 emptyCell.className = 'py-20 text-center text-gray-400';
                 const ico = document.createElement('i');
                 ico.className = 'fas fa-layer-group text-5xl mb-4 block opacity-30';
@@ -268,27 +266,33 @@
 
             templates.forEach(function(t) {
                 const row = document.createElement('tr');
-                row.className = 'border-b hover:bg-gray-50';
+                row.className = 'border-b hover:bg-gray-50 cursor-pointer select-none transition-colors';
+                row.addEventListener('click', function() { toggleTemplateActions(row, t); });
 
+                // Name cell — description as subtitle, inactive badge when relevant
                 const nameCell = document.createElement('td');
-                nameCell.className = 'py-4 px-6 font-medium text-gray-800';
-                nameCell.textContent = t.name;
+                nameCell.className = 'py-3 px-6';
+                const nameText = document.createElement('p');
+                nameText.className = 'font-medium text-gray-800 text-sm';
+                nameText.textContent = t.name;
+                nameCell.appendChild(nameText);
+                if (t.description) {
+                    const descSub = document.createElement('p');
+                    descSub.className = 'text-xs text-gray-400 mt-0.5 truncate max-w-xs';
+                    descSub.textContent = t.description;
+                    nameCell.appendChild(descSub);
+                }
+                if (!t.is_active) {
+                    const inactiveBadge = document.createElement('span');
+                    inactiveBadge.className = 'inline-block mt-1 px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500';
+                    inactiveBadge.textContent = 'Inactive';
+                    nameCell.appendChild(inactiveBadge);
+                }
                 row.appendChild(nameCell);
 
-                const typeCell = document.createElement('td');
-                typeCell.className = 'py-4 px-6';
-                const typeBadge = document.createElement('span');
-                typeBadge.className = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ' +
-                    (t.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700');
-                const typeIco = document.createElement('i');
-                typeIco.className = 'fas fa-' + (t.type === 'income' ? 'arrow-down' : 'arrow-up') + ' mr-1';
-                typeBadge.appendChild(typeIco);
-                typeBadge.appendChild(document.createTextNode(t.type.charAt(0).toUpperCase() + t.type.slice(1)));
-                typeCell.appendChild(typeBadge);
-                row.appendChild(typeCell);
-
+                // Category cell
                 const catCell = document.createElement('td');
-                catCell.className = 'py-4 px-6';
+                catCell.className = 'py-3 px-6';
                 const catBadge = document.createElement('span');
                 catBadge.className = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium';
                 catBadge.style.backgroundColor = t.category.color + '20';
@@ -297,57 +301,25 @@
                 catCell.appendChild(catBadge);
                 row.appendChild(catCell);
 
-                const descCell = document.createElement('td');
-                descCell.className = 'py-4 px-6 text-gray-600';
-                descCell.textContent = t.description || '-';
-                row.appendChild(descCell);
-
+                // Amount cell — color encodes income vs expense (replaces Type column)
                 const amtCell = document.createElement('td');
-                amtCell.className = 'py-4 px-6 text-right font-semibold ' + (t.type === 'income' ? 'text-green-600' : 'text-red-600');
-                amtCell.textContent = formatVND(t.amount);
+                amtCell.className = 'py-3 px-6 text-right font-semibold text-sm ' + (t.type === 'income' ? 'text-green-600' : 'text-red-600');
+                amtCell.textContent = (t.type === 'income' ? '+' : '-') + formatVND(t.amount);
                 row.appendChild(amtCell);
 
-                const statusCell = document.createElement('td');
-                statusCell.className = 'py-4 px-6 text-center';
-                const statusBadge = document.createElement('span');
-                statusBadge.className = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ' +
-                    (t.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600');
-                statusBadge.textContent = t.is_active ? 'Active' : 'Inactive';
-                statusCell.appendChild(statusBadge);
-                row.appendChild(statusCell);
-
-                const actCell = document.createElement('td');
-                actCell.className = 'py-4 px-6 text-center';
+                // Always-visible Use button
+                const useCell = document.createElement('td');
+                useCell.className = 'py-3 px-4 text-right';
                 const useBtn = document.createElement('button');
-                useBtn.className = 'text-green-600 hover:text-green-800 mr-2';
+                useBtn.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border text-green-700 bg-white border-green-200 hover:bg-green-50 transition active:scale-95';
                 useBtn.title = 'Use Template';
-                useBtn.setAttribute('aria-label', 'Use template');
                 const useIco = document.createElement('i');
                 useIco.className = 'fas fa-play';
                 useBtn.appendChild(useIco);
-                useBtn.addEventListener('click', function() { useTemplate(t.id); });
-                const editBtn = document.createElement('button');
-                editBtn.className = 'text-blue-600 hover:text-blue-800 mr-2';
-                editBtn.title = 'Edit';
-                editBtn.setAttribute('aria-label', 'Edit template');
-                const editIco = document.createElement('i');
-                editIco.className = 'fas fa-edit';
-                editBtn.appendChild(editIco);
-                editBtn.addEventListener('click', function() { editTemplate(t.id); });
-                const delBtn = document.createElement('button');
-                delBtn.className = 'text-red-600 hover:text-red-800';
-                delBtn.title = 'Delete';
-                delBtn.setAttribute('aria-label', 'Delete template');
-                const delIco = document.createElement('i');
-                delIco.className = 'fas fa-trash';
-                delBtn.appendChild(delIco);
-                delBtn.addEventListener('click', function() {
-                    deleteWithUndo(row, '/api/templates/' + t.id, loadTemplates, t.name);
-                });
-                actCell.appendChild(useBtn);
-                actCell.appendChild(editBtn);
-                actCell.appendChild(delBtn);
-                row.appendChild(actCell);
+                useBtn.appendChild(document.createTextNode(' Use'));
+                useBtn.addEventListener('click', function(e) { e.stopPropagation(); useTemplate(t.id); });
+                useCell.appendChild(useBtn);
+                row.appendChild(useCell);
 
                 tbody.appendChild(row);
             });
@@ -363,6 +335,70 @@
         }
     }
     
+    // ── Row action bar (same pattern as transactions) ─────────────────────────
+    let _activeTplRow = null, _activeTplActionTr = null, _activeTplRowOrigClass = null;
+
+    function toggleTemplateActions(row, t) {
+        if (_activeTplRow === row) { collapseTemplateActions(); return; }
+        collapseTemplateActions();
+
+        _activeTplRowOrigClass = row.className;
+        row.className = row.className.replace('hover:bg-gray-50', '') + ' bg-blue-50 ring-1 ring-inset ring-blue-200';
+
+        const actionTr = document.createElement('tr');
+        const actionTd = document.createElement('td');
+        actionTd.colSpan = 4;
+        actionTd.className = 'bg-blue-50 border-b border-blue-100 px-6 py-2';
+        actionTd.addEventListener('click', function(e) { e.stopPropagation(); });
+
+        const bar = document.createElement('div');
+        bar.className = 'flex flex-wrap items-center gap-2';
+
+        const mkTplBtn = function(iconClass, label, cls) {
+            const btn = document.createElement('button');
+            btn.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition active:scale-95 ' + cls;
+            const ico = document.createElement('i');
+            ico.className = 'fas ' + iconClass;
+            btn.appendChild(ico);
+            btn.appendChild(document.createTextNode(' ' + label));
+            return btn;
+        };
+
+        const editBtn = mkTplBtn('fa-edit', 'Edit', 'text-blue-700 bg-white border-blue-200 hover:bg-blue-50');
+        editBtn.addEventListener('click', function(e) { e.stopPropagation(); collapseTemplateActions(); editTemplate(t.id); });
+        bar.appendChild(editBtn);
+
+        const delBtn = mkTplBtn('fa-trash', 'Delete', 'text-red-700 bg-white border-red-200 hover:bg-red-50');
+        delBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            collapseTemplateActions();
+            deleteWithUndo(row, '/api/templates/' + t.id, loadTemplates, t.name);
+        });
+        bar.appendChild(delBtn);
+
+        const hint = document.createElement('span');
+        hint.className = 'ml-auto text-xs text-gray-400 hidden sm:block';
+        hint.textContent = 'Click row to close';
+        bar.appendChild(hint);
+
+        actionTd.appendChild(bar);
+        actionTr.appendChild(actionTd);
+        row.after(actionTr);
+
+        _activeTplRow = row;
+        _activeTplActionTr = actionTr;
+    }
+
+    function collapseTemplateActions() {
+        if (_activeTplActionTr) { _activeTplActionTr.remove(); _activeTplActionTr = null; }
+        if (_activeTplRow) {
+            if (_activeTplRowOrigClass !== null) _activeTplRow.className = _activeTplRowOrigClass;
+            _activeTplRow = null;
+            _activeTplRowOrigClass = null;
+        }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
+
     // Modal functions
     function openAddModal() {
         document.getElementById('modal-title').textContent = 'Add Template';

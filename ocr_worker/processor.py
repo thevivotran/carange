@@ -153,11 +153,11 @@ def _resolve_category(db: Session, pt: ParsedTransaction) -> Optional[int]:
         if cat:
             return cat.id
 
-    # Fallback: first active category of the right type named "Others"
+    # Fallback: type-appropriate "Chi phí khác" / "Thu nhập khác" (or legacy "Others")
     cat = (
         db.query(Category)
         .filter(
-            Category.name.ilike("%others%"),
+            Category.name.ilike("%khác%") | Category.name.ilike("%others%"),
             Category.type == tx_type,
             Category.is_active == True,
         )
