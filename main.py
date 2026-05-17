@@ -11,9 +11,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from alembic.config import Config as AlembicConfig
-from alembic import command as alembic_command
-
 from app.models.database import create_tables, get_db, SessionLocal
 from app.models.database import Category, TransactionType
 from app.routers import transactions, categories, savings, projects, dashboard, templates as templates_router
@@ -26,10 +23,7 @@ from app.routers.dashboard import get_dashboard_page_data
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # create_tables() ensures fresh test/dev DBs have the full schema before migrations run
     create_tables()
-    alembic_cfg = AlembicConfig("alembic.ini")
-    alembic_command.upgrade(alembic_cfg, "head")
     seed_default_categories()
     yield
 

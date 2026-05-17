@@ -7,6 +7,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+RUN addgroup --system app && adduser --system --ingroup app app \
+    && chown -R app:app /app
+USER app
+
 ENV DATABASE_URL=sqlite:////data/carange.db
 ENV PYTHONUNBUFFERED=1
 

@@ -9,8 +9,11 @@ Environment variables:
 
 import logging
 import os
+import pathlib
 import time
 from datetime import datetime, timezone
+
+LIVENESS_FILE = pathlib.Path("/tmp/worker_alive")
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
@@ -71,10 +74,12 @@ def run() -> None:
 
             if job is None:
                 log.debug("Queue empty — sleeping %ds", POLL_INTERVAL)
+                LIVENESS_FILE.touch()
                 time.sleep(POLL_INTERVAL)
                 continue
 
             log.info("Claimed job %d (%s)", job.id, job.filename)
+            LIVENESS_FILE.touch()
             try:
                 process_job(job, db)
             except Exception as exc:
