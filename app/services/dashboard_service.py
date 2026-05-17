@@ -167,31 +167,80 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     prev_month_end = date(prev_year_num, prev_month_num, _prev_last)
 
     _prev = db.query(
-        func.sum(case(
-            (and_(Transaction.type == TransactionType.INCOME,
-                  Transaction.date >= prev_month_start, Transaction.date <= prev_month_end,
-                  Transaction.deleted_at.is_(None)), Transaction.amount), else_=0,
-        )).label("income"),
-        func.sum(case(
-            (and_(Transaction.type == TransactionType.EXPENSE, Transaction.is_savings_related == False,
-                  Transaction.date >= prev_month_start, Transaction.date <= prev_month_end,
-                  Transaction.deleted_at.is_(None)), Transaction.amount), else_=0,
-        )).label("expense"),
-        func.sum(case(
-            (and_(Transaction.type == TransactionType.EXPENSE, Transaction.is_savings_related == True,
-                  Transaction.date >= prev_month_start, Transaction.date <= prev_month_end,
-                  Transaction.deleted_at.is_(None)), Transaction.amount), else_=0,
-        )).label("savings"),
-        func.sum(case(
-            (and_(Transaction.type == TransactionType.EXPENSE,
-                  Transaction.date >= prev_month_start, Transaction.date <= prev_month_end,
-                  Transaction.deleted_at.is_(None), tk_filter), Transaction.amount), else_=0,
-        )).label("tiet_kiem"),
-        func.sum(case(
-            (and_(Transaction.type == TransactionType.EXPENSE,
-                  Transaction.date >= prev_month_start, Transaction.date <= prev_month_end,
-                  Transaction.deleted_at.is_(None), bds_filter), Transaction.amount), else_=0,
-        )).label("bds"),
+        func.sum(
+            case(
+                (
+                    and_(
+                        Transaction.type == TransactionType.INCOME,
+                        Transaction.date >= prev_month_start,
+                        Transaction.date <= prev_month_end,
+                        Transaction.deleted_at.is_(None),
+                    ),
+                    Transaction.amount,
+                ),
+                else_=0,
+            )
+        ).label("income"),
+        func.sum(
+            case(
+                (
+                    and_(
+                        Transaction.type == TransactionType.EXPENSE,
+                        Transaction.is_savings_related == False,
+                        Transaction.date >= prev_month_start,
+                        Transaction.date <= prev_month_end,
+                        Transaction.deleted_at.is_(None),
+                    ),
+                    Transaction.amount,
+                ),
+                else_=0,
+            )
+        ).label("expense"),
+        func.sum(
+            case(
+                (
+                    and_(
+                        Transaction.type == TransactionType.EXPENSE,
+                        Transaction.is_savings_related == True,
+                        Transaction.date >= prev_month_start,
+                        Transaction.date <= prev_month_end,
+                        Transaction.deleted_at.is_(None),
+                    ),
+                    Transaction.amount,
+                ),
+                else_=0,
+            )
+        ).label("savings"),
+        func.sum(
+            case(
+                (
+                    and_(
+                        Transaction.type == TransactionType.EXPENSE,
+                        Transaction.date >= prev_month_start,
+                        Transaction.date <= prev_month_end,
+                        Transaction.deleted_at.is_(None),
+                        tk_filter,
+                    ),
+                    Transaction.amount,
+                ),
+                else_=0,
+            )
+        ).label("tiet_kiem"),
+        func.sum(
+            case(
+                (
+                    and_(
+                        Transaction.type == TransactionType.EXPENSE,
+                        Transaction.date >= prev_month_start,
+                        Transaction.date <= prev_month_end,
+                        Transaction.deleted_at.is_(None),
+                        bds_filter,
+                    ),
+                    Transaction.amount,
+                ),
+                else_=0,
+            )
+        ).label("bds"),
     ).first()
 
     _pi = float(_prev.income or 0)
@@ -254,7 +303,8 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
             Transaction.date <= _ef_end,
             Transaction.deleted_at.is_(None),
         )
-        .scalar() or 0
+        .scalar()
+        or 0
     )
     avg_monthly_expense = _ef_total / 3 if _ef_total > 0 else monthly_expense or 1
     emergency_fund_months = round(total_savings / avg_monthly_expense, 1) if avg_monthly_expense > 0 else 0
@@ -375,7 +425,8 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
                 ProjectPayment.due_date >= _year_start,
                 ProjectPayment.due_date <= _year_end,
             )
-            .scalar() or 0
+            .scalar()
+            or 0
         )
         bds_ytd_planned = float(
             db.query(func.sum(ProjectPayment.amount))
@@ -384,7 +435,8 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
                 ProjectPayment.due_date >= _year_start,
                 ProjectPayment.due_date <= _year_end,
             )
-            .scalar() or 0
+            .scalar()
+            or 0
         )
         _last_pmt = (
             db.query(ProjectPayment)

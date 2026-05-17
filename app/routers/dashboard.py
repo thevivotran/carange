@@ -197,9 +197,7 @@ def get_wealth_building_trend(db: Session = Depends(get_db)):
         db.query(
             extract("year", Transaction.date).label("year"),
             extract("month", Transaction.date).label("month"),
-            func.sum(
-                case((Transaction.type == TransactionType.INCOME, Transaction.amount), else_=0)
-            ).label("income"),
+            func.sum(case((Transaction.type == TransactionType.INCOME, Transaction.amount), else_=0)).label("income"),
         )
         .filter(Transaction.date >= start_date, Transaction.deleted_at.is_(None))
         .group_by(extract("year", Transaction.date), extract("month", Transaction.date))
