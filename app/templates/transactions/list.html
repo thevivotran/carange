@@ -1232,7 +1232,7 @@
                 bar.appendChild(approveBtn);
             }
 
-            const isOCR = !!(t.import_job_id);
+            const isOCR = !!(t.import_job_id) && t.needs_review;
             const delLabel = isOCR ? 'Reject' : 'Delete';
             const delBtn = mkBtn('fa-trash', delLabel, 'text-red-700 bg-white border-red-200 hover:bg-red-50');
             delBtn.addEventListener('click', function(e) {
