@@ -11,7 +11,12 @@ from app.models.database import (
     FinancialProject,
     Transaction,
 )
-from app.models.schemas import SavingsBundle as SavingsBundleSchema, SavingsBundleCreate, SavingsBundleUpdate, Transaction as TransactionSchema
+from app.models.schemas import (
+    SavingsBundle as SavingsBundleSchema,
+    SavingsBundleCreate,
+    SavingsBundleUpdate,
+    Transaction as TransactionSchema,
+)
 from app.services import savings_service
 
 router = APIRouter()

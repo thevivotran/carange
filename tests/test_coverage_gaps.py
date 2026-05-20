@@ -223,9 +223,9 @@ def test_update_payment_nonexistent_payment_returns_404(client):
 
 def test_update_payment_amount_only_hits_non_paid_path(client):
     """PATCH with just amount (no status change) exercises the flush/commit return path."""
-    project_id = client.post(
-        "/api/projects/", json={"name": "P", "type": "real_estate", "priority": "low"}
-    ).json()["id"]
+    project_id = client.post("/api/projects/", json={"name": "P", "type": "real_estate", "priority": "low"}).json()[
+        "id"
+    ]
     payment_id = client.post(
         f"/api/projects/{project_id}/payments",
         json={"amount": 1_000_000, "due_date": "2026-06-01"},
