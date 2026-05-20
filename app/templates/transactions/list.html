@@ -176,14 +176,14 @@
 
 <!-- Add/Edit Transaction Modal -->
 <div id="transaction-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <div class="p-6 border-b flex justify-between items-center">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] flex flex-col">
+        <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
             <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Transaction</h3>
             <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close">
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
-
+        <div class="flex-1 overflow-y-auto">
         <form id="transaction-form" class="p-6 space-y-4">
             <input type="hidden" id="transaction-id">
 
@@ -350,6 +350,7 @@
                 </button>
             </div>
         </form>
+        </div>
     </div>
 </div>
 
@@ -1647,15 +1648,15 @@
 
 <!-- Bulk Upload Modal -->
 <div id="bulk-upload-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl shadow-xl max-w-lg w-full">
-        <div class="p-6 border-b flex justify-between items-center">
+    <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] flex flex-col">
+        <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
             <h3 class="text-xl font-bold text-gray-800">Bulk Upload Transactions</h3>
             <button onclick="closeBulkUploadModal()" class="text-gray-500 hover:text-gray-700">
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
-        
-        <div class="p-6 space-y-4">
+
+        <div class="flex-1 overflow-y-auto p-6 space-y-4">
             <div class="bg-blue-50 rounded-lg p-4">
                 <p class="text-sm text-blue-700 mb-2"><i class="fas fa-info-circle mr-1"></i> <strong>CSV Format:</strong></p>
                 <p class="text-xs text-blue-600 mb-3">date (YYYY-MM-DD), amount, type (income/expense), category, description (optional)</p>
@@ -1663,27 +1664,27 @@
                     <i class="fas fa-download mr-1"></i>Download English Template
                 </button>
             </div>
-            
+
             <div class="bg-purple-50 rounded-lg p-4">
                 <p class="text-sm text-purple-700"><i class="fas fa-exchange-alt mr-1"></i> <strong>Alternative Vietnamese Format:</strong></p>
                 <p class="text-xs text-purple-600 mt-1">N&#259;m (Year), Th&#225;ng (Month), Thu (Income), Chi (Expense), Lo&#7841;i (Category), Ghi ch&#250; (Description)</p>
             </div>
-            
+
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Select CSV File</label>
                 <input type="file" id="csv-file" accept=".csv"
                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
             </div>
-            
+
             <div id="upload-status"></div>
             <div id="upload-result" class="hidden"></div>
-            
-            <div class="flex gap-4 pt-4">
-                <button type="button" onclick="closeBulkUploadModal()"
-                        class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition">Close</button>
-                <button type="button" onclick="submitBulkUpload()"
-                        class="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">Upload &amp; Import</button>
-            </div>
+        </div>
+
+        <div class="flex-shrink-0 flex gap-4 px-6 py-4 border-t">
+            <button type="button" onclick="closeBulkUploadModal()"
+                    class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition">Close</button>
+            <button type="button" onclick="submitBulkUpload()"
+                    class="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">Upload &amp; Import</button>
         </div>
     </div>
 </div>
