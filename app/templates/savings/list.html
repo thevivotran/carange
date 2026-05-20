@@ -394,6 +394,98 @@
             }
             card.appendChild(datesDiv);
 
+            // Linked Transactions
+            if ((bundle.linked_transaction_count || 0) > 0) {
+                const txSection = document.createElement('div');
+                txSection.className = 'mb-4';
+
+                const txToggle = document.createElement('button');
+                txToggle.className = 'flex items-center justify-between w-full text-sm text-indigo-600 hover:text-indigo-800 font-medium py-1';
+                const txToggleLeft = document.createElement('span');
+                const txIco = document.createElement('i');
+                txIco.className = 'fas fa-receipt mr-2';
+                txToggleLeft.appendChild(txIco);
+                txToggleLeft.appendChild(document.createTextNode(
+                    bundle.linked_transaction_count + ' linked transaction' +
+                    (bundle.linked_transaction_count === 1 ? '' : 's')
+                ));
+                const txChevron = document.createElement('i');
+                txChevron.className = 'fas fa-chevron-down text-xs transition-transform duration-200';
+                txToggle.appendChild(txToggleLeft);
+                txToggle.appendChild(txChevron);
+
+                const txList = document.createElement('div');
+                txList.className = 'hidden mt-2 space-y-1';
+                let loaded = false;
+
+                txToggle.addEventListener('click', async function() {
+                    const isOpen = !txList.classList.contains('hidden');
+                    if (isOpen) {
+                        txList.classList.add('hidden');
+                        txChevron.style.transform = '';
+                        return;
+                    }
+                    txChevron.style.transform = 'rotate(180deg)';
+                    txList.classList.remove('hidden');
+                    if (loaded) return;
+                    loaded = true;
+
+                    const loadingEl = document.createElement('p');
+                    loadingEl.className = 'text-xs text-gray-400 py-1';
+                    loadingEl.textContent = 'Loading…';
+                    txList.appendChild(loadingEl);
+
+                    try {
+                        const res = await fetch('/api/savings/' + bundle.id + '/transactions');
+                        const txs = await res.json();
+                        txList.removeChild(loadingEl);
+                        txs.forEach(function(tx) {
+                            const row = document.createElement('div');
+                            row.className = 'flex items-center justify-between text-xs bg-gray-50 rounded px-3 py-2';
+
+                            const left = document.createElement('div');
+                            left.className = 'flex items-center gap-2 min-w-0';
+
+                            const typeBadge = document.createElement('span');
+                            typeBadge.className = 'shrink-0 px-1.5 py-0.5 rounded font-medium ' +
+                                (tx.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700');
+                            typeBadge.textContent = tx.type === 'income' ? 'IN' : 'OUT';
+
+                            const desc = document.createElement('span');
+                            desc.className = 'text-gray-600 truncate';
+                            desc.textContent = tx.description || tx.category.name;
+
+                            const dateEl = document.createElement('span');
+                            dateEl.className = 'shrink-0 text-gray-400';
+                            dateEl.textContent = formatDate(tx.date);
+
+                            left.appendChild(typeBadge);
+                            left.appendChild(desc);
+                            left.appendChild(dateEl);
+
+                            const amt = document.createElement('span');
+                            amt.className = 'shrink-0 font-semibold ml-2 ' +
+                                (tx.type === 'income' ? 'text-green-700' : 'text-red-700');
+                            amt.textContent = (tx.type === 'income' ? '+' : '-') + formatVND(tx.amount);
+
+                            row.appendChild(left);
+                            row.appendChild(amt);
+                            txList.appendChild(row);
+                        });
+                    } catch(e) {
+                        txList.removeChild(loadingEl);
+                        const err = document.createElement('p');
+                        err.className = 'text-xs text-red-400 py-1';
+                        err.textContent = 'Failed to load transactions';
+                        txList.appendChild(err);
+                    }
+                });
+
+                txSection.appendChild(txToggle);
+                txSection.appendChild(txList);
+                card.appendChild(txSection);
+            }
+
             if (bundle.notes) {
                 const notesEl = document.createElement('p');
                 notesEl.className = 'text-sm text-gray-600 mb-4 italic';

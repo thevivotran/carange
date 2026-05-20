@@ -189,6 +189,97 @@ def test_update_to_savings_related_does_not_change_other_fields(client, cat):
 # ── Bundle initial_deposit matches transaction amount ─────────────────────────
 
 
+# ── GET /api/savings/{id}/transactions ───────────────────────────────────────
+
+
+def test_get_bundle_transactions_empty(client, cat):
+    bundle_id = client.post(
+        "/api/savings/",
+        json={
+            "name": "Empty Bundle",
+            "bank_name": "VCB",
+            "type": "fixed_deposit",
+            "initial_deposit": 50_000_000,
+            "future_amount": 53_000_000,
+            "start_date": "2026-03-01",
+        },
+    ).json()["id"]
+    r = client.get(f"/api/savings/{bundle_id}/transactions")
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+def test_get_bundle_transactions_after_upgrade(client, cat):
+    tx_id = _tx(client, cat["id"])["id"]
+    tx = client.put(
+        f"/api/transactions/{tx_id}",
+        json={"is_savings_related": True, "savings_bundle": _bundle_payload()},
+    ).json()
+    bundle_id = tx["savings_bundle_id"]
+
+    r = client.get(f"/api/savings/{bundle_id}/transactions")
+    assert r.status_code == 200
+    txs = r.json()
+    assert len(txs) == 1
+    assert txs[0]["id"] == tx_id
+    assert txs[0]["is_savings_related"] is True
+
+
+def test_get_bundle_transactions_multiple(client, cat):
+    """Two transactions linked to the same bundle both appear."""
+    # First tx upgrades and creates the bundle
+    tx1_id = _tx(client, cat["id"], amount=30_000_000)["id"]
+    tx1 = client.put(
+        f"/api/transactions/{tx1_id}",
+        json={"is_savings_related": True, "savings_bundle": _bundle_payload()},
+    ).json()
+    bundle_id = tx1["savings_bundle_id"]
+
+    # Second tx linked directly to the existing bundle
+    tx2 = client.post(
+        "/api/transactions/",
+        json={
+            "date": "2026-04-01",
+            "amount": 10_000_000,
+            "type": "expense",
+            "category_id": cat["id"],
+            "description": "top-up",
+            "payment_method": "cash",
+            "is_savings_related": True,
+            "savings_bundle_id": bundle_id,
+        },
+    ).json()
+
+    r = client.get(f"/api/savings/{bundle_id}/transactions")
+    assert r.status_code == 200
+    ids = {t["id"] for t in r.json()}
+    assert tx1_id in ids
+    assert tx2["id"] in ids
+
+
+def test_get_bundle_transactions_nonexistent_bundle_returns_404(client):
+    r = client.get("/api/savings/999999/transactions")
+    assert r.status_code == 404
+
+
+def test_get_bundle_transactions_excludes_soft_deleted(client, cat):
+    tx_id = _tx(client, cat["id"])["id"]
+    tx = client.put(
+        f"/api/transactions/{tx_id}",
+        json={"is_savings_related": True, "savings_bundle": _bundle_payload()},
+    ).json()
+    bundle_id = tx["savings_bundle_id"]
+
+    client.delete(f"/api/transactions/{tx_id}")
+
+    r = client.get(f"/api/savings/{bundle_id}/transactions")
+    assert r.status_code == 200
+    assert r.json() == []
+
+
+# ── bundle_current_amount_equals_initial_deposit ─────────────────────────────
+
+
 def test_bundle_current_amount_equals_initial_deposit(client, cat):
     tx_id = _tx(client, cat["id"], amount=30_000_000)["id"]
     payload = {**_bundle_payload(), "initial_deposit": 30_000_000, "future_amount": 31_500_000}

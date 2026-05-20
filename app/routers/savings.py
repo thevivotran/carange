@@ -11,7 +11,7 @@ from app.models.database import (
     FinancialProject,
     Transaction,
 )
-from app.models.schemas import SavingsBundle as SavingsBundleSchema, SavingsBundleCreate, SavingsBundleUpdate
+from app.models.schemas import SavingsBundle as SavingsBundleSchema, SavingsBundleCreate, SavingsBundleUpdate, Transaction as TransactionSchema
 from app.services import savings_service
 
 router = APIRouter()
@@ -45,6 +45,19 @@ def get_savings_bundles(status: Optional[str] = None, skip: int = 0, limit: int 
 @router.get("/trash", response_model=List[SavingsBundleSchema])
 def get_trashed_bundles(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     return savings_service.get_trashed_bundles(db, skip=skip, limit=limit)
+
+
+@router.get("/{bundle_id}/transactions", response_model=List[TransactionSchema])
+def get_bundle_transactions(bundle_id: int, db: Session = Depends(get_db)):
+    bundle = db.query(SavingsBundle).filter(SavingsBundle.id == bundle_id, SavingsBundle.deleted_at.is_(None)).first()
+    if not bundle:
+        raise HTTPException(status_code=404, detail="Savings bundle not found")
+    return (
+        db.query(Transaction)
+        .filter(Transaction.savings_bundle_id == bundle_id, Transaction.deleted_at.is_(None))
+        .order_by(Transaction.date.desc())
+        .all()
+    )
 
 
 @router.get("/{bundle_id}", response_model=SavingsBundleSchema)

@@ -96,7 +96,7 @@ def get_or_create_category(db: Session, category_name: str, trans_type: Transact
 def create_transaction(db: Session, data: TransactionCreate) -> Transaction:
     """Create a Transaction, optionally creating a linked SavingsBundle atomically."""
     transaction_data = data.model_dump(exclude={"savings_bundle"})
-    savings_bundle_id = None
+    savings_bundle_id = data.savings_bundle_id
 
     try:
         if data.is_savings_related and data.savings_bundle:
