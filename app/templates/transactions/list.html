@@ -186,6 +186,7 @@
         <div class="flex-1 overflow-y-auto">
         <form id="transaction-form" class="p-6 space-y-4">
             <input type="hidden" id="transaction-id">
+            <input type="hidden" id="existing-savings-bundle-id">
 
             <!-- From Template picker -->
             <div>
@@ -1031,6 +1032,10 @@
         document.getElementById('modal-title').textContent = 'Add Transaction';
         document.getElementById('transaction-form').reset();
         document.getElementById('transaction-id').value = '';
+        document.getElementById('existing-savings-bundle-id').value = '';
+        const savingsSection = document.getElementById('savings-section');
+        savingsSection.classList.remove('opacity-50', 'pointer-events-none');
+        savingsSection.title = '';
         document.getElementById('date').valueAsDate = new Date();
         document.getElementById('template-picker-list').classList.add('hidden');
         document.getElementById('template-picker-arrow').className = 'fas fa-chevron-down text-gray-400 text-xs';
@@ -1048,8 +1053,10 @@
 
         const transactionId = document.getElementById('transaction-id').value;
         const isSavingsRelated = document.getElementById('is-savings-related').checked;
+        const existingBundleId = document.getElementById('existing-savings-bundle-id').value;
+        const needsNewBundle = isSavingsRelated && !existingBundleId;
 
-        if (isSavingsRelated && !transactionId) {
+        if (needsNewBundle) {
             const savingsName = document.getElementById('savings-name').value.trim();
             const savingsBankName = document.getElementById('savings-bank-name').value.trim();
             if (!savingsName || !savingsBankName) {
@@ -1080,7 +1087,7 @@
             }
         }
 
-        if (isSavingsRelated && !transactionId) {
+        if (needsNewBundle) {
             const amount = parseFloat(document.getElementById('amount').value) || 0;
             const futureAmount = parseFloat(document.getElementById('savings-future-amount').value) || amount;
             data.savings_bundle = {
@@ -1154,10 +1161,14 @@
 
             const isSavingsRelated = transaction.is_savings_related;
             document.getElementById('is-savings-related').checked = isSavingsRelated;
+            document.getElementById('existing-savings-bundle-id').value = transaction.savings_bundle_id || '';
+
+            const savingsSection = document.getElementById('savings-section');
+            savingsSection.classList.remove('opacity-50', 'pointer-events-none');
+            savingsSection.title = '';
             toggleSavingsSection();
 
-            if (isSavingsRelated) {
-                const savingsSection = document.getElementById('savings-section');
+            if (isSavingsRelated && transaction.savings_bundle_id) {
                 savingsSection.classList.add('opacity-50', 'pointer-events-none');
                 savingsSection.title = 'Savings bundle details can only be modified from the Savings page';
             }

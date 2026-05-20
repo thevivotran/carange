@@ -14,6 +14,7 @@ from app.models.database import (
     Category,
     TransactionType,
     SavingsBundle,
+    SavingsStatus,
     ProjectPayment,
     FinancialProject,
 )
@@ -192,12 +193,33 @@ def update_transaction(transaction_id: int, transaction: TransactionUpdate, db: 
     if not db_transaction:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
-    update_data = transaction.model_dump(exclude_unset=True)
+    update_data = transaction.model_dump(exclude_unset=True, exclude={"savings_bundle"})
 
     if "category_id" in update_data:
         category = db.query(Category).filter(Category.id == update_data["category_id"]).first()
         if not category:
             raise HTTPException(status_code=404, detail="Category not found")
+
+    # Create a SavingsBundle when upgrading a transaction to savings-related
+    becoming_savings = update_data.get("is_savings_related", False) and not db_transaction.savings_bundle_id
+    if becoming_savings and transaction.savings_bundle:
+        bundle_data = transaction.savings_bundle
+        db_bundle = SavingsBundle(
+            name=bundle_data.name,
+            bank_name=bundle_data.bank_name,
+            type=bundle_data.type,
+            initial_deposit=bundle_data.initial_deposit,
+            current_amount=bundle_data.initial_deposit,
+            future_amount=bundle_data.future_amount,
+            interest_rate=bundle_data.interest_rate,
+            start_date=bundle_data.start_date,
+            maturity_date=bundle_data.maturity_date,
+            notes=bundle_data.notes,
+            status=SavingsStatus.ACTIVE,
+        )
+        db.add(db_bundle)
+        db.flush()
+        update_data["savings_bundle_id"] = db_bundle.id
 
     before = transaction_service.snapshot_audit_fields(db_transaction)
 
@@ -206,7 +228,11 @@ def update_transaction(transaction_id: int, transaction: TransactionUpdate, db: 
 
     transaction_service.write_audit_log(db, transaction_id, before, db_transaction, datetime.now(timezone.utc))
 
-    db.commit()
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
     db.refresh(db_transaction)
     return db_transaction
 

@@ -174,6 +174,7 @@ class TransactionUpdate(BaseModel):
     advance_settled: Optional[bool] = None
     source: Optional[str] = None
     savings_bundle_id: Optional[int] = None
+    savings_bundle: Optional[SavingsBundleCreate] = None
     project_id: Optional[int] = None
     needs_review: Optional[bool] = None  # human clears the review flag after correction
 
