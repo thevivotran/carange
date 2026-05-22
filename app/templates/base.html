@@ -258,6 +258,31 @@
         @media (max-width: 767px) {
           main { padding-bottom: calc(3.5rem + max(env(safe-area-inset-bottom), 0.75rem)) !important; }
         }
+
+        /* ── Cross-document view transitions (Chrome 116+, Safari 18.2+) ──
+           Opts every same-origin full-page navigation into a smooth transition.
+           Only <main> animates — sidebar, bottom nav, and header stay static. */
+        @view-transition { navigation: auto; }
+
+        main { view-transition-name: main-content; }
+
+        /* Freeze the root (chrome) so sidebar/nav don't flicker */
+        ::view-transition-old(root),
+        ::view-transition-new(root) { animation: none; }
+
+        /* Content slides out upward, new content slides in from below */
+        ::view-transition-old(main-content) {
+            animation: _vtx-out 90ms ease forwards;
+        }
+        ::view-transition-new(main-content) {
+            animation: _vtx-in 160ms ease forwards;
+        }
+        @keyframes _vtx-out {
+            to { opacity: 0; transform: translateY(-8px); }
+        }
+        @keyframes _vtx-in {
+            from { opacity: 0; transform: translateY(8px); }
+        }
     </style>
     
     {% block extra_css %}{% endblock %}
