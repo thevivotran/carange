@@ -64,22 +64,22 @@
         </div>
       </div>
 
-      <!-- Check 2: BDS paid -->
+      <!-- Check 2: Real Estate paid -->
       <div id="check-bds" class="rounded-xl p-3 flex items-start gap-2.5 bg-white">
         <span class="text-base leading-none mt-0.5 flex-shrink-0">{{ '✅' if check_bds else '❌' }}</span>
         <div class="min-w-0">
-          <p class="text-xs font-semibold {{ 'text-green-800' if check_bds else 'text-red-800' }}">BDS Paid</p>
+          <p class="text-xs font-semibold {{ 'text-green-800' if check_bds else 'text-red-800' }}">Real Estate Paid</p>
           <p class="text-xs mt-0.5 {{ 'text-green-600' if check_bds else 'text-red-500' }}">
             {% if check_bds %}{{ "{:,.0f}".format(summary.monthly_bds) }} ₫{% else %}No payment recorded{% endif %}
           </p>
         </div>
       </div>
 
-      <!-- Check 3: Tiết kiệm ≥ 20M -->
+      <!-- Check 3: Savings ≥ 20M -->
       <div id="check-tk" class="rounded-xl p-3 flex items-start gap-2.5 bg-white">
         <span class="text-base leading-none mt-0.5 flex-shrink-0">{{ '✅' if check_tk else '❌' }}</span>
         <div class="min-w-0">
-          <p class="text-xs font-semibold {{ 'text-green-800' if check_tk else 'text-red-800' }}">Tiết kiệm &gt; 20M</p>
+          <p class="text-xs font-semibold {{ 'text-green-800' if check_tk else 'text-red-800' }}">Savings &gt; 20M</p>
           <p class="text-xs mt-0.5 {{ 'text-green-600' if check_tk else 'text-red-500' }}">
             {{ "{:,.0f}".format(summary.monthly_tiet_kiem) }} ₫
           </p>
@@ -133,10 +133,10 @@
       </div>
     </div>
 
-    <!-- BDS Rate -->
+    <!-- Real Estate Rate -->
     <div class="bg-white rounded-2xl shadow-sm border p-5">
       <div class="flex justify-between items-center mb-1">
-        <p class="text-xs text-gray-500 uppercase tracking-widest">BDS Rate</p>
+        <p class="text-xs text-gray-500 uppercase tracking-widest">Real Estate Rate</p>
         <span id="kpi-bds-delta" class="text-xs font-semibold text-gray-300">
           {% if bds_delta > 0.5 %}↑ +{{ "%.1f"|format(bds_delta) }}%{% elif bds_delta < -0.5 %}↓ {{ "%.1f"|format(bds_delta) }}%{% endif %}
         </span>
@@ -144,7 +144,7 @@
       <p id="kpi-bds-rate" class="text-3xl font-bold {{ 'text-green-600' if summary.monthly_bds > 0 else 'text-red-500' }}">
         {{ summary.bds_rate }}%
       </p>
-      <p class="text-xs text-gray-500 mt-2">Bất động sản ÷ Income</p>
+      <p class="text-xs text-gray-500 mt-2">Real Estate ÷ Income</p>
       <div class="mt-2 flex items-center justify-between">
         <span class="text-xs text-gray-500">Min: ≥ 1 payment</span>
         <span id="kpi-bds-badge" class="text-xs px-2 py-0.5 rounded-full
@@ -278,7 +278,7 @@
         <p class="text-sm font-semibold text-white mt-0.5">{% set v = summary.total_savings %}{% if v >= 1000000000 %}{{ "%.2f"|format(v/1000000000) }}B{% elif v >= 1000000 %}{{ "%.0f"|format(v/1000000) }}M{% else %}{{ "{:,.0f}".format(v) }}{% endif %} ₫</p>
       </div>
       <div class="bg-white/10 rounded-xl p-3">
-        <p class="text-xs text-blue-300">BDS Equity</p>
+        <p class="text-xs text-blue-300">Real Estate Equity</p>
         <p class="text-sm font-semibold text-white mt-0.5">{% set v = summary.total_projects_paid %}{% if v >= 1000000000 %}{{ "%.2f"|format(v/1000000000) }}B{% elif v >= 1000000 %}{{ "%.0f"|format(v/1000000) }}M{% else %}{{ "{:,.0f}".format(v) }}{% endif %} ₫</p>
       </div>
       <div class="bg-white/10 rounded-xl p-3">
@@ -440,7 +440,7 @@
       <div class="flex justify-between items-center mb-4">
         <div>
           <h3 class="font-semibold text-gray-800">Wealth Building — Last 6 Months</h3>
-          <p class="text-xs text-gray-500 mt-0.5">Tiết kiệm + Bất động sản monthly deposits</p>
+          <p class="text-xs text-gray-500 mt-0.5">Savings + Real Estate monthly deposits</p>
         </div>
       </div>
       <div style="height: 230px; position: relative;">
@@ -499,7 +499,7 @@
           <span class="font-medium text-gray-800">20,000,000 ₫</span>
         </div>
         <div class="flex justify-between text-sm">
-          <span class="text-gray-600">BDS instalment</span>
+          <span class="text-gray-600">Real Estate instalment</span>
           <span class="font-medium text-gray-800">{{ "{:,.0f}".format(summary.stress_test_required - summary.avg_monthly_expense - 20000000) }} ₫</span>
         </div>
         <div class="border-t border-gray-200 pt-2 mt-2 flex justify-between text-sm font-semibold">
@@ -1000,7 +1000,7 @@ fetch('/api/dashboard/wealth-building-trend')
                 labels: data.map(d => d.month),
                 datasets: [
                     {
-                        label: 'Tiết kiệm',
+                        label: 'Savings',
                         data: data.map(d => d.tiet_kiem),
                         backgroundColor: 'rgba(96,165,250,0.8)',
                         borderColor: '#2563EB',
@@ -1010,7 +1010,7 @@ fetch('/api/dashboard/wealth-building-trend')
                         yAxisID: 'y',
                     },
                     {
-                        label: 'Bất động sản',
+                        label: 'Real Estate',
                         data: data.map(d => d.bds),
                         backgroundColor: 'rgba(167,139,250,0.8)',
                         borderColor: '#7C3AED',
@@ -1146,28 +1146,28 @@ fetch('/api/dashboard/wealth-building-trend')
 const KPI_INFO = {
     'liquid-savings': {
         title: 'Liquid Savings Rate',
-        formula: 'Tiết kiệm ÷ Income × 100',
+        formula: 'Savings ÷ Income × 100',
         target: '≥ 23%  (20M from ~86M income)',
         notes: [
-            'Only Tiết kiệm transfers — liquid, earns interest, withdrawable',
-            'Excludes BDS to show true liquid safety net growth',
+            'Only Savings transfers — liquid, earns interest, withdrawable',
+            'Excludes Real Estate to show true liquid safety net growth',
             'Green ≥ 23% / Yellow 10–22% / Red < 10%',
             'Reflects the selected month',
         ],
     },
     'bds-rate': {
-        title: 'BDS Rate',
-        formula: 'Bất động sản ÷ Income × 100',
+        title: 'Real Estate Rate',
+        formula: 'Real Estate ÷ Income × 100',
         target: 'At least one payment made each month',
         notes: [
             'Tracks the share of income committed to the apartment',
             'Illiquid — builds equity over years, not immediately accessible',
-            'Badge turns green when any BDS payment is recorded',
+            'Badge turns green when any Real Estate payment is recorded',
         ],
     },
     'net-cash': {
         title: 'Net Cash',
-        formula: 'Income − Savings Deposits − Bất động sản − Living Expense',
+        formula: 'Income − Savings Deposits − Real Estate − Living Expense',
         target: '> 0  (some discretionary cash remaining)',
         notes: [
             'Positive = money still in current account after all outflows',
@@ -1177,7 +1177,7 @@ const KPI_INFO = {
     'living-expense': {
         title: 'Living Expense Ratio',
         formula: 'Living Expenses ÷ Income × 100',
-        target: '< 40%  (leaves 60%+ for saving & BDS)',
+        target: '< 40%  (leaves 60%+ for saving & real estate)',
         notes: [
             'Living Expenses = non-savings-related spending (food, transport…)',
             'Green < 40% / Yellow 40–55% / Red > 55%',
@@ -1187,22 +1187,22 @@ const KPI_INFO = {
     'emergency-fund': {
         title: 'Emergency Fund Coverage',
         formula: 'Active Savings ÷ Avg Monthly Living Expense (last 3 months)',
-        target: '≥ 6 months  (higher for families with illiquid BDS obligations)',
+        target: '≥ 6 months  (higher for families with illiquid real estate obligations)',
         notes: [
             'How many months you can cover living costs from savings alone',
             'Uses future maturity value of active savings bundles',
-            'Target is 6 months (not the usual 3) because BDS is illiquid',
+            'Target is 6 months (not the usual 3) because real estate is illiquid',
             'Always reflects current savings state',
         ],
     },
     'net-worth': {
         title: 'Net Worth',
-        formula: 'Cash on Hand + Active Savings + BDS Equity + Other Assets',
+        formula: 'Cash on Hand + Active Savings + Real Estate Equity + Other Assets',
         target: 'Increasing over time',
         notes: [
             'Cash on Hand = all-time income minus all-time expenses',
             'Active Savings = future maturity value of open savings bundles',
-            'BDS Equity = total paid into the apartment project',
+            'Real Estate Equity = total paid into the apartment project',
             'Always shows current state — not affected by month selector',
         ],
     },
