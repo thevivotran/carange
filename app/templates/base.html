@@ -268,11 +268,64 @@
         ::view-transition-new(root) { animation: _vtx-in  150ms ease; }
         @keyframes _vtx-out { to   { opacity: 0; } }
         @keyframes _vtx-in  { from { opacity: 0; } }
+
+        /* ── Navigation progress bar ─────────────────────────────────────── */
+        #nav-progress {
+            position: fixed; top: 0; left: 0; right: 0; height: 3px;
+            background: linear-gradient(90deg, #2563EB 0%, #059669 100%);
+            transform-origin: left; transform: scaleX(0); opacity: 0;
+            z-index: 99999; pointer-events: none;
+        }
+        body.navigating #nav-progress {
+            opacity: 1;
+            animation: _np-run 2s ease-out forwards;
+        }
+        @keyframes _np-run {
+            0%   { transform: scaleX(0); }
+            40%  { transform: scaleX(0.6); }
+            100% { transform: scaleX(0.92); }
+        }
+
+        /* ── Skeleton shimmer (shared by all pages) ─────────────────────── */
+        @keyframes _shimmer {
+            0%   { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .skeleton-pulse {
+            background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+            background-size: 200% 100%;
+            animation: _shimmer 1.2s infinite;
+            border-radius: 6px;
+            color: transparent !important;
+            pointer-events: none; user-select: none;
+        }
+        .dark .skeleton-pulse {
+            background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+            background-size: 200% 100%;
+        }
+
+        /* ── Page-load shimmer overlay on <main> ────────────────────────── */
+        main.page-loading { position: relative; }
+        main.page-loading::after {
+            content: '';
+            position: absolute; inset: 0;
+            background: linear-gradient(90deg,
+                transparent 25%, rgba(255,255,255,0.55) 50%, transparent 75%);
+            background-size: 200% 100%;
+            animation: _shimmer 1.5s infinite;
+            pointer-events: none; z-index: 10;
+        }
+        .dark main.page-loading::after {
+            background: linear-gradient(90deg,
+                transparent 25%, rgba(15,23,42,0.45) 50%, transparent 75%);
+            background-size: 200% 100%;
+        }
     </style>
     
     {% block extra_css %}{% endblock %}
 </head>
 <body class="bg-gray-50">
+    <div id="nav-progress"></div>
     <div class="flex h-screen" style="height:100vh;height:100dvh;">
         <!-- Sidebar -->
         <aside id="sidebar" class="hidden md:flex w-64 bg-white shadow-lg flex-col">
@@ -428,7 +481,7 @@
         </div>
         
         <!-- Main Content -->
-        <main class="flex-1 overflow-y-auto md:pt-0 pt-14 pb-16 md:pb-0">
+        <main class="flex-1 overflow-y-auto md:pt-0 pt-14 pb-16 md:pb-0 page-loading">
             {% block content %}{% endblock %}
         </main>
     </div>
@@ -546,6 +599,23 @@
             document.getElementById('confirm-ok').addEventListener('click', function() { close(); onConfirm(); });
             document.getElementById('confirm-cancel').addEventListener('click', close);
         }
+
+        // ── Navigation progress bar ───────────────────────────────────────────
+        document.addEventListener('click', function(e) {
+            const a = e.target.closest('a[href]');
+            if (!a || a.hostname !== location.hostname || a.target === '_blank') return;
+            const href = a.getAttribute('href');
+            if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+            document.body.classList.add('navigating');
+        });
+
+        // Called by each page after its primary data fetch completes
+        window.pageReady = function() {
+            const main = document.querySelector('main');
+            if (main) main.classList.remove('page-loading');
+        };
+        // Safety fallback — dismiss overlay even if a page forgets to call pageReady()
+        setTimeout(window.pageReady, 2500);
 
         // Undo-delete: hides element immediately, calls DELETE after `delay` ms unless undone.
         // Pass delay=0 for immediate delete (no undo toast) — used when trash/soft-delete exists.

@@ -329,9 +329,11 @@
                 'Page ' + (currentPage + 1) + ' - Showing ' + templates.length + ' templates';
             document.getElementById('prev-btn').disabled = currentPage === 0;
             document.getElementById('next-btn').disabled = templates.length < pageSize;
+            pageReady();
 
         } catch (error) {
             console.error('Error loading templates:', error);
+            pageReady();
         }
     }
     

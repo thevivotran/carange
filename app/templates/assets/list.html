@@ -47,7 +47,10 @@
 
     <!-- Assets Grid -->
     <div id="assets-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <!-- Dynamic content -->
+        <div class="skeleton-pulse rounded-2xl h-44"></div>
+        <div class="skeleton-pulse rounded-2xl h-44"></div>
+        <div class="skeleton-pulse rounded-2xl h-44"></div>
+        <div class="skeleton-pulse rounded-2xl h-44"></div>
     </div>
 </div>
 
@@ -166,8 +169,10 @@
             const response = await fetch(url);
             otherAssets = await response.json();
             renderAssets();
+            pageReady();
         } catch (error) {
             console.error('Error loading assets:', error);
+            pageReady();
         }
     }
 

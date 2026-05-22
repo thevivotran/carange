@@ -558,15 +558,16 @@ async function loadJobs(filter) {
     let jobs;
     try {
         const res = await fetch(url);
-        if (!res.ok) return;
+        if (!res.ok) { pageReady(); return; }
         jobs = await res.json();
-    } catch(e) { return; }
+    } catch(e) { pageReady(); return; }
 
     const container = document.getElementById('job-list');
     while (container.firstChild) container.removeChild(container.firstChild);
 
     if (!jobs.length) {
         container.appendChild(currentFilter === 'all' ? buildFirstRunGuide() : buildNoJobsMessage());
+        pageReady();
         return;
     }
 
@@ -580,6 +581,7 @@ async function loadJobs(filter) {
     });
 
     jobs.forEach(function(job) { container.appendChild(buildJobCard(job)); });
+    pageReady();
 
     // Keep polling if any jobs are active
     const hasActive = jobs.some(function(j) {

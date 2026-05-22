@@ -347,7 +347,11 @@
             const res = await fetch(url);
             projects = await res.json();
             renderProjects();
-        } catch(e) { console.error(e); }
+        } catch(e) {
+            console.error(e);
+        } finally {
+            pageReady();
+        }
     }
 
     function renderProjects() {

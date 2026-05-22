@@ -93,9 +93,13 @@ const TYPE_LABELS = { money_owed: 'Money Owed', general: 'General' };
 const TYPE_COLORS = { money_owed: 'bg-orange-100 text-orange-700', general: 'bg-gray-100 text-gray-600' };
 
 async function loadNotes() {
-    const res = await fetch('/api/notes/');
-    notes = await res.json();
-    renderNoteList();
+    try {
+        const res = await fetch('/api/notes/');
+        notes = await res.json();
+        renderNoteList();
+    } finally {
+        pageReady();
+    }
 }
 
 function filterNotes(type) {

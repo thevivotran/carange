@@ -203,6 +203,8 @@
             renderSavings();
         } catch (error) {
             console.error('Error loading savings:', error);
+        } finally {
+            pageReady();
         }
     }
 

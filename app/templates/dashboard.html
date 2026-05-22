@@ -375,6 +375,7 @@
         <span class="text-xs text-gray-500">― 50M target</span>
       </div>
       <div style="height: 260px; position: relative;">
+        <div id="cashflow-skel" class="skeleton-pulse absolute inset-0 rounded-xl"></div>
         <canvas id="cashFlowChart"></canvas>
       </div>
     </div>
@@ -845,6 +846,8 @@ const fmtMdelta = v => {
 
 // ── KPI update on month change ───────────────────────────────────────────────
 function updateDashboard() {
+    const _kpiIds = ['kpi-liquid-rate','kpi-bds-rate','kpi-net-cash','kpi-living-ratio'];
+    _kpiIds.forEach(id => { const el = document.getElementById(id); if (el) el.classList.add('skeleton-pulse'); });
     fetch('/api/dashboard/summary?year=' + _curYear + '&month=' + _curMonth)
         .then(r => r.json())
         .then(s => {
@@ -895,7 +898,8 @@ function updateDashboard() {
 
             updateSafetyScore(s);
         })
-        .catch(() => showToast('Failed to load dashboard summary', 'error'));
+        .catch(() => showToast('Failed to load dashboard summary', 'error'))
+        .finally(() => { _kpiIds.forEach(id => { const el = document.getElementById(id); if (el) el.classList.remove('skeleton-pulse'); }); });
 }
 
 // ── Cash flow chart ────────────────────────────────────────────────────────
@@ -981,7 +985,11 @@ fetch('/api/dashboard/monthly-trend')
             },
         });
     })
-    .catch(() => showToast('Failed to load cash flow chart', 'error'));
+    .finally(() => {
+        const skel = document.getElementById('cashflow-skel');
+        if (skel) skel.remove();
+        pageReady();
+    });
 
 // ── Wealth Building Trend chart (with savings rate rolling line) ──────────────
 fetch('/api/dashboard/wealth-building-trend')

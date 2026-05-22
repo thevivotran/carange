@@ -152,7 +152,12 @@
     <!-- Transactions List -->
     <div class="bg-white rounded-xl shadow-md overflow-hidden">
         <div id="transactions-table-body">
-            <!-- Dynamic content -->
+            <div class="flex items-center gap-3 px-4 py-3 border-b"><div class="skeleton-pulse flex-shrink-0 h-6 w-24 rounded-full"></div><div class="flex-1 min-w-0"><div class="skeleton-pulse h-4 w-48 rounded"></div></div><div class="skeleton-pulse h-4 w-20 rounded flex-shrink-0"></div></div>
+            <div class="flex items-center gap-3 px-4 py-3 border-b"><div class="skeleton-pulse flex-shrink-0 h-6 w-24 rounded-full"></div><div class="flex-1 min-w-0"><div class="skeleton-pulse h-4 w-36 rounded"></div></div><div class="skeleton-pulse h-4 w-20 rounded flex-shrink-0"></div></div>
+            <div class="flex items-center gap-3 px-4 py-3 border-b"><div class="skeleton-pulse flex-shrink-0 h-6 w-24 rounded-full"></div><div class="flex-1 min-w-0"><div class="skeleton-pulse h-4 w-52 rounded"></div></div><div class="skeleton-pulse h-4 w-20 rounded flex-shrink-0"></div></div>
+            <div class="flex items-center gap-3 px-4 py-3 border-b"><div class="skeleton-pulse flex-shrink-0 h-6 w-24 rounded-full"></div><div class="flex-1 min-w-0"><div class="skeleton-pulse h-4 w-40 rounded"></div></div><div class="skeleton-pulse h-4 w-20 rounded flex-shrink-0"></div></div>
+            <div class="flex items-center gap-3 px-4 py-3 border-b"><div class="skeleton-pulse flex-shrink-0 h-6 w-24 rounded-full"></div><div class="flex-1 min-w-0"><div class="skeleton-pulse h-4 w-44 rounded"></div></div><div class="skeleton-pulse h-4 w-20 rounded flex-shrink-0"></div></div>
+            <div class="flex items-center gap-3 px-4 py-3 border-b"><div class="skeleton-pulse flex-shrink-0 h-6 w-24 rounded-full"></div><div class="flex-1 min-w-0"><div class="skeleton-pulse h-4 w-32 rounded"></div></div><div class="skeleton-pulse h-4 w-20 rounded flex-shrink-0"></div></div>
         </div>
         
         <!-- Totals row -->
@@ -981,9 +986,11 @@
                 'Page ' + (currentPage + 1) + ' - Showing ' + transactions.length + ' transactions';
             document.getElementById('prev-btn').disabled = currentPage === 0;
             document.getElementById('next-btn').disabled = transactions.length < pageSize;
+            pageReady();
 
         } catch (error) {
             console.error('Error loading transactions:', error);
+            pageReady();
         }
     }
     

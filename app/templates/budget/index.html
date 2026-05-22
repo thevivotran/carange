@@ -71,7 +71,12 @@
   </div>
 
   <!-- Category rows -->
-  <div id="rows-container" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+  <div id="rows-container" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="skeleton-pulse rounded-xl h-24"></div>
+    <div class="skeleton-pulse rounded-xl h-24"></div>
+    <div class="skeleton-pulse rounded-xl h-24"></div>
+    <div class="skeleton-pulse rounded-xl h-24"></div>
+  </div>
   <div id="empty-state" class="hidden text-center py-20 text-gray-400">
     <i class="fas fa-wallet text-5xl mb-4 opacity-30"></i>
     <p class="text-lg">No budget set for this month.</p>
@@ -235,8 +240,10 @@ async function load() {
         rows = await rowsRes.json();
         const { income } = await incomeRes.json();
         renderRows(income);
+        pageReady();
     } catch(e) {
         showToast('Failed to load budget data', 'error');
+        pageReady();
     }
 }
 
