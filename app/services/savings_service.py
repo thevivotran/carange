@@ -14,10 +14,14 @@ from app.models.database import (
 
 
 def _get_or_create_interest_category(db: Session) -> Category | None:
-    cat = db.query(Category).filter(
-        Category.type == TransactionType.INCOME,
-        Category.name == "Lãi tiết kiệm",
-    ).first()
+    cat = (
+        db.query(Category)
+        .filter(
+            Category.type == TransactionType.INCOME,
+            Category.name == "Lãi tiết kiệm",
+        )
+        .first()
+    )
     if cat:
         return cat
     cat = Category(
@@ -63,35 +67,39 @@ def mark_bundle_completed(db: Session, bundle_id: int) -> SavingsBundle:
         today = date.today()
 
         # Principal return — excluded from KPIs
-        db.add(Transaction(
-            date=today,
-            amount=bundle.initial_deposit,
-            type=TransactionType.INCOME,
-            category_id=fallback_cat.id,
-            description=f"Principal returned: {bundle.name} - {bundle.bank_name}",
-            payment_method="bank",
-            is_savings_related=True,
-            savings_bundle_id=bundle.id,
-            source="savings_maturity",
-            needs_review=False,
-        ))
+        db.add(
+            Transaction(
+                date=today,
+                amount=bundle.initial_deposit,
+                type=TransactionType.INCOME,
+                category_id=fallback_cat.id,
+                description=f"Principal returned: {bundle.name} - {bundle.bank_name}",
+                payment_method="bank",
+                is_savings_related=True,
+                savings_bundle_id=bundle.id,
+                source="savings_maturity",
+                needs_review=False,
+            )
+        )
 
         # Interest income — counted in KPIs
         interest = bundle.future_amount - bundle.initial_deposit
         if interest > 0:
             interest_cat = _get_or_create_interest_category(db) or fallback_cat
-            db.add(Transaction(
-                date=today,
-                amount=interest,
-                type=TransactionType.INCOME,
-                category_id=interest_cat.id,
-                description=f"Interest earned: {bundle.name} - {bundle.bank_name}",
-                payment_method="bank",
-                is_savings_related=False,
-                savings_bundle_id=bundle.id,
-                source="savings_maturity",
-                needs_review=True,
-            ))
+            db.add(
+                Transaction(
+                    date=today,
+                    amount=interest,
+                    type=TransactionType.INCOME,
+                    category_id=interest_cat.id,
+                    description=f"Interest earned: {bundle.name} - {bundle.bank_name}",
+                    payment_method="bank",
+                    is_savings_related=False,
+                    savings_bundle_id=bundle.id,
+                    source="savings_maturity",
+                    needs_review=True,
+                )
+            )
 
         db.commit()
         db.refresh(bundle)

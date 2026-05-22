@@ -12,7 +12,6 @@ depends_on = None
 
 import sqlalchemy as sa
 from alembic import op
-from datetime import datetime, timezone
 
 
 def upgrade() -> None:

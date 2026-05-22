@@ -98,11 +98,7 @@ def test_mark_completed_creates_income_transaction(client, investment_cat, db_se
     ).json()["id"]
     client.post(f"/api/savings/{bundle_id}/mark-completed")
 
-    txs = (
-        db_session.query(TxModel)
-        .filter(TxModel.savings_bundle_id == bundle_id, TxModel.type == "income")
-        .all()
-    )
+    txs = db_session.query(TxModel).filter(TxModel.savings_bundle_id == bundle_id, TxModel.type == "income").all()
     assert len(txs) == 2, f"Expected 2 income transactions, got {len(txs)}"
 
     principal_tx = next(t for t in txs if t.is_savings_related is True)
