@@ -302,6 +302,7 @@ def get_monthly_summary(year: Optional[int] = None, month: Optional[int] = None,
                 (
                     and_(
                         Transaction.type == TransactionType.INCOME,
+                        Transaction.is_savings_related == False,
                         Transaction.date >= month_start,
                         Transaction.date <= month_end,
                         Transaction.deleted_at.is_(None),

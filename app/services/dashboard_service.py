@@ -56,6 +56,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
                 (
                     and_(
                         Transaction.type == TransactionType.INCOME,
+                        Transaction.is_savings_related == False,
                         Transaction.date >= month_start,
                         Transaction.date <= month_end,
                         Transaction.deleted_at.is_(None),
@@ -128,7 +129,11 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         func.sum(
             case(
                 (
-                    and_(Transaction.type == TransactionType.INCOME, Transaction.deleted_at.is_(None)),
+                    and_(
+                        Transaction.type == TransactionType.INCOME,
+                        Transaction.is_savings_related == False,
+                        Transaction.deleted_at.is_(None),
+                    ),
                     Transaction.amount,
                 ),
                 else_=0,
@@ -172,6 +177,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
                 (
                     and_(
                         Transaction.type == TransactionType.INCOME,
+                        Transaction.is_savings_related == False,
                         Transaction.date >= prev_month_start,
                         Transaction.date <= prev_month_end,
                         Transaction.deleted_at.is_(None),

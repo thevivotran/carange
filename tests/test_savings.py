@@ -90,23 +90,27 @@ def test_mark_completed_changes_status(client, investment_cat):
 
 
 def test_mark_completed_creates_income_transaction(client, investment_cat, db_session):
-    """Completing a bundle must auto-create an income transaction for future_amount."""
+    """Completing a bundle creates two transactions: principal return + interest."""
     from app.models.database import Transaction as TxModel
 
-    bundle_id = client.post("/api/savings/", json=_bundle_payload(future_amount=53_000_000)).json()["id"]
+    bundle_id = client.post(
+        "/api/savings/", json=_bundle_payload(initial_deposit=50_000_000, future_amount=53_000_000)
+    ).json()["id"]
     client.post(f"/api/savings/{bundle_id}/mark-completed")
 
-    tx = (
+    txs = (
         db_session.query(TxModel)
-        .filter(
-            TxModel.savings_bundle_id == bundle_id,
-            TxModel.type.in_(["income"]),
-        )
-        .first()
+        .filter(TxModel.savings_bundle_id == bundle_id, TxModel.type == "income")
+        .all()
     )
-    assert tx is not None, "Auto income transaction was not created"
-    assert tx.amount == pytest.approx(53_000_000)
-    assert tx.is_savings_related is True
+    assert len(txs) == 2, f"Expected 2 income transactions, got {len(txs)}"
+
+    principal_tx = next(t for t in txs if t.is_savings_related is True)
+    interest_tx = next(t for t in txs if t.is_savings_related is False)
+
+    assert principal_tx.amount == pytest.approx(50_000_000)
+    assert interest_tx.amount == pytest.approx(3_000_000)
+    assert interest_tx.needs_review is True
 
 
 def test_mark_completed_twice_returns_400(client, investment_cat):

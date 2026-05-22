@@ -79,7 +79,13 @@ def get_monthly_trend(db: Session = Depends(get_db)):
             extract("month", Transaction.date).label("month"),
             func.sum(
                 case(
-                    (Transaction.type == TransactionType.INCOME, Transaction.amount),
+                    (
+                        and_(
+                            Transaction.type == TransactionType.INCOME,
+                            Transaction.is_savings_related == False,
+                        ),
+                        Transaction.amount,
+                    ),
                     else_=0,
                 )
             ).label("income"),

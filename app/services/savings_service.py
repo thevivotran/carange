@@ -13,8 +13,34 @@ from app.models.database import (
 )
 
 
+def _get_or_create_interest_category(db: Session) -> Category | None:
+    cat = db.query(Category).filter(
+        Category.type == TransactionType.INCOME,
+        Category.name == "Lãi tiết kiệm",
+    ).first()
+    if cat:
+        return cat
+    cat = Category(
+        name="Lãi tiết kiệm",
+        type=TransactionType.INCOME,
+        color="#f59e0b",
+        icon="piggy-bank",
+        is_active=True,
+        is_wealth_building=False,
+    )
+    db.add(cat)
+    db.flush()
+    return cat
+
+
 def mark_bundle_completed(db: Session, bundle_id: int) -> SavingsBundle:
-    """Mark a bundle as completed and create a maturity income transaction."""
+    """Mark a bundle as completed.
+
+    Creates two transactions:
+    - Principal return (is_savings_related=True) — excluded from income KPIs.
+    - Interest earned (is_savings_related=False, "Lãi tiết kiệm" category) — flows into KPIs.
+      Skipped when future_amount <= initial_deposit.
+    """
     bundle = db.query(SavingsBundle).filter(SavingsBundle.id == bundle_id, SavingsBundle.deleted_at.is_(None)).first()
     if bundle is None:
         raise LookupError("Savings bundle not found")
@@ -25,24 +51,47 @@ def mark_bundle_completed(db: Session, bundle_id: int) -> SavingsBundle:
         bundle.status = SavingsStatus.COMPLETED
         bundle.completed_at = datetime.now(timezone.utc)
 
-        category = (
+        fallback_cat = (
             db.query(Category).filter(Category.type == TransactionType.INCOME, Category.name == "Investment").first()
             or db.query(Category).filter(Category.type == TransactionType.INCOME).first()
         )
-        if category:
-            tx = Transaction(
-                date=date.today(),
-                amount=bundle.future_amount,
+        if fallback_cat is None:
+            db.commit()
+            db.refresh(bundle)
+            return bundle
+
+        today = date.today()
+
+        # Principal return — excluded from KPIs
+        db.add(Transaction(
+            date=today,
+            amount=bundle.initial_deposit,
+            type=TransactionType.INCOME,
+            category_id=fallback_cat.id,
+            description=f"Principal returned: {bundle.name} - {bundle.bank_name}",
+            payment_method="bank",
+            is_savings_related=True,
+            savings_bundle_id=bundle.id,
+            source="savings_maturity",
+            needs_review=False,
+        ))
+
+        # Interest income — counted in KPIs
+        interest = bundle.future_amount - bundle.initial_deposit
+        if interest > 0:
+            interest_cat = _get_or_create_interest_category(db) or fallback_cat
+            db.add(Transaction(
+                date=today,
+                amount=interest,
                 type=TransactionType.INCOME,
-                category_id=category.id,
-                description=f"Savings matured: {bundle.name} - {bundle.bank_name}",
+                category_id=interest_cat.id,
+                description=f"Interest earned: {bundle.name} - {bundle.bank_name}",
                 payment_method="bank",
-                is_savings_related=True,
+                is_savings_related=False,
                 savings_bundle_id=bundle.id,
                 source="savings_maturity",
                 needs_review=True,
-            )
-            db.add(tx)
+            ))
 
         db.commit()
         db.refresh(bundle)
