@@ -1,0 +1,65 @@
+{% for cat in categories %}
+<tr id="cat-row-{{ cat.id }}" class="border-b hover:bg-gray-50 transition-colors{{ ' opacity-60' if not cat.is_active else '' }}">
+    <td class="py-3 px-4">
+        <span class="block w-3 h-3 rounded-full" style="background-color: {{ cat.color }}"></span>
+    </td>
+    <td class="py-3 px-4">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
+                 style="background-color: {{ cat.color }}25">
+                <i class="fas fa-{{ cat.icon }} text-sm" style="color: {{ cat.color }}"></i>
+            </div>
+            <span class="font-medium text-gray-800">{{ cat.name }}</span>
+            {% if cat.is_passive_income %}
+            <span class="text-xs bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded">Passive</span>
+            {% endif %}
+        </div>
+    </td>
+    <td class="py-3 px-4 text-sm text-gray-500 hidden sm:table-cell">{{ cat.transaction_count or 0 }} txns</td>
+    <td class="py-3 px-4 hidden md:table-cell">
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ 'bg-green-100 text-green-700' if cat.is_active else 'bg-gray-100 text-gray-500' }}">
+            {{ 'Active' if cat.is_active else 'Inactive' }}
+        </span>
+    </td>
+    <td class="py-3 px-4">
+        <div class="flex items-center justify-end gap-1">
+            <button onclick="editCategory({{ cat.id }})"
+                    class="p-2 text-blue-500 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition"
+                    title="Edit" aria-label="Edit {{ cat.name | e }}">
+                <i class="fas fa-edit text-sm"></i>
+            </button>
+            <button onclick="toggleCategory({{ cat.id }})"
+                    class="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                    title="{{ 'Deactivate' if cat.is_active else 'Activate' }}"
+                    aria-label="{{ 'Deactivate' if cat.is_active else 'Activate' }} {{ cat.name | e }}">
+                <i class="fas fa-{{ 'eye-slash' if cat.is_active else 'eye' }} text-sm"></i>
+            </button>
+            {% if cat.transaction_count > 0 %}
+            <button onclick="openMergeModal({{ cat.id }}, '{{ cat.name | e }}', '{{ cat.type }}', {{ cat.transaction_count }})"
+                    class="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                    title="Delete" aria-label="Delete {{ cat.name | e }}">
+                <i class="fas fa-trash text-sm"></i>
+            </button>
+            {% else %}
+            <button onclick="deleteCategoryDirect({{ cat.id }}, '{{ cat.name | e }}')"
+                    class="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
+                    title="Delete" aria-label="Delete {{ cat.name | e }}">
+                <i class="fas fa-trash text-sm"></i>
+            </button>
+            {% endif %}
+        </div>
+    </td>
+</tr>
+{% else %}
+<tr>
+    <td colspan="5" class="py-20 text-center text-gray-400">
+        <i class="fas fa-tag text-5xl mb-4 block opacity-20"></i>
+        <p class="text-lg font-medium text-gray-500 mb-2">No categories yet</p>
+        <p class="text-sm text-gray-400 mb-5">Add your first category to organise transactions</p>
+        <button onclick="openAddModal()"
+                class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition text-sm inline-flex items-center gap-2">
+            <i class="fas fa-plus"></i> Add Category
+        </button>
+    </td>
+</tr>
+{% endfor %}

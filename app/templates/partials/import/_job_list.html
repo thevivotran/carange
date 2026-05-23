@@ -1,0 +1,137 @@
+<div id="job-list-region"
+     hx-get="/fragments/import/jobs"
+     hx-trigger="load, every 3s [document.querySelector('.job-pending')]"
+     hx-swap="outerHTML"
+     class="space-y-3">
+
+{% if not jobs %}
+{% if status_filter == 'all' %}
+<!-- First-run guide rendered server-side -->
+<div class="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6 text-center">
+    <i class="fas fa-wand-magic-sparkles text-3xl text-primary mb-3 block"></i>
+    <p class="text-base font-semibold text-gray-700">Auto-import transactions from screenshots</p>
+    <p class="text-sm text-gray-400 mt-1">Upload a payment confirmation and we extract the details automatically.</p>
+    <div class="grid grid-cols-3 gap-4 mt-6 mb-6">
+        <div class="flex flex-col items-center text-center gap-2">
+            <div class="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
+                <i class="fas fa-mobile-screen-button text-blue-500"></i>
+            </div>
+            <p class="text-xs font-semibold text-gray-700">1. Screenshot</p>
+            <p class="text-xs text-gray-400 leading-relaxed">Screenshot your banking app transaction confirmation.</p>
+        </div>
+        <div class="flex flex-col items-center text-center gap-2">
+            <div class="w-10 h-10 rounded-full bg-purple-50 flex items-center justify-center">
+                <i class="fas fa-cloud-arrow-up text-purple-500"></i>
+            </div>
+            <p class="text-xs font-semibold text-gray-700">2. Upload</p>
+            <p class="text-xs text-gray-400 leading-relaxed">Drag the image here or click to browse. JPEG, PNG, WebP, HEIC.</p>
+        </div>
+        <div class="flex flex-col items-center text-center gap-2">
+            <div class="w-10 h-10 rounded-full bg-green-50 flex items-center justify-center">
+                <i class="fas fa-check-circle text-green-500"></i>
+            </div>
+            <p class="text-xs font-semibold text-gray-700">3. Review</p>
+            <p class="text-xs text-gray-400 leading-relaxed">OCR extracts the amount, date, and merchant. Verify and save.</p>
+        </div>
+    </div>
+    <div class="rounded-lg bg-blue-50 border border-blue-100 px-4 py-3 text-left">
+        <p class="text-xs font-semibold text-blue-700 mb-1"><i class="fas fa-lightbulb text-blue-400 mr-1"></i>Tips for best results</p>
+        <ul class="space-y-1">
+            <li class="text-xs text-blue-600 flex items-start gap-1.5"><span class="mt-1 w-1 h-1 rounded-full bg-blue-400 flex-shrink-0"></span><span>Screenshot the transaction confirmation, not the account statement.</span></li>
+            <li class="text-xs text-blue-600 flex items-start gap-1.5"><span class="mt-1 w-1 h-1 rounded-full bg-blue-400 flex-shrink-0"></span><span>Crop tightly around the transaction details.</span></li>
+            <li class="text-xs text-blue-600 flex items-start gap-1.5"><span class="mt-1 w-1 h-1 rounded-full bg-blue-400 flex-shrink-0"></span><span>Set the source hint to help the OCR recognise the layout.</span></li>
+        </ul>
+    </div>
+</div>
+{% else %}
+<div class="text-center py-10 text-gray-400">
+    <i class="fas fa-inbox text-3xl mb-2 block"></i>
+    <p class="text-sm">No jobs match this filter</p>
+</div>
+{% endif %}
+
+{% else %}
+{% for job in jobs %}
+{% set is_active = job.status.value in ('pending', 'processing') %}
+<div id="job-card-{{ job.id }}"
+     class="bg-white border rounded-xl shadow-sm overflow-hidden{{ ' job-pending' if is_active else '' }}"
+     x-data="{open: false, loaded: false}">
+
+    <!-- Main row -->
+    <div class="px-4 py-3 flex items-center gap-4">
+        <!-- Status dot -->
+        <div class="flex-shrink-0 w-2.5 h-2.5 rounded-full
+            {% if job.status.value == 'pending' %}bg-gray-400
+            {% elif job.status.value == 'processing' %}bg-amber-400 animate-pulse
+            {% elif job.status.value == 'done' %}bg-green-500
+            {% else %}bg-red-500{% endif %}">
+        </div>
+
+        <!-- Info -->
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm font-medium text-gray-700 truncate max-w-xs">{{ job.filename }}</span>
+                <span class="status-badge-{{ job.status.value }} text-xs font-semibold px-2 py-0.5 rounded-full">
+                    {{ job.status.value | capitalize }}
+                </span>
+                {% if job.detected_source or job.source_hint %}
+                <span class="text-xs text-gray-400">· {{ job.detected_source or job.source_hint }}</span>
+                {% endif %}
+            </div>
+            <div class="flex items-center gap-3 mt-0.5 flex-wrap">
+                <span class="text-xs text-gray-400">
+                    {{ job.created_at.strftime('%d/%m/%Y %H:%M') if job.created_at else '' }}
+                </span>
+                {% if job.status.value == 'done' and job.transaction_count > 0 %}
+                <a href="/transactions?import_job_id={{ job.id }}"
+                   class="text-xs text-green-600 font-medium hover:underline">
+                    {{ job.transaction_count }} transaction{{ '' if job.transaction_count == 1 else 's' }} extracted
+                </a>
+                {% endif %}
+                {% if job.status.value == 'failed' and job.error_message %}
+                <span class="text-xs text-red-500 truncate max-w-xs" title="{{ job.error_message | e }}">
+                    {{ humanize_error(job.error_message) }}
+                </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex-shrink-0 flex items-center gap-2">
+            {% if job.status.value == 'failed' %}
+            <a href="/transactions?from_import={{ job.id }}{% if job.created_at %}&hint_date={{ job.created_at.strftime('%Y-%m-%d') }}{% endif %}"
+               class="text-xs text-blue-600 hover:underline font-medium">Create manually</a>
+            {% endif %}
+            <button onclick="deleteJob({{ job.id }})"
+                    class="text-gray-300 hover:text-red-500 transition p-1"
+                    aria-label="Delete job">
+                <i class="fas fa-trash-alt text-sm"></i>
+            </button>
+            {% if job.status.value == 'done' and job.transaction_count > 0 %}
+            <button @click="open = !open; if (open && !loaded) { loaded = true; htmx.trigger(document.getElementById('job-txs-{{ job.id }}'), 'load-txs') }"
+                    class="flex-shrink-0 text-gray-400 hover:text-gray-600 transition p-1"
+                    aria-label="Toggle transaction details">
+                <i class="fas fa-chevron-down text-xs job-chevron" :style="open ? 'transform:rotate(180deg)' : ''"></i>
+            </button>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Expandable transactions section -->
+    {% if job.status.value == 'done' and job.transaction_count > 0 %}
+    <div x-show="open" x-cloak class="border-t">
+        <div id="job-txs-{{ job.id }}"
+             hx-get="/fragments/import/{{ job.id }}/transactions"
+             hx-trigger="load-txs"
+             hx-swap="innerHTML">
+            <p class="px-4 py-3 text-sm text-gray-400 flex items-center gap-2">
+                <i class="fas fa-spinner fa-spin text-xs"></i> Loading transactions…
+            </p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endfor %}
+{% endif %}
+
+</div>

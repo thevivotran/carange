@@ -1,0 +1,52 @@
+<!-- Summary bar -->
+<div class="px-4 py-2 flex items-center gap-2 bg-gray-50 border-b">
+    {% if needs_review_count > 0 %}
+    <i class="fas fa-exclamation-triangle text-xs text-orange-500"></i>
+    <span class="text-xs font-medium text-orange-700">
+        {{ needs_review_count }} transaction{{ '' if needs_review_count == 1 else 's' }} need review
+    </span>
+    {% elif avg_conf is not none and avg_conf < 0.75 %}
+    <i class="fas fa-info-circle text-xs text-yellow-500"></i>
+    <span class="text-xs font-medium text-yellow-700">Medium confidence — verify amounts and dates</span>
+    {% else %}
+    <i class="fas fa-check-circle text-xs text-green-500"></i>
+    <span class="text-xs font-medium text-green-700">All extractions high confidence</span>
+    {% endif %}
+</div>
+
+<!-- Transaction rows -->
+{% for tx in txs %}
+{% set score = tx.confidence_score %}
+<div class="px-4 py-2.5 flex items-center gap-3 border-b last:border-b-0 hover:bg-gray-50 transition">
+    <span class="text-sm font-semibold flex-shrink-0 w-28 text-right {{ 'text-green-600' if tx.type == 'income' else 'text-red-600' }}">
+        {{ '+' if tx.type == 'income' else '-' }}{{ "{:,.0f}".format(tx.amount) }} ₫
+    </span>
+    <span class="text-xs px-2 py-0.5 rounded-full flex-shrink-0 max-w-[80px] truncate"
+          style="background-color: {{ tx.category.color }}20; color: {{ tx.category.color }}">
+        {{ tx.category.name }}
+    </span>
+    <div class="flex-1 min-w-0">
+        <p class="text-xs text-gray-700 truncate">{{ tx.description or '—' }}</p>
+        <p class="text-xs text-gray-400 mt-0.5">{{ tx.date }}</p>
+    </div>
+    {% if tx.needs_review or (score is not none and score < 0.65) %}
+    <span class="text-xs font-medium px-1.5 py-0.5 rounded flex-shrink-0 conf-review">
+        Review{% if score is not none %} · {{ (score * 100) | int }}%{% endif %}
+    </span>
+    {% elif score is not none and score < 0.85 %}
+    <span class="text-xs font-medium px-1.5 py-0.5 rounded flex-shrink-0 conf-medium">{{ (score * 100) | int }}%</span>
+    {% elif score is not none %}
+    <span class="text-xs font-medium px-1.5 py-0.5 rounded flex-shrink-0 conf-high">{{ (score * 100) | int }}%</span>
+    {% endif %}
+</div>
+{% else %}
+<p class="px-4 py-3 text-sm text-gray-400">No transactions linked to this import.</p>
+{% endfor %}
+
+<!-- Footer link -->
+<div class="px-4 py-2 text-right bg-gray-50">
+    <a href="/transactions?import_job_id={{ job_id }}"
+       class="text-xs text-blue-600 hover:underline font-medium">
+        View all in Transactions →
+    </a>
+</div>

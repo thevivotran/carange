@@ -64,38 +64,40 @@
         </div>
     </div>
 
-    <!-- Job History -->
+    <!-- Job History — HTMX region polls while .job-pending elements exist -->
     <div>
         <div class="flex items-center justify-between mb-3">
             <h3 class="font-semibold text-gray-700">Job History</h3>
             <div class="flex gap-2">
-                <button onclick="loadJobs('all')" id="filter-all"
-                        class="job-filter-btn text-xs px-3 py-1 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition active-filter">
+                <button onclick="setJobFilter('all')" id="filter-all"
+                        class="job-filter-btn active-filter text-xs px-3 py-1 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition">
                     All
                 </button>
-                <button onclick="loadJobs('pending')" id="filter-pending"
+                <button onclick="setJobFilter('pending')" id="filter-pending"
                         class="job-filter-btn text-xs px-3 py-1 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition">
                     Pending
                 </button>
-                <button onclick="loadJobs('done')" id="filter-done"
+                <button onclick="setJobFilter('done')" id="filter-done"
                         class="job-filter-btn text-xs px-3 py-1 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition">
                     Done
                 </button>
-                <button onclick="loadJobs('failed')" id="filter-failed"
+                <button onclick="setJobFilter('failed')" id="filter-failed"
                         class="job-filter-btn text-xs px-3 py-1 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition">
                     Failed
                 </button>
             </div>
         </div>
-        <div id="job-list" class="space-y-3">
+
+        <!-- HTMX-managed job list region -->
+        <div id="job-list-region"
+             hx-get="/fragments/import/jobs"
+             hx-trigger="load, import-jobs-updated from:body, every 3s [document.querySelector('.job-pending')]"
+             hx-swap="outerHTML"
+             class="space-y-3">
             <div class="text-center py-10 text-gray-400">
-                <i class="fas fa-inbox text-3xl mb-2"></i>
-                <p class="text-sm">No import jobs yet</p>
+                <i class="fas fa-inbox text-3xl mb-2 block"></i>
+                <p class="text-sm">Loading…</p>
             </div>
-        </div>
-        <div id="job-list-empty" class="hidden text-center py-10 text-gray-400">
-            <i class="fas fa-inbox text-3xl mb-2"></i>
-            <p class="text-sm">No jobs match this filter</p>
         </div>
     </div>
 </div>
@@ -126,39 +128,15 @@
 
 {% block extra_css %}
 <style>
-    .job-filter-btn.active-filter {
-        background-color: #3B82F6;
-        color: #fff;
-        border-color: #3B82F6;
-    }
-    #drop-zone.drag-over {
-        border-color: #3B82F6;
-        background-color: rgba(59, 130, 246, 0.06);
-    }
-    .dark #drop-zone.drag-over {
-        border-color: #60a5fa;
-        background-color: rgba(59, 130, 246, 0.14);
-    }
-    /* Processing badge: raised contrast (was ~2.8:1, now ~4.6:1) */
+    .job-filter-btn.active-filter { background-color: #3B82F6; color: #fff; border-color: #3B82F6; }
+    #drop-zone.drag-over { border-color: #3B82F6; background-color: rgba(59,130,246,0.06); }
     .status-badge-pending    { background:rgba(107,114,128,.15); color:#6b7280; }
     .status-badge-processing { background:rgba(245,158,11,.18);  color:#b45309; }
     .status-badge-done       { background:rgba(16,185,129,.15);  color:#059669; }
     .status-badge-failed     { background:rgba(239,68,68,.15);   color:#dc2626; }
-
-    .dark .status-badge-pending    { background:rgba(107,114,128,.25); color:#9ca3af; }
-    .dark .status-badge-processing { background:rgba(245,158,11,.30);  color:#fcd34d; }
-    .dark .status-badge-done       { background:rgba(16,185,129,.25);  color:#34d399; }
-    .dark .status-badge-failed     { background:rgba(239,68,68,.25);   color:#f87171; }
-
-    /* Confidence badges: conf-review text deepened to orange-800 for AA on light */
     .conf-high   { background:rgba(16,185,129,.15);  color:#059669; }
     .conf-medium { background:rgba(245,158,11,.18);  color:#b45309; }
     .conf-review { background:rgba(249,115,22,.15);  color:#9a3412; }
-
-    .dark .conf-high   { background:rgba(16,185,129,.25);  color:#34d399; }
-    .dark .conf-medium { background:rgba(245,158,11,.25);  color:#fcd34d; }
-    .dark .conf-review { background:rgba(249,115,22,.25);  color:#fb923c; }
-
     .job-chevron { transition: transform 0.2s ease; }
 </style>
 {% endblock %}
@@ -166,17 +144,15 @@
 {% block extra_js %}
 <script>
 // ── State ─────────────────────────────────────────────────────────────────────
-const stagedFiles = [];        // File objects waiting to upload
-let currentFilter = 'all';
-let pollTimer = null;
-const _prevJobStatuses = {};   // job.id → last known status (for transition detection)
+const stagedFiles = [];
+let currentJobFilter = 'all';
 
 // ── Drop zone ─────────────────────────────────────────────────────────────────
-const dropZone   = document.getElementById('drop-zone');
-const fileInput  = document.getElementById('file-input');
+const dropZone  = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
 
 dropZone.addEventListener('click', function(e) {
-    if (e.target.closest('select')) return;   // don't open picker when clicking source dropdown
+    if (e.target.closest('select')) return;
     fileInput.click();
 });
 dropZone.addEventListener('dragover',  function(e) { e.preventDefault(); dropZone.classList.add('drag-over'); });
@@ -197,10 +173,7 @@ function stageFiles(files) {
             showToast(f.name + ': not an image', 'error');
             return;
         }
-        if (f.size > 20 * 1024 * 1024) {
-            showToast(f.name + ' exceeds 20 MB', 'error');
-            return;
-        }
+        if (f.size > 20 * 1024 * 1024) { showToast(f.name + ' exceeds 20 MB', 'error'); return; }
         if (stagedFiles.some(function(s) { return s.name === f.name && s.size === f.size; })) return;
         stagedFiles.push(f);
     });
@@ -208,36 +181,24 @@ function stageFiles(files) {
 }
 
 function renderStaged() {
-    const section  = document.getElementById('staged-section');
-    const list     = document.getElementById('staged-list');
+    const section   = document.getElementById('staged-section');
+    const list      = document.getElementById('staged-list');
     const uploadBtn = document.getElementById('upload-btn');
     const btnLabel  = document.getElementById('upload-btn-label');
-
     while (list.firstChild) list.removeChild(list.firstChild);
-
-    if (!stagedFiles.length) {
-        section.classList.add('hidden');
-        uploadBtn.classList.add('hidden');
-        return;
-    }
-
+    if (!stagedFiles.length) { section.classList.add('hidden'); uploadBtn.classList.add('hidden'); return; }
     section.classList.remove('hidden');
     uploadBtn.classList.remove('hidden');
     btnLabel.textContent = 'Upload ' + stagedFiles.length + (stagedFiles.length === 1 ? ' file' : ' files');
-
     stagedFiles.forEach(function(f, idx) {
         const card = document.createElement('div');
         card.className = 'flex items-center gap-3 bg-white border rounded-lg px-4 py-3 shadow-sm';
-
-        // Thumbnail
         const thumb = document.createElement('img');
         thumb.className = 'w-12 h-12 object-cover rounded-md flex-shrink-0 bg-gray-100';
         thumb.alt = f.name;
         const reader = new FileReader();
         reader.onload = function(ev) { thumb.src = ev.target.result; };
         reader.readAsDataURL(f);
-
-        // Info
         const info = document.createElement('div');
         info.className = 'flex-1 min-w-0';
         const nameEl = document.createElement('p');
@@ -248,19 +209,13 @@ function renderStaged() {
         sizeEl.textContent = (f.size / 1024).toFixed(0) + ' KB';
         info.appendChild(nameEl);
         info.appendChild(sizeEl);
-
-        // Remove button
         const removeBtn = document.createElement('button');
         removeBtn.className = 'flex-shrink-0 text-gray-300 hover:text-red-500 transition p-1';
         removeBtn.setAttribute('aria-label', 'Remove');
         const icon = document.createElement('i');
         icon.className = 'fas fa-times';
         removeBtn.appendChild(icon);
-        removeBtn.addEventListener('click', function() {
-            stagedFiles.splice(idx, 1);
-            renderStaged();
-        });
-
+        removeBtn.addEventListener('click', function() { stagedFiles.splice(idx, 1); renderStaged(); });
         card.appendChild(thumb);
         card.appendChild(info);
         card.appendChild(removeBtn);
@@ -268,17 +223,13 @@ function renderStaged() {
     });
 }
 
-function clearStaged() {
-    stagedFiles.length = 0;
-    renderStaged();
-}
+function clearStaged() { stagedFiles.length = 0; renderStaged(); }
 
 // ── Upload ────────────────────────────────────────────────────────────────────
 document.getElementById('upload-btn').addEventListener('click', doUpload);
 
 async function doUpload() {
     if (!stagedFiles.length) return;
-
     const progressSection = document.getElementById('progress-section');
     const progressBar     = document.getElementById('progress-bar');
     const progressPct     = document.getElementById('progress-pct');
@@ -331,571 +282,33 @@ async function doUpload() {
     }
 
     clearStaged();
-    loadJobs(currentFilter);
-    schedulePoll();
+    // Trigger HTMX job list reload
+    document.body.dispatchEvent(new CustomEvent('import-jobs-updated'));
 }
 
-// ── Empty states ──────────────────────────────────────────────────────────────
-function buildNoJobsMessage() {
-    const wrap = document.createElement('div');
-    wrap.className = 'text-center py-10 text-gray-400';
-    const ico = document.createElement('i');
-    ico.className = 'fas fa-inbox text-3xl mb-2 block';
-    const msg = document.createElement('p');
-    msg.className = 'text-sm';
-    msg.textContent = 'No jobs match this filter';
-    wrap.appendChild(ico);
-    wrap.appendChild(msg);
-    return wrap;
-}
-
-function buildFirstRunGuide() {
-    const wrap = document.createElement('div');
-    wrap.className = 'rounded-xl border border-dashed border-gray-200 bg-gray-50 p-6';
-
-    // ── Header ──
-    const header = document.createElement('div');
-    header.className = 'text-center mb-6';
-    const headerIcon = document.createElement('i');
-    headerIcon.className = 'fas fa-wand-magic-sparkles text-3xl text-primary mb-3 block';
-    const headerTitle = document.createElement('p');
-    headerTitle.className = 'text-base font-semibold text-gray-700';
-    headerTitle.textContent = 'Auto-import transactions from screenshots';
-    const headerSub = document.createElement('p');
-    headerSub.className = 'text-sm text-gray-400 mt-1';
-    headerSub.textContent = 'Upload a payment confirmation and we extract the details automatically.';
-    header.appendChild(headerIcon);
-    header.appendChild(headerTitle);
-    header.appendChild(headerSub);
-    wrap.appendChild(header);
-
-    // ── How it works — 3 steps ──
-    const stepsRow = document.createElement('div');
-    stepsRow.className = 'grid grid-cols-3 gap-4 mb-6';
-
-    const steps = [
-        { icon: 'fa-mobile-screen-button', color: 'text-blue-500',  bg: 'bg-blue-50',   title: '1. Screenshot',  body: 'Open your banking or payment app and screenshot the transaction confirmation.' },
-        { icon: 'fa-cloud-arrow-up',        color: 'text-purple-500', bg: 'bg-purple-50', title: '2. Upload',      body: 'Drag the image here or click to browse. Supports JPEG, PNG, WebP, and HEIC.' },
-        { icon: 'fa-check-circle',          color: 'text-green-500',  bg: 'bg-green-50',  title: '3. Review',     body: 'OCR extracts the amount, date, and merchant. Check the result and you\'re done.' },
-    ];
-    steps.forEach(function(s) {
-        const col = document.createElement('div');
-        col.className = 'flex flex-col items-center text-center gap-2';
-        const iconWrap = document.createElement('div');
-        iconWrap.className = 'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ' + s.bg;
-        const ico = document.createElement('i');
-        ico.className = 'fas ' + s.icon + ' ' + s.color;
-        iconWrap.appendChild(ico);
-        const title = document.createElement('p');
-        title.className = 'text-xs font-semibold text-gray-700';
-        title.textContent = s.title;
-        const body = document.createElement('p');
-        body.className = 'text-xs text-gray-400 leading-relaxed';
-        body.textContent = s.body;
-        col.appendChild(iconWrap);
-        col.appendChild(title);
-        col.appendChild(body);
-        stepsRow.appendChild(col);
-    });
-    wrap.appendChild(stepsRow);
-
-    // ── Mock "done" card example ──
-    const exampleLabel = document.createElement('p');
-    exampleLabel.className = 'text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2';
-    exampleLabel.textContent = 'Example result';
-    wrap.appendChild(exampleLabel);
-
-    const mockCard = document.createElement('div');
-    mockCard.className = 'bg-white border rounded-xl shadow-sm overflow-hidden opacity-80';
-
-    const mockRow = document.createElement('div');
-    mockRow.className = 'px-4 py-3 flex items-center gap-4';
-
-    const mockDot = document.createElement('div');
-    mockDot.className = 'w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0';
-
-    const mockInfo = document.createElement('div');
-    mockInfo.className = 'flex-1 min-w-0';
-    const mockTop = document.createElement('div');
-    mockTop.className = 'flex items-center gap-2';
-    const mockName = document.createElement('span');
-    mockName.className = 'text-sm font-medium text-gray-700';
-    mockName.textContent = 'timo_payment.jpg';
-    const mockBadge = document.createElement('span');
-    mockBadge.className = 'status-badge-done text-xs font-semibold px-2 py-0.5 rounded-full';
-    mockBadge.textContent = 'Done';
-    const mockSrc = document.createElement('span');
-    mockSrc.className = 'text-xs text-gray-400';
-    mockSrc.textContent = '· timo';
-    mockTop.appendChild(mockName);
-    mockTop.appendChild(mockBadge);
-    mockTop.appendChild(mockSrc);
-    const mockMeta = document.createElement('div');
-    mockMeta.className = 'flex items-center gap-3 mt-0.5';
-    const mockTs = document.createElement('span');
-    mockTs.className = 'text-xs text-gray-400';
-    mockTs.textContent = '17/05/2026 09:41';
-    const mockTxText = document.createElement('span');
-    mockTxText.className = 'text-xs text-green-600 font-medium';
-    mockTxText.textContent = '2 transactions extracted';
-    mockMeta.appendChild(mockTs);
-    mockMeta.appendChild(mockTxText);
-    mockInfo.appendChild(mockTop);
-    mockInfo.appendChild(mockMeta);
-
-    const mockChevron = document.createElement('i');
-    mockChevron.className = 'fas fa-chevron-down text-xs text-gray-300';
-
-    mockRow.appendChild(mockDot);
-    mockRow.appendChild(mockInfo);
-    mockRow.appendChild(mockChevron);
-    mockCard.appendChild(mockRow);
-
-    // Mock expanded rows
-    const mockExpand = document.createElement('div');
-    mockExpand.className = 'border-t';
-
-    const mockSummary = document.createElement('div');
-    mockSummary.className = 'px-4 py-2 flex items-center gap-2 bg-gray-50 border-b';
-    const mockSumIco = document.createElement('i');
-    mockSumIco.className = 'fas fa-check-circle text-xs text-green-500';
-    const mockSumTxt = document.createElement('span');
-    mockSumTxt.className = 'text-xs font-medium text-green-700';
-    mockSumTxt.textContent = 'All extractions high confidence';
-    mockSummary.appendChild(mockSumIco);
-    mockSummary.appendChild(mockSumTxt);
-    mockExpand.appendChild(mockSummary);
-
-    const mockTxRows = [
-        { amount: '-45,000 ₫', type: 'expense', cat: 'Ăn uống',    catColor: '#f59e0b', desc: 'Highlands Coffee',  date: '2026-05-17', conf: '91%', confCls: 'conf-high' },
-        { amount: '-28,000 ₫', type: 'expense', cat: 'Di chuyển',  catColor: '#3b82f6', desc: 'Grab bike home',    date: '2026-05-17', conf: '88%', confCls: 'conf-high' },
-    ];
-    mockTxRows.forEach(function(tx) {
-        const r = document.createElement('div');
-        r.className = 'px-4 py-2.5 flex items-center gap-3 border-b last:border-b-0';
-        const amt = document.createElement('span');
-        amt.className = 'text-sm font-semibold flex-shrink-0 w-28 text-right text-red-600';
-        amt.textContent = tx.amount;
-        const cat = document.createElement('span');
-        cat.className = 'text-xs px-2 py-0.5 rounded-full flex-shrink-0';
-        cat.style.backgroundColor = tx.catColor + '20';
-        cat.style.color = tx.catColor;
-        cat.textContent = tx.cat;
-        const desc = document.createElement('div');
-        desc.className = 'flex-1 min-w-0';
-        const descTxt = document.createElement('p');
-        descTxt.className = 'text-xs text-gray-700 truncate';
-        descTxt.textContent = tx.desc;
-        const dateTxt = document.createElement('p');
-        dateTxt.className = 'text-xs text-gray-400 mt-0.5';
-        dateTxt.textContent = tx.date;
-        desc.appendChild(descTxt);
-        desc.appendChild(dateTxt);
-        const conf = document.createElement('span');
-        conf.className = 'text-xs font-medium px-1.5 py-0.5 rounded flex-shrink-0 ' + tx.confCls;
-        conf.textContent = tx.conf;
-        r.appendChild(amt);
-        r.appendChild(cat);
-        r.appendChild(desc);
-        r.appendChild(conf);
-        mockExpand.appendChild(r);
-    });
-    mockCard.appendChild(mockExpand);
-    wrap.appendChild(mockCard);
-
-    // ── Tips ──
-    const tipsBox = document.createElement('div');
-    tipsBox.className = 'mt-5 rounded-lg bg-blue-50 border border-blue-100 px-4 py-3';
-    const tipsTitle = document.createElement('p');
-    tipsTitle.className = 'text-xs font-semibold text-blue-700 mb-1.5 flex items-center gap-1.5';
-    const tipsIco = document.createElement('i');
-    tipsIco.className = 'fas fa-lightbulb text-blue-400';
-    const tipsTitleText = document.createElement('span');
-    tipsTitleText.textContent = 'Tips for best results';
-    tipsTitle.appendChild(tipsIco);
-    tipsTitle.appendChild(tipsTitleText);
-
-    const tipsList = document.createElement('ul');
-    tipsList.className = 'space-y-1';
-    const tips = [
-        'Screenshot the transaction confirmation screen, not the account statement or balance view.',
-        'Crop tightly around the transaction details if the image has a lot of surrounding UI.',
-        'Set the source hint (Timo, UOB, etc.) to help the OCR recognise the layout faster.',
-    ];
-    tips.forEach(function(tip) {
-        const li = document.createElement('li');
-        li.className = 'text-xs text-blue-600 flex items-start gap-1.5';
-        const dot = document.createElement('span');
-        dot.className = 'mt-1 w-1 h-1 rounded-full bg-blue-400 flex-shrink-0';
-        const txt = document.createElement('span');
-        txt.textContent = tip;
-        li.appendChild(dot);
-        li.appendChild(txt);
-        tipsList.appendChild(li);
-    });
-    tipsBox.appendChild(tipsTitle);
-    tipsBox.appendChild(tipsList);
-    wrap.appendChild(tipsBox);
-
-    return wrap;
-}
-
-// ── Job list ──────────────────────────────────────────────────────────────────
-async function loadJobs(filter) {
-    currentFilter = filter || 'all';
-
-    // Update filter button styles
+// ── Job filter ────────────────────────────────────────────────────────────────
+function setJobFilter(filter) {
+    currentJobFilter = filter;
     document.querySelectorAll('.job-filter-btn').forEach(function(btn) {
         btn.classList.remove('active-filter');
     });
-    const activeBtn = document.getElementById('filter-' + currentFilter);
+    const activeBtn = document.getElementById('filter-' + filter);
     if (activeBtn) activeBtn.classList.add('active-filter');
 
-    const url = currentFilter === 'all'
-        ? '/api/import/jobs?limit=50'
-        : '/api/import/jobs?status=' + currentFilter + '&limit=50';
-
-    let jobs;
-    try {
-        const res = await fetch(url);
-        if (!res.ok) { pageReady(); return; }
-        jobs = await res.json();
-    } catch(e) { pageReady(); return; }
-
-    const container = document.getElementById('job-list');
-    while (container.firstChild) container.removeChild(container.firstChild);
-
-    if (!jobs.length) {
-        container.appendChild(currentFilter === 'all' ? buildFirstRunGuide() : buildNoJobsMessage());
-        pageReady();
-        return;
+    // Update HTMX target with new filter param and trigger reload
+    const region = document.getElementById('job-list-region');
+    if (region) {
+        region.setAttribute('hx-vals', JSON.stringify({ status: filter }));
+        htmx.trigger(region, 'import-jobs-updated');
     }
-
-    // Detect transitions → pending/processing to done
-    jobs.forEach(function(job) {
-        const prev = _prevJobStatuses[job.id];
-        if ((prev === 'pending' || prev === 'processing') && job.status === 'done') {
-            showImportSummary(job.id);
-        }
-        _prevJobStatuses[job.id] = job.status;
-    });
-
-    jobs.forEach(function(job) { container.appendChild(buildJobCard(job)); });
-    pageReady();
-
-    // Keep polling if any jobs are active
-    const hasActive = jobs.some(function(j) {
-        return j.status === 'pending' || j.status === 'processing';
-    });
-    if (hasActive) schedulePoll();
-    else stopPoll();
 }
 
-function humanizeError(msg) {
-    if (!msg) return '';
-    const m = msg.toLowerCase();
-    if (m.includes('date') || m.includes('ngày'))
-        return "Couldn't read the transaction date. Try a clearer screenshot.";
-    if (m.includes('amount') || m.includes('price') || m.includes('money') || m.includes('số tiền'))
-        return "Couldn't read the transaction amount. Try cropping closer to the numbers.";
-    if (m.includes('timeout') || m.includes('timed out'))
-        return "Processing timed out. Try again or add the transaction manually.";
-    if (m.includes('unsupported') || m.includes('format') || m.includes('layout'))
-        return "Image layout not recognised. Try setting the source hint manually.";
-    if (m.includes('parse') || m.includes('extract') || m.includes('ocr'))
-        return "Screenshot couldn't be processed. Try cropping to the transaction section.";
-    return "Processing failed. Try a clearer image or add the transaction manually.";
-}
-
-function buildJobCard(job) {
-    const wrapper = document.createElement('div');
-    wrapper.id = 'job-' + job.id;
-    wrapper.className = 'bg-white border rounded-xl shadow-sm overflow-hidden';
-
-    const mainRow = document.createElement('div');
-    mainRow.className = 'px-4 py-3 flex items-center gap-4';
-
-    // Status dot
-    const dot = document.createElement('div');
-    dot.className = 'flex-shrink-0 w-2.5 h-2.5 rounded-full';
-    const dotColors = { pending: 'bg-gray-400', processing: 'bg-amber-400 animate-pulse', done: 'bg-green-500', failed: 'bg-red-500' };
-    dot.classList.add(...(dotColors[job.status] || 'bg-gray-400').split(' '));
-
-    // Info block
-    const info = document.createElement('div');
-    info.className = 'flex-1 min-w-0';
-
-    const topRow = document.createElement('div');
-    topRow.className = 'flex items-center gap-2 flex-wrap';
-
-    const nameEl = document.createElement('span');
-    nameEl.className = 'text-sm font-medium text-gray-700 truncate max-w-xs';
-    nameEl.textContent = job.filename;
-
-    const badge = document.createElement('span');
-    badge.className = 'status-badge-' + job.status + ' text-xs font-semibold px-2 py-0.5 rounded-full';
-    badge.textContent = job.status.charAt(0).toUpperCase() + job.status.slice(1);
-
-    topRow.appendChild(nameEl);
-    topRow.appendChild(badge);
-
-    if (job.detected_source || job.source_hint) {
-        const src = document.createElement('span');
-        src.className = 'text-xs text-gray-400 ml-1';
-        src.textContent = '· ' + (job.detected_source || job.source_hint);
-        topRow.appendChild(src);
-    }
-
-    const metaRow = document.createElement('div');
-    metaRow.className = 'flex items-center gap-3 mt-0.5 flex-wrap';
-
-    const ts = document.createElement('span');
-    ts.className = 'text-xs text-gray-400';
-    ts.textContent = formatJobDate(job.created_at);
-    metaRow.appendChild(ts);
-
-    if (job.status === 'done' && job.transaction_count > 0) {
-        const txLink = document.createElement('a');
-        txLink.href = '/transactions?import_job_id=' + job.id;
-        txLink.className = 'text-xs text-green-600 font-medium hover:underline';
-        txLink.textContent = job.transaction_count + ' transaction' + (job.transaction_count !== 1 ? 's' : '') + ' extracted';
-        metaRow.appendChild(txLink);
-
-        // Placeholder for review flag — revealed after transactions are fetched
-        const reviewFlag = document.createElement('span');
-        reviewFlag.id = 'job-' + job.id + '-review-flag';
-        reviewFlag.className = 'hidden items-center gap-1 text-xs font-medium text-orange-600';
-        const flagIcon = document.createElement('i');
-        flagIcon.className = 'fas fa-exclamation-triangle text-xs';
-        const flagText = document.createElement('span');
-        reviewFlag.appendChild(flagIcon);
-        reviewFlag.appendChild(flagText);
-        metaRow.appendChild(reviewFlag);
-    }
-
-    if (job.status === 'failed' && job.error_message) {
-        const errMsg = document.createElement('span');
-        errMsg.className = 'text-xs text-red-500 truncate max-w-xs';
-        errMsg.textContent = humanizeError(job.error_message);
-        errMsg.title = job.error_message;
-        metaRow.appendChild(errMsg);
-    }
-
-    info.appendChild(topRow);
-    info.appendChild(metaRow);
-
-    // Action area
-    const actions = document.createElement('div');
-    actions.className = 'flex-shrink-0 flex items-center gap-2';
-
-    if (job.status === 'failed') {
-        const source = job.detected_source || job.source_hint || '';
-        const hintDesc = source ? encodeURIComponent('From ' + source.charAt(0).toUpperCase() + source.slice(1)) : '';
-        const hintDate = job.created_at ? job.created_at.split('T')[0] : '';
-        let manualUrl = '/transactions?from_import=' + job.id;
-        if (hintDesc) manualUrl += '&hint_description=' + hintDesc;
-        if (hintDate) manualUrl += '&hint_date=' + hintDate;
-        const manualBtn = document.createElement('a');
-        manualBtn.href = manualUrl;
-        manualBtn.className = 'text-xs text-blue-600 hover:underline font-medium';
-        manualBtn.textContent = 'Create manually';
-        actions.appendChild(manualBtn);
-    }
-
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'text-gray-300 hover:text-red-500 transition p-1';
-    deleteBtn.setAttribute('aria-label', 'Delete job');
-    const delIcon = document.createElement('i');
-    delIcon.className = 'fas fa-trash-alt text-sm';
-    deleteBtn.appendChild(delIcon);
-    deleteBtn.addEventListener('click', function() { deleteJob(job.id); });
-    actions.appendChild(deleteBtn);
-
-    // Expand toggle — only for done jobs that have transactions
-    if (job.status === 'done' && job.transaction_count > 0) {
-        const expandSection = document.createElement('div');
-        expandSection.className = 'hidden border-t';
-
-        const expandBtn = document.createElement('button');
-        expandBtn.className = 'flex-shrink-0 text-gray-400 hover:text-gray-600 transition p-1';
-        expandBtn.setAttribute('aria-label', 'Toggle transaction details');
-        const chevron = document.createElement('i');
-        chevron.className = 'fas fa-chevron-down text-xs job-chevron';
-        expandBtn.appendChild(chevron);
-
-        let loaded = false;
-        expandBtn.addEventListener('click', function() {
-            const isOpen = !expandSection.classList.contains('hidden');
-            expandSection.classList.toggle('hidden');
-            chevron.style.transform = isOpen ? '' : 'rotate(180deg)';
-            if (!isOpen && !loaded) {
-                loaded = true;
-                fetchJobTransactions(job.id, expandSection);
-            }
-        });
-
-        actions.appendChild(expandBtn);
-        mainRow.appendChild(dot);
-        mainRow.appendChild(info);
-        mainRow.appendChild(actions);
-        wrapper.appendChild(mainRow);
-        wrapper.appendChild(expandSection);
-    } else {
-        mainRow.appendChild(dot);
-        mainRow.appendChild(info);
-        mainRow.appendChild(actions);
-        wrapper.appendChild(mainRow);
-    }
-
-    return wrapper;
-}
-
-function formatJobDate(isoStr) {
-    if (!isoStr) return '';
-    const d = new Date(isoStr);
-    return d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
-}
-
-async function fetchJobTransactions(jobId, container) {
-    const loading = document.createElement('div');
-    loading.className = 'px-4 py-3 text-sm text-gray-400 flex items-center gap-2';
-    const spinner = document.createElement('i');
-    spinner.className = 'fas fa-spinner fa-spin text-xs';
-    const loadingText = document.createElement('span');
-    loadingText.textContent = 'Loading transactions…';
-    loading.appendChild(spinner);
-    loading.appendChild(loadingText);
-    container.appendChild(loading);
-
-    let txs;
-    try {
-        const res = await fetch('/api/transactions/?import_job_id=' + jobId + '&limit=50');
-        if (!res.ok) throw new Error('Failed');
-        txs = await res.json();
-    } catch(e) {
-        container.removeChild(loading);
-        const err = document.createElement('p');
-        err.className = 'px-4 py-3 text-sm text-red-500';
-        err.textContent = 'Failed to load transactions.';
-        container.appendChild(err);
-        return;
-    }
-    container.removeChild(loading);
-
-    if (!txs.length) {
-        const empty = document.createElement('p');
-        empty.className = 'px-4 py-3 text-sm text-gray-400';
-        empty.textContent = 'No transactions linked to this import.';
-        container.appendChild(empty);
-        return;
-    }
-
-    // Compute summary stats
-    const needsReviewCount = txs.filter(function(t) { return t.needs_review; }).length;
-    const withScore = txs.filter(function(t) { return t.confidence_score !== null; });
-    const avgConf = withScore.length
-        ? withScore.reduce(function(s, t) { return s + t.confidence_score; }, 0) / withScore.length
-        : null;
-
-    // Update collapsed card review flag
-    const reviewFlag = document.getElementById('job-' + jobId + '-review-flag');
-    if (reviewFlag && needsReviewCount > 0) {
-        reviewFlag.classList.remove('hidden');
-        reviewFlag.classList.add('flex');
-        reviewFlag.querySelector('span').textContent = needsReviewCount + ' need review';
-    }
-
-    // Summary bar
-    const summary = document.createElement('div');
-    summary.className = 'px-4 py-2 flex items-center gap-2 bg-gray-50 border-b';
-    const summaryIcon = document.createElement('i');
-    const summaryText = document.createElement('span');
-    summaryText.className = 'text-xs font-medium';
-    if (needsReviewCount > 0) {
-        summaryIcon.className = 'fas fa-exclamation-triangle text-xs text-orange-500';
-        summaryText.classList.add('text-orange-700');
-        summaryText.textContent = needsReviewCount + ' transaction' + (needsReviewCount !== 1 ? 's' : '') + ' need review';
-    } else if (avgConf !== null && avgConf < 0.75) {
-        summaryIcon.className = 'fas fa-info-circle text-xs text-yellow-500';
-        summaryText.classList.add('text-yellow-700');
-        summaryText.textContent = 'Medium confidence — verify amounts and dates';
-    } else {
-        summaryIcon.className = 'fas fa-check-circle text-xs text-green-500';
-        summaryText.classList.add('text-green-700');
-        summaryText.textContent = 'All extractions high confidence';
-    }
-    summary.appendChild(summaryIcon);
-    summary.appendChild(summaryText);
-    container.appendChild(summary);
-
-    // Transaction rows
-    txs.forEach(function(tx) {
-        const row = document.createElement('div');
-        row.className = 'px-4 py-2.5 flex items-center gap-3 border-b last:border-b-0 hover:bg-gray-50 transition';
-
-        const amountEl = document.createElement('span');
-        amountEl.className = 'text-sm font-semibold flex-shrink-0 w-28 text-right ' + (tx.type === 'income' ? 'text-green-600' : 'text-red-600');
-        amountEl.textContent = (tx.type === 'income' ? '+' : '-') + formatVND(tx.amount);
-
-        const catBadge = document.createElement('span');
-        catBadge.className = 'text-xs px-2 py-0.5 rounded-full flex-shrink-0 max-w-[80px] truncate';
-        catBadge.style.backgroundColor = tx.category.color + '20';
-        catBadge.style.color = tx.category.color;
-        catBadge.textContent = tx.category.name;
-
-        const descEl = document.createElement('div');
-        descEl.className = 'flex-1 min-w-0';
-        const descText = document.createElement('p');
-        descText.className = 'text-xs text-gray-700 truncate';
-        descText.textContent = tx.description || '—';
-        const dateText = document.createElement('p');
-        dateText.className = 'text-xs text-gray-400 mt-0.5';
-        dateText.textContent = tx.date;
-        descEl.appendChild(descText);
-        descEl.appendChild(dateText);
-
-        const confBadge = buildConfidenceBadge(tx.confidence_score, tx.needs_review);
-
-        row.appendChild(amountEl);
-        row.appendChild(catBadge);
-        row.appendChild(descEl);
-        row.appendChild(confBadge);
-        container.appendChild(row);
-    });
-
-    // Footer link
-    const footer = document.createElement('div');
-    footer.className = 'px-4 py-2 text-right bg-gray-50';
-    const viewLink = document.createElement('a');
-    viewLink.href = '/transactions?import_job_id=' + jobId;
-    viewLink.className = 'text-xs text-blue-600 hover:underline font-medium';
-    viewLink.textContent = 'View all in Transactions →';
-    footer.appendChild(viewLink);
-    container.appendChild(footer);
-}
-
-function buildConfidenceBadge(score, needsReview) {
-    const span = document.createElement('span');
-    span.className = 'text-xs font-medium px-1.5 py-0.5 rounded flex-shrink-0';
-    if (score === null && !needsReview) return span;
-    if (needsReview || (score !== null && score < 0.65)) {
-        span.classList.add('conf-review');
-        span.textContent = 'Review' + (score !== null ? ' · ' + Math.round(score * 100) + '%' : '');
-    } else if (score !== null && score < 0.85) {
-        span.classList.add('conf-medium');
-        span.textContent = Math.round(score * 100) + '%';
-    } else if (score !== null) {
-        span.classList.add('conf-high');
-        span.textContent = Math.round(score * 100) + '%';
-    }
-    return span;
-}
-
-async function deleteJob(id) {
+// ── Delete job ────────────────────────────────────────────────────────────────
+function deleteJob(id) {
     showConfirm('Delete this import job?', async function() {
         const res = await fetch('/api/import/jobs/' + id, { method: 'DELETE' });
         if (res.ok) {
-            const card = document.getElementById('job-' + id);
+            const card = document.getElementById('job-card-' + id);
             if (card) card.remove();
             showToast('Job deleted', 'info');
         } else {
@@ -904,59 +317,14 @@ async function deleteJob(id) {
     }, 'Delete', 'bg-red-600 hover:bg-red-700');
 }
 
-// ── Polling for active jobs ───────────────────────────────────────────────────
-function schedulePoll() {
-    if (pollTimer) return;
-    pollTimer = setInterval(function() { loadJobs(currentFilter); }, 5000);
-}
-function stopPoll() {
-    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-}
-
-async function showImportSummary(jobId) {
-    try {
-        const res = await fetch('/api/import/jobs/' + jobId + '/summary');
-        if (!res.ok) return;
-        const s = await res.json();
-
-        const content = document.getElementById('import-summary-content');
-        while (content.firstChild) content.removeChild(content.firstChild);
-
-        const makeRow = function(iconCls, iconColor, text) {
-            const row = document.createElement('div');
-            row.className = 'flex items-center gap-3 text-sm';
-            const ico = document.createElement('i');
-            ico.className = 'fas ' + iconCls + ' w-4 text-center ' + iconColor;
-            const span = document.createElement('span');
-            span.className = 'text-gray-700';
-            span.textContent = text;
-            row.appendChild(ico);
-            row.appendChild(span);
-            return row;
-        };
-
-        content.appendChild(makeRow('fa-receipt', 'text-gray-500', s.total + ' transaction' + (s.total !== 1 ? 's' : '') + ' extracted'));
-        content.appendChild(makeRow('fa-check-circle', 'text-green-500', s.auto_approved + ' auto-approved (high confidence)'));
-        if (s.needs_review > 0) {
-            content.appendChild(makeRow('fa-exclamation-triangle', 'text-orange-500', s.needs_review + ' need' + (s.needs_review !== 1 ? '' : 's') + ' review'));
+// Inject filter param into HTMX job list requests
+document.addEventListener('htmx:configRequest', function(evt) {
+    const el = evt.target;
+    if (el && (el.id === 'job-list-region' || el.closest('#job-list-region'))) {
+        if (currentJobFilter && currentJobFilter !== 'all') {
+            evt.detail.parameters.status = currentJobFilter;
         }
-        if (s.rejected > 0) {
-            content.appendChild(makeRow('fa-times-circle', 'text-red-400', s.rejected + ' rejected'));
-        }
-
-        const reviewLink = document.getElementById('import-summary-review-link');
-        if (s.needs_review > 0) {
-            reviewLink.href = '/transactions?import_job_id=' + jobId;
-            reviewLink.classList.remove('hidden');
-        } else {
-            reviewLink.classList.add('hidden');
-        }
-
-        document.getElementById('import-summary-modal').classList.remove('hidden');
-    } catch(e) { /* silently ignore */ }
-}
-
-// ── Init ──────────────────────────────────────────────────────────────────────
-loadJobs('all');
+    }
+});
 </script>
 {% endblock %}

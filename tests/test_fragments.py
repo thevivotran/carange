@@ -207,6 +207,68 @@ def test_fragment_projects_grid_empty(client):
     assert "No projects yet" in r.text
 
 
+# ── Categories fragment tests ─────────────────────────────────────────────────
+
+
+def test_fragment_categories_rows_expense(client):
+    r = client.get("/fragments/categories/rows?type=expense", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+
+
+def test_fragment_categories_rows_income(client):
+    r = client.get("/fragments/categories/rows?type=income", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+
+
+def test_fragment_categories_rows_sort(client):
+    url = "/fragments/categories/rows?type=expense&sort_col=count&sort_dir=desc"
+    r = client.get(url, headers={"HX-Request": "true"})
+    assert r.status_code == 200
+
+
+def test_fragment_categories_rows_empty_type(client):
+    r = client.get("/fragments/categories/rows?type=expense", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+
+
+# ── Import fragment tests ─────────────────────────────────────────────────────
+
+
+def test_fragment_import_jobs_empty(client):
+    r = client.get("/fragments/import/jobs", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+
+
+def test_fragment_import_jobs_filter(client):
+    r = client.get("/fragments/import/jobs?status=done", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+
+
+def test_fragment_import_job_transactions_nonexistent(client):
+    r = client.get("/fragments/import/99999/transactions", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+
+
+# ── Templates fragment tests ──────────────────────────────────────────────────
+
+
+def test_fragment_templates_rows_default(client):
+    r = client.get("/fragments/templates/rows", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+
+
+def test_fragment_templates_rows_filter(client):
+    r = client.get(
+        "/fragments/templates/rows?type=expense&is_active=true",
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+
+
 # ── Assets fragment tests ─────────────────────────────────────────────────────
 
 

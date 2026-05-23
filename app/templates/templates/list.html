@@ -12,28 +12,31 @@
             <i class="fas fa-plus mr-2"></i>Add Template
         </button>
     </div>
-    
+
     <!-- Filters -->
     <div class="bg-white rounded-xl shadow-md p-4 mb-6">
         <div class="flex flex-wrap gap-4">
-            <select id="filter-type" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary" onchange="loadTemplates()">
+            <select id="filter-type" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
+                    onchange="_reloadTemplates()">
                 <option value="">All Types</option>
                 <option value="income">Income</option>
                 <option value="expense">Expense</option>
             </select>
-            
-            <select id="filter-category" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary" onchange="loadTemplates()">
+
+            <select id="filter-category" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
+                    onchange="_reloadTemplates()">
                 <option value="">All Categories</option>
             </select>
-            
-            <select id="filter-status" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary" onchange="loadTemplates()">
+
+            <select id="filter-status" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
+                    onchange="_reloadTemplates()">
                 <option value="">All Status</option>
                 <option value="true" selected>Active</option>
                 <option value="false">Inactive</option>
             </select>
         </div>
     </div>
-    
+
     <!-- Templates Table -->
     <div class="bg-white rounded-xl shadow-md overflow-hidden">
         <div class="overflow-x-auto">
@@ -46,18 +49,24 @@
                         <th class="py-4 px-4"></th>
                     </tr>
                 </thead>
-                <tbody id="templates-table-body">
-                    <!-- Dynamic content -->
+                <tbody id="templates-table-body"
+                       hx-get="/fragments/templates/rows"
+                       hx-trigger="load, templates-updated from:body"
+                       hx-swap="innerHTML">
                 </tbody>
             </table>
         </div>
-        
+
         <!-- Pagination -->
         <div class="flex justify-between items-center p-4 border-t">
-            <p class="text-sm text-gray-600" id="pagination-info">Showing 0 of 0 templates</p>
+            <p class="text-sm text-gray-600" id="pagination-info">Loading…</p>
             <div class="flex gap-2">
-                <button onclick="prevPage()" id="prev-btn" class="px-4 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 dark:border-gray-600 disabled:opacity-50" disabled>Previous</button>
-                <button onclick="nextPage()" id="next-btn" class="px-4 py-2 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 dark:border-gray-600 disabled:opacity-50" disabled>Next</button>
+                <button onclick="prevPage()" id="prev-btn"
+                        class="px-4 py-2 border rounded-lg hover:bg-gray-50 text-gray-700 disabled:opacity-50"
+                        disabled>Previous</button>
+                <button onclick="nextPage()" id="next-btn"
+                        class="px-4 py-2 border rounded-lg hover:bg-gray-50 text-gray-700 disabled:opacity-50"
+                        disabled>Next</button>
             </div>
         </div>
     </div>
@@ -72,31 +81,31 @@
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
-        
+
         <form id="template-form" class="p-6 space-y-4">
             <input type="hidden" id="template-id">
-            
+
             <!-- Name -->
             <div>
-                <label class="field-required block text-sm font-medium text-gray-700 mb-2">Template Name</label>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Template Name</label>
                 <input type="text" id="name" required
                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                        placeholder="e.g., Monthly Salary, Grocery Shopping">
             </div>
-            
+
             <!-- Type -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Type</label>
                 <div class="flex gap-4">
                     <label class="flex-1 cursor-pointer">
-                        <input type="radio" name="type" value="income" class="hidden peer" onchange="loadCategories()">
+                        <input type="radio" name="type" value="income" class="hidden peer" onchange="loadModalCategories()">
                         <div class="text-center py-3 border-2 rounded-lg peer-checked:border-green-500 peer-checked:bg-green-50 transition">
                             <i class="fas fa-arrow-down text-green-600 text-xl mb-1"></i>
                             <p class="text-sm font-medium">Income</p>
                         </div>
                     </label>
                     <label class="flex-1 cursor-pointer">
-                        <input type="radio" name="type" value="expense" class="hidden peer" checked onchange="loadCategories()">
+                        <input type="radio" name="type" value="expense" class="hidden peer" checked onchange="loadModalCategories()">
                         <div class="text-center py-3 border-2 rounded-lg peer-checked:border-red-500 peer-checked:bg-red-50 transition">
                             <i class="fas fa-arrow-up text-red-600 text-xl mb-1"></i>
                             <p class="text-sm font-medium">Expense</p>
@@ -104,24 +113,24 @@
                     </label>
                 </div>
             </div>
-            
+
             <!-- Amount -->
             <div>
-                <label class="field-required block text-sm font-medium text-gray-700 mb-2">Amount (VND)</label>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Amount (VND)</label>
                 <input type="number" id="amount" required min="0" step="1"
                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                        placeholder="Enter amount">
             </div>
-            
+
             <!-- Category -->
             <div>
-                <label class="field-required block text-sm font-medium text-gray-700 mb-2">Category</label>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
                 <select id="category" required
                         class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
                     <option value="">Select Category</option>
                 </select>
             </div>
-            
+
             <!-- Description -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
@@ -129,7 +138,7 @@
                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                        placeholder="Optional description">
             </div>
-            
+
             <!-- Payment Method -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
@@ -143,13 +152,11 @@
                     <option value="other">Other</option>
                 </select>
             </div>
-            
+
             <!-- Active Status -->
             <div class="flex items-center">
                 <input type="checkbox" id="is-active" class="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary" checked>
-                <label for="is-active" class="ml-3 text-sm font-medium text-gray-700">
-                    Active
-                </label>
+                <label for="is-active" class="ml-3 text-sm font-medium text-gray-700">Active</label>
             </div>
 
             <!-- Submit -->
@@ -167,185 +174,58 @@
     </div>
 </div>
 
+<!-- Row Action Bar (injected below selected row) -->
+<div id="tpl-action-bar" class="hidden"></div>
+
 <script>
     let currentPage = 0;
     const pageSize = 20;
-    let totalTemplates = 0;
-    let categories = [];
-    
-    // Initialize
-    document.addEventListener('DOMContentLoaded', function() {
-        loadCategories();
-        loadTemplates();
+    let _activeTplId = null;
+    let _activeTplActionTr = null;
+
+    // Inject filter params into HTMX templates request
+    document.addEventListener('htmx:configRequest', function(evt) {
+        if (evt.target && evt.target.id === 'templates-table-body') {
+            evt.detail.parameters.type = document.getElementById('filter-type').value;
+            evt.detail.parameters.category_id = document.getElementById('filter-category').value;
+            evt.detail.parameters.is_active = document.getElementById('filter-status').value;
+            evt.detail.parameters.skip = currentPage * pageSize;
+            evt.detail.parameters.limit = pageSize;
+        }
     });
-    
-    // Load categories
-    async function loadCategories() {
-        try {
-            const response = await fetch('/api/categories/');
-            categories = await response.json();
 
-            const type = document.querySelector('input[name="type"]:checked').value;
-            const categorySelect = document.getElementById('category');
-            const filterCategorySelect = document.getElementById('filter-category');
+    // Update pagination info from HX-Trigger header
+    document.addEventListener('updatePagination', function(e) {
+        const { count, skip, limit } = e.detail;
+        document.getElementById('pagination-info').textContent =
+            'Page ' + (Math.floor(skip / limit) + 1) + ' - Showing ' + count + ' templates';
+        document.getElementById('prev-btn').disabled = skip === 0;
+        document.getElementById('next-btn').disabled = count < limit;
+    });
 
-            // Update form category select
-            categorySelect.replaceChildren();
-            const placeholder = document.createElement('option');
-            placeholder.value = '';
-            placeholder.textContent = 'Select Category';
-            categorySelect.appendChild(placeholder);
-            categories.filter(c => c.type === type && c.is_active).forEach(function(cat) {
-                const opt = document.createElement('option');
-                opt.value = cat.id;
-                opt.textContent = cat.name;
-                categorySelect.appendChild(opt);
-            });
-
-            // Update filter category select
-            filterCategorySelect.replaceChildren();
-            const allOpt = document.createElement('option');
-            allOpt.value = '';
-            allOpt.textContent = 'All Categories';
-            filterCategorySelect.appendChild(allOpt);
-            categories.filter(c => c.is_active).forEach(function(cat) {
-                const opt = document.createElement('option');
-                opt.value = cat.id;
-                opt.textContent = cat.name;
-                filterCategorySelect.appendChild(opt);
-            });
-        } catch (error) {
-            console.error('Error loading categories:', error);
-        }
+    function _reloadTemplates() {
+        document.body.dispatchEvent(new CustomEvent('templates-updated'));
     }
-    
-    // Load templates
-    async function loadTemplates() {
-        try {
-            const params = new URLSearchParams({
-                skip: currentPage * pageSize,
-                limit: pageSize
-            });
 
-            const type = document.getElementById('filter-type').value;
-            const categoryId = document.getElementById('filter-category').value;
-            const status = document.getElementById('filter-status').value;
-
-            if (type) params.append('type', type);
-            if (categoryId) params.append('category_id', categoryId);
-            if (status) params.append('is_active', status);
-
-            const response = await fetch('/api/templates/?' + params);
-            const templates = await response.json();
-
-            collapseTemplateActions();
-            const tbody = document.getElementById('templates-table-body');
-            while (tbody.firstChild) tbody.removeChild(tbody.firstChild);
-
-            if (templates.length === 0) {
-                const emptyRow = document.createElement('tr');
-                const emptyCell = document.createElement('td');
-                emptyCell.colSpan = 4;
-                emptyCell.className = 'py-20 text-center text-gray-400';
-                const ico = document.createElement('i');
-                ico.className = 'fas fa-layer-group text-5xl mb-4 block opacity-30';
-                const msg = document.createElement('p');
-                msg.className = 'text-lg';
-                msg.textContent = 'No templates yet.';
-                const btn = document.createElement('button');
-                btn.className = 'mt-3 px-4 py-2 bg-primary text-white rounded-lg text-sm hover:bg-blue-600 transition';
-                btn.textContent = 'Add Template';
-                btn.addEventListener('click', openAddModal);
-                emptyCell.appendChild(ico);
-                emptyCell.appendChild(msg);
-                emptyCell.appendChild(btn);
-                emptyRow.appendChild(emptyCell);
-                tbody.appendChild(emptyRow);
-                return;
-            }
-
-            templates.forEach(function(t) {
-                const row = document.createElement('tr');
-                row.className = 'border-b hover:bg-gray-50 cursor-pointer select-none transition-colors';
-                row.addEventListener('click', function() { toggleTemplateActions(row, t); });
-
-                // Name cell — description as subtitle, inactive badge when relevant
-                const nameCell = document.createElement('td');
-                nameCell.className = 'py-3 px-6';
-                const nameText = document.createElement('p');
-                nameText.className = 'font-medium text-gray-800 text-sm';
-                nameText.textContent = t.name;
-                nameCell.appendChild(nameText);
-                if (t.description) {
-                    const descSub = document.createElement('p');
-                    descSub.className = 'text-xs text-gray-400 mt-0.5 truncate max-w-xs';
-                    descSub.textContent = t.description;
-                    nameCell.appendChild(descSub);
-                }
-                if (!t.is_active) {
-                    const inactiveBadge = document.createElement('span');
-                    inactiveBadge.className = 'inline-block mt-1 px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500';
-                    inactiveBadge.textContent = 'Inactive';
-                    nameCell.appendChild(inactiveBadge);
-                }
-                row.appendChild(nameCell);
-
-                // Category cell
-                const catCell = document.createElement('td');
-                catCell.className = 'py-3 px-6';
-                const catBadge = document.createElement('span');
-                catBadge.className = 'inline-flex items-center px-2 py-1 rounded-full text-xs font-medium';
-                catBadge.style.backgroundColor = t.category.color + '20';
-                catBadge.style.color = t.category.color;
-                catBadge.textContent = t.category.name;
-                catCell.appendChild(catBadge);
-                row.appendChild(catCell);
-
-                // Amount cell — color encodes income vs expense (replaces Type column)
-                const amtCell = document.createElement('td');
-                amtCell.className = 'py-3 px-6 text-right font-semibold text-sm ' + (t.type === 'income' ? 'text-green-600' : 'text-red-600');
-                amtCell.textContent = (t.type === 'income' ? '+' : '-') + formatVND(t.amount);
-                row.appendChild(amtCell);
-
-                // Always-visible Use button
-                const useCell = document.createElement('td');
-                useCell.className = 'py-3 px-4 text-right';
-                const useBtn = document.createElement('button');
-                useBtn.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border text-green-700 bg-white border-green-200 hover:bg-green-50 transition active:scale-95';
-                useBtn.title = 'Use Template';
-                const useIco = document.createElement('i');
-                useIco.className = 'fas fa-play';
-                useBtn.appendChild(useIco);
-                useBtn.appendChild(document.createTextNode(' Use'));
-                useBtn.addEventListener('click', function(e) { e.stopPropagation(); useTemplate(t.id); });
-                useCell.appendChild(useBtn);
-                row.appendChild(useCell);
-
-                tbody.appendChild(row);
-            });
-
-            totalTemplates = templates.length;
-            document.getElementById('pagination-info').textContent =
-                'Page ' + (currentPage + 1) + ' - Showing ' + templates.length + ' templates';
-            document.getElementById('prev-btn').disabled = currentPage === 0;
-            document.getElementById('next-btn').disabled = templates.length < pageSize;
-            pageReady();
-
-        } catch (error) {
-            console.error('Error loading templates:', error);
-            pageReady();
-        }
+    function prevPage() {
+        if (currentPage > 0) { currentPage--; _reloadTemplates(); }
     }
-    
-    // ── Row action bar (same pattern as transactions) ─────────────────────────
-    let _activeTplRow = null, _activeTplActionTr = null, _activeTplRowOrigClass = null;
 
-    function toggleTemplateActions(row, t) {
-        if (_activeTplRow === row) { collapseTemplateActions(); return; }
-        collapseTemplateActions();
+    function nextPage() {
+        currentPage++;
+        _reloadTemplates();
+    }
 
-        _activeTplRowOrigClass = row.className;
-        row.className = row.className.replace('hover:bg-gray-50', '') + ' bg-blue-50 ring-1 ring-inset ring-blue-200';
+    // ── Row action bar ────────────────────────────────────────────────────────
+    function toggleTemplateActions(id, name, type, amount, categoryId) {
+        if (_activeTplId === id) { _collapseActions(); return; }
+        _collapseActions();
+        _activeTplId = id;
+
+        const row = document.getElementById('tpl-row-' + id);
+        if (!row) return;
+        row.classList.add('bg-blue-50', 'ring-1', 'ring-inset', 'ring-blue-200');
+        row.classList.remove('hover:bg-gray-50');
 
         const actionTr = document.createElement('tr');
         const actionTd = document.createElement('td');
@@ -356,25 +236,25 @@
         const bar = document.createElement('div');
         bar.className = 'flex flex-wrap items-center gap-2';
 
-        const mkTplBtn = function(iconClass, label, cls) {
+        function mkBtn(iconCls, label, extraCls) {
             const btn = document.createElement('button');
-            btn.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition active:scale-95 ' + cls;
+            btn.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition active:scale-95 ' + extraCls;
             const ico = document.createElement('i');
-            ico.className = 'fas ' + iconClass;
+            ico.className = 'fas ' + iconCls;
             btn.appendChild(ico);
             btn.appendChild(document.createTextNode(' ' + label));
             return btn;
-        };
+        }
 
-        const editBtn = mkTplBtn('fa-edit', 'Edit', 'text-blue-700 bg-white border-blue-200 hover:bg-blue-50');
-        editBtn.addEventListener('click', function(e) { e.stopPropagation(); collapseTemplateActions(); editTemplate(t.id); });
+        const editBtn = mkBtn('fa-edit', 'Edit', 'text-blue-700 bg-white border-blue-200 hover:bg-blue-50');
+        editBtn.addEventListener('click', function(e) { e.stopPropagation(); _collapseActions(); editTemplate(id); });
         bar.appendChild(editBtn);
 
-        const delBtn = mkTplBtn('fa-trash', 'Delete', 'text-red-700 bg-white border-red-200 hover:bg-red-50');
+        const delBtn = mkBtn('fa-trash', 'Delete', 'text-red-700 bg-white border-red-200 hover:bg-red-50');
         delBtn.addEventListener('click', function(e) {
             e.stopPropagation();
-            collapseTemplateActions();
-            deleteWithUndo(row, '/api/templates/' + t.id, loadTemplates, t.name);
+            _collapseActions();
+            deleteWithUndo(row, '/api/templates/' + id, _reloadTemplates, name);
         });
         bar.appendChild(delBtn);
 
@@ -386,40 +266,68 @@
         actionTd.appendChild(bar);
         actionTr.appendChild(actionTd);
         row.after(actionTr);
-
-        _activeTplRow = row;
         _activeTplActionTr = actionTr;
     }
 
-    function collapseTemplateActions() {
+    function _collapseActions() {
         if (_activeTplActionTr) { _activeTplActionTr.remove(); _activeTplActionTr = null; }
-        if (_activeTplRow) {
-            if (_activeTplRowOrigClass !== null) _activeTplRow.className = _activeTplRowOrigClass;
-            _activeTplRow = null;
-            _activeTplRowOrigClass = null;
+        if (_activeTplId !== null) {
+            const row = document.getElementById('tpl-row-' + _activeTplId);
+            if (row) {
+                row.classList.remove('bg-blue-50', 'ring-1', 'ring-inset', 'ring-blue-200');
+                row.classList.add('hover:bg-gray-50');
+            }
+            _activeTplId = null;
         }
     }
     // ─────────────────────────────────────────────────────────────────────────
 
-    // Modal functions
+    async function loadModalCategories(selectedId) {
+        const type = document.querySelector('input[name="type"]:checked').value;
+        const sel = document.getElementById('category');
+        const res = await fetch('/api/categories/?type=' + type);
+        const cats = await res.json();
+        sel.replaceChildren();
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = 'Select Category';
+        sel.appendChild(placeholder);
+        cats.filter(c => c.is_active).forEach(function(c) {
+            const opt = document.createElement('option');
+            opt.value = c.id;
+            opt.textContent = c.name;
+            if (selectedId && c.id === selectedId) opt.selected = true;
+            sel.appendChild(opt);
+        });
+        // Also populate filter-category on first call
+        const filterSel = document.getElementById('filter-category');
+        if (filterSel.options.length <= 1) {
+            const allRes = await fetch('/api/categories/');
+            const allCats = await allRes.json();
+            allCats.filter(c => c.is_active).forEach(function(c) {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.name;
+                filterSel.appendChild(opt);
+            });
+        }
+    }
+
     function openAddModal() {
         document.getElementById('modal-title').textContent = 'Add Template';
         document.getElementById('template-form').reset();
         document.getElementById('template-id').value = '';
         document.getElementById('template-modal').classList.remove('hidden');
-        loadCategories();
+        loadModalCategories();
     }
-    
+
     function closeModal() {
         document.getElementById('template-modal').classList.add('hidden');
     }
-    
-    // Form submission
+
     document.getElementById('template-form').addEventListener('submit', async function(e) {
         e.preventDefault();
-
         const templateId = document.getElementById('template-id').value;
-        
         const data = {
             name: document.getElementById('name').value,
             amount: parseFloat(document.getElementById('amount').value),
@@ -427,40 +335,54 @@
             category_id: parseInt(document.getElementById('category').value),
             description: document.getElementById('description').value,
             payment_method: document.getElementById('payment-method').value,
-            is_active: document.getElementById('is-active').checked
+            is_active: document.getElementById('is-active').checked,
         };
-
         try {
-            const url = templateId ? `/api/templates/${templateId}` : '/api/templates/';
+            const url = templateId ? '/api/templates/' + templateId : '/api/templates/';
             const method = templateId ? 'PUT' : 'POST';
-
-            const response = await fetch(url, {
+            const res = await fetch(url, {
                 method: method,
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
+                body: JSON.stringify(data),
             });
-
-            if (response.ok) {
+            if (res.ok) {
                 closeModal();
-                loadTemplates();
+                _reloadTemplates();
             } else {
-                const error = await response.json();
-                const errorMessage = typeof error.detail === 'object' ? JSON.stringify(error.detail) : error.detail;
-                showToast('Error: ' + errorMessage, 'error');
+                const err = await res.json();
+                const msg = typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail;
+                showToast('Error: ' + msg, 'error');
             }
-        } catch (error) {
-            console.error('Error saving template:', error);
+        } catch(e) {
             showToast('Failed to save template', 'error');
         }
     });
-    
-    // Use template — ask for date first (#7), then create with correct payment_method (#1)
+
+    async function editTemplate(id) {
+        try {
+            const res = await fetch('/api/templates/' + id);
+            const t = await res.json();
+            document.getElementById('modal-title').textContent = 'Edit Template';
+            document.getElementById('template-id').value = t.id;
+            document.getElementById('name').value = t.name;
+            document.getElementById('amount').value = t.amount;
+            document.querySelector('input[name="type"][value="' + t.type + '"]').checked = true;
+            document.getElementById('description').value = t.description || '';
+            document.getElementById('payment-method').value = t.payment_method;
+            document.getElementById('is-active').checked = t.is_active;
+            await loadModalCategories(t.category_id);
+            document.getElementById('category').value = t.category_id;
+            document.getElementById('template-modal').classList.remove('hidden');
+        } catch(e) {
+            showToast('Failed to load template', 'error');
+        }
+    }
+
     async function useTemplate(id) {
         try {
-            const response = await fetch('/api/templates/' + id);
-            const template = await response.json();
+            const res = await fetch('/api/templates/' + id);
+            const template = await res.json();
 
-            // Build a small date-picker dialog
             const overlay = document.createElement('div');
             overlay.className = 'fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4';
             const box = document.createElement('div');
@@ -488,28 +410,27 @@
                 const chosenDate = dateInput.value;
                 if (!chosenDate) { showToast('Please pick a date', 'error'); return; }
                 document.body.removeChild(overlay);
-                const transactionData = {
-                    date: chosenDate,
-                    amount: template.amount,
-                    type: template.type,
-                    category_id: template.category_id,
-                    description: template.description || '',
-                    payment_method: template.payment_method || 'cash',
-                    is_savings_related: false
-                };
                 try {
-                    const createResponse = await fetch('/api/transactions/', {
+                    const createRes = await fetch('/api/transactions/', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(transactionData)
+                        body: JSON.stringify({
+                            date: chosenDate,
+                            amount: template.amount,
+                            type: template.type,
+                            category_id: template.category_id,
+                            description: template.description || '',
+                            payment_method: template.payment_method || 'cash',
+                            is_savings_related: false,
+                        }),
                     });
-                    if (createResponse.ok) {
+                    if (createRes.ok) {
                         showToast('Transaction created from template: ' + template.name, 'success');
                     } else {
-                        const err = await createResponse.json();
-                        showToast('Error: ' + (err.detail || 'Failed to create transaction'), 'error');
+                        const err = await createRes.json();
+                        showToast('Error: ' + (err.detail || 'Failed'), 'error');
                     }
-                } catch (err) {
+                } catch(e) {
                     showToast('Failed to create transaction', 'error');
                 }
             });
@@ -521,61 +442,24 @@
             box.appendChild(btnRow);
             overlay.appendChild(box);
             document.body.appendChild(overlay);
-        } catch (error) {
-            console.error('Error loading template:', error);
+        } catch(e) {
             showToast('Failed to load template', 'error');
         }
     }
-    
-    // Edit template
-    async function editTemplate(id) {
+
+    // Initialize filter categories on load
+    document.addEventListener('DOMContentLoaded', async function() {
+        const filterSel = document.getElementById('filter-category');
         try {
-            const response = await fetch(`/api/templates/${id}`);
-            const template = await response.json();
-
-            document.getElementById('modal-title').textContent = 'Edit Template';
-            document.getElementById('template-id').value = template.id;
-            document.getElementById('name').value = template.name;
-            document.getElementById('amount').value = template.amount;
-            document.querySelector(`input[name="type"][value="${template.type}"]`).checked = true;
-            document.getElementById('description').value = template.description || '';
-            document.getElementById('payment-method').value = template.payment_method;
-            document.getElementById('is-active').checked = template.is_active;
-            
-            loadCategories();
-            setTimeout(() => {
-                document.getElementById('category').value = template.category_id;
-            }, 100);
-
-            document.getElementById('template-modal').classList.remove('hidden');
-        } catch (error) {
-            console.error('Error loading template:', error);
-        }
-    }
-    
-    // deleteTemplate kept for compatibility (rows now use deleteWithUndo)
-    async function deleteTemplate(id) {
-        showConfirm('Delete this template?', async function() {
-            try {
-                const response = await fetch('/api/templates/' + id, { method: 'DELETE' });
-                if (response.ok) loadTemplates();
-            } catch (error) {
-                console.error('Error deleting template:', error);
-            }
-        });
-    }
-    
-    // Pagination
-    function prevPage() {
-        if (currentPage > 0) {
-            currentPage--;
-            loadTemplates();
-        }
-    }
-    
-    function nextPage() {
-        currentPage++;
-        loadTemplates();
-    }
+            const res = await fetch('/api/categories/');
+            const cats = await res.json();
+            cats.filter(c => c.is_active).forEach(function(c) {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = c.name;
+                filterSel.appendChild(opt);
+            });
+        } catch(e) { /* non-critical */ }
+    });
 </script>
 {% endblock %}
