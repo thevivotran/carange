@@ -1,0 +1,118 @@
+<div id="projects-grid-region"
+     hx-get="/fragments/projects/grid"
+     hx-trigger="projects-updated from:body"
+     hx-target="this"
+     hx-swap="outerHTML">
+
+  <!-- Summary Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-lg shadow p-4">
+      <p class="text-sm text-gray-500">Active Projects</p>
+      <p class="text-2xl font-bold text-primary">{{ active_count }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+      <p class="text-sm text-gray-500">Completed</p>
+      <p class="text-2xl font-bold text-green-600">{{ completed_count }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+      <p class="text-sm text-gray-500">Current Amount</p>
+      <p class="text-2xl font-bold text-blue-600">{{ "{:,.0f}".format(total_current) }} ₫</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+      <p class="text-sm text-gray-500">Progress</p>
+      <p class="text-2xl font-bold text-purple-600">{{ "%.1f"|format(progress_pct) }}%</p>
+    </div>
+  </div>
+
+  {% if not projects %}
+  <div class="col-span-full flex flex-col items-center justify-center py-20 text-center">
+    <i class="fas fa-bullseye text-6xl mb-4 text-gray-200"></i>
+    <p class="text-xl font-medium text-gray-500 mb-2">No projects yet</p>
+    <p class="text-sm text-gray-400 mb-6">Set a financial goal and track your progress toward it</p>
+    <button onclick="openAddModal()"
+            class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition flex items-center gap-2 text-sm mx-auto">
+      <i class="fas fa-plus"></i> Create your first project
+    </button>
+  </div>
+  {% else %}
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    {% for project in projects %}
+    {% set next_due = project.payments | selectattr('status', 'eq', 'pending') | selectattr('due_date') | sort(attribute='due_date') | first if project.payments else none %}
+    {% set remaining = project.target_amount - project.current_amount %}
+    {% set pay_count = project.payments | length %}
+
+    {% if project.priority.value == 'high' %}{% set pri_cls = 'bg-red-100 text-red-800' %}
+    {% elif project.priority.value == 'medium' %}{% set pri_cls = 'bg-yellow-100 text-yellow-800' %}
+    {% else %}{% set pri_cls = 'bg-green-100 text-green-800' %}{% endif %}
+
+    {% if project.status.value == 'planning' %}{% set st_cls = 'bg-gray-100 text-gray-800' %}
+    {% elif project.status.value == 'in_progress' %}{% set st_cls = 'bg-blue-100 text-blue-800' %}
+    {% elif project.status.value == 'completed' %}{% set st_cls = 'bg-green-100 text-green-800' %}
+    {% else %}{% set st_cls = 'bg-red-100 text-red-800' %}{% endif %}
+
+    <div class="bg-white rounded-xl shadow-md p-6">
+      <!-- Header -->
+      <div class="flex justify-between items-start mb-3">
+        <div>
+          <h3 class="text-lg font-semibold text-gray-800">{{ project.name }}</h3>
+          <p class="text-sm text-gray-500 capitalize">{{ (project.type.value if project.type else '').replace('_', ' ') }}</p>
+        </div>
+        <div class="flex gap-2 flex-wrap justify-end">
+          <span class="px-2 py-1 text-xs font-medium rounded-full {{ pri_cls }}">{{ project.priority.value if project.priority else '' }}</span>
+          <span class="px-2 py-1 text-xs font-medium rounded-full {{ st_cls }}">{{ (project.status.value if project.status else '').replace('_', ' ') }}</span>
+        </div>
+      </div>
+
+      {% if project.description %}
+      <p class="text-sm text-gray-600 mb-3">{{ project.description }}</p>
+      {% endif %}
+
+      <!-- Progress bar -->
+      <div class="mb-3">
+        <div class="flex justify-between text-sm mb-1">
+          <span class="text-gray-600">Progress</span>
+          <span class="font-medium">{{ project.progress_pct }}%</span>
+        </div>
+        <div class="w-full bg-gray-200 rounded-full h-2">
+          <div class="bg-primary h-2 rounded-full transition-all duration-500" style="width:{{ [project.progress_pct, 100] | min }}%"></div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="text-sm text-gray-600 mb-2">
+        {{ pay_count }} payment{{ '' if pay_count == 1 else 's' }}&nbsp;&nbsp;|&nbsp;&nbsp;Paid:
+        <span class="font-semibold text-green-700">{{ "{:,.0f}".format(project.current_amount) }} ₫</span>
+        &nbsp;&nbsp;|&nbsp;&nbsp;Remaining:
+        <span class="font-semibold text-red-600">{{ "{:,.0f}".format(remaining) }} ₫</span>
+      </div>
+
+      {% if next_due %}
+      <div class="text-sm text-blue-600 mb-2">Next due: {{ next_due.due_date }} — {{ "{:,.0f}".format(next_due.amount) }} ₫</div>
+      {% endif %}
+      {% if project.deadline %}
+      <div class="text-sm text-gray-500 mb-2">Deadline: {{ project.deadline }}</div>
+      {% endif %}
+
+      <!-- Actions -->
+      <div class="flex gap-2 pt-3 border-t">
+        <button onclick="openTimelineModal({{ project.id }}, '{{ project.name | e }}')"
+                class="flex-1 bg-blue-50 text-blue-700 py-2 rounded-lg hover:bg-blue-100 transition text-sm">
+          View Timeline
+        </button>
+        <button onclick="editProject({{ project.id }})"
+                class="px-3 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
+                title="Edit" aria-label="Edit project">
+          <i class="fas fa-edit"></i>
+        </button>
+        <button onclick="deleteProject({{ project.id }})"
+                class="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                title="Delete" aria-label="Delete project">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>

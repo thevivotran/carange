@@ -189,3 +189,19 @@ def test_fragment_savings_bundle_transactions_empty(client, db_session):
     r = client.get(f"/fragments/savings/{bundle.id}/transactions", headers={"HX-Request": "true"})
     assert r.status_code == 200
     assert "No linked transactions" in r.text
+
+
+# ── Projects fragment tests ───────────────────────────────────────────────────
+
+
+def test_fragment_projects_grid_default(client):
+    r = client.get("/fragments/projects/grid", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert "projects-grid-region" in r.text
+
+
+def test_fragment_projects_grid_empty(client):
+    r = client.get("/fragments/projects/grid?status=planning", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "No projects yet" in r.text
