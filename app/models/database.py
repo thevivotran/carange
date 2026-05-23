@@ -9,12 +9,35 @@ from sqlalchemy import (
     Boolean,
     ForeignKey,
     Text,
-    Enum,
     Index,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+from sqlalchemy import types as sa_types
 from datetime import datetime, timezone
 import enum
+
+
+class CIEnum(sa_types.TypeDecorator):
+    """Case-insensitive enum column: always writes lowercase, tolerates any case on read."""
+
+    impl = sa_types.String
+    cache_ok = True
+
+    def __init__(self, enum_class, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._enum_class = enum_class
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if isinstance(value, self._enum_class):
+            return value.value.lower()
+        return str(value).lower()
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return self._enum_class(value.lower())
 
 Base = declarative_base()
 
@@ -105,9 +128,9 @@ class ImportJob(Base):
     filename = Column(String(255), nullable=False)
     file_path = Column(String(500), nullable=False)
     image_hash = Column(String(64), nullable=False, unique=True)  # SHA-256, dedup guard
-    source_hint = Column(Enum(ImportSource), nullable=True)  # manual override at upload
-    detected_source = Column(Enum(ImportSource), nullable=True)  # set by OCR worker
-    status = Column(Enum(ImportJobStatus), default=ImportJobStatus.PENDING, nullable=False)
+    source_hint = Column(CIEnum(ImportSource), nullable=True)  # manual override at upload
+    detected_source = Column(CIEnum(ImportSource), nullable=True)  # set by OCR worker
+    status = Column(CIEnum(ImportJobStatus), default=ImportJobStatus.PENDING, nullable=False)
     error_message = Column(Text, nullable=True)
     transaction_count = Column(Integer, default=0)  # how many tx were extracted
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -121,7 +144,7 @@ class Category(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(100), nullable=False)
-    type = Column(Enum(TransactionType), nullable=False)
+    type = Column(CIEnum(TransactionType), nullable=False)
     color = Column(String(7), default="#3B82F6")
     icon = Column(String(50), default="circle")
     is_active = Column(Boolean, default=True)
@@ -138,7 +161,7 @@ class Transaction(Base):
     id = Column(Integer, primary_key=True, index=True)
     date = Column(Date, nullable=False, index=True)
     amount = Column(Float, nullable=False)
-    type = Column(Enum(TransactionType), nullable=False)
+    type = Column(CIEnum(TransactionType), nullable=False)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
     description = Column(Text, nullable=True)
     payment_method = Column(String(50), default="cash")
@@ -176,7 +199,7 @@ class TransactionAuditLog(Base):
     id = Column(Integer, primary_key=True, index=True)
     transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=False)
     changed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    field_name = Column(Enum(AuditField), nullable=False)
+    field_name = Column(CIEnum(AuditField), nullable=False)
     old_value = Column(Text, nullable=True)
     new_value = Column(Text, nullable=True)
 
@@ -189,14 +212,14 @@ class SavingsBundle(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
     bank_name = Column(String(100), nullable=False)
-    type = Column(Enum(SavingsType), nullable=False)
+    type = Column(CIEnum(SavingsType), nullable=False)
     initial_deposit = Column(Float, nullable=False)  # Amount deposited
     current_amount = Column(Float, nullable=False)  # Current available balance
     future_amount = Column(Float, nullable=False)  # Amount at maturity (including interest)
     interest_rate = Column(Float, nullable=True)  # Annual interest rate
     start_date = Column(Date, nullable=False)
     maturity_date = Column(Date, nullable=True)
-    status = Column(Enum(SavingsStatus), default=SavingsStatus.ACTIVE)
+    status = Column(CIEnum(SavingsStatus), default=SavingsStatus.ACTIVE)
     notes = Column(Text, nullable=True)
     linked_project_id = Column(Integer, ForeignKey("financial_projects.id"), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -212,12 +235,12 @@ class FinancialProject(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
-    type = Column(Enum(ProjectType), nullable=False)
+    type = Column(CIEnum(ProjectType), nullable=False)
     description = Column(Text, nullable=True)
     target_amount = Column(Float, nullable=False, default=0)
     current_amount = Column(Float, default=0)
-    priority = Column(Enum(Priority), default=Priority.MEDIUM)
-    status = Column(Enum(ProjectStatus), default=ProjectStatus.PLANNING)
+    priority = Column(CIEnum(Priority), default=Priority.MEDIUM)
+    status = Column(CIEnum(ProjectStatus), default=ProjectStatus.PLANNING)
     deadline = Column(Date, nullable=True)
     default_category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -236,7 +259,7 @@ class ProjectPayment(Base):
     project_id = Column(Integer, ForeignKey("financial_projects.id"), nullable=False)
     due_date = Column(Date, nullable=True)
     amount = Column(Float, nullable=False)
-    status = Column(Enum(PaymentStatus), default=PaymentStatus.PENDING, nullable=False)
+    status = Column(CIEnum(PaymentStatus), default=PaymentStatus.PENDING, nullable=False)
     notes = Column(Text, nullable=True)
     sort_order = Column(Integer, default=0)
     transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=True)
@@ -251,7 +274,7 @@ class OtherAsset(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
-    asset_type = Column(Enum(AssetType), nullable=False)
+    asset_type = Column(CIEnum(AssetType), nullable=False)
     symbol = Column(String(20), nullable=True)  # e.g., USD, EUR, SJC
     quantity = Column(Float, nullable=False)  # amount held
     unit = Column(String(50), nullable=False)  # display unit, e.g., USD, tael, gram
@@ -271,7 +294,7 @@ class TransactionTemplate(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
     amount = Column(Float, nullable=False)
-    type = Column(Enum(TransactionType), nullable=False)
+    type = Column(CIEnum(TransactionType), nullable=False)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
     description = Column(Text, nullable=True)
     payment_method = Column(String(50), default="cash")
