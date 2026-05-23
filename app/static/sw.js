@@ -22,8 +22,8 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
     const url = new URL(e.request.url);
 
-    // Never intercept API calls — always fresh financial data
-    if (url.pathname.startsWith('/api/')) return;
+    // Never intercept API or fragment calls — always fresh data/HTML
+    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/fragments/')) return;
 
     // Cache-first for static assets (JS/CSS/images)
     if (url.pathname.startsWith('/static/')) {

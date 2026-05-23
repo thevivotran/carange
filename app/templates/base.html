@@ -217,6 +217,9 @@
         /* ── Required field asterisk ─────────────────────── */
         .field-required::after { content: ' *'; color: #ef4444; }
 
+        /* ── Alpine x-cloak: hide until Alpine initializes ── */
+        [x-cloak] { display: none !important; }
+
         /* ── Theme toggle icon ────────────────────────────── */
         .dark .theme-icon-dark  { display: none  !important; }
         .dark .theme-icon-light { display: inline !important; }
@@ -341,12 +344,32 @@
     </style>
     
     {% block extra_css %}{% endblock %}
+
+    <!-- HTMX (pinned — do not change to @latest) -->
+    <script src="https://unpkg.com/htmx.org@2.0.3" crossorigin="anonymous"></script>
+    <script>
+        htmx.config.globalViewTransitions = true;
+        htmx.config.scrollBehavior = 'smooth';
+        htmx.config.historyCacheSize = 10;
+    </script>
+
+    <!-- Alpine.js (defer — must load after HTMX) -->
+    <script defer src="https://unpkg.com/alpinejs@3.14.3/dist/cdn.min.js"></script>
 </head>
 <body class="bg-gray-50">
     <div id="nav-progress"></div>
     <div class="flex h-screen" style="height:100vh;height:100dvh;">
         <!-- Sidebar -->
-        <aside id="sidebar" class="hidden md:flex w-64 bg-white shadow-lg flex-col">
+        <aside id="sidebar"
+               x-data="{
+                 collapsed: localStorage.getItem('carange-sidebar-collapsed') === '1',
+                 settingsOpen: localStorage.getItem('carange-settings-nav-open') === '1',
+                 toggle() { this.collapsed = !this.collapsed; localStorage.setItem('carange-sidebar-collapsed', this.collapsed ? '1' : '0'); },
+                 toggleSettings() { this.settingsOpen = !this.settingsOpen; localStorage.setItem('carange-settings-nav-open', this.settingsOpen ? '1' : '0'); }
+               }"
+               x-init="if (!settingsOpen) { settingsOpen = !!$el.querySelector('#settings-nav-items .sidebar-link.active'); }"
+               :class="collapsed ? 'collapsed' : ''"
+               class="hidden md:flex w-64 bg-white shadow-lg flex-col">
             <div id="sidebar-header" class="p-5 border-b flex items-center justify-between gap-2">
                 <a id="sidebar-brand-link" href="/" class="hover:opacity-80 transition flex items-center gap-2 min-w-0">
                     <i class="fas fa-wallet text-primary text-xl flex-shrink-0"></i>
@@ -355,7 +378,7 @@
                         <p class="text-xs text-gray-500 mt-0.5">Family Finance</p>
                     </div>
                 </a>
-                <button id="sidebar-collapse-btn" onclick="toggleSidebar()"
+                <button id="sidebar-collapse-btn" @click="toggle()"
                         class="flex-shrink-0 p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
                         title="Collapse sidebar">
                     <i class="fas fa-chevron-left text-xs"></i>
@@ -400,14 +423,15 @@
 
                 <!-- Settings (collapsible) -->
                 <div class="mx-4 mt-4 mb-1 border-t border-gray-100 sidebar-section-label"></div>
-                <button id="settings-toggle-btn" onclick="toggleSettingsNav()"
+                <button id="settings-toggle-btn" @click="toggleSettings()"
                         class="sidebar-link w-full flex items-center px-6 py-3 text-gray-700 transition"
                         title="Settings">
                     <i class="fas fa-cog w-6 flex-shrink-0"></i>
                     <span class="sidebar-label">Settings</span>
-                    <i id="settings-nav-chevron" class="fas fa-chevron-right text-xs ml-auto sidebar-label transition-transform"></i>
+                    <i class="fas fa-chevron-right text-xs ml-auto sidebar-label transition-transform"
+                       :class="settingsOpen ? 'rotate-90' : ''"></i>
                 </button>
-                <div id="settings-nav-items" class="hidden">
+                <div id="settings-nav-items" x-show="settingsOpen" x-cloak>
                 <a href="/categories" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'categories' %}active font-semibold{% endif %}" title="Categories">
                     <i class="fas fa-tags w-6 flex-shrink-0"></i>
                     <span class="sidebar-label">Categories</span>
@@ -425,11 +449,11 @@
             </nav>
 
             <div class="px-4 pb-2">
-                <button onclick="toggleTheme()"
+                <button @click="$store.theme.toggle()"
                         class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-100 transition" title="Toggle theme">
                     <i class="fas fa-moon theme-icon-dark w-4 text-center flex-shrink-0"></i>
                     <i class="fas fa-sun  theme-icon-light w-4 text-center text-yellow-400 flex-shrink-0"></i>
-                    <span class="theme-label sidebar-label">Night Mode</span>
+                    <span class="sidebar-label" x-text="$store.theme.label">Night Mode</span>
                 </button>
             </div>
         </aside>
@@ -442,7 +466,7 @@
                         <i class="fas fa-wallet mr-2"></i>Carange
                     </h1>
                 </a>
-                <button onclick="toggleTheme()" class="p-2 text-gray-500">
+                <button x-data @click="$store.theme.toggle()" class="p-2 text-gray-500">
                     <i class="fas fa-moon theme-icon-dark"></i>
                     <i class="fas fa-sun theme-icon-light text-yellow-400"></i>
                 </button>
@@ -509,145 +533,124 @@
     </div>
     
     <script>
-        // ── Theme toggle ──────────────────────────────────────────────────────
-        function toggleTheme() {
-            const isDark = document.documentElement.classList.toggle('dark');
-            localStorage.setItem('carange-theme', isDark ? 'dark' : 'light');
-            document.querySelectorAll('.theme-label').forEach(function(el) {
-                el.textContent = isDark ? 'Light Mode' : 'Night Mode';
-            });
-        }
-        // Set initial label to match current theme (FOUC script already set the class)
-        (function() {
-            const isDark = document.documentElement.classList.contains('dark');
-            document.querySelectorAll('.theme-label').forEach(function(el) {
-                el.textContent = isDark ? 'Light Mode' : 'Night Mode';
-            });
-        })();
+        // ── Alpine.js global stores ───────────────────────────────────────────
+        document.addEventListener('alpine:init', function() {
 
-        // Mobile menu close (opened via bottom nav "More" tab)
+            // Theme store — owns toggle logic; CSS handles icon swapping via .dark class
+            Alpine.store('theme', {
+                dark: document.documentElement.classList.contains('dark'),
+                toggle: function() {
+                    this.dark = !this.dark;
+                    document.documentElement.classList.toggle('dark', this.dark);
+                    localStorage.setItem('carange-theme', this.dark ? 'dark' : 'light');
+                },
+                get label() { return this.dark ? 'Light Mode' : 'Night Mode'; }
+            });
+
+            // Toast store — replaces direct DOM manipulation in showToast()
+            Alpine.store('toasts', {
+                items: [],
+                add: function(message, type, duration) {
+                    type = type || 'success';
+                    duration = duration || 3500;
+                    var id = Date.now();
+                    this.items.push({ id: id, message: message, type: type });
+                    var self = this;
+                    setTimeout(function() { self.remove(id); }, duration);
+                },
+                remove: function(id) {
+                    this.items = this.items.filter(function(t) { return t.id !== id; });
+                }
+            });
+
+            // Confirm store — replaces showConfirm() DOM mutation
+            Alpine.store('confirm', {
+                open: false, message: '', confirmLabel: 'Delete',
+                confirmClass: 'bg-red-600 hover:bg-red-700', _resolve: null,
+                show: function(message, confirmLabel, confirmClass) {
+                    var self = this;
+                    self.message = message;
+                    self.confirmLabel = confirmLabel || 'Delete';
+                    self.confirmClass = confirmClass || 'bg-red-600 hover:bg-red-700';
+                    self.open = true;
+                    return new Promise(function(resolve) { self._resolve = resolve; });
+                },
+                ok: function() { this.open = false; if (this._resolve) this._resolve(true); },
+                cancel: function() { this.open = false; if (this._resolve) this._resolve(false); }
+            });
+        });
+
+        // ── Global HTMX event wiring ──────────────────────────────────────────
+        // Server sends HX-Trigger: {"showToast": {"message": "...", "type": "success"}}
+        document.addEventListener('htmx:afterRequest', function(e) {
+            var trigger = e.detail.xhr && e.detail.xhr.getResponseHeader('HX-Trigger');
+            if (!trigger) return;
+            try {
+                var events = JSON.parse(trigger);
+                if (events.showToast) {
+                    Alpine.store('toasts').add(events.showToast.message, events.showToast.type);
+                }
+            } catch(_) {}
+        });
+        document.addEventListener('htmx:responseError', function() {
+            Alpine.store('toasts').add('Request failed — please try again.', 'error');
+        });
+        document.addEventListener('htmx:afterSwap', function() {
+            var main = document.querySelector('main');
+            if (main) main.classList.remove('page-loading');
+        });
+
+        // ── Backward-compat shims (non-migrated pages keep calling these) ─────
+        function showToast(message, type, duration) {
+            Alpine.store('toasts').add(message, type || 'success', duration || 3500);
+        }
+        function showConfirm(message, onConfirm, confirmLabel, confirmClass) {
+            Alpine.store('confirm').show(message, confirmLabel, confirmClass)
+                .then(function(ok) { if (ok) onConfirm(); });
+        }
+
+        // ── Mobile menu close ─────────────────────────────────────────────────
         document.getElementById('close-mobile-menu').addEventListener('click', function() {
             document.getElementById('mobile-menu').classList.add('hidden');
         });
 
-        // Sidebar collapse
-        function toggleSidebar() {
-            const sidebar = document.getElementById('sidebar');
-            const isCollapsed = sidebar.classList.toggle('collapsed');
-            localStorage.setItem('carange-sidebar-collapsed', isCollapsed ? '1' : '0');
-        }
-        (function() {
-            if (localStorage.getItem('carange-sidebar-collapsed') === '1') {
-                const s = document.getElementById('sidebar');
-                if (s) s.classList.add('collapsed');
-            }
-        })();
-
-        // Settings nav section collapse
-        function toggleSettingsNav() {
-            const items = document.getElementById('settings-nav-items');
-            const chevron = document.getElementById('settings-nav-chevron');
-            if (!items) return;
-            const isHidden = items.classList.contains('hidden');
-            items.classList.toggle('hidden', !isHidden);
-            if (chevron) chevron.className = isHidden ? 'fas fa-chevron-down text-xs ml-auto sidebar-label transition-transform' : 'fas fa-chevron-right text-xs ml-auto sidebar-label transition-transform';
-            localStorage.setItem('carange-settings-nav-open', isHidden ? '1' : '0');
-        }
-        (function() {
-            const items = document.getElementById('settings-nav-items');
-            const chevron = document.getElementById('settings-nav-chevron');
-            if (!items) return;
-            // Auto-expand if a settings page is currently active
-            const activeSettingsPage = items.querySelector('.active');
-            const isOpen = localStorage.getItem('carange-settings-nav-open') === '1' || !!activeSettingsPage;
-            if (isOpen) {
-                items.classList.remove('hidden');
-                if (chevron) chevron.className = 'fas fa-chevron-down text-xs ml-auto sidebar-label transition-transform';
-            }
-        })();
-        
-        // Format VND currency
+        // ── Format utilities ──────────────────────────────────────────────────
         function formatVND(amount) {
-            return new Intl.NumberFormat('vi-VN', {
-                style: 'currency',
-                currency: 'VND'
-            }).format(amount);
+            return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
         }
-        
-        // Fix: split-based date avoids UTC timezone off-by-one
+
+        // Split-based date avoids UTC timezone off-by-one
         function formatDate(dateString) {
             if (!dateString) return '-';
-            const parts = dateString.split('-');
+            var parts = dateString.split('-');
             return parts[2] + '/' + parts[1] + '/' + parts[0];
-        }
-
-        // Toast notifications
-        function showToast(message, type, duration) {
-            type = type || 'success';
-            duration = duration || 3500;
-            const container = document.getElementById('toast-container');
-            const colors = { success: 'bg-green-500', error: 'bg-red-500', warning: 'bg-yellow-500', info: 'bg-blue-500' };
-            const toast = document.createElement('div');
-            toast.className = (colors[type] || colors.success) + ' text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 min-w-64 transition-all duration-300';
-            const msg = document.createElement('span');
-            msg.className = 'flex-1 text-sm';
-            msg.textContent = message;
-            const btn = document.createElement('button');
-            btn.className = 'opacity-75 hover:opacity-100 text-lg leading-none';
-            btn.textContent = '×';
-            btn.addEventListener('click', function() { toast.remove(); });
-            toast.appendChild(msg);
-            toast.appendChild(btn);
-            container.appendChild(toast);
-            setTimeout(function() { toast.remove(); }, duration);
-            return toast;
-        }
-
-        // Confirm dialog - replaces window.confirm()
-        function showConfirm(message, onConfirm, confirmLabel, confirmClass) {
-            confirmLabel = confirmLabel || 'Delete';
-            confirmClass = confirmClass || 'bg-red-600 hover:bg-red-700';
-            document.getElementById('confirm-message').textContent = message;
-            const okBtn = document.getElementById('confirm-ok');
-            okBtn.textContent = confirmLabel;
-            okBtn.className = 'flex-1 px-4 py-2 text-white rounded-lg transition ' + confirmClass;
-            document.getElementById('confirm-dialog').classList.remove('hidden');
-            const newOk = okBtn.cloneNode(true);
-            const cancelBtn = document.getElementById('confirm-cancel');
-            const newCancel = cancelBtn.cloneNode(true);
-            okBtn.replaceWith(newOk);
-            cancelBtn.replaceWith(newCancel);
-            const close = function() { document.getElementById('confirm-dialog').classList.add('hidden'); };
-            document.getElementById('confirm-ok').addEventListener('click', function() { close(); onConfirm(); });
-            document.getElementById('confirm-cancel').addEventListener('click', close);
         }
 
         // ── Navigation progress bar ───────────────────────────────────────────
         document.addEventListener('click', function(e) {
-            const a = e.target.closest('a[href]');
+            var a = e.target.closest('a[href]');
             if (!a || a.hostname !== location.hostname || a.target === '_blank') return;
-            const href = a.getAttribute('href');
+            var href = a.getAttribute('href');
             if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
             document.body.classList.add('navigating');
         });
 
-        // Called by each page after its primary data fetch completes
+        // ── Page-load overlay ─────────────────────────────────────────────────
         window.pageReady = function() {
-            const main = document.querySelector('main');
+            var main = document.querySelector('main');
             if (main) main.classList.remove('page-loading');
         };
-        // Safety fallback — dismiss overlay even if a page forgets to call pageReady()
         setTimeout(window.pageReady, 2500);
 
-        // Undo-delete: hides element immediately, calls DELETE after `delay` ms unless undone.
-        // Pass delay=0 for immediate delete (no undo toast) — used when trash/soft-delete exists.
+        // ── Undo-delete ───────────────────────────────────────────────────────
+        // delay=0: immediate soft-delete (no undo); delay>0: undo toast for N ms.
         function deleteWithUndo(element, deleteUrl, reloadFn, itemName, delay) {
             itemName = itemName || 'item';
             if (delay === 0) {
                 if (element) element.style.display = 'none';
                 (async function() {
                     try {
-                        const resp = await fetch(deleteUrl, { method: 'DELETE' });
+                        var resp = await fetch(deleteUrl, { method: 'DELETE' });
                         if (resp.ok) { showToast('Moved to trash', 'info'); reloadFn(); }
                         else { if (element) element.style.display = ''; showToast('Failed to delete', 'error'); }
                     } catch(e) { if (element) element.style.display = ''; showToast('Failed to delete', 'error'); }
@@ -655,30 +658,24 @@
                 return;
             }
             if (element) element.style.display = 'none';
-            let cancelled = false;
-            const container = document.getElementById('toast-container');
-            const toast = document.createElement('div');
-            toast.className = 'bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 min-w-72';
-            const msg = document.createElement('span');
-            msg.className = 'flex-1 text-sm';
-            msg.textContent = itemName + ' deleted';
-            const undoBtn = document.createElement('button');
-            undoBtn.className = 'text-yellow-300 hover:text-yellow-100 font-semibold text-sm underline';
-            undoBtn.textContent = 'Undo';
-            undoBtn.addEventListener('click', function() {
-                cancelled = true;
-                if (element) element.style.display = '';
-                toast.remove();
-                showToast('Delete cancelled', 'info');
+            var cancelled = false;
+            var toastId = Date.now();
+            Alpine.store('toasts').items.push({
+                id: toastId,
+                message: itemName + ' deleted',
+                type: 'undo',
+                _undoFn: function() {
+                    cancelled = true;
+                    if (element) element.style.display = '';
+                    Alpine.store('toasts').remove(toastId);
+                    showToast('Delete cancelled', 'info');
+                }
             });
-            toast.appendChild(msg);
-            toast.appendChild(undoBtn);
-            container.appendChild(toast);
             setTimeout(async function() {
-                toast.remove();
+                Alpine.store('toasts').remove(toastId);
                 if (cancelled) return;
                 try {
-                    const resp = await fetch(deleteUrl, { method: 'DELETE' });
+                    var resp = await fetch(deleteUrl, { method: 'DELETE' });
                     if (resp.ok) { reloadFn(); }
                     else { if (element) element.style.display = ''; showToast('Failed to delete', 'error'); }
                 } catch(e) { if (element) element.style.display = ''; showToast('Failed to delete', 'error'); }
@@ -900,14 +897,25 @@
         }
     </script>
 
-    <!-- Toast container — sits above bottom nav on mobile, normal on md+ -->
-    <div id="toast-container" class="fixed bottom-20 right-4 md:bottom-4 z-[200] space-y-2 pointer-events-none">
-        <div class="pointer-events-auto"></div>
+    <!-- Toast container — Alpine-driven, sits above bottom nav on mobile -->
+    <div x-data class="fixed bottom-20 right-4 md:bottom-4 z-[200] space-y-2">
+        <template x-for="toast in $store.toasts.items" :key="toast.id">
+            <div class="text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 min-w-64"
+                 :class="{
+                     'bg-green-500': toast.type === 'success',
+                     'bg-red-500':   toast.type === 'error',
+                     'bg-yellow-500':toast.type === 'warning',
+                     'bg-blue-500':  toast.type === 'info',
+                     'bg-gray-800':  toast.type === 'undo'
+                 }">
+                <span x-text="toast.message" class="flex-1 text-sm"></span>
+                <button x-show="toast.type === 'undo'" @click="toast._undoFn && toast._undoFn()"
+                        class="text-yellow-300 hover:text-yellow-100 font-semibold text-sm underline">Undo</button>
+                <button x-show="toast.type !== 'undo'" @click="$store.toasts.remove(toast.id)"
+                        class="opacity-75 hover:opacity-100 text-lg leading-none">x</button>
+            </div>
+        </template>
     </div>
-    <script>
-        const _tc = document.getElementById('toast-container');
-        _tc.className = 'fixed bottom-20 right-4 md:bottom-4 z-[200] space-y-2';
-    </script>
 
     <!-- Mobile Bottom Navigation Bar -->
     <nav id="mobile-bottom-nav" class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-[90]"
@@ -939,36 +947,44 @@
         </div>
     </nav>
 
-    <!-- Confirm dialog -->
-    <div id="confirm-dialog" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[210] flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
-            <p id="confirm-message" class="text-gray-800 mb-6 text-center font-medium"></p>
+    <!-- Confirm dialog — Alpine store-driven -->
+    <div x-data x-show="$store.confirm.open" x-cloak
+         @click="$store.confirm.cancel()"
+         class="fixed inset-0 bg-gray-900 bg-opacity-50 z-[210] flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6" @click.stop>
+            <p x-text="$store.confirm.message" class="text-gray-800 mb-6 text-center font-medium"></p>
             <div class="flex gap-3">
-                <button id="confirm-cancel" class="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50 transition">Cancel</button>
-                <button id="confirm-ok" class="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">Delete</button>
+                <button @click="$store.confirm.cancel()"
+                        class="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50 transition">Cancel</button>
+                <button @click="$store.confirm.ok()"
+                        :class="$store.confirm.confirmClass"
+                        x-text="$store.confirm.confirmLabel"
+                        class="flex-1 px-4 py-2 text-white rounded-lg transition">Delete</button>
             </div>
         </div>
     </div>
 
     <script>
-        // Lock body scroll whenever any modal overlay is visible; unlock when all are hidden.
+        // Lock body scroll whenever any modal overlay is visible.
+        // Watches both class (hidden) and style (Alpine x-show sets display:none).
         (function() {
-            const observer = new MutationObserver(function() {
-                const anyOpen = Array.from(document.querySelectorAll('.fixed.inset-0')).some(function(el) {
-                    return !el.classList.contains('hidden');
+            var observer = new MutationObserver(function() {
+                var anyOpen = Array.from(document.querySelectorAll('.fixed.inset-0')).some(function(el) {
+                    return !el.classList.contains('hidden') && el.style.display !== 'none';
                 });
                 document.body.style.overflow = anyOpen ? 'hidden' : '';
             });
-            observer.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class'] });
+            observer.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
         })();
 
         // Tap on modal backdrop (outside the card) closes it.
+        // Alpine modals handle this via @click on the backdrop div itself;
+        // this handler catches legacy class-toggled modals.
         document.addEventListener('click', function(e) {
-            if (e.target.classList.contains('inset-0') && !e.target.classList.contains('hidden')) {
-                // Prefer clicking the dedicated close/cancel button for proper cleanup.
-                var closeBtn = e.target.querySelector(
-                    'button[onclick*="close"], button[onclick*="Close"], #confirm-cancel'
-                );
+            if (e.target.classList.contains('inset-0') &&
+                !e.target.classList.contains('hidden') &&
+                e.target.style.display !== 'none') {
+                var closeBtn = e.target.querySelector('button[onclick*="close"], button[onclick*="Close"]');
                 if (closeBtn) { closeBtn.click(); }
                 else { e.target.classList.add('hidden'); }
             }
