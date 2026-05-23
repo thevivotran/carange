@@ -25,6 +25,7 @@ from app.routers.fragments import dashboard as frag_dashboard
 from app.routers.fragments import budget as frag_budget
 from app.routers.fragments import savings as frag_savings
 from app.routers.fragments import projects as frag_projects
+from app.routers.fragments import assets as frag_assets
 
 
 @asynccontextmanager
@@ -95,6 +96,7 @@ app.include_router(frag_dashboard.router, prefix="/fragments/dashboard", tags=["
 app.include_router(frag_budget.router, prefix="/fragments/budget", tags=["fragments"])
 app.include_router(frag_savings.router, prefix="/fragments/savings", tags=["fragments"])
 app.include_router(frag_projects.router, prefix="/fragments/projects", tags=["fragments"])
+app.include_router(frag_assets.router, prefix="/fragments/assets", tags=["fragments"])
 
 
 @app.get("/health")

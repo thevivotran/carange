@@ -1,0 +1,117 @@
+<div id="assets-grid-region"
+     hx-get="/fragments/assets/grid"
+     hx-trigger="assets-updated from:body"
+     hx-target="this"
+     hx-swap="outerHTML">
+
+  <!-- Summary Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-lg shadow p-4">
+      <p class="text-sm text-gray-500">Total Items</p>
+      <p class="text-2xl font-bold text-primary">{{ total_count }}</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+      <p class="text-sm text-gray-500">Total Invested</p>
+      <p class="text-2xl font-bold text-blue-600">{{ "{:,.0f}".format(total_invested) }} ₫</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+      <p class="text-sm text-gray-500">Current Value</p>
+      <p class="text-2xl font-bold text-green-600">{{ "{:,.0f}".format(total_current) }} ₫</p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4">
+      <p class="text-sm text-gray-500">Gain / Loss</p>
+      <p class="text-2xl font-bold {{ 'text-green-600' if gain_loss >= 0 else 'text-red-600' }}">
+        {{ '+' if gain_loss >= 0 else '' }}{{ "{:,.0f}".format(gain_loss) }} ₫ ({{ '+' if gain_loss >= 0 else '' }}{{ "%.2f"|format(gain_loss_pct) }}%)
+      </p>
+    </div>
+  </div>
+
+  {% if not assets %}
+  <div class="col-span-3 text-center py-16 text-gray-400">
+    <i class="fas fa-coins text-4xl mb-3 block"></i>
+    <p>No assets yet. Add your first asset above.</p>
+  </div>
+  {% else %}
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for asset in assets %}
+    {% set gain_loss = asset.current_value_vnd - asset.purchase_price_vnd %}
+    {% set gain_loss_pct = "%.2f"|format(gain_loss / asset.purchase_price_vnd * 100) if asset.purchase_price_vnd > 0 else "0.00" %}
+    {% set per_unit_purchase = (asset.purchase_price_vnd / asset.quantity) | round | int if asset.quantity > 0 else asset.purchase_price_vnd %}
+    {% set per_unit_current  = (asset.current_value_vnd  / asset.quantity) | round | int if asset.quantity > 0 else asset.current_value_vnd %}
+
+    {% if asset.asset_type == 'currency' %}{% set badge_cls = 'bg-blue-100 text-blue-800' %}{% set type_icon = 'fas fa-money-bill-wave' %}
+    {% elif asset.asset_type == 'gold' %}{% set badge_cls = 'bg-yellow-100 text-yellow-800' %}{% set type_icon = 'fas fa-star' %}
+    {% else %}{% set badge_cls = 'bg-gray-100 text-gray-700' %}{% set type_icon = 'fas fa-box' %}{% endif %}
+
+    <div id="asset-card-{{ asset.id }}" class="bg-white rounded-xl shadow-md p-6">
+      <div class="flex justify-between items-start mb-4">
+        <div>
+          <h3 class="text-lg font-semibold text-gray-800">{{ asset.name }}</h3>
+          {% if asset.symbol %}<p class="text-sm text-gray-500 font-mono">{{ asset.symbol }}</p>{% endif %}
+        </div>
+        <span class="px-2 py-1 text-xs font-medium rounded-full flex items-center gap-1 {{ badge_cls }}">
+          <i class="{{ type_icon }}"></i> {{ asset.asset_type }}
+        </span>
+      </div>
+
+      <div class="flex justify-between text-sm mb-3 p-3 bg-gray-50 rounded-lg">
+        <span class="text-gray-500">Quantity held:</span>
+        <span class="font-semibold text-gray-800">{{ "{:,}".format(asset.quantity | int) }} {{ asset.unit }}</span>
+      </div>
+
+      <div class="space-y-2 mb-4">
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">Purchase Price:</span>
+          <span class="font-semibold text-blue-700">{{ "{:,.0f}".format(per_unit_purchase) }} ₫/unit · {{ "{:,.0f}".format(asset.purchase_price_vnd) }} ₫ total</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">Current Value:</span>
+          <span class="font-semibold text-green-700">{{ "{:,.0f}".format(per_unit_current) }} ₫/unit · {{ "{:,.0f}".format(asset.current_value_vnd) }} ₫ total</span>
+        </div>
+        <div class="flex justify-between text-sm pt-2 border-t">
+          <span class="text-gray-500">Gain / Loss:</span>
+          <span class="font-semibold {{ 'text-green-600' if gain_loss >= 0 else 'text-red-600' }}">
+            {{ '+' if gain_loss >= 0 else '' }}{{ "{:,.0f}".format(gain_loss) }} ₫ ({{ '+' if gain_loss >= 0 else '' }}{{ gain_loss_pct }}%)
+          </span>
+        </div>
+      </div>
+
+      <!-- Quick price update -->
+      <div class="flex items-center gap-2 mb-3 bg-yellow-50 rounded-lg px-3 py-2">
+        <span class="text-xs text-gray-500 flex-shrink-0">New price/unit:</span>
+        <input type="number" min="0" step="1"
+               id="quick-price-{{ asset.id }}"
+               value="{{ per_unit_current }}"
+               title="Current value per unit in VND"
+               class="flex-1 border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-primary text-right min-w-0">
+        <button onclick="quickUpdateAsset({{ asset.id }}, {{ asset.quantity }})"
+                class="flex-shrink-0 text-xs bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 transition">
+          Update
+        </button>
+      </div>
+
+      {% if asset.updated_at %}
+      <div class="text-sm text-gray-500 mb-4">
+        <i class="fas fa-clock mr-2 w-4"></i>Updated: {{ asset.updated_at.strftime('%d %b %Y') if asset.updated_at else '' }}
+      </div>
+      {% endif %}
+      {% if asset.notes %}
+      <p class="text-sm text-gray-600 mb-4 italic">"{{ asset.notes }}"</p>
+      {% endif %}
+
+      <div class="flex gap-2 pt-4 border-t">
+        <button onclick="editAsset({{ asset.id }})"
+                class="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition text-sm">
+          <i class="fas fa-edit"></i> Edit
+        </button>
+        <button onclick="deleteAsset({{ asset.id }}, '{{ asset.name | e }}')"
+                class="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete">
+          <i class="fas fa-trash"></i>
+        </button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>

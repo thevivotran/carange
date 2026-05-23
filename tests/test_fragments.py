@@ -205,3 +205,19 @@ def test_fragment_projects_grid_empty(client):
     r = client.get("/fragments/projects/grid?status=planning", headers={"HX-Request": "true"})
     assert r.status_code == 200
     assert "No projects yet" in r.text
+
+
+# ── Assets fragment tests ─────────────────────────────────────────────────────
+
+
+def test_fragment_assets_grid_default(client):
+    r = client.get("/fragments/assets/grid", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert "assets-grid-region" in r.text
+
+
+def test_fragment_assets_grid_empty(client):
+    r = client.get("/fragments/assets/grid?asset_type=gold", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "No assets yet" in r.text
