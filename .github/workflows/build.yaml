@@ -30,7 +30,7 @@ jobs:
               - 'main.py'
               - 'requirements.txt'
               - 'Dockerfile'
-              - 'migrations/**'
+              - 'alembic/**'
             worker:
               - 'ocr_worker/**'
 
