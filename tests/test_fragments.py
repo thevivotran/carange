@@ -128,3 +128,25 @@ def test_fragment_dashboard_settings_post(client):
     )
     assert r.status_code == 200
     assert "HX-Trigger" in r.headers
+
+
+# ── Budget fragment tests ─────────────────────────────────────────────────────
+
+
+def test_fragment_budget_rows_default(client):
+    r = client.get("/fragments/budget/rows", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert "budget-rows-region" in r.text
+
+
+def test_fragment_budget_rows_explicit_month(client):
+    r = client.get("/fragments/budget/rows?year_month=2025-01", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "budget-rows-region" in r.text
+
+
+def test_fragment_budget_rows_empty(client):
+    r = client.get("/fragments/budget/rows?year_month=2000-01", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "No budget set for this month" in r.text
