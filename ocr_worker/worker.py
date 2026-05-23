@@ -2,20 +2,21 @@
 OCR worker — polls import_jobs for pending work and processes one job at a time.
 
 Environment variables:
-  DATABASE_URL   SQLite path              default: sqlite:///./carange.db
-  UPLOAD_DIR     Where images are stored  default: uploads
-  POLL_INTERVAL  Seconds between polls    default: 10
+  DATABASE_URL    SQLite path              default: sqlite:///./carange.db
+  UPLOAD_DIR      Where images are stored  default: uploads
+  POLL_INTERVAL   Seconds between polls    default: 10
+  STUCK_TIMEOUT   Minutes before a PROCESSING job is reclaimed  default: 30
 """
 
 import logging
 import os
 import pathlib
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 LIVENESS_FILE = pathlib.Path("/tmp/worker_alive")
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker, Session
 
 from app.models.database import ImportJob, ImportJobStatus
@@ -28,6 +29,7 @@ log = logging.getLogger("ocr_worker")
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./carange.db")
 POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", "10"))
+STUCK_TIMEOUT_MINUTES = int(os.getenv("STUCK_TIMEOUT", "30"))
 
 
 def _make_session_factory():
@@ -35,6 +37,15 @@ def _make_session_factory():
         DATABASE_URL,
         connect_args={"check_same_thread": False},
     )
+
+    @event.listens_for(engine, "connect")
+    def set_sqlite_pragma(dbapi_conn, _):
+        cursor = dbapi_conn.cursor()
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=5000")  # wait up to 5 s on write contention
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.close()
+
     return sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 
@@ -43,7 +54,23 @@ def _claim_next(db: Session) -> ImportJob | None:
     Atomically claim the oldest pending job.
     SQLite doesn't support SELECT … FOR UPDATE SKIP LOCKED, so we rely on
     WAL-mode serialised writes and single-worker deployment for safety.
+    Also reclaims jobs stuck in PROCESSING (worker crashed mid-job).
     """
+    # Reclaim jobs stuck in PROCESSING longer than STUCK_TIMEOUT_MINUTES
+    stuck_cutoff = datetime.now(timezone.utc) - timedelta(minutes=STUCK_TIMEOUT_MINUTES)
+    stuck = (
+        db.query(ImportJob)
+        .filter(
+            ImportJob.status == ImportJobStatus.PROCESSING,
+            ImportJob.created_at < stuck_cutoff,
+        )
+        .first()
+    )
+    if stuck:
+        log.warning("Reclaiming stuck job %d (PROCESSING since %s)", stuck.id, stuck.created_at)
+        stuck.status = ImportJobStatus.PENDING
+        db.commit()
+
     job = db.query(ImportJob).filter(ImportJob.status == ImportJobStatus.PENDING).order_by(ImportJob.created_at).first()
     if not job:
         return None
