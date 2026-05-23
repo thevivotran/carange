@@ -1,6 +1,6 @@
 <div id="job-list-region"
      hx-get="/fragments/import/jobs"
-     hx-trigger="load, every 3s [document.querySelector('.job-pending')]"
+     hx-trigger="import-jobs-updated from:body, every 3s [document.querySelector('.job-pending')]"
      hx-swap="outerHTML"
      class="space-y-3">
 
