@@ -26,8 +26,8 @@ def upgrade() -> None:
     else:
         conn.execute(
             sa.text(
-                "INSERT INTO categories (name, type, color, icon, is_active, is_wealth_building)"
-                " VALUES ('Lãi tiết kiệm', 'income', '#f59e0b', 'piggy-bank', 1, 0)"
+                "INSERT INTO categories (name, type, color, icon, is_active, is_wealth_building, created_at)"
+                " VALUES ('Lãi tiết kiệm', 'income', '#f59e0b', 'piggy-bank', 1, 0, CURRENT_TIMESTAMP)"
             )
         )
         interest_cat_id = conn.execute(sa.text("SELECT last_insert_rowid()")).scalar()

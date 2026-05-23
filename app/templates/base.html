@@ -226,23 +226,41 @@
         /* ── Sidebar collapse ─────────────────────────────── */
         #sidebar { transition: width 0.2s ease; }
         #sidebar.collapsed { width: 4rem !important; }
-        #sidebar.collapsed .sidebar-label,
-        #sidebar.collapsed .sidebar-section-label,
-        #sidebar.collapsed .sidebar-footer-text { display: none !important; }
+
+        /* Section dividers: instant hide (block elements can't shrink cleanly) */
+        #sidebar.collapsed .sidebar-section-label { display: none !important; }
+
+        /* Brand elements */
         #sidebar.collapsed #sidebar-brand-text { display: none !important; }
-        /* Hide brand link so expand button doesn't crowd/overlap it */
         #sidebar.collapsed #sidebar-brand-link { display: none !important; }
-        /* Center the header when only expand button remains */
         #sidebar.collapsed #sidebar-header { justify-content: center !important; }
+
+        /* Nav labels: smooth fade + shrink instead of instant display:none */
+        .sidebar-label {
+            overflow: hidden;
+            white-space: nowrap;
+            max-width: 200px;
+            opacity: 1;
+            /* include transform so Tailwind transition-transform on the chevron still works */
+            transition: max-width 0.2s ease, opacity 0.15s ease, transform 0.15s cubic-bezier(0.4,0,0.2,1);
+        }
+        #sidebar.collapsed .sidebar-label { max-width: 0; opacity: 0; }
+
+        /* Links: smooth padding — no abrupt justify-content jump */
+        .sidebar-link {
+            transition: background-color 0.15s, padding-left 0.2s ease, padding-right 0.2s ease;
+        }
         #sidebar.collapsed .sidebar-link {
-            justify-content: center;
-            padding-left: 0.75rem;
-            padding-right: 0.75rem;
+            padding-left: 1.25rem;
+            padding-right: 1.25rem;
         }
         #sidebar.collapsed .sidebar-link.active {
             border-right: none !important;
             border-left: 3px solid #2563EB;
         }
+
+        /* Collapse button chevron: smooth rotation */
+        #sidebar-collapse-btn i { transition: transform 0.2s ease; }
         #sidebar.collapsed #sidebar-collapse-btn i { transform: rotate(180deg); }
 
         /* ── Mobile bottom nav ────────────────────────────── */

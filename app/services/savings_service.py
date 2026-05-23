@@ -56,7 +56,7 @@ def mark_bundle_completed(db: Session, bundle_id: int) -> SavingsBundle:
         bundle.completed_at = datetime.now(timezone.utc)
 
         fallback_cat = (
-            db.query(Category).filter(Category.type == TransactionType.INCOME, Category.name == "Investment").first()
+            db.query(Category).filter(Category.type == TransactionType.INCOME, Category.name == "Tiết kiệm").first()
             or db.query(Category).filter(Category.type == TransactionType.INCOME).first()
         )
         if fallback_cat is None:
