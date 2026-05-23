@@ -1,0 +1,21 @@
+{% if not logs %}
+<p class="py-6 text-center text-gray-400 text-sm">No changes recorded yet.</p>
+{% else %}
+{% for log in logs %}
+<div class="flex items-start gap-3 py-3 border-b last:border-b-0">
+  <div class="flex-shrink-0 w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center mt-0.5">
+    <i class="fas fa-pen text-xs text-purple-600"></i>
+  </div>
+  <div class="flex-1 min-w-0">
+    <span class="text-xs font-semibold text-gray-700 bg-gray-100 px-1.5 py-0.5 rounded">{{ log.field_name }}</span>
+    <p class="text-xs text-gray-600 mt-1">
+      {% if log.old_value is not none %}
+        <span class="line-through text-gray-400 mr-1">{{ log.old_value }}</span>→
+      {% endif %}
+      <span class="text-gray-700 font-medium">{{ log.new_value if log.new_value is not none else '(cleared)' }}</span>
+    </p>
+    <p class="text-xs text-gray-400 mt-0.5">{{ log.changed_at.strftime('%d %b %Y, %H:%M') }}</p>
+  </div>
+</div>
+{% endfor %}
+{% endif %}

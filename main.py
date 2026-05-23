@@ -20,6 +20,7 @@ from app.routers import notes
 from app.routers import budget
 from app.routers import import_jobs
 from app.routers.dashboard import get_dashboard_page_data
+from app.routers.fragments import transactions as frag_transactions
 
 
 @asynccontextmanager
@@ -83,6 +84,9 @@ app.include_router(assets.router, prefix="/api/assets")
 app.include_router(notes.router, prefix="/api/notes")
 app.include_router(budget.router, prefix="/api/budget")
 app.include_router(import_jobs.router, prefix="/api/import")
+
+# Fragment routers (HTML partials for HTMX)
+app.include_router(frag_transactions.router, prefix="/fragments/transactions", tags=["fragments"])
 
 
 @app.get("/health")
