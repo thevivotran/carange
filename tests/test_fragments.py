@@ -150,3 +150,42 @@ def test_fragment_budget_rows_empty(client):
     r = client.get("/fragments/budget/rows?year_month=2000-01", headers={"HX-Request": "true"})
     assert r.status_code == 200
     assert "No budget set for this month" in r.text
+
+
+# ── Savings fragment tests ────────────────────────────────────────────────────
+
+
+def test_fragment_savings_grid_default(client):
+    r = client.get("/fragments/savings/grid", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert "savings-grid-region" in r.text
+
+
+def test_fragment_savings_grid_empty(client):
+    r = client.get("/fragments/savings/grid?status=active", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "No savings bundles yet" in r.text
+
+
+def test_fragment_savings_bundle_transactions_empty(client, db_session):
+    from datetime import date as _date
+
+    from app.models.database import SavingsBundle, SavingsStatus, SavingsType
+
+    bundle = SavingsBundle(
+        name="Test Bundle",
+        bank_name="VCB",
+        type=SavingsType.FIXED_DEPOSIT,
+        initial_deposit=10_000_000,
+        current_amount=10_000_000,
+        future_amount=10_500_000,
+        start_date=_date(2025, 1, 1),
+        status=SavingsStatus.ACTIVE,
+    )
+    db_session.add(bundle)
+    db_session.commit()
+    db_session.refresh(bundle)
+    r = client.get(f"/fragments/savings/{bundle.id}/transactions", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "No linked transactions" in r.text

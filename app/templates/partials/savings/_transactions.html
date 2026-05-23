@@ -1,0 +1,16 @@
+{% for tx in txs %}
+<div class="flex items-center justify-between text-xs bg-gray-50 rounded px-3 py-2">
+  <div class="flex items-center gap-2 min-w-0">
+    <span class="shrink-0 px-1.5 py-0.5 rounded font-medium {{ 'bg-green-100 text-green-700' if tx.type == 'income' else 'bg-red-100 text-red-700' }}">
+      {{ 'IN' if tx.type == 'income' else 'OUT' }}
+    </span>
+    <span class="text-gray-600 truncate">{{ tx.description or (tx.category.name if tx.category else '') }}</span>
+    <span class="shrink-0 text-gray-400">{{ tx.date }}</span>
+  </div>
+  <span class="shrink-0 font-semibold ml-2 {{ 'text-green-700' if tx.type == 'income' else 'text-red-700' }}">
+    {{ '+' if tx.type == 'income' else '-' }}{{ "{:,.0f}".format(tx.amount) }} ₫
+  </span>
+</div>
+{% else %}
+<p class="text-xs text-gray-400 py-1">No linked transactions</p>
+{% endfor %}
