@@ -307,39 +307,10 @@
             100% { transform: scaleX(0.92); }
         }
 
-        /* ── Skeleton shimmer (shared by all pages) ─────────────────────── */
-        @keyframes _shimmer {
-            0%   { background-position: 200% 0; }
-            100% { background-position: -200% 0; }
-        }
-        .skeleton-pulse {
-            background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
-            background-size: 200% 100%;
-            animation: _shimmer 1.2s infinite;
-            border-radius: 6px;
-            color: transparent !important;
-            pointer-events: none; user-select: none;
-        }
-        .dark .skeleton-pulse {
-            background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
-            background-size: 200% 100%;
-        }
-
-        /* ── Page-load shimmer overlay on <main> ────────────────────────── */
-        main.page-loading { position: relative; }
-        main.page-loading::after {
-            content: '';
-            position: absolute; inset: 0;
-            background: linear-gradient(90deg,
-                transparent 25%, rgba(255,255,255,0.55) 50%, transparent 75%);
-            background-size: 200% 100%;
-            animation: _shimmer 1.5s infinite;
-            pointer-events: none; z-index: 10;
-        }
-        .dark main.page-loading::after {
-            background: linear-gradient(90deg,
-                transparent 25%, rgba(15,23,42,0.45) 50%, transparent 75%);
-            background-size: 200% 100%;
+        /* ── HTMX fragment request progress bar ─────────────────────────── */
+        body.htmx-loading #nav-progress {
+            opacity: 1;
+            animation: _np-run 2s ease-out forwards;
         }
     </style>
     
@@ -527,7 +498,7 @@
         </div>
         
         <!-- Main Content -->
-        <main class="flex-1 overflow-y-auto md:pt-0 pt-14 pb-16 md:pb-0 page-loading">
+        <main class="flex-1 overflow-y-auto md:pt-0 pt-14 pb-16 md:pb-0">
             {% block content %}{% endblock %}
         </main>
     </div>
@@ -595,9 +566,11 @@
         document.addEventListener('htmx:responseError', function() {
             Alpine.store('toasts').add('Request failed — please try again.', 'error');
         });
-        document.addEventListener('htmx:afterSwap', function() {
-            var main = document.querySelector('main');
-            if (main) main.classList.remove('page-loading');
+        document.addEventListener('htmx:beforeRequest', function() {
+            document.body.classList.add('htmx-loading');
+        });
+        document.addEventListener('htmx:afterRequest', function() {
+            document.body.classList.remove('htmx-loading');
         });
 
         // ── Backward-compat shims (non-migrated pages keep calling these) ─────
@@ -634,13 +607,6 @@
             if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
             document.body.classList.add('navigating');
         });
-
-        // ── Page-load overlay ─────────────────────────────────────────────────
-        window.pageReady = function() {
-            var main = document.querySelector('main');
-            if (main) main.classList.remove('page-loading');
-        };
-        setTimeout(window.pageReady, 2500);
 
         // ── Undo-delete ───────────────────────────────────────────────────────
         // delay=0: immediate soft-delete (no undo); delay>0: undo toast for N ms.

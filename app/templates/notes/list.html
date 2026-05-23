@@ -97,8 +97,6 @@ async function loadNotes() {
         const res = await fetch('/api/notes/');
         notes = await res.json();
         renderNoteList();
-    } finally {
-        pageReady();
     }
 }
 
