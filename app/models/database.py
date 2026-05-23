@@ -39,6 +39,7 @@ class CIEnum(sa_types.TypeDecorator):
             return None
         return self._enum_class(value.lower())
 
+
 Base = declarative_base()
 
 
