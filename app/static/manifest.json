@@ -2,7 +2,7 @@
   "name": "Carange - Family Finance Tracker",
   "short_name": "Carange",
   "description": "Track your family's finances, savings, and financial projects",
-  "start_url": "/",
+  "start_url": "/pulse",
   "display": "standalone",
   "background_color": "#ECFDF5",
   "theme_color": "#059669",

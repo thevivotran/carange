@@ -1,10 +1,11 @@
 from fastapi import FastAPI, Request, Depends
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy.orm import Session
 from contextlib import asynccontextmanager
+from calendar import monthrange
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -146,6 +147,85 @@ async def budget_page(request: Request):
 @app.get("/import", response_class=HTMLResponse)
 async def import_page(request: Request):
     return templates.TemplateResponse(request, "import/upload.html", {"active_menu": "import"})
+
+
+@app.get("/sw.js")
+async def service_worker():
+    return FileResponse(
+        "app/static/sw.js", media_type="application/javascript", headers={"Service-Worker-Allowed": "/"}
+    )
+
+
+@app.get("/pulse", response_class=HTMLResponse)
+async def pulse_page(request: Request, db: Session = Depends(get_db)):
+    data = get_dashboard_page_data(db)
+    summary = data["summary"]
+    today = data["today"]
+
+    _, last_day = monthrange(today.year, today.month)
+    days_remaining = last_day - today.day
+    day_pct = round(today.day / last_day * 100)
+
+    adh = summary.get("budget_adherence_pct")
+    net = summary.get("net_this_month", 0)
+    income = summary.get("total_income", 0)
+    over_count = summary.get("budget_over_count", 0)
+
+    if income == 0:
+        pulse_level = "amber"
+        pulse_label = "No Income Yet"
+        pulse_message = "No income recorded yet this month."
+    elif net < 0:
+        pulse_level = "red"
+        pulse_label = "Over Spending"
+        pulse_message = "Spending exceeds income this month — review expenses."
+    elif adh is None:
+        pulse_level = "amber"
+        pulse_label = "No Budget Set"
+        pulse_message = "Set a monthly budget to track spending health."
+    elif adh >= 75:
+        pulse_level = "green"
+        pulse_label = "On Track"
+        pulse_message = f"Great momentum — {adh}% of budget categories are on target."
+    elif adh >= 50:
+        cat_word = "category" if over_count == 1 else "categories"
+        pulse_level = "amber"
+        pulse_label = "Watch It"
+        pulse_message = f"{over_count} {cat_word} over budget — review before month end."
+    else:
+        cat_word = "category" if over_count == 1 else "categories"
+        pulse_level = "red"
+        pulse_label = "Over Budget"
+        pulse_message = f"{over_count} {cat_word} are over budget this month."
+
+    check_income = summary["total_income"] > 0
+    check_bds = summary["monthly_bds"] > 0
+    check_tk = summary["monthly_tiet_kiem"] >= 20_000_000
+    check_net = summary["net_this_month"] > 0
+    ss_score = sum([check_income, check_bds, check_tk, check_net])
+
+    return templates.TemplateResponse(
+        request,
+        "pulse/index.html",
+        {
+            "active_menu": "pulse",
+            "summary": summary,
+            "today": today,
+            "days_remaining": days_remaining,
+            "day_pct": day_pct,
+            "last_day": last_day,
+            "pulse_level": pulse_level,
+            "pulse_label": pulse_label,
+            "pulse_message": pulse_message,
+            "check_income": check_income,
+            "check_bds": check_bds,
+            "check_tk": check_tk,
+            "check_net": check_net,
+            "ss_score": ss_score,
+            "recent_transactions": data["recent_transactions"],
+            "alert_over_budget": data["alert_over_budget"],
+        },
+    )
 
 
 if __name__ == "__main__":

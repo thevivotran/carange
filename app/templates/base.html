@@ -465,6 +465,10 @@
                 </div>
                 <!-- Grid of nav destinations -->
                 <div class="grid grid-cols-3 gap-px bg-gray-100 border-t mx-0">
+                    <a href="/" class="flex flex-col items-center justify-center gap-1.5 py-5 bg-white {% if active_menu == 'dashboard' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
+                        <i class="fas fa-chart-line text-xl"></i>
+                        <span class="text-xs font-medium">Dashboard</span>
+                    </a>
                     <a href="/import" class="flex flex-col items-center justify-center gap-1.5 py-5 bg-white {% if active_menu == 'import' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
                         <i class="fas fa-wand-magic-sparkles text-xl"></i>
                         <span class="text-xs font-medium">Scan</span>
@@ -909,9 +913,9 @@
     <nav id="mobile-bottom-nav" class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-[90]"
          style="padding-bottom:max(env(safe-area-inset-bottom), 0.75rem)">
         <div class="flex items-center justify-around h-14">
-            <a href="/" class="bottom-nav-link {% if active_menu == 'dashboard' %}active{% endif %} flex flex-col items-center justify-center flex-1 h-full gap-0.5">
-                <i class="fas fa-chart-line text-lg"></i>
-                <span class="text-xs">Home</span>
+            <a href="/pulse" class="bottom-nav-link {% if active_menu == 'pulse' %}active{% endif %} flex flex-col items-center justify-center flex-1 h-full gap-0.5">
+                <i class="fas fa-gauge-high text-lg"></i>
+                <span class="text-xs">Pulse</span>
             </a>
             <a href="/transactions" class="bottom-nav-link {% if active_menu == 'transactions' %}active{% endif %} flex flex-col items-center justify-center flex-1 h-full gap-0.5">
                 <i class="fas fa-exchange-alt text-lg"></i>
@@ -969,6 +973,13 @@
                 else { e.target.classList.add('hidden'); }
             }
         });
+    </script>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                .catch(function(e) { console.warn('SW registration failed:', e); });
+        }
     </script>
 </body>
 </html>
