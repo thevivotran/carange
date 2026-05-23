@@ -82,3 +82,49 @@ def test_fragment_history_nonexistent(client):
     r = client.get("/fragments/transactions/99999/history", headers={"HX-Request": "true"})
     assert r.status_code == 200
     assert "No changes recorded" in r.text
+
+
+# ── Dashboard fragment tests ──────────────────────────────────────────────────
+
+
+def test_fragment_dashboard_safety_score(client):
+    r = client.get("/fragments/dashboard/safety-score", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert "Family Safety Score" in r.text
+
+
+def test_fragment_dashboard_safety_score_with_month(client):
+    r = client.get("/fragments/dashboard/safety-score?year=2025&month=4", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "Family Safety Score" in r.text
+
+
+def test_fragment_dashboard_kpi_cards(client):
+    r = client.get("/fragments/dashboard/kpi-cards", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert "Net Worth" in r.text
+
+
+def test_fragment_dashboard_kpi_cards_with_month(client):
+    r = client.get("/fragments/dashboard/kpi-cards?year=2025&month=4", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "Net Worth" in r.text
+
+
+def test_fragment_dashboard_settings_form(client):
+    r = client.get("/fragments/dashboard/settings-form", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert "savings_target_pct" in r.text
+
+
+def test_fragment_dashboard_settings_post(client):
+    r = client.post(
+        "/fragments/dashboard/settings",
+        data={"savings_target_pct": "30", "fi_target_vnd": "", "baby_fund_bundle_id": ""},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert "HX-Trigger" in r.headers

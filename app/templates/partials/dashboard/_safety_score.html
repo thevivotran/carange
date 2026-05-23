@@ -1,0 +1,75 @@
+<div id="safety-score-region"
+     hx-get="/fragments/dashboard/safety-score"
+     hx-trigger="dashboard-month-changed from:body"
+     hx-target="this"
+     hx-swap="outerHTML">
+<div id="safety-score-card" class="rounded-2xl border p-5 mb-6
+  {% if ss_score == 4 %}bg-green-50 border-green-200
+  {% elif ss_score >= 2 %}bg-amber-50 border-amber-200
+  {% else %}bg-red-50 border-red-200{% endif %}">
+
+  <div class="flex justify-between items-center mb-4">
+    <p class="text-xs uppercase tracking-widest font-semibold
+      {% if ss_score == 4 %}text-green-600{% elif ss_score >= 2 %}text-amber-600{% else %}text-red-600{% endif %}">
+      Family Safety Score
+    </p>
+    <div class="flex items-center gap-2">
+      <div class="flex gap-1">
+        {% for i in range(4) %}
+        <span class="w-2.5 h-2.5 rounded-full
+          {% if i < ss_score %}{% if ss_score == 4 %}bg-green-500{% elif ss_score >= 2 %}bg-amber-500{% else %}bg-red-500{% endif %}
+          {% else %}bg-gray-200{% endif %}"></span>
+        {% endfor %}
+      </div>
+      <span class="text-sm font-bold
+        {% if ss_score == 4 %}text-green-700{% elif ss_score >= 2 %}text-amber-700{% else %}text-red-700{% endif %}">
+        {{ ss_score }} / 4
+      </span>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+
+    <div class="rounded-xl p-3 flex items-start gap-2.5 bg-white">
+      <span class="text-base leading-none mt-0.5 flex-shrink-0">{{ '✅' if check_income else '❌' }}</span>
+      <div class="min-w-0">
+        <p class="text-xs font-semibold {{ 'text-green-800' if check_income else 'text-red-800' }}">Salary Received</p>
+        <p class="text-xs mt-0.5 {{ 'text-green-600' if check_income else 'text-red-500' }}">
+          {% if check_income %}{{ "{:,.0f}".format(summary.total_income) }} ₫{% else %}No income recorded{% endif %}
+        </p>
+      </div>
+    </div>
+
+    <div class="rounded-xl p-3 flex items-start gap-2.5 bg-white">
+      <span class="text-base leading-none mt-0.5 flex-shrink-0">{{ '✅' if check_bds else '❌' }}</span>
+      <div class="min-w-0">
+        <p class="text-xs font-semibold {{ 'text-green-800' if check_bds else 'text-red-800' }}">Real Estate Paid</p>
+        <p class="text-xs mt-0.5 {{ 'text-green-600' if check_bds else 'text-red-500' }}">
+          {% if check_bds %}{{ "{:,.0f}".format(summary.monthly_bds) }} ₫{% else %}No payment recorded{% endif %}
+        </p>
+      </div>
+    </div>
+
+    <div class="rounded-xl p-3 flex items-start gap-2.5 bg-white">
+      <span class="text-base leading-none mt-0.5 flex-shrink-0">{{ '✅' if check_tk else '❌' }}</span>
+      <div class="min-w-0">
+        <p class="text-xs font-semibold {{ 'text-green-800' if check_tk else 'text-red-800' }}">Savings ≥ {{ summary.savings_target_pct | int }}%</p>
+        <p class="text-xs mt-0.5 {{ 'text-green-600' if check_tk else 'text-red-500' }}">
+          {{ "{:,.0f}".format(summary.monthly_tiet_kiem) }} ₫
+        </p>
+      </div>
+    </div>
+
+    <div class="rounded-xl p-3 flex items-start gap-2.5 bg-white">
+      <span class="text-base leading-none mt-0.5 flex-shrink-0">{{ '✅' if check_net else '❌' }}</span>
+      <div class="min-w-0">
+        <p class="text-xs font-semibold {{ 'text-green-800' if check_net else 'text-red-800' }}">Net Cash &gt; 0</p>
+        <p class="text-xs mt-0.5 {{ 'text-green-600' if check_net else 'text-red-500' }}">
+          {{ "{:+,.0f}".format(summary.net_this_month) }} ₫
+        </p>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
