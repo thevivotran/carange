@@ -167,6 +167,21 @@
                 </select>
             </div>
 
+            <!-- Passive income flag (income categories only) -->
+            <div id="passive-income-row" class="hidden">
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <div class="relative">
+                        <input type="checkbox" id="is-passive-income" class="sr-only peer">
+                        <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:bg-indigo-500 transition"></div>
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform"></div>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-700">Passive Income</p>
+                        <p class="text-xs text-gray-400">Tag rental income, dividends, business income for FI tracking</p>
+                    </div>
+                </label>
+            </div>
+
             <!-- Submit -->
             <div class="flex gap-4 pt-4">
                 <button type="button" onclick="closeModal()"
@@ -371,9 +386,14 @@
         document.getElementById('category-id').value = '';
         document.getElementById('category-type').value = currentTab;
         document.getElementById('type-select').value = currentTab;
+        document.getElementById('passive-income-row').classList.toggle('hidden', currentTab !== 'income');
         document.getElementById('category-modal').classList.remove('hidden');
         setTimeout(function() { document.getElementById('name').focus(); }, 50);
     }
+
+    document.getElementById('type-select').addEventListener('change', function() {
+        document.getElementById('passive-income-row').classList.toggle('hidden', this.value !== 'income');
+    });
 
     function closeModal() {
         document.getElementById('category-modal').classList.add('hidden');
@@ -382,12 +402,14 @@
     document.getElementById('category-form').addEventListener('submit', async function(e) {
         e.preventDefault();
         const categoryId = document.getElementById('category-id').value;
+        const catType = document.getElementById('type-select').value;
         const data = {
             name: document.getElementById('name').value,
-            type: document.getElementById('type-select').value,
+            type: catType,
             color: document.querySelector('input[name="color"]:checked').value,
             icon: document.getElementById('icon').value,
-            is_active: true
+            is_active: true,
+            is_passive_income: catType === 'income' && document.getElementById('is-passive-income').checked,
         };
         try {
             const url = categoryId ? '/api/categories/' + categoryId : '/api/categories/';
@@ -420,6 +442,9 @@
         const colorRadio = document.querySelector('input[name="color"][value="' + category.color + '"]');
         if (colorRadio) colorRadio.checked = true;
         document.getElementById('icon').value = category.icon;
+        document.getElementById('is-passive-income').checked = !!category.is_passive_income;
+        const passiveRow = document.getElementById('passive-income-row');
+        passiveRow.classList.toggle('hidden', category.type !== 'income');
         document.getElementById('category-modal').classList.remove('hidden');
     }
 

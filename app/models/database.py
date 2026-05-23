@@ -150,6 +150,7 @@ class Category(Base):
     icon = Column(String(50), default="circle")
     is_active = Column(Boolean, default=True)
     is_wealth_building = Column(Boolean, default=False, nullable=False, server_default="0")
+    is_passive_income = Column(Boolean, default=False, nullable=False, server_default="0")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     transactions = relationship("Transaction", back_populates="category")
@@ -335,6 +336,16 @@ class Note(Base):
     content = Column(Text, nullable=True)
     type = Column(String(50), nullable=True)  # e.g. 'money_owed', 'general'
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+    )
+
+
+class Setting(Base):
+    __tablename__ = "settings"
+
+    key = Column(String(100), primary_key=True)
+    value = Column(Text, nullable=False)
     updated_at = Column(
         DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
     )

@@ -28,6 +28,7 @@ class CategoryBase(BaseModel):
     icon: str = "circle"
     is_active: bool = True
     is_wealth_building: bool = False
+    is_passive_income: bool = False
 
 
 class CategoryCreate(CategoryBase):
@@ -380,6 +381,14 @@ class DashboardSummary(BaseModel):
     total_projects_paid: float = 0
     active_projects_count: int
     completed_projects_count: int
+    # Freedom-building metrics
+    savings_target_pct: float = 25
+    fi_target_vnd: Optional[float] = None
+    fi_progress_pct: Optional[float] = None
+    runway_months: float = 0
+    net_worth_growth_rate: float = 0
+    passive_income_monthly: float = 0
+    passive_income_pct: float = 0
 
 
 class MonthlyData(BaseModel):

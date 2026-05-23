@@ -20,6 +20,7 @@ from app.models.database import (
     TransactionType,
 )
 from app.services.budget_service import compute_budget_rows
+from app.services.settings_service import get_setting
 
 
 def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict:
@@ -513,6 +514,88 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         if total and total > 0
     ]
 
+    # ── Settings-powered metrics ──────────────────────────────────────────────
+    savings_target_pct = float(get_setting(db, "savings_target_pct", "25") or 25)
+
+    _fi_raw = get_setting(db, "fi_target_vnd")
+    fi_target_vnd = float(_fi_raw) if _fi_raw else None
+    fi_progress_pct = round(net_worth / fi_target_vnd * 100, 1) if fi_target_vnd else None
+
+    runway_months = round((cash_on_hand + total_savings) / avg_monthly_expense, 1) if avg_monthly_expense > 0 else 0
+
+    # Net worth 1 month ago — reuse same cumulative income/expense logic for prior month snapshot
+    # We do a lightweight query: cumulative income - cumulative expense at end of prev month
+    _prev_cum_income = float(
+        db.query(func.sum(Transaction.amount))
+        .filter(
+            Transaction.type == TransactionType.INCOME,
+            Transaction.is_savings_related == False,  # noqa: E712
+            Transaction.date <= prev_month_end,
+            Transaction.deleted_at.is_(None),
+        )
+        .scalar()
+        or 0
+    )
+    _prev_cum_expense = float(
+        db.query(func.sum(Transaction.amount))
+        .filter(
+            Transaction.type == TransactionType.EXPENSE,
+            Transaction.date <= prev_month_end,
+            Transaction.deleted_at.is_(None),
+        )
+        .scalar()
+        or 0
+    )
+    _prev_savings_total = float(
+        db.query(func.sum(SavingsBundle.future_amount))
+        .filter(SavingsBundle.status == SavingsStatus.ACTIVE, SavingsBundle.deleted_at.is_(None))
+        .scalar()
+        or 0
+    )
+    _prev_assets_total = sum(a.current_value_vnd for a in assets)
+    _prev_proj_paid = float(
+        db.query(func.sum(ProjectPayment.amount)).filter(ProjectPayment.status == PaymentStatus.PAID).scalar() or 0
+    )
+    net_worth_1mo_ago = (
+        (_prev_cum_income - _prev_cum_expense) + _prev_savings_total + _prev_assets_total + _prev_proj_paid
+    )
+    net_worth_growth_rate = (
+        round((net_worth - net_worth_1mo_ago) / abs(net_worth_1mo_ago) * 100, 1) if net_worth_1mo_ago else 0
+    )
+
+    # Passive income
+    passive_cat_ids = [
+        r[0]
+        for r in db.query(Category.id)
+        .filter(Category.is_passive_income == True, Category.type == TransactionType.INCOME)  # noqa: E712
+        .all()
+    ]
+    passive_income_monthly = (
+        float(
+            db.query(func.sum(Transaction.amount))
+            .filter(
+                Transaction.type == TransactionType.INCOME,
+                Transaction.category_id.in_(passive_cat_ids),
+                Transaction.date >= month_start,
+                Transaction.date <= month_end,
+                Transaction.deleted_at.is_(None),
+            )
+            .scalar()
+            or 0
+        )
+        if passive_cat_ids
+        else 0.0
+    )
+    passive_income_pct = round(passive_income_monthly / monthly_income * 100, 1) if monthly_income > 0 else 0.0
+
+    # Baby fund bundle
+    _bf_raw = get_setting(db, "baby_fund_bundle_id")
+    baby_fund_bundle = None
+    if _bf_raw:
+        baby_fund_bundle = (
+            db.query(SavingsBundle).filter(SavingsBundle.id == int(_bf_raw), SavingsBundle.deleted_at.is_(None)).first()
+        )
+
     return {
         "summary": {
             "total_income": monthly_income,
@@ -546,6 +629,13 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
             "budget_total": budget_total,
             "monthly_tiet_kiem": monthly_tiet_kiem,
             "monthly_bds": monthly_bds,
+            "savings_target_pct": savings_target_pct,
+            "fi_target_vnd": fi_target_vnd,
+            "fi_progress_pct": fi_progress_pct,
+            "runway_months": runway_months,
+            "net_worth_growth_rate": net_worth_growth_rate,
+            "passive_income_monthly": passive_income_monthly,
+            "passive_income_pct": passive_income_pct,
         },
         "budget_top_cats": budget_top_cats,
         "alert_maturities": alert_maturities,
@@ -565,4 +655,5 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         "bds_ytd_planned": bds_ytd_planned,
         "bds_completion_date": bds_completion_date,
         "bds_days_until_next": bds_days_until_next,
+        "baby_fund_bundle": baby_fund_bundle,
     }

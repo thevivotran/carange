@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract, case, and_, false as sqla_false
 from datetime import date
@@ -10,9 +11,12 @@ from app.models.database import (
     Transaction,
     Category,
     TransactionType,
+    SavingsBundle,
+    SavingsStatus,
 )
 from app.models.schemas import DashboardSummary
 from app.services.dashboard_service import get_dashboard_data
+from app.services.settings_service import get_setting, set_setting
 
 router = APIRouter()
 
@@ -58,6 +62,13 @@ def get_dashboard_summary(year: Optional[int] = None, month: Optional[int] = Non
         budget_adherence_pct=s["budget_adherence_pct"],
         monthly_tiet_kiem=s["monthly_tiet_kiem"],
         monthly_bds=s["monthly_bds"],
+        savings_target_pct=s["savings_target_pct"],
+        fi_target_vnd=s["fi_target_vnd"],
+        fi_progress_pct=s["fi_progress_pct"],
+        runway_months=s["runway_months"],
+        net_worth_growth_rate=s["net_worth_growth_rate"],
+        passive_income_monthly=s["passive_income_monthly"],
+        passive_income_pct=s["passive_income_pct"],
     )
 
 
@@ -267,3 +278,29 @@ def get_wealth_building_trend(db: Session = Depends(get_db)):
         )
 
     return results
+
+
+@router.get("/dashboard/settings")
+def get_dashboard_settings(db: Session = Depends(get_db)):
+    savings_bundles = (
+        db.query(SavingsBundle.id, SavingsBundle.name)
+        .filter(SavingsBundle.status == SavingsStatus.ACTIVE, SavingsBundle.deleted_at.is_(None))
+        .order_by(SavingsBundle.name)
+        .all()
+    )
+    return {
+        "savings_target_pct": get_setting(db, "savings_target_pct", "25"),
+        "fi_target_vnd": get_setting(db, "fi_target_vnd", ""),
+        "baby_fund_bundle_id": get_setting(db, "baby_fund_bundle_id", ""),
+        "savings_bundles": [{"id": r.id, "name": r.name} for r in savings_bundles],
+    }
+
+
+@router.post("/dashboard/settings")
+async def save_dashboard_settings(request: Request, db: Session = Depends(get_db)):
+    body = await request.json()
+    allowed = {"savings_target_pct", "fi_target_vnd", "baby_fund_bundle_id"}
+    for key, value in body.items():
+        if key in allowed:
+            set_setting(db, key, str(value).strip())
+    return JSONResponse({"ok": True})
