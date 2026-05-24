@@ -1209,100 +1209,168 @@
     }
     
 
-    // ── Inline row action bar ─────────────────────────────────────────────────
-    let _activeRow = null, _activeActionTr = null, _activeRowOrigClass = null;
+    // ── Transaction detail drawer ─────────────────────────────────────────────
+    function openTxDrawer(t) {
+        // --- Status banner ---
+        const banner = document.getElementById('tx-drawer-banner');
+        while (banner.firstChild) banner.removeChild(banner.firstChild);
 
-    function toggleRowActions(row, t) {
-        if (_activeRow === row) { collapseActions(); return; }
-        collapseActions();
+        if (t.is_advance && !t.advance_settled) {
+            banner.className = 'flex items-center gap-3 px-4 py-3 bg-amber-50 border-b border-amber-200 rounded-t-2xl md:rounded-t-xl';
+            const ico = document.createElement('i');
+            ico.className = 'fas fa-hand-holding-usd text-amber-500 flex-shrink-0';
+            const textDiv = document.createElement('div');
+            const title = document.createElement('p');
+            title.className = 'text-sm font-semibold text-amber-700';
+            title.textContent = 'Unpaid Advance';
+            const sub = document.createElement('p');
+            sub.className = 'text-xs text-amber-600';
+            sub.textContent = 'Mark as settled once this has been repaid.';
+            textDiv.appendChild(title);
+            textDiv.appendChild(sub);
+            banner.appendChild(ico);
+            banner.appendChild(textDiv);
+            banner.classList.remove('hidden');
+        } else if (t.needs_review) {
+            banner.className = 'flex items-center gap-3 px-4 py-3 bg-orange-50 border-b border-orange-200 rounded-t-2xl md:rounded-t-xl';
+            const ico = document.createElement('i');
+            ico.className = 'fas fa-exclamation-circle text-orange-500 flex-shrink-0';
+            const textDiv = document.createElement('div');
+            const title = document.createElement('p');
+            title.className = 'text-sm font-semibold text-orange-700';
+            title.textContent = 'Needs Review';
+            const sub = document.createElement('p');
+            sub.className = 'text-xs text-orange-600';
+            sub.textContent = 'This was imported via OCR — verify the details are correct.';
+            textDiv.appendChild(title);
+            textDiv.appendChild(sub);
+            banner.appendChild(ico);
+            banner.appendChild(textDiv);
+            banner.classList.remove('hidden');
+        } else {
+            banner.classList.add('hidden');
+        }
 
-        _activeRowOrigClass = row.className;
-        row.className = row.className + ' !bg-blue-50 ring-1 ring-inset ring-blue-200';
+        // --- Body ---
+        const body = document.getElementById('tx-drawer-body');
+        while (body.firstChild) body.removeChild(body.firstChild);
 
-        const actionTr = document.createElement('div');
-        actionTr.className = 'bg-blue-50 border-b border-blue-100 px-4 py-2';
-        actionTr.addEventListener('click', function(e) { e.stopPropagation(); });
+        // Amount + type chip
+        const amtRow = document.createElement('div');
+        amtRow.className = 'flex items-center justify-between';
+        const amtSpan = document.createElement('span');
+        amtSpan.className = 'text-2xl font-bold ' + (t.type === 'income' ? 'text-green-600' : 'text-red-600');
+        amtSpan.textContent = (t.type === 'income' ? '+' : '-') + formatVND(t.amount);
+        const typeChip = document.createElement('span');
+        typeChip.className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + (t.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700');
+        typeChip.textContent = t.type === 'income' ? 'Income' : 'Expense';
+        amtRow.appendChild(amtSpan);
+        amtRow.appendChild(typeChip);
+        body.appendChild(amtRow);
 
-        const bar = document.createElement('div');
-        bar.className = 'flex flex-wrap items-center gap-2';
+        // Full description (non-truncated)
+        if (t.description) {
+            const desc = document.createElement('p');
+            desc.className = 'text-sm text-gray-700 leading-relaxed pt-1';
+            desc.textContent = t.description;
+            body.appendChild(desc);
+        }
 
-        const mkBtn = function(iconClass, label, cls) {
+        // Divider
+        const divider = document.createElement('div');
+        divider.className = 'border-t';
+        body.appendChild(divider);
+
+        // Details grid
+        const grid = document.createElement('div');
+        grid.className = 'grid grid-cols-2 gap-x-4 gap-y-3';
+
+        const addField = function(label, value) {
+            const item = document.createElement('div');
+            const lbl = document.createElement('p');
+            lbl.className = 'text-xs text-gray-400 mb-0.5';
+            lbl.textContent = label;
+            const val = document.createElement('p');
+            val.className = 'text-sm text-gray-700 font-medium';
+            val.textContent = value;
+            item.appendChild(lbl);
+            item.appendChild(val);
+            grid.appendChild(item);
+        };
+
+        addField('Date', t.date);
+        addField('Category', t.category.name || 'Uncategorized');
+        addField('Payment', (t.payment_method || 'cash').charAt(0).toUpperCase() + (t.payment_method || 'cash').slice(1));
+
+        let sourceLabel = 'Manual';
+        if (t.source && t.source !== 'manual') {
+            if (_OCR_SOURCES.has(t.source)) {
+                sourceLabel = 'OCR · ' + t.source.charAt(0).toUpperCase() + t.source.slice(1);
+            } else if (t.source === 'project_payment') {
+                sourceLabel = 'Auto · Project';
+            } else {
+                sourceLabel = 'Auto · Savings';
+            }
+        }
+        addField('Source', sourceLabel);
+        if (t.is_edited) addField('Edited', 'Yes');
+        if (t.is_advance) addField('Advance', t.advance_settled ? 'Settled' : 'Unpaid');
+
+        body.appendChild(grid);
+
+        // --- Footer ---
+        const footer = document.getElementById('tx-drawer-footer');
+        while (footer.firstChild) footer.removeChild(footer.firstChild);
+
+        const mkBtn = function(iconClass, label, cls, handler) {
             const btn = document.createElement('button');
-            btn.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition active:scale-95 ' + cls;
+            btn.className = 'inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium rounded-lg border transition active:scale-95 ' + cls;
             const ico = document.createElement('i');
             ico.className = 'fas ' + iconClass;
             btn.appendChild(ico);
             btn.appendChild(document.createTextNode(' ' + label));
+            btn.addEventListener('click', handler);
             return btn;
         };
 
         if (trashMode) {
-            const restoreBtn = mkBtn('fa-undo', 'Restore', 'text-green-700 bg-white border-green-200 hover:bg-green-50');
-            restoreBtn.addEventListener('click', function(e) { e.stopPropagation(); collapseActions(); restoreTransaction(t.id); });
-            bar.appendChild(restoreBtn);
-
-            const hardDelBtn = mkBtn('fa-trash', 'Delete Forever', 'text-red-800 bg-white border-red-300 hover:bg-red-50');
-            hardDelBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                collapseActions();
-                showConfirm('Permanently delete this transaction? This cannot be undone.', async function() {
-                    const res = await fetch('/api/transactions/' + t.id + '/hard', { method: 'DELETE' });
-                    if (res.ok) { loadTransactions(); showToast('Permanently deleted', 'success'); }
-                    else showToast('Failed to delete permanently', 'error');
-                }, 'Delete Forever', 'bg-red-700 hover:bg-red-800');
-            });
-            bar.appendChild(hardDelBtn);
+            footer.appendChild(mkBtn('fa-undo', 'Restore', 'text-green-700 bg-white border-green-200 hover:bg-green-50',
+                function() { closeTxDrawer(); restoreTransaction(t.id); }));
+            footer.appendChild(mkBtn('fa-trash', 'Delete Forever', 'text-red-800 bg-white border-red-300 hover:bg-red-50',
+                function() {
+                    closeTxDrawer();
+                    showConfirm('Permanently delete this transaction? This cannot be undone.', async function() {
+                        const res = await fetch('/api/transactions/' + t.id + '/hard', { method: 'DELETE' });
+                        if (res.ok) { loadTransactions(); showToast('Permanently deleted', 'success'); }
+                        else showToast('Failed to delete permanently', 'error');
+                    }, 'Delete Forever', 'bg-red-700 hover:bg-red-800');
+                }));
         } else {
-            const editBtn = mkBtn('fa-edit', 'Edit', 'text-blue-700 bg-white border-blue-200 hover:bg-blue-50');
-            editBtn.addEventListener('click', function(e) { e.stopPropagation(); collapseActions(); editTransaction(t.id); });
-            bar.appendChild(editBtn);
-
-            const histBtn = mkBtn('fa-history', 'History', 'text-purple-700 bg-white border-purple-200 hover:bg-purple-50');
-            histBtn.addEventListener('click', function(e) { e.stopPropagation(); collapseActions(); openHistoryModal(t.id); });
-            bar.appendChild(histBtn);
-
+            footer.appendChild(mkBtn('fa-edit', 'Edit', 'text-blue-700 bg-white border-blue-200 hover:bg-blue-50',
+                function() { closeTxDrawer(); editTransaction(t.id); }));
+            footer.appendChild(mkBtn('fa-history', 'History', 'text-purple-700 bg-white border-purple-200 hover:bg-purple-50',
+                function() { closeTxDrawer(); openHistoryModal(t.id); }));
             if (t.is_advance && !t.advance_settled) {
-                const settleBtn = mkBtn('fa-check-circle', 'Mark Settled', 'text-green-700 bg-white border-green-200 hover:bg-green-50');
-                settleBtn.addEventListener('click', function(e) { e.stopPropagation(); collapseActions(); settleAdvance(t.id); });
-                bar.appendChild(settleBtn);
+                footer.appendChild(mkBtn('fa-check-circle', 'Mark Settled', 'text-green-700 bg-white border-green-200 hover:bg-green-50',
+                    function() { closeTxDrawer(); settleAdvance(t.id); }));
             }
-
             if (t.needs_review) {
-                const approveBtn = mkBtn('fa-check', 'Approve', 'text-orange-700 bg-white border-orange-200 hover:bg-orange-50');
-                approveBtn.addEventListener('click', function(e) { e.stopPropagation(); collapseActions(); approveTransaction(t.id); });
-                bar.appendChild(approveBtn);
+                footer.appendChild(mkBtn('fa-check', 'Approve', 'text-orange-700 bg-white border-orange-200 hover:bg-orange-50',
+                    function() { closeTxDrawer(); approveTransaction(t.id); }));
             }
-
             const isOCR = !!(t.import_job_id) && t.needs_review;
-            const delLabel = isOCR ? 'Reject' : 'Delete';
-            const delBtn = mkBtn('fa-trash', delLabel, 'text-red-700 bg-white border-red-200 hover:bg-red-50');
-            delBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                deleteTransactionSafe(t, row);
-            });
-            bar.appendChild(delBtn);
+            footer.appendChild(mkBtn('fa-trash', isOCR ? 'Reject' : 'Delete', 'text-red-700 bg-white border-red-200 hover:bg-red-50',
+                function() { closeTxDrawer(); deleteTransactionSafe(t, null); }));
         }
 
-        const hint = document.createElement('span');
-        hint.className = 'ml-auto text-xs text-gray-400 hidden sm:block';
-        hint.textContent = 'Tap row to close';
-        bar.appendChild(hint);
-
-        actionTr.appendChild(bar);
-        row.after(actionTr);
-
-        _activeRow = row;
-        _activeActionTr = actionTr;
+        document.getElementById('tx-drawer').classList.remove('hidden');
     }
 
-    function collapseActions() {
-        if (_activeActionTr) { _activeActionTr.remove(); _activeActionTr = null; }
-        if (_activeRow) {
-            if (_activeRowOrigClass !== null) _activeRow.className = _activeRowOrigClass;
-            _activeRow = null;
-            _activeRowOrigClass = null;
-        }
+    function closeTxDrawer() {
+        document.getElementById('tx-drawer').classList.add('hidden');
     }
+
+    function collapseActions() { /* no-op — kept for compatibility with deleteTransactionSafe */ }
 
     async function approveTransaction(id) {
         const res = await fetch('/api/transactions/' + id, {
@@ -1687,6 +1755,10 @@
         link.download = 'carange_template.csv';
         link.click();
     }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeTxDrawer();
+    });
 </script>
 
 <!-- Bulk Upload Modal -->
@@ -1744,6 +1816,21 @@
             </button>
         </div>
         <div id="history-modal-content" class="overflow-y-auto overscroll-contain px-4 py-2 flex-1"></div>
+    </div>
+</div>
+<!-- Transaction Detail Drawer -->
+<div id="tx-drawer" class="hidden fixed inset-0 z-[95] flex items-end md:items-center justify-center">
+    <div class="absolute inset-0 bg-gray-900 bg-opacity-50" onclick="closeTxDrawer()"></div>
+    <div class="relative bg-white w-full md:max-w-md md:rounded-xl shadow-xl max-h-[85dvh] md:max-h-[80dvh] flex flex-col rounded-t-2xl">
+        <div id="tx-drawer-banner" class="hidden rounded-t-2xl md:rounded-t-xl"></div>
+        <div class="px-4 py-3 border-b flex justify-between items-center flex-shrink-0">
+            <h3 class="text-base font-bold text-gray-800">Transaction Details</h3>
+            <button onclick="closeTxDrawer()" class="text-gray-400 hover:text-gray-600" aria-label="Close">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div id="tx-drawer-body" class="overflow-y-auto overscroll-contain flex-1 p-4 space-y-3"></div>
+        <div id="tx-drawer-footer" class="p-4 border-t flex flex-wrap gap-2"></div>
     </div>
 </div>
 <!-- Duplicate Warning Modal -->

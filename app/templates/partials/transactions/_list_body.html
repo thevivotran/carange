@@ -16,61 +16,62 @@
     </span>
   </div>
   {% for t in txs %}
-    {% set tx_data = {'id': t.id, 'is_advance': t.is_advance, 'advance_settled': t.advance_settled, 'needs_review': t.needs_review, 'import_job_id': t.import_job_id, 'date': t.date | string, 'category': {'name': t.category.name if t.category else '', 'color': t.category.color if t.category else '#6B7280'}} %}
-    <div class="flex items-center gap-3 px-4 py-3 border-b transition-colors cursor-pointer select-none
-      {% if t.is_advance and not t.advance_settled %}border-l-4 border-amber-400 bg-amber-50 hover:bg-amber-100
-      {% elif t.needs_review %}border-l-4 border-rose-500 bg-orange-50 hover:bg-orange-100
+    {% set tx_data = {
+      'id': t.id,
+      'type': t.type,
+      'amount': t.amount,
+      'description': t.description or '',
+      'date': t.date | string,
+      'payment_method': t.payment_method or 'cash',
+      'source': t.source or 'manual',
+      'is_advance': t.is_advance,
+      'advance_settled': t.advance_settled,
+      'needs_review': t.needs_review,
+      'import_job_id': t.import_job_id,
+      'is_edited': t.id in edited_ids,
+      'category': {'name': t.category.name if t.category else '', 'color': t.category.color if t.category else '#6B7280'}
+    } %}
+    <div class="flex items-stretch gap-3 border-b transition-colors cursor-pointer select-none
+      {% if t.is_advance and not t.advance_settled %}bg-amber-50 hover:bg-amber-100
+      {% elif t.needs_review %}bg-orange-50 hover:bg-orange-100
       {% else %}hover:bg-gray-50{% endif %}"
          data-tx='{{ tx_data | tojson }}'
-         onclick="toggleRowActions(this, JSON.parse(this.getAttribute('data-tx')))">
-      <span class="hidden md:inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 w-24 truncate"
-            style="background-color: {{ (t.category.color if t.category else '#6B7280') }}20; color: {{ t.category.color if t.category else '#6B7280' }}">
-        {{ t.category.name if t.category else 'Uncategorized' }}
-      </span>
-      <span class="md:hidden flex-shrink-0 w-2 h-2 rounded-full mt-1.5" style="background-color: {{ t.category.color if t.category else '#6B7280' }}"></span>
-      <div class="flex-1 min-w-0">
-        <p class="text-sm text-gray-700 truncate select-text cursor-text">{{ t.description or '-' }}</p>
-        <p class="md:hidden text-xs text-gray-400 truncate">{{ t.category.name if t.category else 'Uncategorized' }}</p>
-        {% if t.is_advance %}
-          {% if not t.advance_settled %}
-            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
-              <i class="fas fa-hand-holding-usd"></i> Unpaid
-            </span>
-          {% else %}
-            <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
-              <i class="fas fa-check"></i> Settled
-            </span>
-          {% endif %}
-        {% endif %}
-        {% if t.needs_review %}
-          <span class="inline-flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700">
-            <i class="fas fa-exclamation-triangle"></i> Review
-          </span>
-        {% endif %}
-        {% if t.id in edited_ids %}
-          <span class="inline-flex items-center gap-1 ml-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
-            <i class="fas fa-pen"></i> Edited
-          </span>
-        {% endif %}
-        {% if t.source and t.source != 'manual' %}
-          {% if t.source in ocr_sources %}
-            <span class="inline-block ml-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-600">
-              OCR · {{ t.source | capitalize }}
-            </span>
-          {% elif t.source == 'project_payment' %}
-            <span class="inline-block ml-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-500">
-              Auto · Project
-            </span>
-          {% else %}
-            <span class="inline-block ml-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-500">
-              Auto · Savings
-            </span>
-          {% endif %}
-        {% endif %}
+         onclick="openTxDrawer(JSON.parse(this.getAttribute('data-tx')))">
+
+      <!-- Left border accent (element so it can carry a tooltip) -->
+      {% if t.is_advance and not t.advance_settled %}
+        <div class="w-1 flex-shrink-0 bg-amber-400 cursor-help"
+             title="Unpaid advance — settle this transaction when repaid"></div>
+      {% elif t.needs_review %}
+        <div class="w-1 flex-shrink-0 bg-rose-500 cursor-help"
+             title="Needs review — verify this OCR-imported transaction"></div>
+      {% else %}
+        <div class="w-1 flex-shrink-0"></div>
+      {% endif %}
+
+      <!-- Inner content row -->
+      <div class="flex items-center gap-3 flex-1 min-w-0 py-3 pr-4">
+        <!-- Category badge (desktop only) -->
+        <span class="hidden md:inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 w-24 truncate"
+              style="background-color: {{ (t.category.color if t.category else '#6B7280') }}20; color: {{ t.category.color if t.category else '#6B7280' }}">
+          {{ t.category.name if t.category else 'Uncategorized' }}
+        </span>
+
+        <!-- Category color dot (mobile only) -->
+        <span class="md:hidden flex-shrink-0 w-2 h-2 rounded-full"
+              style="background-color: {{ t.category.color if t.category else '#6B7280' }}"></span>
+
+        <!-- Description -->
+        <div class="flex-1 min-w-0">
+          <p class="text-sm text-gray-700 truncate select-text cursor-text">{{ t.description or '-' }}</p>
+          <p class="md:hidden text-xs text-gray-400 truncate">{{ t.category.name if t.category else 'Uncategorized' }}</p>
+        </div>
+
+        <!-- Amount -->
+        <span class="text-sm font-semibold whitespace-nowrap {{ 'text-green-600' if t.type == 'income' else 'text-red-600' }}">
+          {{ '+' if t.type == 'income' else '-' }}{{ '{:,.0f}'.format(t.amount) }} ₫
+        </span>
       </div>
-      <span class="text-sm font-semibold whitespace-nowrap {{ 'text-green-600' if t.type == 'income' else 'text-red-600' }}">
-        {{ '+' if t.type == 'income' else '-' }}{{ '{:,.0f}'.format(t.amount) }} ₫
-      </span>
     </div>
   {% endfor %}
 {% endfor %}
