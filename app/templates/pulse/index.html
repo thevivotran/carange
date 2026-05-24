@@ -149,7 +149,7 @@
       {% for ok, label, detail in [
           (check_income, 'Salary', 'Income received'),
           (check_bds, 'Real Estate', 'BDS payment made'),
-          (check_tk, 'Savings', '≥ ₫20M saved'),
+          (check_tk, 'Savings', '≥ ' ~ summary.savings_target_pct|int ~ '% of income'),
           (check_net, 'Net Positive', 'Income > expenses')
       ] %}
       <div class="flex items-center gap-2 bg-white dark:bg-gray-800 rounded-xl px-3 py-2">

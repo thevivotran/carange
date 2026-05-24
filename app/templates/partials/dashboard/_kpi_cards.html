@@ -11,24 +11,28 @@
     <div class="bg-white rounded-2xl shadow-sm border p-5">
       <div class="flex justify-between items-center mb-1">
         <p class="text-xs text-gray-500 uppercase tracking-widest">Liquid Savings</p>
-        <span class="text-xs font-semibold {{ 'text-green-600' if liquid_delta > 0.5 else ('text-red-500' if liquid_delta < -0.5 else 'text-gray-300') }}">
-          {% if liquid_delta > 0.5 %}↑ +{{ "%.1f"|format(liquid_delta) }}%{% elif liquid_delta < -0.5 %}↓ {{ "%.1f"|format(liquid_delta) }}%{% endif %}
-        </span>
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold {{ 'text-green-600' if liquid_delta > 0.5 else ('text-red-500' if liquid_delta < -0.5 else 'text-gray-300') }}">
+            {% if liquid_delta > 0.5 %}↑ +{{ "%.1f"|format(liquid_delta) }}%{% elif liquid_delta < -0.5 %}↓ {{ "%.1f"|format(liquid_delta) }}%{% endif %}
+          </span>
+          <button onclick="showKpiInfo('liquid-savings', this)" class="text-gray-300 hover:text-gray-500 focus:outline-none"><i class="fas fa-info-circle text-xs"></i></button>
+        </div>
       </div>
       <p class="text-3xl font-bold
-        {% if summary.liquid_savings_rate >= 23 %}text-green-600{% elif summary.liquid_savings_rate >= 10 %}text-amber-600{% else %}text-red-500{% endif %}">
+        {% if summary.liquid_savings_rate >= summary.savings_target_pct %}text-green-600{% elif summary.liquid_savings_rate >= 10 %}text-amber-600{% else %}text-red-500{% endif %}">
         {{ summary.liquid_savings_rate }}%
       </p>
+      <p class="text-xs text-gray-400 mt-1.5">Tiết kiệm ÷ Income</p>
       <div class="mt-2 w-full bg-gray-100 rounded-full h-1.5">
         <div class="h-1.5 rounded-full transition-all duration-500"
           style="width:{{ [summary.liquid_savings_rate, 100]|min }}%;
-                 background:{% if summary.liquid_savings_rate >= 23 %}#059669{% elif summary.liquid_savings_rate >= 10 %}#D97706{% else %}#DC2626{% endif %}"></div>
+                 background:{% if summary.liquid_savings_rate >= summary.savings_target_pct %}#059669{% elif summary.liquid_savings_rate >= 10 %}#D97706{% else %}#DC2626{% endif %}"></div>
       </div>
       <div class="mt-2 flex items-center justify-between">
-        <span class="text-xs text-gray-500">Target: ≥ 23%</span>
+        <span class="text-xs text-gray-500">Target: ≥ {{ summary.savings_target_pct | int }}%</span>
         <span class="text-xs px-2 py-0.5 rounded-full
-          {% if summary.liquid_savings_rate >= 23 %}bg-green-100 text-green-700{% elif summary.liquid_savings_rate >= 10 %}bg-amber-100 text-amber-700{% else %}bg-red-100 text-red-700{% endif %}">
-          {% if summary.liquid_savings_rate >= 23 %}On track{% elif summary.liquid_savings_rate >= 10 %}Partial{% else %}Below{% endif %}
+          {% if summary.liquid_savings_rate >= summary.savings_target_pct %}bg-green-100 text-green-700{% elif summary.liquid_savings_rate >= 10 %}bg-amber-100 text-amber-700{% else %}bg-red-100 text-red-700{% endif %}">
+          {% if summary.liquid_savings_rate >= summary.savings_target_pct %}On track{% elif summary.liquid_savings_rate >= 10 %}Partial{% else %}Below{% endif %}
         </span>
       </div>
     </div>
@@ -37,9 +41,12 @@
     <div class="bg-white rounded-2xl shadow-sm border p-5">
       <div class="flex justify-between items-center mb-1">
         <p class="text-xs text-gray-500 uppercase tracking-widest">Real Estate Rate</p>
-        <span class="text-xs font-semibold text-gray-300">
-          {% if bds_delta > 0.5 %}↑ +{{ "%.1f"|format(bds_delta) }}%{% elif bds_delta < -0.5 %}↓ {{ "%.1f"|format(bds_delta) }}%{% endif %}
-        </span>
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold text-gray-300">
+            {% if bds_delta > 0.5 %}↑ +{{ "%.1f"|format(bds_delta) }}%{% elif bds_delta < -0.5 %}↓ {{ "%.1f"|format(bds_delta) }}%{% endif %}
+          </span>
+          <button onclick="showKpiInfo('bds-rate', this)" class="text-gray-300 hover:text-gray-500 focus:outline-none"><i class="fas fa-info-circle text-xs"></i></button>
+        </div>
       </div>
       <p class="text-3xl font-bold {{ 'text-green-600' if summary.monthly_bds > 0 else 'text-red-500' }}">
         {{ summary.bds_rate }}%
@@ -58,14 +65,18 @@
     <div class="bg-white rounded-2xl shadow-sm border p-5">
       <div class="flex justify-between items-center mb-1">
         <p class="text-xs text-gray-500 uppercase tracking-widest">Net Cash</p>
-        <span class="text-xs font-semibold {{ 'text-green-600' if net_delta > 500000 else ('text-red-500' if net_delta < -500000 else 'text-gray-300') }}">
-          {% if net_delta|abs > 500000 %}{{ '↑ +' if net_delta > 0 else '↓ ' }}{% if net_delta|abs >= 1000000000 %}{{ "%.1f"|format(net_delta|abs / 1000000000) }}B{% elif net_delta|abs >= 1000000 %}{{ "%.0f"|format(net_delta|abs / 1000000) }}M{% else %}{{ "{:,.0f}".format(net_delta|abs) }}{% endif %} ₫{% endif %}
-        </span>
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold {{ 'text-green-600' if net_delta > 500000 else ('text-red-500' if net_delta < -500000 else 'text-gray-300') }}">
+            {% if net_delta|abs > 500000 %}{{ '↑ +' if net_delta > 0 else '↓ ' }}{% if net_delta|abs >= 1000000000 %}{{ "%.1f"|format(net_delta|abs / 1000000000) }}B{% elif net_delta|abs >= 1000000 %}{{ "%.0f"|format(net_delta|abs / 1000000) }}M{% else %}{{ "{:,.0f}".format(net_delta|abs) }}{% endif %} ₫{% endif %}
+          </span>
+          <button onclick="showKpiInfo('net-cash', this)" class="text-gray-300 hover:text-gray-500 focus:outline-none"><i class="fas fa-info-circle text-xs"></i></button>
+        </div>
       </div>
       <p class="text-3xl font-bold leading-tight {{ 'text-green-600' if summary.net_this_month >= 0 else 'text-red-500' }}">
         {% set nc = summary.net_this_month %}{% if nc|abs >= 1000000000 %}{% if nc >= 0 %}+{% endif %}{{ "%.2f"|format(nc/1000000000) }}B{% elif nc|abs >= 1000000 %}{% if nc >= 0 %}+{% endif %}{{ "%.1f"|format(nc/1000000) }}M{% else %}{{ "{:+,.0f}".format(nc) }}{% endif %} ₫
       </p>
-      <div class="mt-2 flex gap-2 text-xs text-gray-500 flex-wrap">
+      <p class="text-xs text-gray-400 mt-1.5">Income − Living Expenses − Savings</p>
+      <div class="mt-1 flex gap-2 text-xs text-gray-500 flex-wrap">
         <span>In: {{ "{:,.0f}".format(summary.total_income) }} ₫</span>
         <span class="text-gray-300">·</span>
         <span>Out: {{ "{:,.0f}".format(summary.total_expense + summary.total_savings_expense) }} ₫</span>
@@ -76,14 +87,18 @@
     <div class="bg-white rounded-2xl shadow-sm border p-5">
       <div class="flex justify-between items-center mb-1">
         <p class="text-xs text-gray-500 uppercase tracking-widest">Living Expense</p>
-        <span class="text-xs font-semibold {{ 'text-green-600' if living_delta < -0.5 else ('text-red-500' if living_delta > 0.5 else 'text-gray-300') }}">
-          {% if living_delta > 0.5 %}↑ +{{ "%.1f"|format(living_delta) }}%{% elif living_delta < -0.5 %}↓ {{ "%.1f"|format(living_delta) }}%{% endif %}
-        </span>
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold {{ 'text-green-600' if living_delta < -0.5 else ('text-red-500' if living_delta > 0.5 else 'text-gray-300') }}">
+            {% if living_delta > 0.5 %}↑ +{{ "%.1f"|format(living_delta) }}%{% elif living_delta < -0.5 %}↓ {{ "%.1f"|format(living_delta) }}%{% endif %}
+          </span>
+          <button onclick="showKpiInfo('living-expense', this)" class="text-gray-300 hover:text-gray-500 focus:outline-none"><i class="fas fa-info-circle text-xs"></i></button>
+        </div>
       </div>
       <p class="text-3xl font-bold
         {% if summary.living_expense_ratio <= 40 %}text-green-600{% elif summary.living_expense_ratio <= 55 %}text-amber-600{% else %}text-red-500{% endif %}">
         {{ summary.living_expense_ratio }}%
       </p>
+      <p class="text-xs text-gray-400 mt-1.5">Living Expenses ÷ Income</p>
       <div class="mt-2 w-full bg-gray-100 rounded-full h-1.5">
         <div class="h-1.5 rounded-full transition-all duration-500"
           style="width:{{ [summary.living_expense_ratio, 100]|min }}%;
@@ -108,6 +123,7 @@
       <p class="text-3xl font-bold {{ 'text-green-600' if ef >= 6 else ('text-amber-600' if ef >= 3 else 'text-red-500') }}">
         {{ ef }}<span class="text-lg font-normal text-gray-400 ml-0.5">mo</span>
       </p>
+      <p class="text-xs text-gray-400 mt-1.5">Active Savings ÷ Avg Expense (3 mo)</p>
       <div class="mt-2 w-full bg-gray-100 rounded-full h-1.5">
         <div class="h-1.5 rounded-full transition-all duration-500"
           style="width:{{ [ef / 12 * 100, 100]|min | int }}%;
@@ -133,7 +149,7 @@
           {% if summary.budget_over_count == 0 %}text-green-600{% elif summary.budget_adherence_pct >= 70 %}text-amber-600{% else %}text-red-500{% endif %}">
           {{ summary.budget_adherence_pct }}<span class="text-lg text-gray-400">%</span>
         </p>
-        <p class="text-xs text-gray-400 mt-2">of budget in control</p>
+        <p class="text-xs text-gray-400 mt-1.5">On-track ₫ ÷ Total budgeted ₫</p>
         <div class="mt-2 w-full bg-gray-100 rounded-full h-1.5">
           <div class="h-1.5 rounded-full transition-all duration-500"
             style="width:{{ summary.budget_adherence_pct }}%;
@@ -164,6 +180,7 @@
         {% if summary.runway_months >= 18 %}text-green-600{% elif summary.runway_months >= 6 %}text-amber-600{% else %}text-red-500{% endif %}">
         {{ summary.runway_months }}<span class="text-lg font-normal text-gray-400 ml-0.5">mo</span>
       </p>
+      <p class="text-xs text-gray-400 mt-1.5">(Cash + Savings) ÷ Avg Monthly Exp</p>
       <div class="mt-2 w-full bg-gray-100 rounded-full h-1.5">
         <div class="h-1.5 rounded-full transition-all duration-500"
           style="width:{{ [summary.runway_months / 24 * 100, 100]|min | int }}%;
@@ -189,6 +206,7 @@
           {% if summary.fi_progress_pct >= 100 %}text-green-600{% elif summary.fi_progress_pct >= 50 %}text-blue-600{% else %}text-indigo-500{% endif %}">
           {{ summary.fi_progress_pct | int }}<span class="text-lg font-normal text-gray-400">%</span>
         </p>
+        <p class="text-xs text-gray-400 mt-1.5">Net Worth ÷ FI Target</p>
         <div class="mt-2 w-full bg-gray-100 rounded-full h-1.5 relative">
           <div class="h-1.5 rounded-full transition-all duration-700 bg-indigo-500"
             style="width:{{ [summary.fi_progress_pct, 100]|min | int }}%"></div>
@@ -218,13 +236,13 @@
     <div class="bg-white rounded-2xl shadow-sm border p-5">
       <div class="flex justify-between items-center mb-1">
         <p class="text-xs text-gray-500 uppercase tracking-widest">Net Worth Growth</p>
-        <button onclick="showKpiInfo('net-worth', this)" class="text-gray-300 hover:text-gray-500 focus:outline-none"><i class="fas fa-info-circle text-xs"></i></button>
+        <button onclick="showKpiInfo('net-worth-growth', this)" class="text-gray-300 hover:text-gray-500 focus:outline-none"><i class="fas fa-info-circle text-xs"></i></button>
       </div>
       {% set ngr = summary.net_worth_growth_rate or 0 %}
       <p class="text-3xl font-bold {{ 'text-green-600' if ngr > 0.5 else ('text-red-500' if ngr < -0.5 else 'text-gray-400') }}">
         {{ '{:+.1f}'.format(ngr) }}<span class="text-lg font-normal text-gray-400">%</span>
       </p>
-      <p class="text-xs text-gray-500 mt-2">month-over-month change</p>
+      <p class="text-xs text-gray-400 mt-1.5">(NW − Prev NW) ÷ Prev NW</p>
       <div class="mt-2 flex items-center justify-between">
         <span class="text-xs text-gray-500">Net Worth: {% set nw = summary.net_worth %}{% if nw >= 1_000_000_000 %}{{ "%.2f"|format(nw/1_000_000_000) }}B{% elif nw >= 1_000_000 %}{{ "%.0f"|format(nw/1_000_000) }}M{% else %}{{ "{:,.0f}".format(nw) }}{% endif %} ₫</span>
         <span class="text-xs px-2 py-0.5 rounded-full {{ 'bg-green-100 text-green-700' if ngr > 0.5 else ('bg-red-100 text-red-700' if ngr < -0.5 else 'bg-gray-100 text-gray-500') }}">

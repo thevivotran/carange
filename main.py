@@ -220,7 +220,7 @@ async def pulse_page(request: Request, db: Session = Depends(get_db)):
 
     check_income = summary["total_income"] > 0
     check_bds = summary["monthly_bds"] > 0
-    check_tk = summary["monthly_tiet_kiem"] >= 20_000_000
+    check_tk = summary["liquid_savings_rate"] >= summary["savings_target_pct"]
     check_net = summary["net_this_month"] > 0
     ss_score = sum([check_income, check_bds, check_tk, check_net])
 
