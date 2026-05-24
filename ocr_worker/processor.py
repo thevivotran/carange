@@ -1,15 +1,19 @@
 """
 Job processor — drives the full OCR pipeline for one ImportJob.
 
-Phase 1 skeleton → Phase 2 (now):
-  image file → PaddleOCR → source detection → source parser → transactions → DB commit
+Extraction priority:
+  1. Ollama vision (Qwen3.5-9B) — if OLLAMA_URL is set; handles any screenshot source
+  2. PaddleOCR + source-specific parser — fallback when Ollama is unavailable
 """
 
+import json
 import logging
 import os
-from datetime import datetime, timezone
+import re
+from datetime import date, datetime, timedelta, timezone
 from typing import List, Optional
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.database import Category, ImportJob, ImportJobStatus, ImportSource, Transaction, TransactionType
@@ -24,15 +28,13 @@ log = logging.getLogger("ocr_worker.processor")
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
 REVIEW_THRESHOLD = float(os.getenv("REVIEW_THRESHOLD", "0.95"))
+ANOMALY_MULTIPLIER = float(os.getenv("ANOMALY_MULTIPLIER", "3.0"))
+ANOMALY_MIN_SAMPLES = int(os.getenv("ANOMALY_MIN_SAMPLES", "3"))
+VISION_CONFIDENCE = 0.85  # baseline confidence assigned to vision-extracted transactions
 
 
 def _resolve_file_path(stored: str) -> str:
-    """Resolve job.file_path to an absolute path across all storage formats.
-
-    - bare filename  "abc123.png"        → UPLOAD_DIR/abc123.png  (current)
-    - legacy prefix  "uploads/abc123.png"→ UPLOAD_DIR/abc123.png  (old format)
-    - absolute path  "/old/test/img.png" → as-is (legacy test records)
-    """
+    """Resolve job.file_path to an absolute path across all storage formats."""
     if os.path.isabs(stored):
         return stored
     return os.path.join(UPLOAD_DIR, os.path.basename(stored))
@@ -46,14 +48,25 @@ def process_job(job: ImportJob, db: Session) -> None:
         _fail(db, job, f"Image not found on disk: {file_path}")
         return
 
-    # ── OCR ───────────────────────────────────────────────────────────────────
+    # ── Path 1: Ollama vision extraction ─────────────────────────────────────
+    if _ollama.is_enabled():
+        parsed = _extract_via_vision(file_path)
+        if parsed is not None:
+            log.info("Job %d: vision extracted %d candidates", job.id, len(parsed))
+            job.detected_source = None  # vision handles any source
+            db.flush()
+            committed = _commit_transactions(db, job, parsed, source=None)
+            _done(db, job, transaction_count=committed)
+            return
+        log.info("Job %d: vision extraction empty or failed — falling back to PaddleOCR", job.id)
+
+    # ── Path 2: PaddleOCR + source-specific parser (fallback) ────────────────
     try:
         blocks = _ocr_mod.extract_blocks(file_path)
     except Exception as exc:
         _fail(db, job, f"OCR failed: {exc}")
         return
 
-    # ── Source detection (always — even before early-exit on empty blocks) ────
     effective_source = job.source_hint or detect_source(blocks)
     if effective_source != job.detected_source:
         job.detected_source = effective_source
@@ -66,22 +79,84 @@ def process_job(job: ImportJob, db: Session) -> None:
         _done(db, job, transaction_count=0)
         return
 
-    # ── Parse transactions ────────────────────────────────────────────────────
     parser = get_parser(effective_source)
     try:
-        parsed: List[ParsedTransaction] = parser.parse(blocks)
+        parsed = parser.parse(blocks)
     except Exception as exc:
         _fail(db, job, f"Parser error: {exc}")
         return
 
     log.info("Job %d: parser found %d candidate transactions", job.id, len(parsed))
-
-    # ── Commit transactions ───────────────────────────────────────────────────
     committed = _commit_transactions(db, job, parsed, effective_source)
     _done(db, job, transaction_count=committed)
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# ── Vision extraction ─────────────────────────────────────────────────────────
+
+
+def _extract_via_vision(file_path: str) -> Optional[List[ParsedTransaction]]:
+    """Send the image to Ollama vision and parse the JSON response.
+
+    Returns a list of ParsedTransaction on success, None if Ollama is
+    unavailable, returns an empty result, or produces unparseable output.
+    """
+    today_str = date.today().strftime("%Y-%m-%d")
+    prompt = (
+        f"Today's date: {today_str}\n\n"
+        "Extract all financial transactions visible in this screenshot.\n"
+        "Return a JSON array. Each element must have exactly these fields:\n"
+        '  "date": "YYYY-MM-DD"\n'
+        '  "amount": positive number in VND\n'
+        '  "type": "expense" or "income"\n'
+        '  "description": merchant or transaction description (keep original language)\n'
+        '  "category_hint": one of: Food & Dining, Transportation, Shopping, '
+        "Entertainment, Utilities, Healthcare, Education, Housing, Insurance, "
+        "Salary, Bonus, Investment, Others\n\n"
+        "If no transactions are found return []. Return ONLY the JSON array, no explanation."
+    )
+    raw = _ollama.vision_sync(
+        file_path,
+        prompt=prompt,
+        system=(
+            "You extract structured financial data from payment app screenshots. "
+            "Always return valid JSON. Never add explanatory text outside the JSON array."
+        ),
+    )
+    if not raw:
+        return None
+
+    # Extract the JSON array from the response (model may wrap it in markdown)
+    match = re.search(r"\[.*?\]", raw, re.DOTALL)
+    if not match:
+        log.debug("Vision response contained no JSON array: %s", raw[:200])
+        return None
+
+    try:
+        items = json.loads(match.group())
+    except json.JSONDecodeError as exc:
+        log.debug("Vision JSON parse error: %s", exc)
+        return None
+
+    parsed: List[ParsedTransaction] = []
+    for item in items:
+        try:
+            parsed.append(
+                ParsedTransaction(
+                    date=date.fromisoformat(item["date"]),
+                    amount=float(item["amount"]),
+                    tx_type=str(item["type"]).lower(),
+                    description=str(item.get("description", "")),
+                    confidence=VISION_CONFIDENCE,
+                    category_hint=item.get("category_hint"),
+                )
+            )
+        except (KeyError, ValueError, TypeError) as exc:
+            log.debug("Skipping malformed vision item %s: %s", item, exc)
+
+    return parsed if parsed else None
+
+
+# ── Commit ────────────────────────────────────────────────────────────────────
 
 
 def _commit_transactions(
@@ -101,6 +176,15 @@ def _commit_transactions(
             log.warning("No category found for '%s' — skipping", pt.description)
             continue
 
+        anomaly = _is_anomaly(db, pt, category_id)
+        if anomaly:
+            log.info(
+                "Anomaly: '%s' %.0f VND is %.1fx+ the 90-day avg for this category",
+                pt.description,
+                pt.amount,
+                ANOMALY_MULTIPLIER,
+            )
+
         tx = Transaction(
             date=pt.date,
             amount=pt.amount,
@@ -111,13 +195,16 @@ def _commit_transactions(
             source=source.value if source else "ocr",
             import_job_id=job.id,
             confidence_score=pt.confidence,
-            needs_review=pt.confidence < REVIEW_THRESHOLD,
+            needs_review=pt.confidence < REVIEW_THRESHOLD or anomaly,
         )
         db.add(tx)
         committed += 1
 
     db.commit()
     return committed
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
 
 
 def _is_duplicate(db: Session, pt: ParsedTransaction) -> bool:
@@ -132,6 +219,31 @@ def _is_duplicate(db: Session, pt: ParsedTransaction) -> bool:
         .first()
         is not None
     )
+
+
+def _is_anomaly(db: Session, pt: ParsedTransaction, category_id: int) -> bool:
+    """Return True if pt.amount is ANOMALY_MULTIPLIER× the 90-day category average.
+
+    Requires at least ANOMALY_MIN_SAMPLES prior transactions to establish a baseline,
+    so new categories are never flagged.
+    """
+    cutoff = date.today() - timedelta(days=90)
+    row = (
+        db.query(
+            func.count(Transaction.id).label("n"),
+            func.avg(Transaction.amount).label("avg"),
+        )
+        .filter(
+            Transaction.category_id == category_id,
+            Transaction.type == TransactionType(pt.tx_type),
+            Transaction.date >= cutoff,
+            Transaction.deleted_at.is_(None),
+        )
+        .first()
+    )
+    if not row or row.n < ANOMALY_MIN_SAMPLES or not row.avg:
+        return False
+    return pt.amount > row.avg * ANOMALY_MULTIPLIER
 
 
 def _resolve_category(db: Session, pt: ParsedTransaction) -> Optional[int]:
@@ -172,14 +284,13 @@ def _resolve_category(db: Session, pt: ParsedTransaction) -> Optional[int]:
                 if cat.name.lower() == llm_result.lower():
                     log.debug("LLM categorized '%s' → '%s'", pt.description, cat.name)
                     return cat.id
-            # Partial match in case the model adds punctuation or slight variation
             for cat in active_cats:
                 if cat.name.lower() in llm_result.lower():
                     log.debug("LLM partial match '%s' → '%s'", pt.description, cat.name)
                     return cat.id
             log.debug("LLM returned unknown category '%s' for '%s'", llm_result, pt.description)
 
-    # Keyword fallback: "khác" / "others"
+    # Keyword fallback
     for cat in active_cats:
         if "khác" in cat.name.lower() or "others" in cat.name.lower():
             return cat.id

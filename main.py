@@ -29,6 +29,7 @@ from app.routers.fragments import assets as frag_assets
 from app.routers.fragments import categories as frag_categories
 from app.routers.fragments import templates_page as frag_templates
 from app.routers.fragments import import_page as frag_import
+from app.routers.fragments import pulse as frag_pulse
 
 
 @asynccontextmanager
@@ -103,6 +104,7 @@ app.include_router(frag_assets.router, prefix="/fragments/assets", tags=["fragme
 app.include_router(frag_categories.router, prefix="/fragments/categories", tags=["fragments"])
 app.include_router(frag_templates.router, prefix="/fragments/templates", tags=["fragments"])
 app.include_router(frag_import.router, prefix="/fragments/import", tags=["fragments"])
+app.include_router(frag_pulse.router, prefix="/fragments/pulse", tags=["fragments"])
 
 
 @app.get("/health")
