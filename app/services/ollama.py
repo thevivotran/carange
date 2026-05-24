@@ -25,7 +25,9 @@ log = logging.getLogger("carange.ollama")
 OLLAMA_URL = os.getenv("OLLAMA_URL", "").rstrip("/")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3.5:9b")
 
-_GENERATE_TIMEOUT = 30.0
+# 120s covers cold-start model load (~30s) + inference (~20-40s) in one budget.
+# Warm requests typically complete in under 10s.
+_GENERATE_TIMEOUT = 120.0
 _HEALTH_TIMEOUT = 5.0
 
 
@@ -69,7 +71,7 @@ def generate_sync(
         r = httpx.post(
             f"{OLLAMA_URL}/api/generate",
             json=payload,
-            timeout=_GENERATE_TIMEOUT,
+            timeout=httpx.Timeout(_GENERATE_TIMEOUT, connect=10.0),
         )
         r.raise_for_status()
         return r.json()["response"].strip()
@@ -108,7 +110,7 @@ def vision_sync(
         r = httpx.post(
             f"{OLLAMA_URL}/api/generate",
             json=payload,
-            timeout=60.0,
+            timeout=httpx.Timeout(_GENERATE_TIMEOUT, connect=10.0),
         )
         r.raise_for_status()
         return r.json()["response"].strip()
@@ -151,7 +153,7 @@ async def generate(
     if system:
         payload["system"] = system
     try:
-        async with httpx.AsyncClient(timeout=_GENERATE_TIMEOUT) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(_GENERATE_TIMEOUT, connect=10.0)) as client:
             r = await client.post(f"{OLLAMA_URL}/api/generate", json=payload)
             r.raise_for_status()
             return r.json()["response"].strip()
