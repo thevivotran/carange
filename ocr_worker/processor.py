@@ -13,6 +13,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.models.database import Category, ImportJob, ImportJobStatus, ImportSource, Transaction, TransactionType
+from app.services import ollama as _ollama
 from ocr_worker import ocr as _ocr_mod  # module ref — allows monkeypatching in tests
 from ocr_worker.parsers import get_parser
 from ocr_worker.parsers.base import normalize_vi
@@ -136,39 +137,54 @@ def _is_duplicate(db: Session, pt: ParsedTransaction) -> bool:
 def _resolve_category(db: Session, pt: ParsedTransaction) -> Optional[int]:
     """
     Find the best matching category for a parsed transaction.
-    Priority: category_hint name match → type-appropriate fallback.
+    Priority: category_hint name match → LLM inference (if Ollama available) → keyword fallback.
     """
     tx_type = TransactionType(pt.tx_type)
+    active_cats = db.query(Category).filter(Category.type == tx_type, Category.is_active == True).all()
+
+    if not active_cats:
+        return None
 
     if pt.category_hint:
-        cat = (
-            db.query(Category)
-            .filter(
-                Category.name.ilike(f"%{pt.category_hint}%"),
-                Category.type == tx_type,
-                Category.is_active == True,
-            )
-            .first()
+        for cat in active_cats:
+            if pt.category_hint.lower() in cat.name.lower():
+                return cat.id
+
+    # LLM inference — only fires when OLLAMA_URL is set, falls back silently
+    if _ollama.is_enabled() and pt.description:
+        cat_names = ", ".join(c.name for c in active_cats)
+        llm_result = _ollama.generate_sync(
+            prompt=(
+                f"Transaction type: {pt.tx_type}\n"
+                f"Description: {pt.description}\n"
+                f"Amount: {pt.amount:.0f} VND\n\n"
+                f"Available categories: {cat_names}\n\n"
+                "Reply with ONLY the category name that best fits. No explanation."
+            ),
+            system=(
+                "You are a Vietnamese personal finance assistant. "
+                "Categorize transactions accurately based on their description. "
+                "Always reply with exactly one category name from the provided list."
+            ),
         )
-        if cat:
+        if llm_result:
+            for cat in active_cats:
+                if cat.name.lower() == llm_result.lower():
+                    log.debug("LLM categorized '%s' → '%s'", pt.description, cat.name)
+                    return cat.id
+            # Partial match in case the model adds punctuation or slight variation
+            for cat in active_cats:
+                if cat.name.lower() in llm_result.lower():
+                    log.debug("LLM partial match '%s' → '%s'", pt.description, cat.name)
+                    return cat.id
+            log.debug("LLM returned unknown category '%s' for '%s'", llm_result, pt.description)
+
+    # Keyword fallback: "khác" / "others"
+    for cat in active_cats:
+        if "khác" in cat.name.lower() or "others" in cat.name.lower():
             return cat.id
 
-    # Fallback: type-appropriate "Chi phí khác" / "Thu nhập khác" (or legacy "Others")
-    cat = (
-        db.query(Category)
-        .filter(
-            Category.name.ilike("%khác%") | Category.name.ilike("%others%"),
-            Category.type == tx_type,
-            Category.is_active == True,
-        )
-        .first()
-    )
-    if cat:
-        return cat.id
-
-    # Last resort: any active category of the right type
-    cat = db.query(Category).filter(Category.type == tx_type, Category.is_active == True).first()
-    return cat.id if cat else None
+    return active_cats[0].id
 
 
 def _cleanup_file(job: ImportJob) -> None:
