@@ -1,3 +1,4 @@
+from calendar import monthrange
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Request
@@ -7,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.models.database import Category, Transaction, TransactionType, get_db
 from app.routers.fragments._helpers import render_fragment
 from app.services import ollama as _ollama
+from app.services.budget_service import compute_budget_rows
 
 router = APIRouter()
 
@@ -76,5 +78,58 @@ async def fragment_pulse_digest(request: Request, db: Session = Depends(get_db))
             "digest_text": digest_text,
             "this_total": this_total,
             "ollama_enabled": _ollama.is_enabled(),
+        },
+    )
+
+
+@router.get("/budget-advisor")
+async def fragment_pulse_budget_advisor(request: Request, db: Session = Depends(get_db)):
+    today = date.today()
+    year_month = f"{today.year:04d}-{today.month:02d}"
+    _, days_in_month = monthrange(today.year, today.month)
+    day_pct = round(today.day / days_in_month * 100)
+
+    rows = compute_budget_rows(db, year_month)
+
+    advisor_text = None
+    if _ollama.is_enabled() and rows:
+        over = [r for r in rows if r["usage_pct"] > 100]
+        at_risk = [r for r in rows if 80 <= r["usage_pct"] <= 100]
+        on_track = [r for r in rows if r["usage_pct"] < 80]
+
+        def fmt(r):
+            spent = r["this_month_spent"]
+            alloc = r["monthly_allocation"]
+            pct = r["usage_pct"]
+            return f"- {r['category_name']}: đã chi {pct:.0f}% ({spent:,.0f} / {alloc:,.0f} VND)"
+
+        over_lines = "\n".join(fmt(r) for r in over) or "Không có"
+        risk_lines = "\n".join(fmt(r) for r in at_risk) or "Không có"
+        ok_lines = "\n".join(fmt(r) for r in on_track[:3]) or "Không có"
+
+        prompt = (
+            f"Hôm nay là ngày {today.day}/{today.month}, tháng đã đi được {day_pct}%.\n\n"
+            f"Danh mục vượt ngân sách:\n{over_lines}\n\n"
+            f"Danh mục sắp vượt (80-100%):\n{risk_lines}\n\n"
+            f"Danh mục ổn định (dưới 80%):\n{ok_lines}\n\n"
+            "Viết 2-3 câu nhận xét ngắn gọn về tình hình ngân sách tháng này. "
+            "Nêu rõ danh mục cần chú ý và 1 lời khuyên cụ thể nếu có. Không dùng emoji."
+        )
+        advisor_text = await _ollama.generate(
+            prompt=prompt,
+            system=(
+                "Bạn là trợ lý tài chính gia đình, viết bằng tiếng Việt, ngắn gọn và thực tế. Không dùng markdown."
+            ),
+        )
+
+    return render_fragment(
+        request,
+        "partials/pulse/_budget_advisor.html",
+        {
+            "advisor_text": advisor_text,
+            "has_budget": bool(rows),
+            "ollama_enabled": _ollama.is_enabled(),
+            "over_count": len([r for r in rows if r["usage_pct"] > 100]),
+            "at_risk_count": len([r for r in rows if 80 <= r["usage_pct"] <= 100]),
         },
     )

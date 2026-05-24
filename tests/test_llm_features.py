@@ -274,3 +274,95 @@ def test_pulse_digest_shows_unavailable_when_ollama_fails(client):
     ):
         r = client.get("/fragments/pulse/digest")
     assert r.status_code == 200
+
+
+# ── Budget advisor endpoint ───────────────────────────────────────────────────
+
+
+def test_budget_advisor_no_card_when_ollama_disabled(client):
+    with patch("app.services.ollama.is_enabled", return_value=False):
+        r = client.get("/fragments/pulse/budget-advisor")
+    assert r.status_code == 200
+    assert "AI Phân Tích".encode() not in r.content
+
+
+def test_budget_advisor_no_card_when_no_budget_set(client):
+    """Ollama enabled but no BudgetAllocation rows → card not rendered."""
+    with (
+        patch("app.services.ollama.is_enabled", return_value=True),
+        patch("app.services.ollama.generate", return_value="Test insight"),
+    ):
+        r = client.get("/fragments/pulse/budget-advisor")
+    assert r.status_code == 200
+    assert "AI Phân Tích".encode() not in r.content
+
+
+def test_budget_advisor_shows_insight_when_budget_exists(client, db_session):
+    from app.models.database import BudgetAllocation, Category, TransactionType
+
+    today = date.today()
+    year_month = f"{today.year:04d}-{today.month:02d}"
+    cat = Category(name="Food & Dining", type=TransactionType.EXPENSE, color="#EF4444", icon="utensils")
+    db_session.add(cat)
+    db_session.flush()
+    db_session.add(BudgetAllocation(category_id=cat.id, year_month=year_month, amount=3_000_000))
+    db_session.commit()
+
+    with (
+        patch("app.services.ollama.is_enabled", return_value=True),
+        patch("app.services.ollama.generate", return_value="Chi tiêu tháng này ổn định."),
+    ):
+        r = client.get("/fragments/pulse/budget-advisor")
+    assert r.status_code == 200
+    assert "Chi tiêu tháng này ổn định.".encode() in r.content
+
+
+def test_budget_advisor_shows_unavailable_when_generate_fails(client, db_session):
+    from app.models.database import BudgetAllocation, Category, TransactionType
+
+    today = date.today()
+    year_month = f"{today.year:04d}-{today.month:02d}"
+    cat = Category(name="Shopping", type=TransactionType.EXPENSE, color="#EC4899", icon="shopping-bag")
+    db_session.add(cat)
+    db_session.flush()
+    db_session.add(BudgetAllocation(category_id=cat.id, year_month=year_month, amount=2_000_000))
+    db_session.commit()
+
+    with (
+        patch("app.services.ollama.is_enabled", return_value=True),
+        patch("app.services.ollama.generate", return_value=None),
+    ):
+        r = client.get("/fragments/pulse/budget-advisor")
+    assert r.status_code == 200
+    assert "Không thể kết nối".encode() in r.content
+
+
+def test_budget_advisor_over_budget_badge(client, db_session):
+    """Over-budget category produces the 'vượt' badge in the card."""
+    from app.models.database import BudgetAllocation, Category, Transaction, TransactionType
+
+    today = date.today()
+    year_month = f"{today.year:04d}-{today.month:02d}"
+    cat = Category(name="Entertainment", type=TransactionType.EXPENSE, color="#8B5CF6", icon="film")
+    db_session.add(cat)
+    db_session.flush()
+    db_session.add(BudgetAllocation(category_id=cat.id, year_month=year_month, amount=500_000))
+    db_session.add(
+        Transaction(
+            date=today,
+            amount=700_000,
+            type=TransactionType.EXPENSE,
+            category_id=cat.id,
+            payment_method="cash",
+            source="manual",
+        )
+    )
+    db_session.commit()
+
+    with (
+        patch("app.services.ollama.is_enabled", return_value=True),
+        patch("app.services.ollama.generate", return_value="Danh mục Giải trí đã vượt ngân sách."),
+    ):
+        r = client.get("/fragments/pulse/budget-advisor")
+    assert r.status_code == 200
+    assert "vượt".encode() in r.content

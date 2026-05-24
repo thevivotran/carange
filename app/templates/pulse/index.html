@@ -192,6 +192,15 @@
     </div>
   </div>
 
+  <!-- ── AI Budget Advisor (lazy-loaded) ── -->
+  <div hx-get="/fragments/pulse/budget-advisor"
+       hx-trigger="load"
+       hx-swap="outerHTML">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700 p-4 text-center">
+      <p class="text-xs text-gray-400 dark:text-gray-500 animate-pulse">Đang tải phân tích ngân sách...</p>
+    </div>
+  </div>
+
   <!-- ── Recent Transactions ── -->
   {% if recent_transactions %}
   <div class="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4">
