@@ -22,10 +22,10 @@
                 class="hidden w-7 h-7 flex items-center justify-center rounded-lg text-base text-gray-400 hover:text-red-500 hover:bg-red-50 transition select-none">&#215;</button>
       </div>
       <button onclick="openHistoryModal()" title="Budget History" aria-label="Budget History"
-              class="flex items-center justify-center w-11 h-11 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition flex-shrink-0">
+              class="hidden md:flex items-center justify-center w-11 h-11 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition flex-shrink-0">
         <i class="fas fa-history"></i>
       </button>
-      <button onclick="openAddModal()" class="flex items-center gap-2 px-4 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">
+      <button onclick="openAddModal()" class="hidden md:flex items-center gap-2 px-4 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">
         <i class="fas fa-plus"></i> Add Category
       </button>
       <button onclick="openEditModal()" class="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-blue-600 transition">
@@ -46,7 +46,7 @@
 
 <!-- ── Edit budgets modal ── -->
 <div id="edit-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
-  <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[85vh] flex flex-col">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[85dvh] flex flex-col">
     <div class="p-6 border-b flex items-center justify-between">
       <h3 class="font-bold text-gray-800">Edit Budgets</h3>
       <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600" aria-label="Close"><i class="fas fa-times"></i></button>
@@ -54,7 +54,7 @@
     <div class="px-6 py-2 border-b bg-gray-50">
       <p class="text-xs text-gray-500 py-2">Each row has its own effective-from month. Only rows you change will be saved.</p>
     </div>
-    <div id="edit-form" class="flex-1 overflow-y-auto px-6 py-4 space-y-3"></div>
+    <div id="edit-form" class="flex-1 overflow-y-auto overscroll-contain px-6 py-4 space-y-3"></div>
     <div class="px-6 py-4 border-t flex gap-3">
       <button onclick="closeEditModal()" class="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50 transition text-sm">Cancel</button>
       <button onclick="saveEdits()" class="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition text-sm">Save</button>
@@ -91,12 +91,12 @@
 
 <!-- ── History modal ── -->
 <div id="history-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
-  <div class="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+  <div class="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[90dvh] flex flex-col">
     <div class="p-6 border-b flex items-center justify-between">
       <h3 class="font-bold text-gray-800">Budget History — Last 6 Months</h3>
       <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-gray-600" aria-label="Close"><i class="fas fa-times"></i></button>
     </div>
-    <div class="flex-1 overflow-auto px-6 py-4">
+    <div class="flex-1 overflow-auto overscroll-contain px-6 py-4">
       <div id="history-loading" class="text-center text-gray-400 py-8">Loading...</div>
       <div id="history-table-wrap" class="hidden overflow-x-auto"></div>
     </div>

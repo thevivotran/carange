@@ -5,7 +5,7 @@
      hx-swap="outerHTML">
 
   <!-- ── Row 1: KPI Cards ─────────────────────────────────────────── -->
-  <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
 
     <!-- Liquid Savings Rate -->
     <div class="bg-white rounded-2xl shadow-sm border p-5">
@@ -292,7 +292,8 @@
         <p class="text-xs text-blue-300">Other Assets</p>
         <p class="text-sm font-semibold text-white mt-0.5">{% set v = summary.total_assets_current %}{% if v >= 1000000000 %}{{ "%.2f"|format(v/1000000000) }}B{% elif v >= 1000000 %}{{ "%.0f"|format(v/1000000) }}M{% else %}{{ "{:,.0f}".format(v) }}{% endif %} ₫</p>
       </div>
-      <div class="bg-white/10 rounded-xl p-3">
+      <!-- col-span-2 on mobile so the 5th item fills the row instead of leaving a gap -->
+      <div class="bg-white/10 rounded-xl p-3 col-span-2 sm:col-span-1">
         <p class="text-xs text-blue-300">Passive Income</p>
         {% if summary.passive_income_pct > 0 %}
         <p class="text-sm font-semibold text-white mt-0.5">{{ summary.passive_income_pct }}% of income</p>

@@ -70,6 +70,8 @@
 
         /* Momentum scrolling on all scrollable containers */
         .overflow-y-auto, .overflow-x-auto, .overflow-auto { -webkit-overflow-scrolling: touch; }
+        /* Prevent scroll chaining: inner modal scroll stops at boundary, doesn't bleed to background */
+        .overflow-y-auto, .overflow-auto { overscroll-behavior-y: contain; }
 
         /* Suppress iOS tap-highlight flash */
         button, a, label, select, input, textarea { -webkit-tap-highlight-color: transparent; }
@@ -430,14 +432,28 @@
         </aside>
         
         <!-- Mobile Header -->
+        {% set _nav_titles = {
+            'dashboard':    'Financial Health',
+            'transactions': 'Transactions',
+            'budget':       'Budget',
+            'savings':      'Savings',
+            'assets':       'Assets',
+            'projects':     'Projects',
+            'categories':   'Categories',
+            'templates':    'Templates',
+            'notes':        'Notes',
+            'import':       'Scan & Import',
+            'pulse':        'Daily Pulse',
+        } %}
         <div class="md:hidden fixed top-0 left-0 right-0 bg-white shadow-md z-50" style="padding-top:env(safe-area-inset-top)">
-            <div class="flex items-center justify-between px-4 py-3">
-                <a href="/" class="hover:opacity-80 transition">
-                    <h1 class="text-xl font-bold text-primary">
-                        <i class="fas fa-wallet mr-2"></i>Carange
-                    </h1>
+            <div class="flex items-center px-4 py-3 gap-2">
+                <a href="/" class="flex-shrink-0 hover:opacity-80 transition">
+                    <i class="fas fa-wallet text-primary text-xl"></i>
                 </a>
-                <button x-data @click="$store.theme.toggle()" class="p-2 text-gray-500">
+                <h1 class="flex-1 text-center text-base font-semibold text-gray-800 truncate">
+                    {{ _nav_titles.get(active_menu, 'Carange') }}
+                </h1>
+                <button x-data @click="$store.theme.toggle()" class="flex-shrink-0 p-2 text-gray-500">
                     <i class="fas fa-moon theme-icon-dark"></i>
                     <i class="fas fa-sun theme-icon-light text-yellow-400"></i>
                 </button>
@@ -446,7 +462,7 @@
         
         <!-- Mobile More Sheet (bottom sheet) -->
         <div id="mobile-menu" class="hidden md:hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[110] flex items-end">
-            <div class="w-full bg-white rounded-t-2xl shadow-xl max-h-[80vh] overflow-y-auto"
+            <div class="w-full bg-white rounded-t-2xl shadow-xl max-h-[80dvh] overflow-y-auto"
                  style="padding-bottom:env(safe-area-inset-bottom)">
                 <!-- Drag handle -->
                 <div class="flex justify-center pt-3 pb-2">
@@ -660,14 +676,14 @@
 
     <!-- Global quick-add transaction modal -->
     <div id="global-tx-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[110] flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90vh] flex flex-col">
+        <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90dvh] flex flex-col">
             <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
                 <h3 class="text-xl font-bold text-gray-800">Quick Add Transaction</h3>
                 <button onclick="closeGlobalAddModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close">
                     <i class="fas fa-times text-xl"></i>
                 </button>
             </div>
-            <div class="flex-1 overflow-y-auto">
+            <div class="flex-1 overflow-y-auto overscroll-contain">
             <form id="global-tx-form" class="p-6 space-y-4">
                 <!-- From Template picker -->
                 <div>
@@ -887,9 +903,9 @@
     <nav id="mobile-bottom-nav" class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-[90]"
          style="padding-bottom:max(env(safe-area-inset-bottom), 0.75rem)">
         <div class="flex items-center justify-around h-14">
-            <a href="/pulse" class="bottom-nav-link {% if active_menu == 'pulse' %}active{% endif %} flex flex-col items-center justify-center flex-1 h-full gap-0.5">
-                <i class="fas fa-gauge-high text-lg"></i>
-                <span class="text-xs">Pulse</span>
+            <a href="/" class="bottom-nav-link {% if active_menu == 'dashboard' %}active{% endif %} flex flex-col items-center justify-center flex-1 h-full gap-0.5">
+                <i class="fas fa-chart-line text-lg"></i>
+                <span class="text-xs">Home</span>
             </a>
             <a href="/transactions" class="bottom-nav-link {% if active_menu == 'transactions' %}active{% endif %} flex flex-col items-center justify-center flex-1 h-full gap-0.5">
                 <i class="fas fa-exchange-alt text-lg"></i>
@@ -931,14 +947,16 @@
     </div>
 
     <script>
-        // Lock body scroll whenever any modal overlay is visible.
-        // Watches both class (hidden) and style (Alpine x-show sets display:none).
+        // Lock background scroll whenever any modal overlay is visible.
+        // Targets <main> instead of body — body overflow:hidden breaks iOS touch-scroll
+        // inside fixed-position modal children (webkit bug).
         (function() {
             var observer = new MutationObserver(function() {
                 var anyOpen = Array.from(document.querySelectorAll('.fixed.inset-0')).some(function(el) {
                     return !el.classList.contains('hidden') && el.style.display !== 'none';
                 });
-                document.body.style.overflow = anyOpen ? 'hidden' : '';
+                var mainEl = document.querySelector('main');
+                if (mainEl) mainEl.style.overflow = anyOpen ? 'hidden' : '';
             });
             observer.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
         })();
