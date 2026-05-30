@@ -174,6 +174,8 @@ class Transaction(Base):
     savings_bundle_id = Column(Integer, ForeignKey("savings_bundles.id"), nullable=True)
     project_id = Column(Integer, ForeignKey("financial_projects.id"), nullable=True)
     import_job_id = Column(Integer, ForeignKey("import_jobs.id"), nullable=True)
+    email_ingest_log_id = Column(Integer, ForeignKey("email_ingest_log.id"), nullable=True)
+    payee_id = Column(Integer, ForeignKey("payees.id"), nullable=True)
     confidence_score = Column(Float, nullable=True)  # NULL for manual entries
     needs_review = Column(Boolean, default=False)
     deleted_at = Column(DateTime, nullable=True)
@@ -187,6 +189,8 @@ class Transaction(Base):
     savings_bundle = relationship("SavingsBundle", back_populates="transactions")
     project = relationship("FinancialProject", back_populates="transactions")
     import_job = relationship("ImportJob", back_populates="transactions")
+    email_ingest_log = relationship("EmailIngestLog", back_populates="transactions")
+    payee = relationship("Payee")
     audit_logs = relationship("TransactionAuditLog", back_populates="transaction", cascade="all, delete-orphan")
 
     __table_args__ = (
@@ -301,6 +305,12 @@ class TransactionTemplate(Base):
     description = Column(Text, nullable=True)
     payment_method = Column(String(50), default="cash")
     is_active = Column(Boolean, default=True)
+    # Recurring scheduler fields
+    cadence = Column(String(20), nullable=True)  # daily|weekly|monthly|yearly
+    next_run_at = Column(Date, nullable=True)
+    last_run_at = Column(Date, nullable=True)
+    auto_approve = Column(Boolean, default=False, nullable=False, server_default="0")
+    lead_days = Column(Integer, default=0, nullable=False, server_default="0")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
@@ -326,6 +336,66 @@ class BudgetAllocation(Base):
     __table_args__ = (
         __import__("sqlalchemy").UniqueConstraint("category_id", "year_month", name="uq_budget_category_month"),
     )
+
+
+class TransactionRule(Base):
+    __tablename__ = "transaction_rules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    priority = Column(Integer, default=0, nullable=False)  # lower number = higher priority
+
+    # Matcher
+    match_field = Column(String(50), nullable=False)  # description|amount|payment_method|source|payee_id|type
+    match_op = Column(String(20), nullable=False)  # equals|contains|regex|range|in
+    match_value = Column(Text, nullable=False)
+
+    # Action (JSON: {"set_category_id": 5, "auto_approve": true, "force_needs_review": false})
+    action_json = Column(Text, nullable=False, default="{}")
+
+    # Stats
+    match_count = Column(Integer, default=0)
+    last_matched_at = Column(DateTime, nullable=True)
+
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+    )
+
+
+class Payee(Base):
+    __tablename__ = "payees"
+
+    id = Column(Integer, primary_key=True, index=True)
+    canonical_name = Column(String(200), nullable=False, unique=True)
+    default_category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
+    alias_patterns = Column(Text, nullable=True)  # JSON array of regex strings
+    source = Column(String(20), default="manual")  # manual|learned|bootstrap
+
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+    )
+
+    default_category = relationship("Category")
+
+
+class EmailIngestLog(Base):
+    __tablename__ = "email_ingest_log"
+
+    id = Column(Integer, primary_key=True, index=True)
+    message_id = Column(String(500), nullable=False, unique=True)  # RFC 2822 Message-ID header
+    sender = Column(String(200), nullable=True)
+    subject = Column(String(500), nullable=True)
+    received_at = Column(DateTime, nullable=True)
+    processed_at = Column(DateTime, nullable=True)
+    status = Column(String(20), default="pending", nullable=False)  # pending|done|failed
+    error_message = Column(Text, nullable=True)
+    transaction_count = Column(Integer, default=0)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    transactions = relationship("Transaction", back_populates="email_ingest_log")
 
 
 class Note(Base):

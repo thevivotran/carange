@@ -20,6 +20,7 @@ from app.models.database import (
     TransactionType,
 )
 from app.models.schemas import SavingsBundleCreate, TransactionCreate
+from app.services.rules_service import apply_rules, normalize_description
 
 _KHAC_NAME_MAP = {"income": "Thu nhập khác", "expense": "Chi phí khác"}
 _AUDIT_FIELDS = list(AuditField)
@@ -119,8 +120,25 @@ def create_transaction(db: Session, data: TransactionCreate) -> Transaction:
             savings_bundle_id = db_bundle.id
 
         transaction_data["savings_bundle_id"] = savings_bundle_id
+
+        # Payee normalization for manual entries
+        raw_desc = transaction_data.get("description") or ""
+        canonical_desc, payee_id = normalize_description(db, raw_desc)
+        if canonical_desc != raw_desc:
+            transaction_data["description"] = canonical_desc
+        transaction_data["payee_id"] = payee_id
+
         db_tx = Transaction(**transaction_data)
         db.add(db_tx)
+        db.flush()
+
+        # Apply rules (may override category, set auto_approve)
+        action = apply_rules(db, db_tx, payee_id)
+        if action.category_id is not None:
+            db_tx.category_id = action.category_id
+        if action.force_needs_review:
+            db_tx.needs_review = True
+
         db.commit()
         db.refresh(db_tx)
         return db_tx

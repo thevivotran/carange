@@ -10,14 +10,14 @@ import json
 import logging
 import os
 import re
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from typing import List, Optional
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models.database import Category, ImportJob, ImportJobStatus, ImportSource, Transaction, TransactionType
+from app.models.database import ImportJob, ImportJobStatus, ImportSource
 from app.services import ollama as _ollama
+from app.services.ingest_service import IngestItem, commit_ingest_batch
 from ocr_worker import ocr as _ocr_mod  # module ref — allows monkeypatching in tests
 from ocr_worker.parsers import get_parser
 from ocr_worker.parsers.base import normalize_vi
@@ -27,10 +27,7 @@ from ocr_worker.types import ParsedTransaction
 log = logging.getLogger("ocr_worker.processor")
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
-REVIEW_THRESHOLD = float(os.getenv("REVIEW_THRESHOLD", "0.95"))
-ANOMALY_MULTIPLIER = float(os.getenv("ANOMALY_MULTIPLIER", "3.0"))
-ANOMALY_MIN_SAMPLES = int(os.getenv("ANOMALY_MIN_SAMPLES", "3"))
-VISION_CONFIDENCE = 0.85  # baseline confidence assigned to vision-extracted transactions
+VISION_CONFIDENCE = 0.85
 
 
 def _resolve_file_path(stored: str) -> str:
@@ -50,13 +47,13 @@ def process_job(job: ImportJob, db: Session) -> None:
 
     # ── Path 1: Ollama vision extraction ─────────────────────────────────────
     if _ollama.is_enabled():
-        parsed = _extract_via_vision(file_path)
-        if parsed is not None:
-            log.info("Job %d: vision extracted %d candidates", job.id, len(parsed))
-            job.detected_source = None  # vision handles any source
+        items = _extract_via_vision(file_path)
+        if items is not None:
+            log.info("Job %d: vision extracted %d candidates", job.id, len(items))
+            job.detected_source = None
             db.flush()
-            committed = _commit_transactions(db, job, parsed, source=None)
-            _done(db, job, transaction_count=committed)
+            committed = commit_ingest_batch(db, items, source_tag="ocr", import_job_id=job.id)
+            _done(db, job, transaction_count=len(committed))
             return
         log.info("Job %d: vision extraction empty or failed — falling back to PaddleOCR", job.id)
 
@@ -87,19 +84,16 @@ def process_job(job: ImportJob, db: Session) -> None:
         return
 
     log.info("Job %d: parser found %d candidate transactions", job.id, len(parsed))
-    committed = _commit_transactions(db, job, parsed, effective_source)
-    _done(db, job, transaction_count=committed)
+    source_tag = effective_source.value if effective_source else "ocr"
+    items = _parsed_to_ingest_items(parsed, effective_source)
+    committed = commit_ingest_batch(db, items, source_tag=source_tag, import_job_id=job.id)
+    _done(db, job, transaction_count=len(committed))
 
 
 # ── Vision extraction ─────────────────────────────────────────────────────────
 
 
-def _extract_via_vision(file_path: str) -> Optional[List[ParsedTransaction]]:
-    """Send the image to Ollama vision and parse the JSON response.
-
-    Returns a list of ParsedTransaction on success, None if Ollama is
-    unavailable, returns an empty result, or produces unparseable output.
-    """
+def _extract_via_vision(file_path: str) -> Optional[List[IngestItem]]:
     today_str = date.today().strftime("%Y-%m-%d")
     prompt = (
         f"Today's date: {today_str}\n\n"
@@ -125,23 +119,22 @@ def _extract_via_vision(file_path: str) -> Optional[List[ParsedTransaction]]:
     if not raw:
         return None
 
-    # Extract the JSON array from the response (model may wrap it in markdown)
     match = re.search(r"\[.*?\]", raw, re.DOTALL)
     if not match:
         log.debug("Vision response contained no JSON array: %s", raw[:200])
         return None
 
     try:
-        items = json.loads(match.group())
+        raw_items = json.loads(match.group())
     except json.JSONDecodeError as exc:
         log.debug("Vision JSON parse error: %s", exc)
         return None
 
-    parsed: List[ParsedTransaction] = []
-    for item in items:
+    result: List[IngestItem] = []
+    for item in raw_items:
         try:
-            parsed.append(
-                ParsedTransaction(
+            result.append(
+                IngestItem(
                     date=date.fromisoformat(item["date"]),
                     amount=float(item["amount"]),
                     tx_type=str(item["type"]).lower(),
@@ -153,149 +146,51 @@ def _extract_via_vision(file_path: str) -> Optional[List[ParsedTransaction]]:
         except (KeyError, ValueError, TypeError) as exc:
             log.debug("Skipping malformed vision item %s: %s", item, exc)
 
-    return parsed if parsed else None
+    return result if result else None
 
 
-# ── Commit ────────────────────────────────────────────────────────────────────
-
-
-def _commit_transactions(
-    db: Session,
-    job: ImportJob,
-    parsed: List[ParsedTransaction],
-    source: Optional[ImportSource],
-) -> int:
-    committed = 0
+def _parsed_to_ingest_items(parsed: List[ParsedTransaction], source: Optional[ImportSource]) -> List[IngestItem]:
+    """Convert OCR ParsedTransaction list to generic IngestItem list."""
+    items = []
     for pt in parsed:
-        if _is_duplicate(db, pt):
-            log.debug("Skipping duplicate: %s %s %.0f", pt.date, pt.description, pt.amount)
-            continue
-
-        category_id = _resolve_category(db, pt)
-        if category_id is None:
-            log.warning("No category found for '%s' — skipping", pt.description)
-            continue
-
-        anomaly = _is_anomaly(db, pt, category_id)
-        if anomaly:
-            log.info(
-                "Anomaly: '%s' %.0f VND is %.1fx+ the 90-day avg for this category",
-                pt.description,
-                pt.amount,
-                ANOMALY_MULTIPLIER,
+        items.append(
+            IngestItem(
+                date=pt.date,
+                amount=pt.amount,
+                tx_type=pt.tx_type,
+                description=normalize_vi(pt.description) if pt.description else None,
+                confidence=pt.confidence,
+                category_hint=pt.category_hint,
+                payment_method="bank_transfer",
             )
-
-        tx = Transaction(
-            date=pt.date,
-            amount=pt.amount,
-            type=TransactionType(pt.tx_type),
-            category_id=category_id,
-            description=normalize_vi(pt.description) if pt.description else None,
-            payment_method="bank_transfer",
-            source=source.value if source else "ocr",
-            import_job_id=job.id,
-            confidence_score=pt.confidence,
-            needs_review=pt.confidence < REVIEW_THRESHOLD or anomaly,
         )
-        db.add(tx)
-        committed += 1
-
-    db.commit()
-    return committed
+    return items
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# ── Back-compat constants + shims (used by existing test suite) ──────────────
+
+from app.services.ingest_service import ANOMALY_MULTIPLIER, ANOMALY_MIN_SAMPLES, REVIEW_THRESHOLD  # noqa: F401
 
 
-def _is_duplicate(db: Session, pt: ParsedTransaction) -> bool:
-    """Dedup on (date, amount, tx_type). Loose enough to catch re-uploads."""
-    return (
-        db.query(Transaction)
-        .filter(
-            Transaction.date == pt.date,
-            Transaction.amount == pt.amount,
-            Transaction.type == TransactionType(pt.tx_type),
-        )
-        .first()
-        is not None
+# ── Back-compat shims (used by existing test suite) ──────────────────────────
+
+
+def _is_anomaly(db: Session, pt: "ParsedTransaction", category_id: int) -> bool:
+    """Shim: delegate to ingest_service._is_anomaly using ParsedTransaction."""
+    from app.services.ingest_service import IngestItem
+    from app.services.ingest_service import _is_anomaly as _svc_anomaly
+
+    item = IngestItem(
+        date=pt.date,
+        amount=pt.amount,
+        tx_type=pt.tx_type,
+        description=pt.description,
+        confidence=pt.confidence,
     )
+    return _svc_anomaly(db, item, category_id)
 
 
-def _is_anomaly(db: Session, pt: ParsedTransaction, category_id: int) -> bool:
-    """Return True if pt.amount is ANOMALY_MULTIPLIER× the 90-day category average.
-
-    Requires at least ANOMALY_MIN_SAMPLES prior transactions to establish a baseline,
-    so new categories are never flagged.
-    """
-    cutoff = date.today() - timedelta(days=90)
-    row = (
-        db.query(
-            func.count(Transaction.id).label("n"),
-            func.avg(Transaction.amount).label("avg"),
-        )
-        .filter(
-            Transaction.category_id == category_id,
-            Transaction.type == TransactionType(pt.tx_type),
-            Transaction.date >= cutoff,
-            Transaction.deleted_at.is_(None),
-        )
-        .first()
-    )
-    if not row or row.n < ANOMALY_MIN_SAMPLES or not row.avg:
-        return False
-    return pt.amount > row.avg * ANOMALY_MULTIPLIER
-
-
-def _resolve_category(db: Session, pt: ParsedTransaction) -> Optional[int]:
-    """
-    Find the best matching category for a parsed transaction.
-    Priority: category_hint name match → LLM inference (if Ollama available) → keyword fallback.
-    """
-    tx_type = TransactionType(pt.tx_type)
-    active_cats = db.query(Category).filter(Category.type == tx_type, Category.is_active == True).all()
-
-    if not active_cats:
-        return None
-
-    if pt.category_hint:
-        for cat in active_cats:
-            if pt.category_hint.lower() in cat.name.lower():
-                return cat.id
-
-    # LLM inference — only fires when OLLAMA_URL is set, falls back silently
-    if _ollama.is_enabled() and pt.description:
-        cat_names = ", ".join(c.name for c in active_cats)
-        llm_result = _ollama.generate_sync(
-            prompt=(
-                f"Transaction type: {pt.tx_type}\n"
-                f"Description: {pt.description}\n"
-                f"Amount: {pt.amount:.0f} VND\n\n"
-                f"Available categories: {cat_names}\n\n"
-                "Reply with ONLY the category name that best fits. No explanation."
-            ),
-            system=(
-                "You are a Vietnamese personal finance assistant. "
-                "Categorize transactions accurately based on their description. "
-                "Always reply with exactly one category name from the provided list."
-            ),
-        )
-        if llm_result:
-            for cat in active_cats:
-                if cat.name.lower() == llm_result.lower():
-                    log.debug("LLM categorized '%s' → '%s'", pt.description, cat.name)
-                    return cat.id
-            for cat in active_cats:
-                if cat.name.lower() in llm_result.lower():
-                    log.debug("LLM partial match '%s' → '%s'", pt.description, cat.name)
-                    return cat.id
-            log.debug("LLM returned unknown category '%s' for '%s'", llm_result, pt.description)
-
-    # Keyword fallback
-    for cat in active_cats:
-        if "khác" in cat.name.lower() or "others" in cat.name.lower():
-            return cat.id
-
-    return active_cats[0].id
+# ── Job state helpers ─────────────────────────────────────────────────────────
 
 
 def _cleanup_file(job: ImportJob) -> None:

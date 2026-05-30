@@ -19,6 +19,9 @@ from app.routers import assets
 from app.routers import notes
 from app.routers import budget
 from app.routers import import_jobs
+from app.routers import review as review_router
+from app.routers import rules as rules_router
+from app.routers import payees as payees_router
 from app.routers.dashboard import get_dashboard_page_data
 from app.routers.fragments import transactions as frag_transactions
 from app.routers.fragments import dashboard as frag_dashboard
@@ -30,6 +33,9 @@ from app.routers.fragments import categories as frag_categories
 from app.routers.fragments import templates_page as frag_templates
 from app.routers.fragments import import_page as frag_import
 from app.routers.fragments import pulse as frag_pulse
+from app.routers.fragments import review as frag_review
+from app.routers.fragments import rules as frag_rules
+from app.routers.fragments import payees as frag_payees
 
 
 @asynccontextmanager
@@ -93,6 +99,9 @@ app.include_router(assets.router, prefix="/api/assets")
 app.include_router(notes.router, prefix="/api/notes")
 app.include_router(budget.router, prefix="/api/budget")
 app.include_router(import_jobs.router, prefix="/api/import")
+app.include_router(review_router.router, prefix="/api/review")
+app.include_router(rules_router.router, prefix="/api/rules")
+app.include_router(payees_router.router, prefix="/api/payees")
 
 # Fragment routers (HTML partials for HTMX)
 app.include_router(frag_transactions.router, prefix="/fragments/transactions", tags=["fragments"])
@@ -105,6 +114,9 @@ app.include_router(frag_categories.router, prefix="/fragments/categories", tags=
 app.include_router(frag_templates.router, prefix="/fragments/templates", tags=["fragments"])
 app.include_router(frag_import.router, prefix="/fragments/import", tags=["fragments"])
 app.include_router(frag_pulse.router, prefix="/fragments/pulse", tags=["fragments"])
+app.include_router(frag_review.router, prefix="/fragments/review", tags=["fragments"])
+app.include_router(frag_rules.router, prefix="/fragments/rules", tags=["fragments"])
+app.include_router(frag_payees.router, prefix="/fragments/payees", tags=["fragments"])
 
 
 @app.get("/health")
@@ -176,6 +188,27 @@ async def service_worker():
     return FileResponse(
         "app/static/sw.js", media_type="application/javascript", headers={"Service-Worker-Allowed": "/"}
     )
+
+
+@app.get("/review", response_class=HTMLResponse)
+async def review_page(request: Request):
+    return templates.TemplateResponse(request, "review/index.html", {"active_menu": "review"})
+
+
+@app.get("/rules", response_class=HTMLResponse)
+async def rules_page(request: Request, db: Session = Depends(get_db)):
+    from app.models.database import Category
+
+    categories = db.query(Category).filter(Category.is_active == True).order_by(Category.name).all()
+    return templates.TemplateResponse(request, "rules/index.html", {"active_menu": "rules", "categories": categories})
+
+
+@app.get("/payees", response_class=HTMLResponse)
+async def payees_page(request: Request, db: Session = Depends(get_db)):
+    from app.models.database import Category
+
+    categories = db.query(Category).filter(Category.is_active == True).order_by(Category.name).all()
+    return templates.TemplateResponse(request, "payees/index.html", {"active_menu": "payees", "categories": categories})
 
 
 @app.get("/pulse", response_class=HTMLResponse)
