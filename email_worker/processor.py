@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from app.models.database import EmailIngestLog
 from app.services.ingest_service import IngestItem, commit_ingest_batch
-from app.notify import telegram
 from email_worker.email_parser import route_and_parse
 from email_worker.parsers.base import ParsedEmailTransaction
 
@@ -41,14 +40,6 @@ def process_email(log_row: EmailIngestLog, raw_message: bytes, db: Session) -> N
     items = [_to_ingest_item(p) for p in parsed]
     committed = commit_ingest_batch(db, items, source_tag="email", email_ingest_log_id=log_row.id)
     _done(db, log_row, count=len(committed))
-
-    # Telegram ping per transaction
-    for tx in committed:
-        try:
-            db.refresh(tx)
-            telegram.send_transaction_ping(tx)
-        except Exception as exc:
-            log.warning("Telegram ping failed for tx %d: %s", tx.id, exc)
 
 
 def _to_ingest_item(p: ParsedEmailTransaction) -> IngestItem:

@@ -1023,3 +1023,54 @@ def test_rules_service_invalid_action_json_skips(db_session):
 
     action = apply_rules(db_session, tx)
     assert action.category_id is None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Telegram ping fired from create_transaction
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def test_create_transaction_fires_telegram_ping(client):
+    """Telegram ping is attempted (and silently swallowed) on every manual tx."""
+    cat_id = client.post(
+        "/api/categories/", json={"name": "Food", "type": "expense", "color": "#111", "icon": "tag"}
+    ).json()["id"]
+
+    with (
+        patch("app.notify.telegram._BOT_TOKEN", "tok"),
+        patch("app.notify.telegram._CHAT_ID", "123"),
+        patch("app.notify.telegram.requests.post") as mock_post,
+    ):
+        mock_post.return_value = MagicMock(ok=True)
+        r = client.post(
+            "/api/transactions/?force=true",
+            json={
+                "date": "2026-04-01",
+                "amount": 50_000,
+                "type": "expense",
+                "category_id": cat_id,
+                "payment_method": "cash",
+            },
+        )
+        assert r.status_code in (200, 201)
+        assert mock_post.called
+
+
+def test_create_transaction_telegram_exception_does_not_crash(client):
+    """A Telegram failure must not roll back the transaction."""
+    cat_id = client.post(
+        "/api/categories/", json={"name": "Food", "type": "expense", "color": "#222", "icon": "tag"}
+    ).json()["id"]
+
+    with patch("app.notify.telegram.send_transaction_ping", side_effect=RuntimeError("boom")):
+        r = client.post(
+            "/api/transactions/?force=true",
+            json={
+                "date": "2026-04-02",
+                "amount": 75_000,
+                "type": "expense",
+                "category_id": cat_id,
+                "payment_method": "cash",
+            },
+        )
+        assert r.status_code in (200, 201)  # tx still created despite Telegram error

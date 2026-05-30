@@ -97,6 +97,17 @@ def commit_ingest_batch(
         committed.append(tx)
 
     db.commit()
+
+    # Telegram ping — fire after commit so tx.category relationship is loaded
+    from app.notify import telegram as _tg  # local import avoids circular dep
+
+    for tx in committed:
+        try:
+            db.refresh(tx)
+            _tg.send_transaction_ping(tx)
+        except Exception as exc:
+            log.warning("Telegram ping failed for tx %d: %s", tx.id, exc)
+
     return committed
 
 

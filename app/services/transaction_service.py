@@ -1,6 +1,7 @@
 """Transaction domain business logic."""
 
 import csv
+import logging
 import io
 import random
 from datetime import date, datetime, timedelta, timezone
@@ -21,6 +22,8 @@ from app.models.database import (
 )
 from app.models.schemas import SavingsBundleCreate, TransactionCreate
 from app.services.rules_service import apply_rules, normalize_description
+
+log = logging.getLogger("app.transaction_service")
 
 _KHAC_NAME_MAP = {"income": "Thu nhập khác", "expense": "Chi phí khác"}
 _AUDIT_FIELDS = list(AuditField)
@@ -141,6 +144,14 @@ def create_transaction(db: Session, data: TransactionCreate) -> Transaction:
 
         db.commit()
         db.refresh(db_tx)
+
+        try:
+            from app.notify import telegram as _tg
+
+            _tg.send_transaction_ping(db_tx)
+        except Exception as exc:
+            log.warning("Telegram ping failed for tx %d: %s", db_tx.id, exc)
+
         return db_tx
     except Exception:
         db.rollback()
