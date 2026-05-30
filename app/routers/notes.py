@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from typing import List
 
 from app.models.database import get_db, Note
@@ -10,7 +11,7 @@ router = APIRouter()
 
 @router.get("/", response_model=List[NoteSchema])
 def get_notes(db: Session = Depends(get_db)):
-    return db.query(Note).order_by(Note.updated_at.desc()).all()
+    return db.query(Note).order_by(func.coalesce(Note.updated_at, Note.created_at).desc()).all()
 
 
 @router.post("/", response_model=NoteSchema)

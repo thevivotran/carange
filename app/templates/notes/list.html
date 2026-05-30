@@ -95,8 +95,12 @@ const TYPE_COLORS = { money_owed: 'bg-orange-100 text-orange-700', general: 'bg-
 async function loadNotes() {
     try {
         const res = await fetch('/api/notes/');
+        if (!res.ok) { showToast('Failed to load notes', 'error'); return; }
         notes = await res.json();
+        if (!Array.isArray(notes)) { notes = []; }
         renderNoteList();
+    } catch(e) {
+        showToast('Failed to load notes', 'error');
     }
 }
 
@@ -202,8 +206,9 @@ function showEditor() {
 }
 
 function updateMeta(note) {
-    const d = new Date(note.updated_at);
-    document.getElementById('note-meta').textContent = 'Last edited ' + d.toLocaleString();
+    const ts = note.updated_at || note.created_at;
+    const d = ts ? new Date(ts) : null;
+    document.getElementById('note-meta').textContent = d ? 'Last edited ' + d.toLocaleString() : '';
 }
 
 function updateCharCount() {

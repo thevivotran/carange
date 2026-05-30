@@ -269,6 +269,43 @@ def test_fragment_templates_rows_filter(client):
     assert r.status_code == 200
 
 
+def test_fragment_templates_rows_empty_category_id_no_error(client):
+    # empty string category_id must not return 422
+    r = client.get(
+        "/fragments/templates/rows?category_id=",
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+
+
+def test_fragment_templates_rows_is_active_false(client):
+    r = client.get(
+        "/fragments/templates/rows?is_active=false",
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+
+
+def test_fragment_templates_rows_with_template(client, db_session):
+    from app.models.database import Category, TransactionTemplate, TransactionType
+
+    cat = Category(name="Groceries", type=TransactionType.EXPENSE, color="#EF4444", icon="cart")
+    db_session.add(cat)
+    db_session.commit()
+    db_session.refresh(cat)
+
+    tpl = TransactionTemplate(name="Weekly Groceries", amount=500_000, type=TransactionType.EXPENSE, category_id=cat.id)
+    db_session.add(tpl)
+    db_session.commit()
+
+    r = client.get(
+        f"/fragments/templates/rows?category_id={cat.id}",
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert "Weekly Groceries" in r.text
+
+
 # ── Assets fragment tests ─────────────────────────────────────────────────────
 
 
