@@ -1,2 +1,2 @@
 beautifulsoup4>=4.12
-lxml>=5.0
+lxml>=6.1

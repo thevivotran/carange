@@ -10,9 +10,9 @@ aiofiles==25.1.0
 pydantic==2.13.4
 pydantic-settings==2.14.1
 python-dotenv==1.2.2
-requests==2.32.4
+requests==2.33.0
 beautifulsoup4==4.13.4
-lxml==5.4.0
+lxml==6.1.0
 
 # Testing
 pytest==9.0.3
