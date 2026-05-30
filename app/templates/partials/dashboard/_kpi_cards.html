@@ -42,7 +42,7 @@
       <div class="flex justify-between items-center mb-1">
         <p class="text-xs text-gray-500 uppercase tracking-widest">Real Estate Rate</p>
         <div class="flex items-center gap-2">
-          <span class="text-xs font-semibold text-gray-300">
+          <span class="text-xs font-semibold {{ 'text-green-600' if bds_delta > 0.5 else ('text-red-500' if bds_delta < -0.5 else 'text-gray-300') }}">
             {% if bds_delta > 0.5 %}↑ +{{ "%.1f"|format(bds_delta) }}%{% elif bds_delta < -0.5 %}↓ {{ "%.1f"|format(bds_delta) }}%{% endif %}
           </span>
           <button onclick="showKpiInfo('bds-rate', this)" class="text-gray-300 hover:text-gray-500 focus:outline-none"><i class="fas fa-info-circle text-xs"></i></button>
@@ -208,8 +208,9 @@
         </p>
         <p class="text-xs text-gray-400 mt-1.5">Net Worth ÷ FI Target</p>
         <div class="mt-2 w-full bg-gray-100 rounded-full h-1.5 relative">
-          <div class="h-1.5 rounded-full transition-all duration-700 bg-indigo-500"
-            style="width:{{ [summary.fi_progress_pct, 100]|min | int }}%"></div>
+          <div class="h-1.5 rounded-full transition-all duration-700"
+            style="width:{{ [summary.fi_progress_pct, 100]|min | int }}%;
+                   background:{{ '#059669' if summary.fi_progress_pct >= 100 else ('#3B82F6' if summary.fi_progress_pct >= 50 else '#6366F1') }}"></div>
           {% for milestone in [25, 50, 75] %}
           <div class="absolute top-0 h-1.5 w-px bg-white/80" style="left:{{ milestone }}%"></div>
           {% endfor %}

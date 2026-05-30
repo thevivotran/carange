@@ -152,6 +152,19 @@
         .dark .border-gray-200{ border-color: #334155 !important; }
         .dark .border-gray-300{ border-color: #475569 !important; }
         .dark .divide-y > * + *{ border-color: #334155 !important; }
+        /* Colored borders — must override AFTER the catch-all .dark .border above */
+        .dark .border-red-100   { border-color: rgba(239,68,68,.28)   !important; }
+        .dark .border-red-200   { border-color: rgba(239,68,68,.40)   !important; }
+        .dark .border-green-100 { border-color: rgba(16,185,129,.28)  !important; }
+        .dark .border-green-200 { border-color: rgba(16,185,129,.40)  !important; }
+        .dark .border-amber-100 { border-color: rgba(245,158,11,.28)  !important; }
+        .dark .border-amber-200 { border-color: rgba(245,158,11,.40)  !important; }
+        .dark .border-indigo-100{ border-color: rgba(99,102,241,.28)  !important; }
+        .dark .border-indigo-200{ border-color: rgba(99,102,241,.40)  !important; }
+        .dark .border-yellow-100{ border-color: rgba(234,179,8,.28)   !important; }
+        .dark .border-yellow-200{ border-color: rgba(234,179,8,.40)   !important; }
+        .dark .border-purple-100{ border-color: rgba(168,85,247,.28)  !important; }
+        .dark .border-purple-200{ border-color: rgba(168,85,247,.40)  !important; }
 
         /* ── Form controls ────────────────────────────────── */
         .dark input:not([type="radio"]):not([type="checkbox"]),
@@ -212,9 +225,31 @@
         .dark .cat-card { background: #1E293B !important; border-color: #334155 !important; }
         .dark .cat-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.4); }
 
+        /* ── Net Worth gradient — desaturate in dark mode ─── */
+        .dark .bg-gradient-to-br.from-blue-600.to-indigo-700 {
+            background-image: linear-gradient(to bottom right, #1d4ed8, #3730a3) !important;
+        }
+
         /* ── Notes page filter pills ──────────────────────── */
         .dark .filter-btn { background: #334155 !important; color: #CBD5E1 !important; border-color: #475569 !important; }
         .dark .filter-btn.active { background: #2563eb !important; color: #fff !important; border-color: #2563eb !important; }
+
+        /* ── Notes page note cards ────────────────────────── */
+        .dark .note-card:hover   { background: #334155 !important; }
+        .dark .note-card.selected{ background: rgba(37,99,235,.22) !important; border-left-color: #3b82f6 !important; }
+
+        /* ── Import page job filter tabs ─────────────────── */
+        .dark .job-filter-btn { color: #CBD5E1 !important; border-color: #475569 !important; }
+        .dark .job-filter-btn.active-filter { background: #2563eb !important; color: #fff !important; border-color: #2563eb !important; }
+
+        /* ── Import OCR confidence & status badges ────────── */
+        .dark .status-badge-pending    { background: rgba(107,114,128,.22); color: #94A3B8; }
+        .dark .status-badge-processing { background: rgba(245,158,11,.22);  color: #fbbf24; }
+        .dark .status-badge-done       { background: rgba(16,185,129,.22);  color: #34d399; }
+        .dark .status-badge-failed     { background: rgba(239,68,68,.22);   color: #f87171; }
+        .dark .conf-high               { background: rgba(16,185,129,.22);  color: #34d399; }
+        .dark .conf-medium             { background: rgba(245,158,11,.22);  color: #fbbf24; }
+        .dark .conf-review             { background: rgba(249,115,22,.22);  color: #fb923c; }
 
         /* ── Required field asterisk ─────────────────────── */
         .field-required::after { content: ' *'; color: #ef4444; }
@@ -272,7 +307,7 @@
         .bottom-nav-link { transition: color 0.15s; color: #94A3B8; }
         .bottom-nav-link.active { color: #2563EB; }
         .dark #mobile-bottom-nav { background-color: #1E293B !important; border-color: #334155 !important; }
-        .dark .bottom-nav-link { color: #64748B; }
+        .dark .bottom-nav-link { color: #94A3B8; }
         .dark .bottom-nav-link.active { color: #60a5fa; }
 
         /* ── iOS safe-area bottom clearance ──────────────── */
@@ -731,7 +766,7 @@
                 </div>
                 <!-- Category -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                    <label class="field-required block text-sm font-medium text-gray-700 mb-2">Category</label>
                     <select id="global-tx-category" required
                             class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
                         <option value="">Select Category</option>
