@@ -371,11 +371,8 @@
         <aside id="sidebar"
                x-data="{
                  collapsed: localStorage.getItem('carange-sidebar-collapsed') === '1',
-                 settingsOpen: localStorage.getItem('carange-settings-nav-open') === '1',
-                 toggle() { this.collapsed = !this.collapsed; localStorage.setItem('carange-sidebar-collapsed', this.collapsed ? '1' : '0'); },
-                 toggleSettings() { this.settingsOpen = !this.settingsOpen; localStorage.setItem('carange-settings-nav-open', this.settingsOpen ? '1' : '0'); }
+                 toggle() { this.collapsed = !this.collapsed; localStorage.setItem('carange-sidebar-collapsed', this.collapsed ? '1' : '0'); }
                }"
-               x-init="if (!settingsOpen) { settingsOpen = !!$el.querySelector('#settings-nav-items .sidebar-link.active'); }"
                :class="collapsed ? 'collapsed' : ''"
                class="hidden md:flex w-64 bg-white shadow-lg flex-col">
             <div id="sidebar-header" class="p-5 border-b flex items-center justify-between gap-2">
@@ -436,17 +433,8 @@
                     <span class="sidebar-label">Projects</span>
                 </a>
 
-                <!-- Settings (collapsible) -->
-                <div class="mx-4 mt-4 mb-1 border-t border-gray-100 sidebar-section-label"></div>
-                <button id="settings-toggle-btn" @click="toggleSettings()"
-                        class="sidebar-link w-full flex items-center px-6 py-3 text-gray-700 transition"
-                        title="Settings">
-                    <i class="fas fa-cog w-6 flex-shrink-0"></i>
-                    <span class="sidebar-label">Settings</span>
-                    <i class="fas fa-chevron-right text-xs ml-auto sidebar-label transition-transform"
-                       :class="settingsOpen ? 'rotate-90' : ''"></i>
-                </button>
-                <div id="settings-nav-items" x-show="settingsOpen" x-cloak>
+                <!-- Settings -->
+                <div class="px-6 pt-5 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest sidebar-section-label">Settings</div>
                 <a href="/categories" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'categories' %}active font-semibold{% endif %}" title="Categories">
                     <i class="fas fa-tags w-6 flex-shrink-0"></i>
                     <span class="sidebar-label">Categories</span>
@@ -467,7 +455,6 @@
                     <i class="fas fa-store w-6 flex-shrink-0"></i>
                     <span class="sidebar-label">Payees</span>
                 </a>
-                </div>
 
             </nav>
 
@@ -527,42 +514,59 @@
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
-                <!-- Grid of nav destinations -->
-                <div class="grid grid-cols-3 gap-px bg-gray-100 border-t mx-0">
-                    <a href="/" class="flex flex-col items-center justify-center gap-1.5 py-5 bg-white {% if active_menu == 'dashboard' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
+                <!-- Planning section -->
+                <div class="px-5 pt-2 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest">Planning</div>
+                <div class="grid grid-cols-4 gap-px bg-gray-100 border-t border-b mx-0">
+                    <a href="/" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'dashboard' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
                         <i class="fas fa-chart-line text-xl"></i>
                         <span class="text-xs font-medium">Dashboard</span>
                     </a>
-                    <a href="/import" class="flex flex-col items-center justify-center gap-1.5 py-5 bg-white {% if active_menu == 'import' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
+                    <a href="/import" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'import' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
                         <i class="fas fa-wand-magic-sparkles text-xl"></i>
                         <span class="text-xs font-medium">Scan</span>
                     </a>
-                    <a href="/savings" class="flex flex-col items-center justify-center gap-1.5 py-5 bg-white {% if active_menu == 'savings' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
+                    <a href="/review" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'review' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
+                        <i class="fas fa-inbox text-xl"></i>
+                        <span class="text-xs font-medium">Review</span>
+                    </a>
+                    <a href="/savings" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'savings' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
                         <i class="fas fa-piggy-bank text-xl"></i>
                         <span class="text-xs font-medium">Savings</span>
                     </a>
-                    <a href="/assets" class="flex flex-col items-center justify-center gap-1.5 py-5 bg-white {% if active_menu == 'assets' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
+                    <a href="/assets" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'assets' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
                         <i class="fas fa-coins text-xl"></i>
                         <span class="text-xs font-medium">Assets</span>
                     </a>
-                    <a href="/projects" class="flex flex-col items-center justify-center gap-1.5 py-5 bg-white {% if active_menu == 'projects' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
+                    <a href="/projects" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'projects' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
                         <i class="fas fa-bullseye text-xl"></i>
                         <span class="text-xs font-medium">Projects</span>
                     </a>
-                    <a href="/categories" class="flex flex-col items-center justify-center gap-1.5 py-5 bg-white {% if active_menu == 'categories' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
+                </div>
+                <!-- Settings section -->
+                <div class="px-5 pt-3 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest">Settings</div>
+                <div class="grid grid-cols-4 gap-px bg-gray-100 border-t border-b mx-0">
+                    <a href="/categories" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'categories' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
                         <i class="fas fa-tags text-xl"></i>
                         <span class="text-xs font-medium">Categories</span>
                     </a>
-                    <a href="/templates" class="flex flex-col items-center justify-center gap-1.5 py-5 bg-white {% if active_menu == 'templates' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
+                    <a href="/templates" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'templates' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
                         <i class="fas fa-copy text-xl"></i>
                         <span class="text-xs font-medium">Templates</span>
                     </a>
-                    <a href="/notes" class="flex flex-col items-center justify-center gap-1.5 py-5 bg-white {% if active_menu == 'notes' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
+                    <a href="/notes" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'notes' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
                         <i class="fas fa-sticky-note text-xl"></i>
                         <span class="text-xs font-medium">Notes</span>
                     </a>
+                    <a href="/rules" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'rules' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
+                        <i class="fas fa-bolt text-xl"></i>
+                        <span class="text-xs font-medium">Rules</span>
+                    </a>
+                    <a href="/payees" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'payees' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
+                        <i class="fas fa-store text-xl"></i>
+                        <span class="text-xs font-medium">Payees</span>
+                    </a>
                 </div>
-                <div class="h-2"></div>
+                <div class="h-3"></div>
             </div>
         </div>
         
