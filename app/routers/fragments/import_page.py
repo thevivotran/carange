@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
-from app.models.database import ImportJob, ImportJobStatus, ImportSource, Transaction, get_db
+from app.models.database import EmailIngestLog, ImportJob, ImportJobStatus, ImportSource, Transaction, get_db
 from app.routers.fragments._helpers import render_fragment
 
 router = APIRouter()
@@ -85,4 +85,17 @@ def fragment_job_transactions(
             "needs_review_count": needs_review_count,
             "avg_conf": avg_conf,
         },
+    )
+
+
+@router.get("/email-logs")
+def fragment_email_logs(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    logs = db.query(EmailIngestLog).order_by(EmailIngestLog.created_at.desc()).limit(50).all()
+    return render_fragment(
+        request,
+        "partials/import/_email_logs.html",
+        {"logs": logs},
     )

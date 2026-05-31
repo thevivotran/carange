@@ -320,3 +320,69 @@ def test_fragment_assets_grid_empty(client):
     r = client.get("/fragments/assets/grid?asset_type=gold", headers={"HX-Request": "true"})
     assert r.status_code == 200
     assert "No assets yet" in r.text
+
+
+# ── Import email-logs fragment ────────────────────────────────────────────────
+
+
+def test_fragment_import_email_logs_empty(client):
+    r = client.get("/fragments/import/email-logs", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "text/html" in r.headers["content-type"]
+    assert "No email receipts processed yet" in r.text
+
+
+def test_fragment_import_email_logs_with_data(client, db_session):
+    from datetime import datetime, timezone
+    from app.models.database import EmailIngestLog
+
+    log = EmailIngestLog(
+        message_id="<test-001@example.com>",
+        sender="noreply@timo.vn",
+        subject="Timo receipt #123",
+        status="done",
+        transaction_count=1,
+        processed_at=datetime.now(timezone.utc),
+    )
+    db_session.add(log)
+    db_session.commit()
+    r = client.get("/fragments/import/email-logs", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "Timo receipt #123" in r.text
+
+
+# ── Templates has_cadence filter ─────────────────────────────────────────────
+
+
+def test_fragment_templates_rows_quick_entry(client):
+    r = client.get("/fragments/templates/rows?has_cadence=no", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+
+
+def test_fragment_templates_rows_recurring(client):
+    r = client.get("/fragments/templates/rows?has_cadence=yes", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+
+
+def test_fragment_templates_rows_cadence_filters_correctly(client, db_session):
+    from app.models.database import TransactionTemplate, Category, TransactionType
+
+    cat = Category(name="Auto-Test", type=TransactionType.EXPENSE, color="#000000", icon="circle")
+    db_session.add(cat)
+    db_session.commit()
+    db_session.refresh(cat)
+
+    tpl_quick = TransactionTemplate(name="Quick Only", amount=10000, type=TransactionType.EXPENSE, category_id=cat.id)
+    tpl_recur = TransactionTemplate(
+        name="Monthly Sub", amount=99000, type=TransactionType.EXPENSE, category_id=cat.id, cadence="monthly"
+    )
+    db_session.add_all([tpl_quick, tpl_recur])
+    db_session.commit()
+
+    r_quick = client.get("/fragments/templates/rows?has_cadence=no", headers={"HX-Request": "true"})
+    assert "Quick Only" in r_quick.text
+    assert "Monthly Sub" not in r_quick.text
+
+    r_recur = client.get("/fragments/templates/rows?has_cadence=yes", headers={"HX-Request": "true"})
+    assert "Monthly Sub" in r_recur.text
+    assert "Quick Only" not in r_recur.text

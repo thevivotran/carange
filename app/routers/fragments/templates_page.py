@@ -14,6 +14,7 @@ def fragment_templates_rows(
     type: str = "",
     category_id: Optional[str] = None,
     is_active: str = "",
+    has_cadence: str = "",
     skip: int = 0,
     limit: int = 20,
     db: Session = Depends(get_db),
@@ -30,6 +31,13 @@ def fragment_templates_rows(
         query = query.filter(TransactionTemplate.is_active == True)  # noqa: E712
     elif is_active == "false":
         query = query.filter(TransactionTemplate.is_active == False)  # noqa: E712
+    if has_cadence == "yes":
+        query = query.filter(
+            TransactionTemplate.cadence.isnot(None),
+            TransactionTemplate.cadence != "",
+        )
+    elif has_cadence == "no":
+        query = query.filter((TransactionTemplate.cadence.is_(None)) | (TransactionTemplate.cadence == ""))
 
     templates = query.order_by(TransactionTemplate.name).offset(skip).limit(limit).all()
 

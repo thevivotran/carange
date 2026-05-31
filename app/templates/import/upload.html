@@ -70,10 +70,22 @@
         </div>
     </div>
 
-    <!-- Job History — HTMX region polls while .job-pending elements exist -->
-    <div>
+    <!-- Source tabs: Screenshot vs Email -->
+    <div class="flex gap-1 mb-4 bg-white rounded-xl shadow-md p-1 max-w-xs">
+        <button id="src-tab-ocr" onclick="_setSrcTab('ocr')"
+                class="flex-1 text-sm py-2 px-4 rounded-lg font-medium transition bg-primary text-white">
+            <i class="fas fa-camera mr-1.5"></i>Screenshots
+        </button>
+        <button id="src-tab-email" onclick="_setSrcTab('email')"
+                class="flex-1 text-sm py-2 px-4 rounded-lg font-medium transition text-gray-600 hover:bg-gray-50">
+            <i class="fas fa-envelope mr-1.5"></i>Emails
+        </button>
+    </div>
+
+    <!-- Screenshot job history panel -->
+    <div id="ocr-panel">
         <div class="flex items-center justify-between mb-3">
-            <h3 class="font-semibold text-gray-700">Job History</h3>
+            <h3 class="font-semibold text-gray-700">Screenshot Jobs</h3>
             <div class="flex gap-2">
                 <button onclick="setJobFilter('all')" id="filter-all"
                         class="job-filter-btn active-filter text-xs px-3 py-1 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition">
@@ -102,6 +114,30 @@
              class="space-y-3">
             <div class="text-center py-10 text-gray-400">
                 <i class="fas fa-inbox text-3xl mb-2 block"></i>
+                <p class="text-sm">Loading…</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Email ingest history panel -->
+    <div id="email-panel" class="hidden">
+        <div class="flex items-center justify-between mb-3">
+            <h3 class="font-semibold text-gray-700">Email Receipt Log</h3>
+            <button onclick="htmx.trigger('#email-log-region', 'email-refresh')"
+                    class="text-xs text-gray-400 hover:text-primary transition flex items-center gap-1">
+                <i class="fas fa-sync-alt text-xs"></i> Refresh
+            </button>
+        </div>
+        <p class="text-xs text-gray-400 mb-4">
+            Receipts from Timo, Shopee, Grab and UOB forwarded to your ingest address are processed automatically.
+        </p>
+        <div id="email-log-region"
+             class="bg-white rounded-xl shadow-sm border overflow-hidden"
+             hx-get="/fragments/import/email-logs"
+             hx-trigger="load, email-refresh"
+             hx-swap="innerHTML">
+            <div class="text-center py-10 text-gray-400">
+                <i class="fas fa-spinner fa-spin text-2xl mb-2 block"></i>
                 <p class="text-sm">Loading…</p>
             </div>
         </div>
@@ -152,6 +188,32 @@
 // ── State ─────────────────────────────────────────────────────────────────────
 const stagedFiles = [];
 let currentJobFilter = 'all';
+let _currentSrcTab = 'ocr';
+
+function _setSrcTab(tab) {
+    _currentSrcTab = tab;
+    const isOcr = tab === 'ocr';
+    document.getElementById('ocr-panel').classList.toggle('hidden', !isOcr);
+    document.getElementById('email-panel').classList.toggle('hidden', isOcr);
+    document.getElementById('drop-zone').closest ? null : null;
+    // Hide/show upload zone
+    var uploadZone = document.getElementById('drop-zone');
+    var stagedSec  = document.getElementById('staged-section');
+    var uploadBtn  = document.getElementById('upload-btn');
+    if (uploadZone) uploadZone.classList.toggle('hidden', !isOcr);
+    if (stagedSec)  stagedSec.classList.toggle('hidden', true);
+    if (uploadBtn)  uploadBtn.classList.toggle('hidden', !isOcr || !stagedFiles.length);
+    // Tab styles
+    var tabOcr   = document.getElementById('src-tab-ocr');
+    var tabEmail = document.getElementById('src-tab-email');
+    if (isOcr) {
+        tabOcr.className   = tabOcr.className.replace('text-gray-600 hover:bg-gray-50', 'bg-primary text-white');
+        tabEmail.className = tabEmail.className.replace('bg-primary text-white', 'text-gray-600 hover:bg-gray-50');
+    } else {
+        tabEmail.className = tabEmail.className.replace('text-gray-600 hover:bg-gray-50', 'bg-primary text-white');
+        tabOcr.className   = tabOcr.className.replace('bg-primary text-white', 'text-gray-600 hover:bg-gray-50');
+    }
+}
 
 // ── Drop zone ─────────────────────────────────────────────────────────────────
 const dropZone  = document.getElementById('drop-zone');

@@ -5,12 +5,30 @@
     <!-- Page Header -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
-            <h2 class="text-3xl font-bold text-gray-800">Transaction Templates</h2>
-            <p class="text-gray-600 mt-1">Manage predefined income and expense templates for quick entry</p>
+            <h2 class="text-3xl font-bold text-gray-800">Templates</h2>
+            <p class="text-gray-600 mt-1">Quick-entry shortcuts for common transactions. <strong>Quick Entry</strong> templates fill the Add form in one tap. <strong>Recurring</strong> templates run on a schedule automatically.</p>
         </div>
         <button onclick="openAddModal()" class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition flex items-center">
             <i class="fas fa-plus mr-2"></i>Add Template
         </button>
+    </div>
+
+    <!-- Mode tabs -->
+    <div class="flex gap-1 mb-4 bg-white rounded-xl shadow-md p-1 max-w-xs">
+        <button id="tab-quick" onclick="_setTab('quick')"
+                class="flex-1 text-sm py-2 px-4 rounded-lg font-medium transition bg-primary text-white">
+            <i class="fas fa-copy mr-1.5"></i>Quick Entry
+        </button>
+        <button id="tab-recurring" onclick="_setTab('recurring')"
+                class="flex-1 text-sm py-2 px-4 rounded-lg font-medium transition text-gray-600 hover:bg-gray-50">
+            <i class="fas fa-rotate mr-1.5"></i>Recurring
+        </button>
+    </div>
+
+    <!-- Context tip -->
+    <div id="tab-tip" class="mb-4 px-4 py-2.5 rounded-lg bg-blue-50 border border-blue-100 text-xs text-blue-700">
+        <i class="fas fa-info-circle mr-1.5"></i>
+        <span id="tab-tip-text">Quick Entry templates pre-fill the Add Transaction form in one tap. Perfect for frequent, one-off expenses.</span>
     </div>
 
     <!-- Filters -->
@@ -183,6 +201,27 @@
     const pageSize = 20;
     let _activeTplId = null;
     let _activeTplActionTr = null;
+    let _currentTab = 'quick';
+
+    const _tabTips = {
+        quick:     'Quick Entry templates pre-fill the Add Transaction form in one tap. Perfect for frequent, one-off expenses.',
+        recurring: 'Recurring templates run on a schedule (daily, weekly, monthly) and create transactions automatically.',
+    };
+
+    function _setTab(tab) {
+        _currentTab = tab;
+        currentPage = 0;
+        ['quick', 'recurring'].forEach(function(t) {
+            const btn = document.getElementById('tab-' + t);
+            if (t === tab) {
+                btn.className = btn.className.replace('text-gray-600 hover:bg-gray-50', 'bg-primary text-white');
+            } else {
+                btn.className = btn.className.replace('bg-primary text-white', 'text-gray-600 hover:bg-gray-50');
+            }
+        });
+        document.getElementById('tab-tip-text').textContent = _tabTips[tab];
+        _reloadTemplates();
+    }
 
     // Inject filter params into HTMX templates request
     document.addEventListener('htmx:configRequest', function(evt) {
@@ -190,6 +229,7 @@
             evt.detail.parameters.type = document.getElementById('filter-type').value;
             evt.detail.parameters.category_id = document.getElementById('filter-category').value;
             evt.detail.parameters.is_active = document.getElementById('filter-status').value;
+            evt.detail.parameters.has_cadence = _currentTab === 'recurring' ? 'yes' : 'no';
             evt.detail.parameters.skip = currentPage * pageSize;
             evt.detail.parameters.limit = pageSize;
         }
