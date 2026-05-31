@@ -38,10 +38,16 @@ class ShopeeParser(BaseEmailParser):
     ORDER_PATTERN = re.compile(r"Mã đơn hàng[:\s]*#?([A-Z0-9]{6,25})", re.IGNORECASE)
     ORDER_FALLBACK = re.compile(r"#([A-Z0-9]{10,25})")
 
-    # "1. Item name (possibly multi-line)\nMẫu mã:" or "\nSố lượng:"
+    # "1. Item name (possibly multi-line)\nMẫu mã:" or "\nSố lượng:" — plain-text format
     ITEM_PATTERN = re.compile(
         r"^\s*1\.\s+(.+?)(?=\n(?:Mẫu mã|Số lượng|Giá)\s*:)",
         re.MULTILINE | re.DOTALL | re.IGNORECASE,
+    )
+    # Item name on the line before "Phân loại hàng:" / "Mẫu mã:" / "Màu sắc:"
+    # Handles BeautifulSoup-stripped HTML where the "1." prefix is lost
+    ITEM_BEFORE_VARIANT = re.compile(
+        r"([^\n]{10,100})\n[\n\s]*(?:Phân loại hàng|Mẫu mã|Màu sắc)\s*:",
+        re.IGNORECASE,
     )
 
     # "30 Th05 2026 20:33:37"
@@ -95,10 +101,12 @@ class ShopeeParser(BaseEmailParser):
         return m.group(1) if m else None
 
     def _extract_item_name(self, text: str):
-        m = self.ITEM_PATTERN.search(text)
-        if m:
-            name = re.sub(r"\s+", " ", m.group(1)).strip()
-            return name or None
+        for pattern in (self.ITEM_PATTERN, self.ITEM_BEFORE_VARIANT):
+            m = pattern.search(text)
+            if m:
+                name = re.sub(r"\s+", " ", m.group(1)).strip()
+                if name and len(name) > 5:
+                    return name
         return None
 
     def _extract_date(self, text: str) -> date:
