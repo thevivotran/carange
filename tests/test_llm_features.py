@@ -334,7 +334,7 @@ def test_budget_advisor_shows_unavailable_when_generate_fails(client, db_session
     ):
         r = client.get("/fragments/pulse/budget-advisor")
     assert r.status_code == 200
-    assert "Không thể kết nối".encode() in r.content
+    assert b"AI unavailable" in r.content
 
 
 def test_budget_advisor_over_budget_badge(client, db_session):

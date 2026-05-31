@@ -13,7 +13,9 @@ router = APIRouter()
 
 @router.get("/list")
 def payees_list(request: Request, db: Session = Depends(get_db)):
-    payees = db.query(Payee).order_by(Payee.canonical_name).all()
+    from sqlalchemy.orm import joinedload
+
+    payees = db.query(Payee).options(joinedload(Payee.default_category)).order_by(Payee.canonical_name).all()
     rows = []
     for p in payees:
         try:
@@ -25,6 +27,7 @@ def payees_list(request: Request, db: Session = Depends(get_db)):
                 "id": p.id,
                 "canonical_name": p.canonical_name,
                 "default_category_id": p.default_category_id,
+                "default_category_name": p.default_category.name if p.default_category else None,
                 "alias_patterns": patterns,
                 "alias_patterns_str": json.dumps(patterns),
                 "source": p.source,

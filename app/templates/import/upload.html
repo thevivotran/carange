@@ -27,8 +27,14 @@
         <input id="file-input" type="file" accept="image/*" multiple class="hidden">
         <div id="drop-prompt">
             <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-3"></i>
-            <p class="text-gray-500 font-medium">Drag &amp; drop screenshots here</p>
-            <p class="text-gray-400 text-sm mt-1">or click to browse &nbsp;·&nbsp; JPEG, PNG, WebP, HEIC &nbsp;·&nbsp; max 20 MB each</p>
+            <p class="text-gray-500 font-medium">
+                <span class="md:hidden">Tap to choose screenshots</span>
+                <span class="hidden md:inline">Drag &amp; drop screenshots here</span>
+            </p>
+            <p class="text-gray-400 text-sm mt-1">
+                <span class="md:hidden">JPEG, PNG, WebP, HEIC &nbsp;·&nbsp; max 20 MB each</span>
+                <span class="hidden md:inline">or click to browse &nbsp;·&nbsp; JPEG, PNG, WebP, HEIC &nbsp;·&nbsp; max 20 MB each</span>
+            </p>
             <div class="mt-4">
                 <label class="block text-xs font-medium text-gray-500 mb-1">Source (optional — helps OCR accuracy)</label>
                 <select id="source-hint"

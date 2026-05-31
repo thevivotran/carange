@@ -6,11 +6,11 @@
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
             <h2 class="text-3xl font-bold text-gray-800">Review Inbox</h2>
-            <p class="text-gray-600 mt-1">Giao dịch cần xác nhận trước khi lưu</p>
+            <p class="text-gray-600 mt-1">Transactions pending confirmation before saving</p>
         </div>
         <button onclick="htmx.trigger('#review-list', 'refresh')"
                 class="flex items-center gap-2 border rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition">
-            <i class="fas fa-sync-alt text-gray-500"></i> Làm mới
+            <i class="fas fa-sync-alt text-gray-500"></i> Refresh
         </button>
     </div>
 
@@ -22,7 +22,7 @@
         <div class="flex justify-center py-16 text-gray-400">
             <div class="text-center">
                 <i class="fas fa-spinner fa-spin text-2xl mb-3"></i>
-                <p class="text-sm">Đang tải...</p>
+                <p class="text-sm">Loading...</p>
             </div>
         </div>
     </div>
@@ -48,27 +48,26 @@ function approveRow(txId) {
             setTimeout(() => {
                 row.remove();
                 updateCount(-1);
-                showToast('Giao dịch đã được xác nhận', 'success');
+                showToast('Transaction confirmed', 'success');
             }, 300);
         }
     });
 }
 
 function rejectRow(txId) {
-    if (!confirm('Bỏ qua giao dịch này?')) return;
-    fetch('/api/review/' + txId + '/reject', { method: 'POST' })
-        .then(r => {
-            if (r.ok) {
-                const row = document.getElementById('review-row-' + txId);
-                row.style.opacity = '0';
-                row.style.transition = 'opacity 0.3s';
-                setTimeout(() => {
-                    row.remove();
-                    updateCount(-1);
-                    showToast('Đã bỏ qua giao dịch', 'warning');
-                }, 300);
-            }
-        });
+    showConfirm('Skip this transaction?', async function() {
+        const r = await fetch('/api/review/' + txId + '/reject', { method: 'POST' });
+        if (r.ok) {
+            const row = document.getElementById('review-row-' + txId);
+            row.style.opacity = '0';
+            row.style.transition = 'opacity 0.3s';
+            setTimeout(() => {
+                row.remove();
+                updateCount(-1);
+                showToast('Transaction skipped', 'warning');
+            }, 300);
+        }
+    });
 }
 
 async function rememberAsRule(txId) {
@@ -77,6 +76,42 @@ async function rememberAsRule(txId) {
     // Pre-fill the rule create form in the Rules page and navigate to it
     sessionStorage.setItem('rule_prefill', JSON.stringify(data));
     window.location.href = '/rules';
+}
+
+async function approveAll() {
+    const rows = document.querySelectorAll('[id^="review-row-"]');
+    if (!rows.length) return;
+    const ok = await Alpine.store('confirm').show(
+        'Approve all ' + rows.length + ' pending transactions?',
+        'Approve all',
+        'bg-green-600 hover:bg-green-700'
+    );
+    if (!ok) return;
+
+    let approved = 0;
+    for (const row of rows) {
+        const txId = row.id.replace('review-row-', '');
+        const catEl = row.querySelector('.cat-select');
+        const descEl = row.querySelector('.desc-input');
+        const payload = {};
+        if (catEl) payload.category_id = parseInt(catEl.value);
+        if (descEl && descEl.value !== descEl.dataset.original) payload.description = descEl.value;
+        try {
+            const r = await fetch('/api/review/' + txId + '/approve', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(payload)
+            });
+            if (r.ok) {
+                row.style.opacity = '0';
+                row.style.transition = 'opacity 0.2s';
+                setTimeout(() => row.remove(), 200);
+                approved++;
+            }
+        } catch (_) {}
+    }
+    updateCount(-approved);
+    showToast(approved + ' transaction' + (approved !== 1 ? 's' : '') + ' approved', 'success');
 }
 
 function updateCount(delta) {
