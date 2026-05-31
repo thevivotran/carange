@@ -728,7 +728,7 @@ def test_telegram_send_transaction_ping_needs_review():
         result = tg.send_transaction_ping(_make_mock_tx(needs_review=True))
         assert result is True
         text_sent = mock_post.call_args[1]["json"]["text"]
-        assert "Cần xem lại" in text_sent
+        assert "Needs review" in text_sent
 
 
 def test_telegram_send_review_reminder_zero():

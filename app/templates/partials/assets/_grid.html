@@ -50,7 +50,7 @@
           {% if asset.symbol %}<p class="text-sm text-gray-500 font-mono">{{ asset.symbol }}</p>{% endif %}
         </div>
         <span class="px-2 py-1 text-xs font-medium rounded-full flex items-center gap-1 {{ badge_cls }}">
-          <i class="{{ type_icon }}"></i> {{ asset.asset_type }}
+          <i class="{{ type_icon }}"></i> {{ asset.asset_type | replace('_', ' ') | title }}
         </span>
       </div>
 

@@ -58,8 +58,8 @@
           <p class="text-sm text-gray-500 capitalize">{{ (project.type.value if project.type else '').replace('_', ' ') }}</p>
         </div>
         <div class="flex gap-2 flex-wrap justify-end">
-          <span class="px-2 py-1 text-xs font-medium rounded-full {{ pri_cls }}">{{ project.priority.value if project.priority else '' }}</span>
-          <span class="px-2 py-1 text-xs font-medium rounded-full {{ st_cls }}">{{ (project.status.value if project.status else '').replace('_', ' ') }}</span>
+          <span class="px-2 py-1 text-xs font-medium rounded-full {{ pri_cls }}">{{ (project.priority.value if project.priority else '') | upper }}</span>
+          <span class="px-2 py-1 text-xs font-medium rounded-full {{ st_cls }}">{{ (project.status.value if project.status else '').replace('_', ' ') | upper }}</span>
         </div>
       </div>
 

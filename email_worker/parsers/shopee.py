@@ -83,7 +83,7 @@ class ShopeeParser(BaseEmailParser):
                 tx_type="expense",
                 description=desc,
                 confidence=0.88,
-                category_hint="Shopping",
+                category_hint="Đồ dùng",
             )
         ]
 

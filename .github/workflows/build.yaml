@@ -84,6 +84,9 @@ jobs:
       - name: App import smoke test
         run: python -c "from main import app; print('App startup OK')"
 
+      - name: Schema sync — ORM models must match migration chain
+        run: pytest tests/test_schema_sync.py -v
+
       - name: Run test suite with coverage
         run: pytest --cov=app --cov-report=term-missing --cov-fail-under=95
 

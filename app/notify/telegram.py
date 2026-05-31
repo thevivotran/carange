@@ -49,18 +49,18 @@ def send_transaction_ping(tx: Transaction) -> bool:
     amount_str = f"{tx.amount:,.0f}đ"
     direction = "+" if tx.type and tx.type.value == "income" else "-"
     cat_name = tx.category.name if tx.category else "?"
-    desc = tx.description or "Không có mô tả"
+    desc = tx.description or "No description"
     source_label = {"email": "Email", "ocr": "OCR"}.get(tx.source or "", tx.source or "manual")
 
     if tx.needs_review:
         text = (
-            f"⚠️ <b>Cần xem lại</b> [{source_label}]\n"
+            f"⚠️ <b>Needs review</b> [{source_label}]\n"
             f"{direction}{amount_str} — {cat_name}\n"
             f"<i>{desc}</i>\n"
-            f"👉 <a href='/review'>Xem hộp thư</a>"
+            f"👉 <a href='/review'>Open inbox</a>"
         )
     else:
-        text = f"💸 <b>Mới</b> [{source_label}]\n{direction}{amount_str} — {cat_name}\n<i>{desc}</i>"
+        text = f"💸 <b>New</b> [{source_label}]\n{direction}{amount_str} — {cat_name}\n<i>{desc}</i>"
 
     return _send(text)
 
@@ -69,7 +69,8 @@ def send_review_reminder(count: int) -> bool:
     """Notify when the review inbox has been sitting unread."""
     if count <= 0:
         return False
-    text = f"📋 <b>{count} giao dịch</b> đang chờ xác nhận.\n👉 <a href='/review'>Mở hộp thư</a>"
+    plural = "s" if count != 1 else ""
+    text = f"📋 <b>{count} transaction{plural}</b> pending review.\n👉 <a href='/review'>Open inbox</a>"
     return _send(text)
 
 

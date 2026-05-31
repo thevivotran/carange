@@ -27,6 +27,8 @@ fmt:
 test:
 	@echo "── smoke: app import ─────────────────────────────────────────────"
 	$(PYTHON) -c "from main import app; print('App startup OK')"
+	@echo "── schema sync: ORM vs migrations ───────────────────────────────"
+	$(PYTEST) tests/test_schema_sync.py -v
 	@echo "── pytest with coverage ──────────────────────────────────────────"
 	$(PYTEST) --cov=app --cov-report=term-missing --cov-fail-under=95
 
