@@ -51,7 +51,8 @@
             {% endif %}
         </td>
         <td class="px-4 py-3 text-right">
-            <button onclick="openEditPayeeModal({id:{{ p.id }},canonical_name:{{ p.canonical_name|tojson }},default_category_id:{{ p.default_category_id or 'null' }},alias_patterns:{{ p.alias_patterns_str }}})"
+            <button data-payee='{{ {"id": p.id, "canonical_name": p.canonical_name, "default_category_id": p.default_category_id, "alias_patterns": p.alias_patterns} | tojson }}'
+                    onclick="openEditPayeeModal(JSON.parse(this.dataset.payee))"
                     class="text-gray-400 hover:text-primary transition p-2 rounded-lg hover:bg-gray-100">
                 <i class="fas fa-edit"></i>
             </button>
@@ -99,7 +100,8 @@
             {% endif %}
         </div>
         <div class="flex items-center gap-1 flex-shrink-0">
-            <button onclick="openEditPayeeModal({id:{{ p.id }},canonical_name:{{ p.canonical_name|tojson }},default_category_id:{{ p.default_category_id or 'null' }},alias_patterns:{{ p.alias_patterns_str }}})"
+            <button data-payee='{{ {"id": p.id, "canonical_name": p.canonical_name, "default_category_id": p.default_category_id, "alias_patterns": p.alias_patterns} | tojson }}'
+                    onclick="openEditPayeeModal(JSON.parse(this.dataset.payee))"
                     class="text-gray-400 hover:text-primary p-2 rounded-lg hover:bg-gray-100 transition">
                 <i class="fas fa-edit"></i>
             </button>

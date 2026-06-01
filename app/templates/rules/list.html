@@ -46,7 +46,8 @@
         </td>
         <td class="px-4 py-3 text-right text-gray-500 {% if not r.is_active %}opacity-40{% endif %}">{{ r.match_count }}</td>
         <td class="px-4 py-3 text-right">
-            <button onclick="openEditModal({{ '{\"id\":' ~ r.id ~ ',\"name\":' ~ r.name | tojson ~ ',\"match_field\":' ~ r.match_field | tojson ~ ',\"match_op\":' ~ r.match_op | tojson ~ ',\"match_value\":' ~ r.match_value | tojson ~ ',\"action_json\":' ~ r.action_json_str ~ ',\"is_active\":' ~ r.is_active | lower ~ ',\"priority\":' ~ r.priority ~ '}' }})"
+            <button data-rule='{{ {"id": r.id, "name": r.name, "match_field": r.match_field, "match_op": r.match_op, "match_value": r.match_value, "action_json": r.action_json, "is_active": r.is_active, "priority": r.priority} | tojson }}'
+                    onclick="openEditModal(JSON.parse(this.dataset.rule))"
                     class="text-gray-400 hover:text-primary transition p-2 rounded-lg hover:bg-gray-100">
                 <i class="fas fa-edit"></i>
             </button>
@@ -89,7 +90,8 @@
             </div>
         </div>
         <div class="flex items-center gap-1 flex-shrink-0 opacity-100">
-            <button onclick="openEditModal({{ '{\"id\":' ~ r.id ~ ',\"name\":' ~ r.name | tojson ~ ',\"match_field\":' ~ r.match_field | tojson ~ ',\"match_op\":' ~ r.match_op | tojson ~ ',\"match_value\":' ~ r.match_value | tojson ~ ',\"action_json\":' ~ r.action_json_str ~ ',\"is_active\":' ~ r.is_active | lower ~ ',\"priority\":' ~ r.priority ~ '}' }})"
+            <button data-rule='{{ {"id": r.id, "name": r.name, "match_field": r.match_field, "match_op": r.match_op, "match_value": r.match_value, "action_json": r.action_json, "is_active": r.is_active, "priority": r.priority} | tojson }}'
+                    onclick="openEditModal(JSON.parse(this.dataset.rule))"
                     class="text-gray-400 hover:text-primary p-2 rounded-lg hover:bg-gray-100 transition">
                 <i class="fas fa-edit"></i>
             </button>

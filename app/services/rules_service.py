@@ -13,7 +13,7 @@ from app.models.database import Payee, Transaction, TransactionRule
 log = logging.getLogger("app.rules_service")
 
 _VALID_FIELDS = {"description", "amount", "payment_method", "source", "payee_id", "type"}
-_VALID_OPS = {"equals", "contains", "regex", "range", "in"}
+_VALID_OPS = {"equals", "contains", "regex", "range", "in", "gt", "lt"}
 
 
 def normalize_description(db: Session, raw: str) -> tuple[str, Optional[int]]:
@@ -126,5 +126,15 @@ def _matches(rule: TransactionRule, tx: Transaction, payee_id: Optional[int]) ->
     elif op == "in":
         allowed = {v.strip().lower() for v in pattern.split(",")}
         return val.lower() in allowed
+    elif op == "gt":
+        try:
+            return float(val) > float(pattern)
+        except (ValueError, TypeError):
+            return False
+    elif op == "lt":
+        try:
+            return float(val) < float(pattern)
+        except (ValueError, TypeError):
+            return False
 
     return False

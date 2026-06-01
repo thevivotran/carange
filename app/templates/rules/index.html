@@ -55,6 +55,8 @@
                         <option value="regex">Regex</option>
                         <option value="range">Range (min,max)</option>
                         <option value="in">In (a,b,c)</option>
+                        <option value="gt">Greater than</option>
+                        <option value="lt">Less than</option>
                     </select>
                 </div>
             </div>
@@ -102,11 +104,15 @@ const _opMeta = {
     regex:    { label: 'Regex',             numeric: false },
     range:    { label: 'Range (min,max)',   numeric: true  },
     in:       { label: 'In (a,b,c)',        numeric: false },
+    gt:       { label: 'Greater than',      numeric: true  },
+    lt:       { label: 'Less than',         numeric: true  },
 };
 const _placeholders = {
     description:    'e.g. GrabFood',
     amount_equals:  'e.g. 150000',
     amount_range:   'e.g. 50000,200000',
+    amount_gt:      'e.g. 500000',
+    amount_lt:      'e.g. 100000',
     payment_method: 'e.g. momo',
     source:         'e.g. email',
     payee_id:       'e.g. 42',

@@ -54,7 +54,7 @@ def update_payee(payee_id: int, payload: PayeeUpdate, db: Session = Depends(get_
     payee = _get(payee_id, db)
     if payload.canonical_name is not None:
         payee.canonical_name = payload.canonical_name
-    if payload.default_category_id is not None:
+    if "default_category_id" in payload.model_fields_set:
         payee.default_category_id = payload.default_category_id
     if payload.alias_patterns is not None:
         payee.alias_patterns = json.dumps(payload.alias_patterns)

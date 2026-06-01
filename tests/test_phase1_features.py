@@ -254,6 +254,36 @@ def test_matches_in_operator(db_session):
     assert _matches(rule, tx, None) is True
 
 
+def test_matches_gt_operator(db_session):
+    cat = _make_cat(db_session)
+    tx = _make_tx(db_session, cat, amount=600_000)
+    rule = TransactionRule(name="r", match_field="amount", match_op="gt", match_value="500000", action_json="{}")
+    assert _matches(rule, tx, None) is True
+
+    rule2 = TransactionRule(name="r2", match_field="amount", match_op="gt", match_value="600000", action_json="{}")
+    assert _matches(rule2, tx, None) is False
+
+
+def test_matches_lt_operator(db_session):
+    cat = _make_cat(db_session)
+    tx = _make_tx(db_session, cat, amount=50_000)
+    rule = TransactionRule(name="r", match_field="amount", match_op="lt", match_value="100000", action_json="{}")
+    assert _matches(rule, tx, None) is True
+
+    rule2 = TransactionRule(name="r2", match_field="amount", match_op="lt", match_value="50000", action_json="{}")
+    assert _matches(rule2, tx, None) is False
+
+
+def test_matches_gt_lt_bad_value(db_session):
+    cat = _make_cat(db_session)
+    tx = _make_tx(db_session, cat, amount=100_000)
+    for op in ("gt", "lt"):
+        rule = TransactionRule(
+            name="r", match_field="amount", match_op=op, match_value="not_a_number", action_json="{}"
+        )
+        assert _matches(rule, tx, None) is False
+
+
 def test_matches_payee_id_field(db_session):
     cat = _make_cat(db_session)
     tx = _make_tx(db_session, cat)

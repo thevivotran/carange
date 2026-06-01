@@ -374,17 +374,19 @@
                 if (!projectId) openTimelineModal(saved.id, saved.name);
             } else {
                 const err = await res.json();
-                alert('Error: ' + (typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail));
+                showToast('Error: ' + (typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail), 'error');
             }
-        } catch(e) { console.error(e); alert('Failed to save project'); }
+        } catch(e) { console.error(e); showToast('Failed to save project', 'error'); }
     });
 
-    async function deleteProject(id) {
-        if (!confirm('Are you sure you want to delete this project?')) return;
-        try {
-            const res = await fetch('/api/projects/' + id, { method:'DELETE' });
-            if (res.ok) { _reloadProjects(); }
-        } catch(e) { console.error(e); }
+    function deleteProject(id) {
+        showConfirm('Delete this project?', async function() {
+            try {
+                const res = await fetch('/api/projects/' + id, { method:'DELETE' });
+                if (res.ok) { _reloadProjects(); showToast('Project deleted', 'success'); }
+                else { showToast('Failed to delete project', 'error'); }
+            } catch(e) { console.error(e); showToast('Failed to delete project', 'error'); }
+        }, 'Delete', 'bg-red-600 hover:bg-red-700');
     }
 
     // ---- Timeline modal ----
@@ -567,17 +569,19 @@
                 await loadPayments();
             } else {
                 const err = await res.json();
-                alert('Error: ' + (typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail));
+                showToast('Error: ' + (typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail), 'error');
             }
-        } catch(e) { console.error(e); alert('Failed to add payment'); }
+        } catch(e) { console.error(e); showToast('Failed to add payment', 'error'); }
     });
 
-    async function deletePayment(paymentId) {
-        if (!confirm('Delete this payment? Any linked transaction will remain in history.')) return;
-        try {
-            const res = await fetch('/api/projects/' + currentTimelineProjectId + '/payments/' + paymentId, { method:'DELETE' });
-            if (res.ok) await loadPayments();
-        } catch(e) { console.error(e); }
+    function deletePayment(paymentId) {
+        showConfirm('Delete this payment? Any linked transaction will remain in history.', async function() {
+            try {
+                const res = await fetch('/api/projects/' + currentTimelineProjectId + '/payments/' + paymentId, { method:'DELETE' });
+                if (res.ok) await loadPayments();
+                else { showToast('Failed to delete payment', 'error'); }
+            } catch(e) { console.error(e); showToast('Failed to delete payment', 'error'); }
+        }, 'Delete', 'bg-red-600 hover:bg-red-700');
     }
 
     // ---- Edit Payment modal ----
@@ -598,7 +602,7 @@
         const dueDateVal = document.getElementById('edit-payment-date').value;
         const amountVal = document.getElementById('edit-payment-amount').value;
         const notesVal = document.getElementById('edit-payment-notes').value;
-        if (!amountVal || parseFloat(amountVal) <= 0) { alert('Amount is required'); return; }
+        if (!amountVal || parseFloat(amountVal) <= 0) { showToast('Amount is required', 'error'); return; }
         const body = {
             due_date: dueDateVal || null,
             amount:   parseFloat(amountVal),
@@ -613,9 +617,9 @@
                 await loadPayments();
             } else {
                 const err = await res.json();
-                alert('Error: ' + (typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail));
+                showToast('Error: ' + (typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail), 'error');
             }
-        } catch(e) { console.error(e); alert('Failed to save payment'); }
+        } catch(e) { console.error(e); showToast('Failed to save payment', 'error'); }
     }
 
     // ---- Mark Paid modal ----
@@ -645,9 +649,9 @@
                 await loadPayments();
             } else {
                 const err = await res.json();
-                alert('Error: ' + (typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail));
+                showToast('Error: ' + (typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail), 'error');
             }
-        } catch(e) { console.error(e); alert('Failed to update payment'); }
+        } catch(e) { console.error(e); showToast('Failed to update payment', 'error'); }
     }
 
     async function undoPayment(paymentId) {
@@ -762,9 +766,9 @@
                 await loadPayments();
             } else {
                 const err = await res.json();
-                alert('Error: ' + (typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail));
+                showToast('Error: ' + (typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail), 'error');
             }
-        } catch(e) { console.error(e); alert('Failed to generate schedule'); }
+        } catch(e) { console.error(e); showToast('Failed to generate schedule', 'error'); }
     });
 </script>
 {% endblock %}
