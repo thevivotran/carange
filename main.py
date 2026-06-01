@@ -42,6 +42,9 @@ from app.routers.fragments import payees as frag_payees
 async def lifespan(app: FastAPI):
     create_tables()
     seed_default_categories()
+    from app.services.scheduler import start_scheduler
+
+    start_scheduler()
     yield
 
 

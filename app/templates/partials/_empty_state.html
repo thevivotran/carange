@@ -1,0 +1,25 @@
+{# Reusable empty state. Parameters (passed via include with context):
+     icon    — Font Awesome icon class (default: fa-inbox)
+     title   — Heading text (default: "Nothing here yet")
+     message — Sub-text (default: "")
+     cta_url — Optional link URL for the CTA button
+     cta_label — Optional CTA button label
+#}
+{% set _icon = icon | default("fa-inbox") %}
+{% set _title = title | default("Nothing here yet") %}
+{% set _message = message | default("") %}
+<div class="flex flex-col items-center justify-center py-16 text-center">
+  <div class="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
+    <i class="fas {{ _icon }} text-2xl text-gray-400 dark:text-gray-500"></i>
+  </div>
+  <p class="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-1">{{ _title }}</p>
+  {% if _message %}
+  <p class="text-xs text-gray-400 dark:text-gray-500 max-w-xs">{{ _message }}</p>
+  {% endif %}
+  {% if cta_url and cta_label %}
+  <a href="{{ cta_url }}"
+     class="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors">
+    {{ cta_label }}
+  </a>
+  {% endif %}
+</div>

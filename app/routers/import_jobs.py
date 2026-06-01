@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.database import ImportJob, ImportJobStatus, ImportSource, Transaction, get_db
@@ -141,15 +142,29 @@ def get_import_job_summary(job_id: int, db: Session = Depends(get_db)):
     if not job:
         raise HTTPException(status_code=404, detail="Import job not found")
 
-    all_txs = db.query(Transaction).filter(Transaction.import_job_id == job_id).all()
-    active = [t for t in all_txs if t.deleted_at is None]
-    rejected = len(all_txs) - len(active)
-    needs_review = sum(1 for t in active if t.needs_review)
-    auto_approved = len(active) - needs_review
+    total_count = db.query(func.count(Transaction.id)).filter(Transaction.import_job_id == job_id).scalar() or 0
+    active_count = (
+        db.query(func.count(Transaction.id))
+        .filter(Transaction.import_job_id == job_id, Transaction.deleted_at.is_(None))
+        .scalar()
+        or 0
+    )
+    needs_review = (
+        db.query(func.count(Transaction.id))
+        .filter(
+            Transaction.import_job_id == job_id,
+            Transaction.deleted_at.is_(None),
+            Transaction.needs_review == True,  # noqa: E712
+        )
+        .scalar()
+        or 0
+    )
+    rejected = total_count - active_count
+    auto_approved = active_count - needs_review
 
     return {
         "job_id": job_id,
-        "total": len(active),
+        "total": active_count,
         "auto_approved": auto_approved,
         "needs_review": needs_review,
         "rejected": rejected,

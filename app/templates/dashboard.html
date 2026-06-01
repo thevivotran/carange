@@ -538,6 +538,52 @@ const _gridColor = () => _isDark() ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.04
 const _tickColor = () => _isDark() ? '#94A3B8' : '#6B7280';
 const _legendColor = () => _isDark() ? '#CBD5E1' : '#374151';
 
+// Dynamic fill colors — flip with dark mode
+const _incomeColor    = () => _isDark() ? 'rgba(52,211,153,0.55)'  : 'rgba(52,211,153,0.75)';
+const _expenseColor   = () => _isDark() ? 'rgba(248,113,113,0.55)' : 'rgba(248,113,113,0.75)';
+const _netAreaColor   = () => _isDark() ? 'rgba(37,99,235,0.15)'   : 'rgba(37,99,235,0.08)';
+const _savingsColor   = () => _isDark() ? 'rgba(96,165,250,0.6)'   : 'rgba(96,165,250,0.8)';
+const _realEstColor   = () => _isDark() ? 'rgba(167,139,250,0.6)'  : 'rgba(167,139,250,0.8)';
+const _rateAreaColor  = () => _isDark() ? 'rgba(45,212,191,0.15)'  : 'rgba(45,212,191,0.08)';
+
+// Chart instance registry — used for theme-aware updates
+const _charts = {};
+
+function _applyChartTheme(chart) {
+    if (!chart) return;
+    chart.options.scales && Object.values(chart.options.scales).forEach(function(scale) {
+        if (scale.grid) scale.grid.color = _gridColor();
+        if (scale.ticks) scale.ticks.color = _tickColor();
+    });
+    if (chart.options.plugins && chart.options.plugins.legend && chart.options.plugins.legend.labels) {
+        chart.options.plugins.legend.labels.color = _legendColor();
+    }
+    chart.update('none');
+}
+
+// Update chart fill/bar colors on dark-mode toggle
+function _refreshChartColors() {
+    const cf = _charts.cashFlow;
+    if (cf) {
+        cf.data.datasets[0].backgroundColor = _incomeColor();
+        cf.data.datasets[1].backgroundColor = _expenseColor();
+        cf.data.datasets[2].backgroundColor = _netAreaColor();
+        _applyChartTheme(cf);
+    }
+    const wt = _charts.wealthTrend;
+    if (wt) {
+        wt.data.datasets[0].backgroundColor = _savingsColor();
+        wt.data.datasets[1].backgroundColor = _realEstColor();
+        wt.data.datasets[2].backgroundColor = _rateAreaColor();
+        _applyChartTheme(wt);
+    }
+}
+
+// Watch for dark-class changes (theme toggle)
+new MutationObserver(_refreshChartColors).observe(
+    document.documentElement, { attributeFilter: ['class'] }
+);
+
 // ── Helpers ───────────────────────────────────────────────────────────────
 function fmtVND(v) { return new Intl.NumberFormat('vi-VN').format(Math.round(v)) + ' ₫'; }
 function fmtSigned(v) { return (v >= 0 ? '+' : '') + fmtVND(Math.abs(v)); }
@@ -555,7 +601,8 @@ fetch('/api/dashboard/monthly-trend')
     .then(all => {
         const data = all.slice(-6);
         const ctx  = document.getElementById('cashFlowChart').getContext('2d');
-        new Chart(ctx, {
+        if (_charts.cashFlow) { _charts.cashFlow.destroy(); }
+        _charts.cashFlow = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: data.map(d => d.month),
@@ -563,7 +610,7 @@ fetch('/api/dashboard/monthly-trend')
                     {
                         label: 'Income',
                         data: data.map(d => d.income),
-                        backgroundColor: 'rgba(52,211,153,0.75)',
+                        backgroundColor: _incomeColor(),
                         borderColor: '#059669',
                         borderWidth: 1,
                         borderRadius: 4,
@@ -571,7 +618,7 @@ fetch('/api/dashboard/monthly-trend')
                     {
                         label: 'Expense',
                         data: data.map(d => d.expense),
-                        backgroundColor: 'rgba(248,113,113,0.75)',
+                        backgroundColor: _expenseColor(),
                         borderColor: '#DC2626',
                         borderWidth: 1,
                         borderRadius: 4,
@@ -581,7 +628,7 @@ fetch('/api/dashboard/monthly-trend')
                         type: 'line',
                         data: data.map(d => d.net),
                         borderColor: '#2563EB',
-                        backgroundColor: 'rgba(37,99,235,0.08)',
+                        backgroundColor: _netAreaColor(),
                         borderWidth: 2,
                         tension: 0.35,
                         pointRadius: 4,
@@ -648,7 +695,8 @@ fetch('/api/dashboard/wealth-building-trend')
             return Math.round(avg * 10) / 10;
         });
         const ctx = document.getElementById('wealthTrendChart').getContext('2d');
-        new Chart(ctx, {
+        if (_charts.wealthTrend) { _charts.wealthTrend.destroy(); }
+        _charts.wealthTrend = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: data.map(d => d.month),
@@ -656,7 +704,7 @@ fetch('/api/dashboard/wealth-building-trend')
                     {
                         label: 'Savings',
                         data: data.map(d => d.tiet_kiem),
-                        backgroundColor: 'rgba(96,165,250,0.8)',
+                        backgroundColor: _savingsColor(),
                         borderColor: '#2563EB',
                         borderWidth: 1,
                         borderRadius: 4,
@@ -666,7 +714,7 @@ fetch('/api/dashboard/wealth-building-trend')
                     {
                         label: 'Real Estate',
                         data: data.map(d => d.bds),
-                        backgroundColor: 'rgba(167,139,250,0.8)',
+                        backgroundColor: _realEstColor(),
                         borderColor: '#7C3AED',
                         borderWidth: 1,
                         borderRadius: 4,
@@ -678,7 +726,7 @@ fetch('/api/dashboard/wealth-building-trend')
                         type: 'line',
                         data: rolling,
                         borderColor: '#2DD4BF',
-                        backgroundColor: 'rgba(45,212,191,0.08)',
+                        backgroundColor: _rateAreaColor(),
                         borderWidth: 2,
                         borderDash: [5, 3],
                         tension: 0.3,

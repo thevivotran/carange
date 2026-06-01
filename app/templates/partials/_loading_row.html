@@ -1,0 +1,15 @@
+{# Skeleton loading row for tables. Parameters:
+     cols — number of columns to render (default: 5)
+     rows — number of skeleton rows (default: 4)
+#}
+{% set _cols = cols | default(5) %}
+{% set _rows = rows | default(4) %}
+{% for _ in range(_rows) %}
+<tr class="animate-pulse border-b border-gray-100 dark:border-gray-700">
+  {% for _ in range(_cols) %}
+  <td class="px-4 py-3">
+    <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-{{ ['full', '4/5', '3/4', '2/3', '1/2'] | random }}"></div>
+  </td>
+  {% endfor %}
+</tr>
+{% endfor %}

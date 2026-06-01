@@ -1,7 +1,10 @@
 """Dashboard aggregation service — replaces the inline logic in dashboard.py."""
 
+import time
+import threading
 from datetime import date, timedelta
 from calendar import monthrange
+from typing import Any
 
 from sqlalchemy import func, case, and_
 from sqlalchemy.orm import Session
@@ -22,12 +25,50 @@ from app.models.database import (
 from app.services.budget_service import compute_budget_rows
 from app.services.settings_service import get_setting
 
+# ── In-memory dashboard cache (TTL = 120 s) ──────────────────────────────────
+_CACHE_TTL = 120.0
+_cache: dict[tuple, tuple[float, Any]] = {}
+_cache_lock = threading.Lock()
+
+
+def invalidate_dashboard_cache() -> None:
+    """Clear the dashboard cache — call after any write that affects dashboard metrics."""
+    with _cache_lock:
+        _cache.clear()
+
+
+def _cache_get(key: tuple) -> Any | None:
+    with _cache_lock:
+        entry = _cache.get(key)
+    if entry is None:
+        return None
+    ts, value = entry
+    if time.monotonic() - ts > _CACHE_TTL:
+        with _cache_lock:
+            _cache.pop(key, None)
+        return None
+    return value
+
+
+def _cache_set(key: tuple, value: Any) -> None:
+    with _cache_lock:
+        _cache[key] = (time.monotonic(), value)
+
 
 def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict:
-    """Compute all dashboard metrics for the given year/month (defaults to today)."""
+    """Compute all dashboard metrics for the given year/month (defaults to today).
+
+    Results are cached in-memory for _CACHE_TTL seconds, keyed by (year, month).
+    Call invalidate_dashboard_cache() after any write that mutates dashboard data.
+    """
     today = date.today()
     current_month = month or today.month
     current_year = year or today.year
+
+    _cache_key = (current_year, current_month)
+    cached = _cache_get(_cache_key)
+    if cached is not None:
+        return cached
     month_start = date(current_year, current_month, 1)
     _, last_day = monthrange(current_year, current_month)
     month_end = date(current_year, current_month, last_day)
@@ -596,7 +637,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
             db.query(SavingsBundle).filter(SavingsBundle.id == int(_bf_raw), SavingsBundle.deleted_at.is_(None)).first()
         )
 
-    return {
+    result = {
         "summary": {
             "total_income": monthly_income,
             "total_expense": monthly_expense,
@@ -657,3 +698,5 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         "bds_days_until_next": bds_days_until_next,
         "baby_fund_bundle": baby_fund_bundle,
     }
+    _cache_set(_cache_key, result)
+    return result

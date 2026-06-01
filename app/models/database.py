@@ -196,6 +196,10 @@ class Transaction(Base):
     __table_args__ = (
         Index("ix_transactions_type_date", "type", "date"),
         Index("ix_transactions_category_id", "category_id"),
+        Index("ix_transactions_deleted_at", "deleted_at"),
+        Index("ix_transactions_import_job_id", "import_job_id"),
+        Index("ix_transactions_needs_review", "needs_review"),
+        Index("ix_transactions_is_savings_related", "is_savings_related"),
     )
 
 
@@ -235,6 +239,8 @@ class SavingsBundle(Base):
     transactions = relationship("Transaction", back_populates="savings_bundle")
     linked_project = relationship("FinancialProject", back_populates="linked_savings")
 
+    __table_args__ = (Index("ix_savings_bundles_status", "status"),)
+
 
 class FinancialProject(Base):
     __tablename__ = "financial_projects"
@@ -256,6 +262,8 @@ class FinancialProject(Base):
     transactions = relationship("Transaction", back_populates="project")
     linked_savings = relationship("SavingsBundle", back_populates="linked_project")
     payments = relationship("ProjectPayment", back_populates="project", cascade="all, delete-orphan")
+
+    __table_args__ = (Index("ix_financial_projects_status", "status"),)
 
 
 class ProjectPayment(Base):

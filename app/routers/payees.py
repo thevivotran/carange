@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.models.database import Payee, get_db
+from app.services.rules_service import invalidate_payee_cache
 
 router = APIRouter()
 
@@ -46,6 +47,7 @@ def create_payee(payload: PayeeCreate, db: Session = Depends(get_db)):
     db.add(payee)
     db.commit()
     db.refresh(payee)
+    invalidate_payee_cache()
     return _to_dict(payee)
 
 
@@ -62,6 +64,7 @@ def update_payee(payee_id: int, payload: PayeeUpdate, db: Session = Depends(get_
         payee.source = payload.source
     db.commit()
     db.refresh(payee)
+    invalidate_payee_cache()
     return _to_dict(payee)
 
 
@@ -70,6 +73,7 @@ def delete_payee(payee_id: int, db: Session = Depends(get_db)):
     payee = _get(payee_id, db)
     db.delete(payee)
     db.commit()
+    invalidate_payee_cache()
 
 
 def _get(payee_id: int, db: Session) -> Payee:

@@ -13,6 +13,19 @@ from sqlalchemy.pool import StaticPool
 from app.models.database import Base, get_db, Category, TransactionType
 from main import app
 
+
+@pytest.fixture(autouse=True)
+def _clear_module_caches():
+    """Reset in-process caches before each test to prevent cross-test contamination."""
+    from app.services import dashboard_service, rules_service
+
+    dashboard_service.invalidate_dashboard_cache()
+    rules_service.invalidate_payee_cache()
+    yield
+    dashboard_service.invalidate_dashboard_cache()
+    rules_service.invalidate_payee_cache()
+
+
 TEST_DATABASE_URL = "sqlite:///:memory:"
 
 

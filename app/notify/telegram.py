@@ -41,6 +41,26 @@ def _send(text: str, parse_mode: str = "HTML") -> bool:
         return False
 
 
+def send_transaction_ping_fields(fields: dict) -> bool:
+    """Fire-and-forget variant that takes pre-extracted scalar fields (no ORM access)."""
+    amount_str = f"{fields['amount']:,.0f}đ"
+    direction = "+" if fields["tx_type"] == "income" else "-"
+    source_label = {"email": "Email", "ocr": "OCR"}.get(fields["source"], fields["source"])
+    desc = fields["description"] or "No description"
+
+    if fields["needs_review"]:
+        text = (
+            f"⚠️ <b>Needs review</b> [{source_label}]\n"
+            f"{direction}{amount_str} — {fields['cat_name']}\n"
+            f"<i>{desc}</i>\n"
+            f"👉 <a href='/review'>Open inbox</a>"
+        )
+    else:
+        text = f"💸 <b>New</b> [{source_label}]\n{direction}{amount_str} — {fields['cat_name']}\n<i>{desc}</i>"
+
+    return _send(text)
+
+
 def send_transaction_ping(tx: Transaction) -> bool:
     """Notify when an auto-ingested transaction is created.
 

@@ -25,6 +25,7 @@ from app.models.schemas import (
     TransactionAuditLogEntry,
 )
 from app.services import transaction_service
+from app.services.dashboard_service import invalidate_dashboard_cache
 
 _AUDIT_FIELDS = list(AuditField)
 
@@ -77,7 +78,7 @@ def get_transactions(
     if import_job_id is not None:
         query = query.filter(Transaction.import_job_id == import_job_id)
 
-    return query.order_by(Transaction.date.desc()).offset(skip).limit(limit).all()
+    return query.order_by(Transaction.date.desc(), Transaction.id.desc()).offset(skip).limit(limit).all()
 
 
 @router.get("/trash", response_model=List[TransactionSchema])
@@ -182,7 +183,9 @@ def create_transaction(transaction: TransactionCreate, force: bool = False, db: 
                 }
             )
 
-    return transaction_service.create_transaction(db, transaction)
+    result = transaction_service.create_transaction(db, transaction)
+    invalidate_dashboard_cache()
+    return result
 
 
 @router.put("/{transaction_id}", response_model=TransactionSchema)
@@ -234,6 +237,7 @@ def update_transaction(transaction_id: int, transaction: TransactionUpdate, db: 
         db.rollback()
         raise
     db.refresh(db_transaction)
+    invalidate_dashboard_cache()
     return db_transaction
 
 
@@ -252,6 +256,7 @@ def hard_delete_transaction(transaction_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Transaction not found in trash")
     db.delete(transaction)
     db.commit()
+    invalidate_dashboard_cache()
     return {"message": "Transaction permanently deleted"}
 
 
@@ -271,6 +276,7 @@ def restore_transaction(transaction_id: int, db: Session = Depends(get_db)):
     transaction.deleted_at = None
     db.commit()
     db.refresh(transaction)
+    invalidate_dashboard_cache()
     return transaction
 
 
@@ -281,6 +287,7 @@ def delete_transaction(transaction_id: int, db: Session = Depends(get_db)):
         transaction_service.soft_delete_transaction(db, transaction_id)
     except LookupError:
         raise HTTPException(status_code=404, detail="Transaction not found")
+    invalidate_dashboard_cache()
     return {"message": "Transaction deleted"}
 
 
@@ -439,6 +446,8 @@ def bulk_upload_transactions(file: UploadFile = File(...), db: Session = Depends
     except ValueError as e:
         return JSONResponse(status_code=400, content={"error": str(e)})
 
+    if stats.get("income", 0) + stats.get("expense", 0) > 0:
+        invalidate_dashboard_cache()
     return {
         "success": True,
         "message": f"Successfully imported {stats['income']} income and {stats['expense']} expense transactions",

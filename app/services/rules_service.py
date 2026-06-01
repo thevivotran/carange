@@ -3,6 +3,7 @@
 import json
 import logging
 import re
+import threading
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -15,28 +16,57 @@ log = logging.getLogger("app.rules_service")
 _VALID_FIELDS = {"description", "amount", "payment_method", "source", "payee_id", "type"}
 _VALID_OPS = {"equals", "contains", "regex", "range", "in", "gt", "lt"}
 
+# ── Payee pattern cache ───────────────────────────────────────────────────────
+# Stores list of (payee_id, canonical_name, [compiled_regex, ...]) tuples.
+_payee_cache: list[tuple[int, str, list[re.Pattern]]] | None = None
+_payee_cache_lock = threading.Lock()
+
+
+def invalidate_payee_cache() -> None:
+    """Clear the compiled-pattern cache. Call after any payee write."""
+    global _payee_cache
+    with _payee_cache_lock:
+        _payee_cache = None
+
+
+def _load_payee_cache(db: Session) -> list[tuple[int, str, list[re.Pattern]]]:
+    global _payee_cache
+    with _payee_cache_lock:
+        if _payee_cache is not None:
+            return _payee_cache
+        payees = db.query(Payee).filter(Payee.alias_patterns.isnot(None)).all()
+        compiled = []
+        for payee in payees:
+            try:
+                patterns: list[str] = json.loads(payee.alias_patterns)
+            except (json.JSONDecodeError, TypeError):
+                continue
+            rxs: list[re.Pattern] = []
+            for p in patterns:
+                try:
+                    rxs.append(re.compile(p, re.IGNORECASE))
+                except re.error:
+                    log.warning("Bad regex in payee %d: %r", payee.id, p)
+            if rxs:
+                compiled.append((payee.id, payee.canonical_name, rxs))
+        _payee_cache = compiled
+        return _payee_cache
+
 
 def normalize_description(db: Session, raw: str) -> tuple[str, Optional[int]]:
     """Match raw description against payee alias_patterns.
 
     Returns (canonical_name, payee_id) when a payee matches,
     or (raw, None) when nothing matches.
+    Patterns are pre-compiled and cached; invalidated on payee writes.
     """
     if not raw:
         return raw, None
 
-    payees = db.query(Payee).filter(Payee.alias_patterns.isnot(None)).all()
-    for payee in payees:
-        try:
-            patterns: list[str] = json.loads(payee.alias_patterns)
-        except (json.JSONDecodeError, TypeError):
-            continue
-        for pattern in patterns:
-            try:
-                if re.search(pattern, raw, re.IGNORECASE):
-                    return payee.canonical_name, payee.id
-            except re.error:
-                log.warning("Bad regex in payee %d: %r", payee.id, pattern)
+    for payee_id, canonical_name, rxs in _load_payee_cache(db):
+        for rx in rxs:
+            if rx.search(raw):
+                return canonical_name, payee_id
     return raw, None
 
 

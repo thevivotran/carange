@@ -4,6 +4,7 @@ import csv
 import logging
 import io
 import random
+import threading
 from datetime import date, datetime, timedelta, timezone
 
 from sqlalchemy.orm import Session
@@ -145,12 +146,25 @@ def create_transaction(db: Session, data: TransactionCreate) -> Transaction:
         db.commit()
         db.refresh(db_tx)
 
-        try:
-            from app.notify import telegram as _tg
+        _ping_fields = {
+            "tx_id": db_tx.id,
+            "amount": db_tx.amount,
+            "tx_type": db_tx.type.value if db_tx.type else "expense",
+            "cat_name": db_tx.category.name if db_tx.category else "?",
+            "description": db_tx.description or "",
+            "source": db_tx.source or "manual",
+            "needs_review": bool(db_tx.needs_review),
+        }
 
-            _tg.send_transaction_ping(db_tx)
-        except Exception as exc:
-            log.warning("Telegram ping failed for tx %d: %s", db_tx.id, exc)
+        def _ping(fields: dict) -> None:
+            try:
+                from app.notify import telegram as _tg
+
+                _tg.send_transaction_ping_fields(fields)
+            except Exception as exc:
+                log.warning("Telegram ping failed for tx %d: %s", fields["tx_id"], exc)
+
+        threading.Thread(target=_ping, args=(_ping_fields,), daemon=True).start()
 
         return db_tx
     except Exception:
@@ -207,7 +221,11 @@ def _build_transaction_from_row(
     description: str | None = None,
     payment_method: str = "cash",
 ) -> Transaction:
-    """Instantiate and add a plain Transaction (no commit)."""
+    """Instantiate, add, and flush a plain Transaction (no commit).
+
+    Flushing per row surfaces DB constraint violations immediately so a single
+    bad row doesn't roll back the entire batch at commit time.
+    """
     tx = Transaction(
         date=trans_date,
         amount=amount,
@@ -218,6 +236,7 @@ def _build_transaction_from_row(
         is_savings_related=False,
     )
     db.add(tx)
+    db.flush()
     return tx
 
 

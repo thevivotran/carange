@@ -323,3 +323,46 @@ def test_net_this_month(db_session, income_cat, expense_cat, tiet_kiem_cat):
 
     s = _summary(db_session)
     assert s["net_this_month"] == pytest.approx(20_000_000)
+
+
+def test_dashboard_cache_hit_returns_same_object(db_session, income_cat, expense_cat):
+    """Second call to get_dashboard_page_data returns the cached dict."""
+    from app.routers.dashboard import get_dashboard_page_data
+    from app.services.dashboard_service import invalidate_dashboard_cache
+
+    invalidate_dashboard_cache()
+    first = get_dashboard_page_data(db_session)
+    second = get_dashboard_page_data(db_session)
+    assert first is second
+
+
+def test_dashboard_cache_miss_after_invalidation(db_session, income_cat, expense_cat):
+    """Invalidating the cache causes a fresh computation."""
+    from app.routers.dashboard import get_dashboard_page_data
+    from app.services.dashboard_service import invalidate_dashboard_cache
+
+    invalidate_dashboard_cache()
+    first = get_dashboard_page_data(db_session)
+    invalidate_dashboard_cache()
+    second = get_dashboard_page_data(db_session)
+    # Different objects but same structure
+    assert first is not second
+    assert "summary" in second
+
+
+def test_dashboard_cache_expired_returns_fresh_data(db_session, income_cat, expense_cat):
+    """Expired cache entries are evicted and fresh data is returned."""
+    import time
+    from app.services.dashboard_service import _cache, _cache_lock, _cache_get
+
+    key = (2026, 1)
+    sentinel = {"summary": {"total_income": 999}}
+
+    # Plant an already-expired entry
+    with _cache_lock:
+        _cache[key] = (time.monotonic() - 9999, sentinel)
+
+    result = _cache_get(key)
+    assert result is None
+    with _cache_lock:
+        assert key not in _cache

@@ -22,7 +22,7 @@
         {% if summary.liquid_savings_rate >= summary.savings_target_pct %}text-green-600{% elif summary.liquid_savings_rate >= 10 %}text-amber-600{% else %}text-red-500{% endif %}">
         {{ summary.liquid_savings_rate }}%
       </p>
-      <p class="text-xs text-gray-400 mt-1.5">Tiết kiệm ÷ Income</p>
+      <p class="text-xs text-gray-400 mt-1.5">Savings ÷ Income</p>
       <div class="mt-2 w-full bg-gray-100 rounded-full h-1.5">
         <div class="h-1.5 rounded-full transition-all duration-500"
           style="width:{{ [summary.liquid_savings_rate, 100]|min }}%;
