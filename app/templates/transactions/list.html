@@ -656,8 +656,6 @@
 
     // Initialize
     document.addEventListener('DOMContentLoaded', async function() {
-        loadProjectsFilter();
-
         const urlParams    = new URLSearchParams(window.location.search);
         const importJobParam  = urlParams.get('import_job_id');
         const fromImportParam = urlParams.get('from_import');
@@ -673,8 +671,10 @@
         // Set type before loadCategories — it controls which options populate the filter select.
         if (isDeeplink && urlType) document.getElementById('filter-type').value = urlType;
 
-        // Await so the filter-category <select> has options before we set a value from URL.
-        await loadCategories();
+        // Fetch categories and projects in parallel; both selects must be populated
+        // before restoreFilters() assigns saved values — otherwise the assignments
+        // silently no-op (no matching <option> exists yet).
+        await Promise.all([loadCategories(), loadProjectsFilter()]);
 
         if (importJobParam) {
             activeImportJobId = parseInt(importJobParam);

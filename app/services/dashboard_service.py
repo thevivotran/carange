@@ -547,7 +547,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         if p.deadline
         and p.deadline <= deadline_cutoff
         and p.target_amount > 0
-        and p.current_amount / p.target_amount < 0.5
+        and (p.current_amount or 0) / p.target_amount < 0.5
     }
 
     # ── Recent transactions & maturities ─────────────────────────────────────

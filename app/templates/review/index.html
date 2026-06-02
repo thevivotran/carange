@@ -123,6 +123,8 @@ async function approveAll() {
     }
     _reviewUpdateCount(-approved);
     showToast(approved + ' transaction' + (approved !== 1 ? 's' : '') + ' confirmed', 'success');
+    const failed = rows.length - approved;
+    if (failed > 0) showToast(failed + ' transaction' + (failed !== 1 ? 's' : '') + ' could not be approved', 'error');
 }
 
 function _reviewUpdateCount(delta) {
@@ -153,10 +155,11 @@ function _reviewUpdateCount(delta) {
     const approveAllBtn = document.getElementById('review-approve-all-btn');
     if (approveAllBtn) approveAllBtn.classList.toggle('hidden', n <= 1);
 
-    // Reload to show empty state when all cleared
+    // Reload to show empty state when all cleared — delay past the 150 ms fade-out
+    // so HTMX does not swap the DOM while row removal animations are still running.
     if (n === 0) {
         const list = document.getElementById('review-list');
-        if (list) htmx.trigger(list, 'refresh');
+        if (list) setTimeout(() => htmx.trigger(list, 'refresh'), 200);
     }
 }
 </script>

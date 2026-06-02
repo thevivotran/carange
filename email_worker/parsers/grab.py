@@ -1,6 +1,10 @@
 """Grab e-receipt email parser — Food, Transport, and Express.
 
-Only processes receipts from the PERSONAL / Cá nhân profile.
+Processes receipts from personal and family Grab accounts (PERSONAL,
+CÁ NHÂN, FAMILY, GIA ĐÌNH profiles). Family-account rides are treated
+as household expenses — the account holder pays for all rides regardless
+of which profile name appears on the receipt.
+
 Category mapping:
   Food    → Ăn uống
   Car/Bike → Di chuyển
@@ -240,31 +244,32 @@ class GrabParser(BaseEmailParser):
         m = _SERVICE_TYPE_RE.search(text)
         return m.group(1).strip() if m else None
 
+    @staticmethod
+    def _parse_date_parts(day_str: str, mon_str: str, yr_str: str) -> date | None:
+        """Convert matched day/month-name/year strings to a date, or None on failure."""
+        mon = _EN_MONTHS.get(mon_str.lower(), 0)
+        if not mon:
+            return None
+        yr_raw = int(yr_str)
+        year = 2000 + yr_raw if yr_raw < 100 else yr_raw
+        try:
+            return date(year, mon, int(day_str))
+        except ValueError:
+            return None
+
     def _extract_date_short(self, text: str) -> date:
         m = _DATE_SHORT.search(text)
         if m:
-            day = int(m.group(1))
-            mon = _EN_MONTHS.get(m.group(2).lower(), 0)
-            yr_raw = int(m.group(3))
-            year = 2000 + yr_raw if yr_raw < 100 else yr_raw
-            if mon:
-                try:
-                    return date(year, mon, day)
-                except ValueError:
-                    pass
+            d = self._parse_date_parts(m.group(1), m.group(2), m.group(3))
+            if d:
+                return d
         return datetime.now().date()
 
     def _extract_date_transport(self, text: str) -> date:
         for pat in (_DATE_PICKUP_VN, _DATE_PICKUP_EN, _DATE_SHORT):
             m = pat.search(text)
             if m:
-                day = int(m.group(1))
-                mon = _EN_MONTHS.get(m.group(2).lower(), 0)
-                yr_raw = int(m.group(3))
-                year = 2000 + yr_raw if yr_raw < 100 else yr_raw
-                if mon:
-                    try:
-                        return date(year, mon, day)
-                    except ValueError:
-                        pass
+                d = self._parse_date_parts(m.group(1), m.group(2), m.group(3))
+                if d:
+                    return d
         return datetime.now().date()
