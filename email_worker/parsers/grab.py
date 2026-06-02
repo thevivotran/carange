@@ -10,6 +10,8 @@ Category mapping:
 import re
 from datetime import date, datetime
 
+from bs4 import BeautifulSoup
+
 from email_worker.parsers.base import BaseEmailParser, ParsedEmailTransaction
 
 _EN_MONTHS = {
@@ -56,7 +58,7 @@ _TRANSPORT_RE = re.compile(
 
 # Extracts the service-type label printed at the top of transport receipts.
 _SERVICE_TYPE_RE = re.compile(
-    r"^(Car(?:\s+Plus)?(?:\s+Xe\s+Điện)?|Bike|GrabBike|GrabCar|Taxi|Express|GrabExpress)\s*$",
+    r"^(Car(?:\s+Plus)?(?:\s+Xe\s+Điện)?|Bike(?:\s+Plus)?|GrabBike|GrabCar|Taxi|Express|GrabExpress)\s*$",
     re.MULTILINE | re.IGNORECASE,
 )
 
@@ -109,7 +111,7 @@ class GrabParser(BaseEmailParser):
         if _EXPRESS_RE.search(body_text):
             return self._parse_express(body_text)
         if _TRANSPORT_RE.search(body_text):
-            return self._parse_transport(body_text)
+            return self._parse_transport(body_text, body_html)
         return []
 
     # ── Food ──────────────────────────────────────────────────────────────────
@@ -141,7 +143,7 @@ class GrabParser(BaseEmailParser):
 
     # ── Transport ─────────────────────────────────────────────────────────────
 
-    def _parse_transport(self, text: str) -> list[ParsedEmailTransaction]:
+    def _parse_transport(self, text: str, html: str = "") -> list[ParsedEmailTransaction]:
         amount = None
         for pat in (_TRANSPORT_AMT_VN, _TRANSPORT_AMT_EN):
             m = pat.search(text)
@@ -154,7 +156,10 @@ class GrabParser(BaseEmailParser):
             return []
 
         service_type = self._extract_service_type(text)
-        desc = f"Grab {service_type}" if service_type else "Grab Transport"
+        label = f"Grab {service_type}" if service_type else "Grab Transport"
+
+        pickup, dropoff = self._extract_route(html)
+        desc = f'{label}: "{pickup}" - "{dropoff}"' if pickup and dropoff else label
 
         return [
             ParsedEmailTransaction(
@@ -194,6 +199,35 @@ class GrabParser(BaseEmailParser):
         ]
 
     # ── Helpers ───────────────────────────────────────────────────────────────
+
+    def _extract_route(self, html: str) -> tuple[str, str]:
+        """Return (pickup_address, dropoff_address) from Grab ride receipt HTML.
+
+        Grab receipts render pickup/dropoff inside a table where each row has:
+          <td> <img alt="pick-up"|"drop-off"> </td>
+          <td> <div>Address text</div> <div>Time</div> </td>
+        """
+        if not html:
+            return "", ""
+        try:
+            soup = BeautifulSoup(html, "lxml")
+
+            def _addr(alt: str) -> str:
+                img = soup.find("img", {"alt": alt})
+                if not img:
+                    return ""
+                img_td = img.find_parent("td")
+                if not img_td:
+                    return ""
+                addr_td = img_td.find_next_sibling("td")
+                if not addr_td:
+                    return ""
+                first_div = addr_td.find("div")
+                return first_div.get_text().strip() if first_div else ""
+
+            return _addr("pick-up"), _addr("drop-off")
+        except Exception:
+            return "", ""
 
     def _extract_restaurant(self, text: str):
         m = _RESTAURANT_RE.search(text)
