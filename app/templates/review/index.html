@@ -1,31 +1,41 @@
 {% extends "base.html" %}
+{% block title %}Review Inbox — Carange{% endblock %}
 
 {% block content %}
 <div class="p-6 pb-28 max-w-5xl mx-auto">
-    <!-- Header -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div>
-            <h2 class="text-3xl font-bold text-gray-800">Review Inbox</h2>
-            <p class="text-gray-600 mt-1">Transactions pending confirmation before saving</p>
-        </div>
-        <button onclick="htmx.trigger('#review-list', 'refresh')"
-                class="flex items-center gap-2 border rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition">
-            <i class="fas fa-sync-alt text-gray-500"></i> Refresh
-        </button>
-    </div>
 
-    <!-- Review list (HTMX lazy-load) -->
-    <div id="review-list"
-         hx-get="/fragments/review/list"
-         hx-trigger="load, review-updated from:body, refresh"
-         hx-swap="innerHTML">
-        <div class="flex justify-center py-16 text-gray-400">
-            <div class="text-center">
-                <i class="fas fa-spinner fa-spin text-2xl mb-3"></i>
-                <p class="text-sm">Loading...</p>
-            </div>
-        </div>
+  <!-- Header — consistent with Transactions page -->
+  <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+    <div>
+      <h2 class="text-3xl font-bold text-gray-800">Review Inbox</h2>
+      <p class="text-gray-600 mt-1">Confirm or skip transactions before they're saved</p>
     </div>
+    <div class="flex items-center gap-2">
+      <!-- Approve-all rendered by fragment so count is live -->
+      <div id="review-header-actions"></div>
+      <!-- Refresh — icon-button style matching Transactions export button -->
+      <button onclick="htmx.trigger('#review-list', 'refresh')"
+              title="Refresh inbox"
+              class="w-11 h-11 flex items-center justify-center bg-white border border-gray-300 text-gray-500 rounded-lg hover:bg-gray-50 hover:text-gray-700 transition flex-shrink-0">
+        <i class="fas fa-sync-alt text-sm"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Review list (HTMX lazy-load) -->
+  <div id="review-list"
+       hx-get="/fragments/review/list"
+       hx-trigger="load, review-updated from:body, refresh"
+       hx-target="this"
+       hx-swap="innerHTML">
+    <div class="flex justify-center py-20 text-gray-400">
+      <div class="text-center">
+        <i class="fas fa-spinner fa-spin text-2xl mb-3 block"></i>
+        <p class="text-sm">Loading inbox…</p>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -44,36 +54,37 @@ function approveRow(txId) {
     }).then(r => {
         if (r.ok) {
             row.style.opacity = '0';
-            row.style.transition = 'opacity 0.3s';
+            row.style.transform = 'translateX(8px)';
+            row.style.transition = 'opacity 0.25s, transform 0.25s';
             setTimeout(() => {
                 row.remove();
-                updateCount(-1);
+                _reviewUpdateCount(-1);
                 showToast('Transaction confirmed', 'success');
-            }, 300);
+            }, 250);
         }
     });
 }
 
 function rejectRow(txId) {
-    showConfirm('Skip this transaction?', async function() {
+    showConfirm('Skip this transaction? It will be removed from the inbox.', async function() {
         const r = await fetch('/api/review/' + txId + '/reject', { method: 'POST' });
         if (r.ok) {
             const row = document.getElementById('review-row-' + txId);
             row.style.opacity = '0';
-            row.style.transition = 'opacity 0.3s';
+            row.style.transform = 'translateX(-8px)';
+            row.style.transition = 'opacity 0.25s, transform 0.25s';
             setTimeout(() => {
                 row.remove();
-                updateCount(-1);
+                _reviewUpdateCount(-1);
                 showToast('Transaction skipped', 'warning');
-            }, 300);
+            }, 250);
         }
-    });
+    }, 'Skip', 'bg-red-600 hover:bg-red-700');
 }
 
 async function rememberAsRule(txId) {
     const res = await fetch('/api/review/' + txId + '/rule-prefill');
     const data = await res.json();
-    // Pre-fill the rule create form in the Rules page and navigate to it
     sessionStorage.setItem('rule_prefill', JSON.stringify(data));
     window.location.href = '/rules';
 }
@@ -104,22 +115,38 @@ async function approveAll() {
             });
             if (r.ok) {
                 row.style.opacity = '0';
-                row.style.transition = 'opacity 0.2s';
-                setTimeout(() => row.remove(), 200);
+                row.style.transition = 'opacity 0.15s';
+                setTimeout(() => row.remove(), 150);
                 approved++;
             }
         } catch (_) {}
     }
-    updateCount(-approved);
-    showToast(approved + ' transaction' + (approved !== 1 ? 's' : '') + ' approved', 'success');
+    _reviewUpdateCount(-approved);
+    showToast(approved + ' transaction' + (approved !== 1 ? 's' : '') + ' confirmed', 'success');
 }
 
-function updateCount(delta) {
+function _reviewUpdateCount(delta) {
+    /* Update nav badge */
     const badge = document.getElementById('review-count-badge');
     if (badge) {
         const n = Math.max(0, (parseInt(badge.textContent) || 0) + delta);
         badge.textContent = n;
         badge.closest('[data-review-badge]').classList.toggle('hidden', n === 0);
+    }
+    /* Update the inline count pill inside the fragment */
+    const pill = document.getElementById('review-pending-pill');
+    if (pill) {
+        const n = Math.max(0, (parseInt(pill.dataset.count) || 0) + delta);
+        pill.dataset.count = n;
+        const countEl = pill.querySelector('[data-count-label]');
+        if (countEl) countEl.textContent = n + ' transaction' + (n !== 1 ? 's' : '') + ' pending';
+        if (n === 0) {
+            /* All gone — swap to empty state */
+            const list = document.getElementById('review-list');
+            if (list) {
+                htmx.trigger(list, 'refresh');
+            }
+        }
     }
 }
 </script>
