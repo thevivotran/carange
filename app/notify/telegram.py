@@ -53,7 +53,7 @@ def send_transaction_ping_fields(fields: dict) -> bool:
             f"⚠️ <b>Needs review</b> [{source_label}]\n"
             f"{direction}{amount_str} — {fields['cat_name']}\n"
             f"<i>{desc}</i>\n"
-            f"👉 <a href='/review'>Open inbox</a>"
+            f"👉 Open the Review Inbox to confirm"
         )
     else:
         text = f"💸 <b>New</b> [{source_label}]\n{direction}{amount_str} — {fields['cat_name']}\n<i>{desc}</i>"
@@ -64,7 +64,7 @@ def send_transaction_ping_fields(fields: dict) -> bool:
 def send_transaction_ping(tx: Transaction) -> bool:
     """Notify when an auto-ingested transaction is created.
 
-    If the transaction needs review, the message links to /review.
+    If the transaction needs review, the message prompts to open the inbox.
     """
     amount_str = f"{tx.amount:,.0f}đ"
     direction = "+" if tx.type and tx.type.value == "income" else "-"
@@ -77,7 +77,7 @@ def send_transaction_ping(tx: Transaction) -> bool:
             f"⚠️ <b>Needs review</b> [{source_label}]\n"
             f"{direction}{amount_str} — {cat_name}\n"
             f"<i>{desc}</i>\n"
-            f"👉 <a href='/review'>Open inbox</a>"
+            f"👉 Open the Review Inbox to confirm"
         )
     else:
         text = f"💸 <b>New</b> [{source_label}]\n{direction}{amount_str} — {cat_name}\n<i>{desc}</i>"
@@ -90,7 +90,7 @@ def send_review_reminder(count: int) -> bool:
     if count <= 0:
         return False
     plural = "s" if count != 1 else ""
-    text = f"📋 <b>{count} transaction{plural}</b> pending review.\n👉 <a href='/review'>Open inbox</a>"
+    text = f"📋 <b>{count} transaction{plural}</b> pending review.\n👉 Open the Review Inbox to confirm"
     return _send(text)
 
 
