@@ -101,7 +101,7 @@ def poll_once() -> None:
                 from email_worker.email_parser import extract_email_parts
                 from email_worker.processor import process_email
 
-                message_id, sender, subject, _ = extract_email_parts(raw)
+                message_id, sender, subject, *_ = extract_email_parts(raw)
 
                 if not message_id:
                     # Fabricate a unique ID from uid when header is missing

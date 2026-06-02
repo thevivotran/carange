@@ -18,7 +18,7 @@ def process_email(log_row: EmailIngestLog, raw_message: bytes, db: Session) -> N
     from email_worker.email_parser import extract_email_parts
 
     try:
-        message_id, sender, subject, body_text = extract_email_parts(raw_message)
+        message_id, sender, subject, body_text, body_html = extract_email_parts(raw_message)
     except Exception as exc:
         _fail(db, log_row, f"MIME parse error: {exc}")
         return
@@ -29,7 +29,6 @@ def process_email(log_row: EmailIngestLog, raw_message: bytes, db: Session) -> N
         log_row.subject = subject
         db.flush()
 
-    body_html = ""  # extract_email_parts returns text; html handled internally
     parsed, parser_name = route_and_parse(sender, subject, body_text, body_html)
 
     if not parsed:

@@ -60,10 +60,15 @@ def _unwrap_forwarded(body_text: str) -> tuple[str, str]:
     return original_sender, clean_body
 
 
-def extract_email_parts(raw_message: bytes) -> tuple[str, str, str, str]:
+def extract_email_parts(raw_message: bytes) -> tuple[str, str, str, str, str]:
     """Parse a raw RFC 2822 message.
 
-    Returns (message_id, sender, subject, body_text).
+    Returns (message_id, sender, subject, body_text, body_html).
+    Both body_text and body_html are populated when available.
+    body_text is derived from body_html via BeautifulSoup when no
+    plaintext part exists — but body_html is still returned so
+    parsers can use the original HTML for structured extraction
+    (e.g. pickup/dropoff addresses in Grab receipts).
     """
     msg: Message = email.message_from_bytes(raw_message)
 
@@ -91,7 +96,7 @@ def extract_email_parts(raw_message: bytes) -> tuple[str, str, str, str]:
     if not body_text and body_html:
         body_text = _html_to_text(body_html)
 
-    return message_id, sender, subject, body_text
+    return message_id, sender, subject, body_text, body_html
 
 
 def route_and_parse(
