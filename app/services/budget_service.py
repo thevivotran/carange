@@ -78,12 +78,17 @@ def compute_budget_rows(db: Session, year_month: str) -> list[dict]:
     cat_first_alloc_start = {cat_id: f"{allocs[0][0]}-01" for cat_id, allocs in alloc_by_cat.items()}
 
     # ── SQL: cumulative spending using per-category start dates ───────────────
-    # A single query with a VALUES table avoids N round-trips while respecting
-    # each category's own budget window start.
-    starts_values = ", ".join(f"({cat_id}, '{start}')" for cat_id, start in cat_first_alloc_start.items())
+    # VALUES placeholders are bound parameters — never interpolate values into SQL.
+    params: dict = {"end_date": end_date_str}
+    placeholders: list[str] = []
+    for i, (cat_id, start) in enumerate(cat_first_alloc_start.items()):
+        params[f"cid_{i}"] = cat_id
+        params[f"sd_{i}"] = start
+        placeholders.append(f"(:cid_{i}, :sd_{i})")
+    values_sql = ", ".join(placeholders)
     cumulative_spent_rows = db.execute(
         text(f"""
-        WITH cat_starts(cat_id, start_date) AS (VALUES {starts_values})
+        WITH cat_starts(cat_id, start_date) AS (VALUES {values_sql})
         SELECT t.category_id, SUM(t.amount)
         FROM transactions t
         JOIN cat_starts cs ON t.category_id = cs.cat_id
@@ -93,7 +98,7 @@ def compute_budget_rows(db: Session, year_month: str) -> list[dict]:
           AND t.date <= :end_date
         GROUP BY t.category_id
         """),
-        {"end_date": end_date_str},
+        params,
     ).fetchall()
     cumulative_spent_map = {r[0]: float(r[1] or 0) for r in cumulative_spent_rows}
 
