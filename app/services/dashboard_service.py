@@ -4,10 +4,11 @@ import time
 import threading
 from datetime import date, timedelta
 from calendar import monthrange
+from types import SimpleNamespace
 from typing import Any
 
 from sqlalchemy import func, case, and_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.database import (
     Category,
@@ -53,6 +54,43 @@ def _cache_get(key: tuple) -> Any | None:
 def _cache_set(key: tuple, value: Any) -> None:
     with _cache_lock:
         _cache[key] = (time.monotonic(), value)
+
+
+def _project_ns(p) -> SimpleNamespace:
+    ns = SimpleNamespace()
+    ns.id = p.id
+    ns.name = p.name
+    ns.current_amount = p.current_amount
+    ns.target_amount = p.target_amount
+    ns.deadline = p.deadline
+    return ns
+
+
+def _savings_ns(s) -> SimpleNamespace:
+    ns = SimpleNamespace()
+    ns.name = s.name
+    ns.bank_name = s.bank_name
+    ns.maturity_date = s.maturity_date
+    ns.future_amount = s.future_amount
+    ns.current_amount = s.current_amount
+    return ns
+
+
+def _payment_ns(p) -> SimpleNamespace:
+    ns = SimpleNamespace()
+    ns.amount = p.amount
+    ns.due_date = p.due_date
+    return ns
+
+
+def _txn_ns(t) -> SimpleNamespace:
+    ns = SimpleNamespace()
+    ns.description = t.description
+    ns.date = t.date
+    ns.type = t.type
+    ns.amount = t.amount
+    ns.category = SimpleNamespace(name=t.category.name if t.category else "")
+    return ns
 
 
 def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict:
@@ -514,7 +552,12 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
 
     # ── Recent transactions & maturities ─────────────────────────────────────
     recent_transactions = (
-        db.query(Transaction).filter(Transaction.deleted_at.is_(None)).order_by(Transaction.date.desc()).limit(10).all()
+        db.query(Transaction)
+        .options(joinedload(Transaction.category))
+        .filter(Transaction.deleted_at.is_(None))
+        .order_by(Transaction.date.desc())
+        .limit(10)
+        .all()
     )
 
     upcoming_maturities = (
@@ -679,24 +722,24 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
             "passive_income_pct": passive_income_pct,
         },
         "budget_top_cats": budget_top_cats,
-        "alert_maturities": alert_maturities,
+        "alert_maturities": [_savings_ns(s) for s in alert_maturities],
         "alert_over_budget": alert_over_budget,
-        "active_projects_list": active_projects_list,
+        "active_projects_list": [_project_ns(p) for p in active_projects_list],
         "at_risk_ids": at_risk_ids,
         "today": today,
         "unsettled_advance_count": unsettled_advance_count,
         "unsettled_advance_total": unsettled_advance_total,
-        "recent_transactions": recent_transactions,
-        "upcoming_maturities": upcoming_maturities,
+        "recent_transactions": [_txn_ns(t) for t in recent_transactions],
+        "upcoming_maturities": [_savings_ns(s) for s in upcoming_maturities],
         "expense_by_category": expense_by_category,
         "project_amounts_by_type": project_amounts_by_type,
-        "bds_project": bds_project,
-        "bds_next_payment": bds_next_payment,
+        "bds_project": _project_ns(bds_project) if bds_project else None,
+        "bds_next_payment": _payment_ns(bds_next_payment) if bds_next_payment else None,
         "bds_ytd_paid": bds_ytd_paid,
         "bds_ytd_planned": bds_ytd_planned,
         "bds_completion_date": bds_completion_date,
         "bds_days_until_next": bds_days_until_next,
-        "baby_fund_bundle": baby_fund_bundle,
+        "baby_fund_bundle": _savings_ns(baby_fund_bundle) if baby_fund_bundle else None,
     }
     _cache_set(_cache_key, result)
     return result

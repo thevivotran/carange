@@ -366,3 +366,51 @@ def test_dashboard_cache_expired_returns_fresh_data(db_session, income_cat, expe
     assert result is None
     with _cache_lock:
         assert key not in _cache
+
+
+def test_ns_helpers_cover_all_branches():
+    """SimpleNamespace helpers must produce attribute-accessible objects for Jinja2 templates."""
+    from types import SimpleNamespace
+    from app.services.dashboard_service import _project_ns, _savings_ns, _payment_ns, _txn_ns
+    from app.models.database import TransactionType
+
+    proj = SimpleNamespace(
+        id=1, name="Apt", current_amount=1_000_000, target_amount=5_000_000, deadline=date(2026, 12, 31)
+    )
+    ns = _project_ns(proj)
+    assert ns.id == 1 and ns.name == "Apt" and ns.deadline == date(2026, 12, 31)
+
+    sav = SimpleNamespace(
+        name="Bundle",
+        bank_name="VCB",
+        maturity_date=date(2026, 6, 1),
+        future_amount=10_000_000,
+        current_amount=9_000_000,
+    )
+    ns = _savings_ns(sav)
+    assert ns.bank_name == "VCB" and ns.future_amount == 10_000_000
+
+    pmt = SimpleNamespace(amount=5_000_000, due_date=date(2026, 7, 1))
+    ns = _payment_ns(pmt)
+    assert ns.amount == 5_000_000
+
+    cat = SimpleNamespace(name="Food")
+    txn = SimpleNamespace(
+        description="Lunch",
+        date=date(2026, 5, 1),
+        type=TransactionType.EXPENSE,
+        amount=100_000,
+        category=cat,
+    )
+    ns = _txn_ns(txn)
+    assert ns.category.name == "Food"
+
+    txn_no_cat = SimpleNamespace(
+        description="X",
+        date=date(2026, 5, 1),
+        type=TransactionType.EXPENSE,
+        amount=0,
+        category=None,
+    )
+    ns2 = _txn_ns(txn_no_cat)
+    assert ns2.category.name == ""
