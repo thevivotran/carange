@@ -655,21 +655,49 @@
     // ─────────────────────────────────────────────────────────────────────────
 
     // Initialize
-    document.addEventListener('DOMContentLoaded', function() {
-        loadCategories();
+    document.addEventListener('DOMContentLoaded', async function() {
         loadProjectsFilter();
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const importJobParam = urlParams.get('import_job_id');
+        const urlParams    = new URLSearchParams(window.location.search);
+        const importJobParam  = urlParams.get('import_job_id');
         const fromImportParam = urlParams.get('from_import');
+        const urlCatId    = urlParams.get('category_id');
+        const urlMonth    = urlParams.get('month');
+        const urlType     = urlParams.get('type');
+        const urlAdvance  = urlParams.get('advance');
+
+        // Deeplink = navigation from another page that supplies category/type.
+        // 'month' is excluded because this page sets it in the URL itself.
+        const isDeeplink = !!(urlCatId || urlType) && !importJobParam;
+
+        // Set type before loadCategories — it controls which options populate the filter select.
+        if (isDeeplink && urlType) document.getElementById('filter-type').value = urlType;
+
+        // Await so the filter-category <select> has options before we set a value from URL.
+        await loadCategories();
 
         if (importJobParam) {
             activeImportJobId = parseInt(importJobParam);
             showImportBanner('import_job', activeImportJobId);
-            // Don't restore saved filters — this is a scoped view
+        } else if (isDeeplink) {
+            // URL params take full priority over any stored session filters.
+            if (urlCatId) {
+                const sel = document.getElementById('filter-category');
+                if (Array.from(sel.options).some(o => o.value === urlCatId)) sel.value = urlCatId;
+            }
+            if (urlAdvance) document.getElementById('filter-advance').value = urlAdvance;
+            // Open the advanced panel so the active filter is immediately visible.
+            if (urlCatId || urlType || urlAdvance) {
+                document.getElementById('advanced-filters').classList.remove('hidden');
+            }
+            updateFilterBadge();
+            saveFilters();
         } else {
             restoreFilters();
         }
+
+        // Month from URL always wins — applies on deeplinks and on return navigation.
+        if (urlMonth && /^\d{4}-\d{2}$/.test(urlMonth)) _applyTxMonthFilter(urlMonth);
 
         _updateTxPill();
         loadTransactions();
@@ -684,7 +712,6 @@
             const hintDescription = urlParams.get('hint_description') || '';
             const hintDate = urlParams.get('hint_date') || '';
             showImportBanner('from_import', null);
-            // Wait for categories to load then open modal
             setTimeout(function() {
                 openAddModal();
                 if (hintDescription) document.getElementById('description').value = hintDescription;

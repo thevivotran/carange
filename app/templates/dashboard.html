@@ -146,7 +146,7 @@
         {% for cat in budget_top_cats %}
         <div>
           <div class="flex justify-between items-center mb-0.5 text-xs">
-            <a href="/transactions?category_id={{ cat.category_id }}" class="flex items-center gap-1.5 min-w-0 hover:opacity-75 transition">
+            <a href="/transactions?category_id={{ cat.category_id }}&month={{ today.strftime('%Y-%m') }}" class="flex items-center gap-1.5 min-w-0 hover:opacity-75 transition">
               <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:{{ cat.category_color }}"></span>
               <span class="text-gray-700 font-medium truncate underline decoration-dotted">{{ cat.category_name }}</span>
             </a>
@@ -324,7 +324,7 @@
         </div>
         <div class="space-y-2">
           {% for cat in alert_over_budget %}
-          <a href="/transactions?category_id={{ cat.category_id }}" class="flex justify-between items-center text-xs hover:opacity-75 transition">
+          <a href="/transactions?category_id={{ cat.category_id }}&month={{ today.strftime('%Y-%m') }}" class="flex justify-between items-center text-xs hover:opacity-75 transition">
             <span class="text-red-800 font-medium underline decoration-dotted">{{ cat.category_name }}</span>
             <span class="text-red-600">{{ "{:,.0f}".format(cat.available_balance | abs) }} ₫ over</span>
           </a>

@@ -76,7 +76,9 @@
       <div class="flex items-center justify-between mb-2 gap-2">
         <div class="flex items-center gap-2 min-w-0">
           <span class="w-3 h-3 rounded-full flex-shrink-0" style="background:{{ r.category_color }}"></span>
-          <span class="font-semibold text-gray-800 text-sm truncate">{{ r.category_name }}</span>
+          <a href="/transactions?category_id={{ r.category_id }}&month={{ year_month }}"
+             class="font-semibold text-gray-800 text-sm truncate hover:text-primary hover:underline decoration-dotted transition"
+             title="View {{ r.category_name | e }} transactions for {{ year_month }}">{{ r.category_name }}</a>
         </div>
         <div class="flex items-center gap-3 text-sm flex-shrink-0">
           <span class="text-gray-500">{{ fmt_vnd(r.this_month_spent) }} spent</span>
