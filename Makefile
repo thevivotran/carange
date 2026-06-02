@@ -15,6 +15,8 @@ lint:
 	$(RUFF) check .
 	@echo "── ruff: formatting ──────────────────────────────────────────────"
 	$(RUFF) format --check .
+	@echo "── ui-lint: design token check ───────────────────────────────────"
+	$(PYTHON) ui_lint.py
 
 .PHONY: fmt
 fmt:
