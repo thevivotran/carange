@@ -411,9 +411,14 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
 
     cash_on_hand = float((_agg.total_income or 0) - (_agg.total_expense or 0))
 
-    assets = db.query(OtherAsset).all()
-    total_assets_current = sum(a.current_value_vnd for a in assets)
-    total_assets_purchase = sum(a.purchase_price_vnd for a in assets)
+    _assets_agg = db.query(
+        func.coalesce(func.sum(OtherAsset.current_value_vnd), 0).label("cur"),
+        func.coalesce(func.sum(OtherAsset.purchase_price_vnd), 0).label("pur"),
+        func.count(OtherAsset.id).label("cnt"),
+    ).first()
+    total_assets_current = float(_assets_agg.cur)
+    total_assets_purchase = float(_assets_agg.pur)
+    _assets_count = int(_assets_agg.cnt)
 
     total_projects_paid = (
         db.query(func.sum(ProjectPayment.amount)).filter(ProjectPayment.status == PaymentStatus.PAID).scalar() or 0
@@ -636,7 +641,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         .scalar()
         or 0
     )
-    _prev_assets_total = sum(a.current_value_vnd for a in assets)
+    _prev_assets_total = total_assets_current
     _prev_proj_paid = float(
         db.query(func.sum(ProjectPayment.amount)).filter(ProjectPayment.status == PaymentStatus.PAID).scalar() or 0
     )
@@ -704,7 +709,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
             "total_savings_initial": total_savings_initial,
             "total_assets_current": total_assets_current,
             "total_assets_purchase": total_assets_purchase,
-            "total_assets_count": len(assets),
+            "total_assets_count": _assets_count,
             "total_projects_paid": total_projects_paid,
             "active_projects": active_projects_count,
             "completed_projects": completed_projects_count,

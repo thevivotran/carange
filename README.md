@@ -1,150 +1,191 @@
 # Carange — Family Finance Tracker
 
-A self-hosted web app for tracking a family's finances: daily spending, savings, investment projects, assets, budget allocation, and notes. Built with FastAPI and SQLite, designed for LAN access from any device.
+A self-hosted personal finance app for tracking a Vietnamese household's daily spending,
+savings, investment projects, budget, and assets. Built with FastAPI and SQLite; designed
+for LAN access from any device. Runs as three Docker containers on a k3s homelab cluster.
+
+---
 
 ## Features
 
-### 1. Dashboard
-- **4 KPI cards** — Savings Rate, Net Cash, Net Worth, Budget Health; each with a ⓘ popover showing formula and target
-- **Savings Rate** = (Tiết kiệm + Bất động sản) ÷ Income × 100 — tracks wealth-building allocation; target ≥ 58%
-- **Net Worth** = Cash on Hand + Active Savings (maturity value) + Other Assets + Projects Paid
-- **Critical Checks** — two always-visible cards showing ✅/❌ for the month's most important obligations:
-  - Tiết kiệm > 20M deposited this month
-  - Bất động sản payment made this month
-- Month selector — KPI cards and critical checks update dynamically when month changes
-- Expense breakdown by category (chart), 6-month cash-flow trend (bar + line)
-- Upcoming savings maturities, active project progress, recent transactions
-- Budget over-limit and savings maturity alerts
+### Dashboard
+- **9 KPI cards** — Liquid Savings Rate, Real Estate Rate, Net Cash, Living Expense Ratio,
+  Emergency Fund Coverage, Budget Health, Runway, FI Progress, Net Worth Growth — each with
+  a formula popover and month-over-month delta arrow
+- **Net Worth card** — gradient panel breaking down Cash on Hand, Active Savings, Real Estate
+  Equity, Other Assets, and Passive Income
+- **BDS (Real Estate) progress panel** — next payment urgency, YTD progress, completion date
+- **One-Income Stress Test** — checks whether a single salary covers all monthly obligations
+- **Month navigation** — KPI cards and charts update when the month selector changes
+- **Cash flow chart** (6-month bar+line), **Wealth Building trend** (6-month stacked bar
+  with 3-month rolling savings rate), **Wealth Allocation donut**
+- **Alerts panel** — maturing savings within 30 days, over-budget categories, open advances
+- Budget category links navigate to transactions pre-filtered for that category and month
 
-### 2. Transactions
-- Log income and expense transactions with date, category, description, payment method
-- Filter by date range, type, category, keyword search
-- Edit and delete with undo support
-- Link transactions to savings bundles or financial projects
-- Client-side CSV export with active filters applied
+### Transactions
+- Log income and expense with date, category, description, and payment method
+- Advanced filters: date range, type, category, keyword, project, source (OCR/Email/Manual),
+  advance status; URL-driven deeplinks from Dashboard and Budget pages
+- Month navigator synced with Dashboard and Budget pages
+- Soft-delete with undo toast; audit log on every edit
+- **Cascade protection** — warns before deleting a transaction linked to a savings bundle or
+  project payment
+- **Advance tracking** — mark personal advances, settle them when repaid
+- Bulk CSV export respecting active filters
 - Quick-entry via Templates
 
-### 3. Categories
-- Custom expense and income categories with color and icon
-- Add, edit, deactivate categories
-- Vietnamese category set used by default
+### Review Inbox
+- Holding area for all auto-imported (OCR/Email) transactions pending confirmation
+- Edit description and category before approving; reject to discard
+- **Remember as Rule** — one click to turn the approval into a permanent auto-rule
+- Approve All bulk action with partial-failure feedback
+- Live badge count in every nav viewport syncs after every action
 
-### 4. Templates
-- Save recurring transactions as templates (fixed monthly expenses, etc.)
-- One-click "Use Template" to pre-fill a new transaction
+### OCR Import
+- Upload screenshots (JPEG/PNG/WebP/HEIC, up to 20 MB) from any payment app
+- **Dual extraction path:**
+  - Ollama vision (Qwen3.5-9B, self-hosted) — handles any screenshot layout
+  - PaddleOCR + source-specific parsers — fallback when Ollama is offline
+- Parsers: Timo, UOB, LioBank, Shopee Food, Grab, Generic
+- Deduplication by image SHA-256 (re-upload returns the existing job)
+- Transactions land in the Review Inbox; auto-approved only if confidence ≥ 0.95
 
-### 5. Savings Bundles
+### Email Ingestion
+- IMAP polling worker processes forwarded bank notification emails
+- Parsers: **Timo** (debit/credit), **Grab** (Bike/Car with pickup→dropoff route in the
+  description, Food, Express), **UOB** card alerts, **Shopee**, **Payoo**, Generic LLM fallback
+- Same dedup → rules → review pipeline as OCR
+
+### Budget
+- **Envelope-style rollover budgets** — unspent balance carries forward as credit;
+  overspending rolls as a deficit so over-budget context is always visible
+- "Effective from" month picker — set future allocations without touching the current month
+- Category name links navigate to Transactions pre-filtered for that category and month
+- Budget History modal — last 6 months of spend vs. budget per category with delta indicators
+- Summary bar: Total Budgeted / Spent / Available + overall progress bar
+
+### Savings Bundles
 - Track fixed deposits, recurring deposits, and savings goals
-- Record bank, interest rate, maturity date, current and future value
-- Log contributions and link bundles to financial projects
-- Mark as completed — automatically creates an income transaction for the matured amount
-- Rollover — marks old bundle complete and opens a new one seeded with the maturity value
+- Record bank, interest rate, start/maturity dates, current and target values
+- **Mark Completed** — auto-creates a matching income transaction for the matured amount
+- **Rollover** — closes a bundle and seeds a new one with the maturity value
 
-### 6. Financial Projects
-- Track multi-step financial goals (Real Estate, Investment, Vehicle, Education, Vacation, Custom)
-- Set priority, deadline, target amount, and milestones
-- Log contributions (manual or from a savings bundle)
-- Payment schedule with due dates and paid/pending status
-- Progress tracking with percentage completion
+### Financial Projects
+- Multi-step goals: Real Estate, Investment, Vehicle, Education, Vacation, Custom
+- Payment schedule with due dates, paid/pending status, and YTD progress
+- Progress tracking with deadline risk detection (flagged on Dashboard)
 
-### 7. Other Assets
-- Record holdings in foreign currency, gold, and other assets
-- Track quantity, unit, purchase cost (VND), and current estimated value
-- Contributes to net worth on the Dashboard
+### Other Assets
+- Record gold, foreign currency, and other holdings
+- Aggregated into Net Worth via a SQL sum (no Python-side iteration)
 
-### 8. Budget Allocation
-- Envelope-style monthly budgets per expense category
-- **Rollover balances:** unspent budget carries forward; overspending rolls as a deficit
-- Baseline starts from May 2026 — all history computed from that point
-- Month navigation to view any past or future month
-- "Effective from" month picker — set future budgets without touching the current month
-- Add and remove categories from the budget at any time
-- Per-category progress bar with colour coding (green / amber / red)
-- Summary bar showing total monthly spend vs. total allocation
+### Payees & Rules
+- **Payees** — canonical names with regex alias patterns; descriptions are normalised
+  on every ingest; compiled patterns cached per-process and invalidated on write
+- **Rules** — ordered auto-categorisation rules on description, amount, payment method,
+  source, or payee; supports auto-approve and force-review actions
 
-### 9. Notes
-- Two-panel editor (list + content) for free-form notes
-- Types: General, Money Owed
-- Auto-save with 800 ms debounce
-- Filter notes by type
-- Includes a pinned "Hướng dẫn phân loại giao dịch" (transaction categorisation guide)
+### Pulse (Daily Digest)
+- Health score (0–4) with green/amber/red level based on income, savings, and budget
+- LLM-powered budget commentary via Ollama (degrades gracefully when offline)
 
-## Technical Stack
+### Telegram Notifications
+- **Async push** — scalar fields extracted while the session is open, then the HTTP POST
+  fires in a background thread so transaction creation is never blocked by network latency
+- Separate message format for "Needs Review" (OCR/Email) vs. confirmed transactions
+- Review reminder for stale inbox items
 
-- **Backend:** FastAPI (Python 3.12+)
-- **Database:** SQLite (`carange.db`, auto-created on first run via `Base.metadata.create_all`)
-- **ORM:** SQLAlchemy (no Alembic — schema changes via `create_all`)
-- **Schemas:** Pydantic v2
-- **Frontend:** Jinja2 templates, Tailwind CSS (CDN), Chart.js (CDN), Font Awesome (CDN)
-- **PWA:** manifest + service worker for mobile home-screen install
-- **Currency:** Vietnamese Dong (VND)
+### Notes
+- Two-panel editor with auto-save (800 ms debounce)
+- Types: General, Money Owed; filter by type
 
-## Installation
+---
+
+## Architecture
+
+```
+┌────────────────────────────────────────────────────────┐
+│  Browser  ←→  FastAPI app  (Jinja2 + HTMX + Tailwind) │
+│                    │                                    │
+│              SQLite (WAL)  ←→  OCR Worker              │
+│                    │                 (PaddleOCR/Ollama) │
+│                    └─────────── Email Worker (IMAP)    │
+└────────────────────────────────────────────────────────┘
+```
+
+| Component | Image | Role |
+|-----------|-------|------|
+| `carange` | `ghcr.io/thevivotran/carange` | FastAPI web app |
+| `carange-ocr-worker` | `ghcr.io/thevivotran/carange-ocr-worker` | OCR import pipeline |
+| `carange-email-worker` | `ghcr.io/thevivotran/carange-email-worker` | Email ingestion pipeline |
+
+**Stack:** FastAPI · SQLAlchemy · Pydantic v2 · SQLite (WAL) · Jinja2 · HTMX · Alpine.js ·
+Tailwind CSS · Chart.js · Font Awesome · PaddleOCR · Ollama · Telegram Bot API
+
+---
+
+## Running locally
 
 ```bash
 git clone git@github.com:thevivotran/carange.git
 cd carange
-uv sync          # or: pip install -r requirements.txt
+pip install -r requirements.txt   # or: uv sync
+python main.py                     # → http://localhost:6868
 ```
 
-## Running
+**Environment variables** (all optional):
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `DATABASE_URL` | `sqlite:///./carange.db` | SQLite path |
+| `UPLOAD_DIR` | `uploads` | Screenshot storage for OCR jobs |
+| `TELEGRAM_BOT_TOKEN` | — | Telegram push notifications |
+| `TELEGRAM_CHAT_ID` | — | Target chat ID for notifications |
+| `OLLAMA_URL` | — | Ollama endpoint (e.g. `http://localhost:11434`) |
+| `REVIEW_THRESHOLD` | `0.95` | Confidence below which a tx enters the Review Inbox |
+
+---
+
+## Tests & CI
 
 ```bash
-# Quickest
-bash scripts/run.sh
-
-# Manual
-source .venv/bin/activate
-python main.py
-
-# With uvicorn (hot-reload for dev)
-uvicorn main:app --reload --host 0.0.0.0 --port 6868
+make all        # ruff lint + ui_lint design-token check + tests + coverage ≥ 95%
+make test-fast  # fast pytest run without coverage
 ```
 
-Available at:
-- Local: http://localhost:6868
-- Network: http://YOUR_LOCAL_IP:6868
+**677 tests** across 37 modules using in-memory SQLite — production DB is never touched.
 
-## Tests
-
-```bash
-.venv/bin/pytest
+CI builds Docker images on every push to `main`:
+```
+ghcr.io/thevivotran/carange:main-YYYYMMDD-HHmmss-SHA
 ```
 
-72 tests covering all routers and core business logic (budget rollover, savings rate formula, savings mark-completed auto-transaction, CRUD validation). Each test uses a fresh in-memory SQLite database — the production `carange.db` is never touched.
+---
 
-## Deployment (systemd autostart)
+## Deployment
 
-```bash
-sudo bash scripts/setup-autostart.sh
-```
+Deployed on a k3s homelab cluster via FluxCD GitOps. Manifests live in `homelab/apps/carange/`.
+Push to `main` → GitHub Actions builds and pushes all three images → FluxCD detects the new
+tags and rolls out the updated pods automatically.
 
-Manage the service:
+---
 
-```bash
-sudo systemctl start|stop|restart|status carange
-```
+## Design system
 
-## Access from Other Devices
+`ui_lint.py` runs as part of `make lint` and enforces 7 template rules to prevent UI drift:
 
-1. Find your local IP: `ip addr`
-2. Allow port 6868 through the firewall if needed
-3. Open `http://YOUR_IP:6868` on any device on the same network
+| Rule | Prevents |
+|------|---------|
+| `badge-font-medium` | Status badge text rendered thin |
+| `icon-button-size` | Header icon buttons at inconsistent sizes |
+| `modal-button-font` | Modal footer buttons without `font-medium` |
+| `page-heading-color` | Page `h2` titles missing `text-gray-800` |
+| `icon-btn-label` | Icon-only buttons with no `title` or `aria-label` |
+| `input-focus-ring` | Bordered inputs missing `focus:ring-2` |
+| `img-alt` | `<img>` tags without `alt` attribute |
 
-## API Reference
-
-| Router | Prefix | Key endpoints |
-|--------|--------|---------------|
-| Dashboard | `/api` | `GET /dashboard/summary`, `/dashboard/monthly-trend`, `/dashboard/expense-by-category` |
-| Transactions | `/api/transactions` | CRUD + `GET /stats/monthly-summary`, `GET /stats/by-category` |
-| Categories | `/api/categories` | CRUD |
-| Templates | `/api/templates` | CRUD |
-| Savings | `/api/savings` | CRUD + `POST /{id}/contribute`, `POST /{id}/mark-completed`, `POST /{id}/rollover` |
-| Projects | `/api/projects` | CRUD + milestones, contributions, payments |
-| Assets | `/api/assets` | CRUD |
-| Budget | `/api/budget` | `GET /{ym}/rows`, `POST /`, `PUT /{id}`, `DELETE /category/{id}`, `DELETE /{id}` |
-| Notes | `/api/notes` | `GET /`, `POST /`, `PUT /{id}`, `DELETE /{id}` |
+---
 
 ## License
 
-Personal project — family use only.
+[MIT](LICENSE)
