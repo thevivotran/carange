@@ -126,27 +126,37 @@ async function approveAll() {
 }
 
 function _reviewUpdateCount(delta) {
-    /* Update nav badge */
+    // ── All nav badges (sidebar + both mobile variants) ──────────────────
     const badge = document.getElementById('review-count-badge');
     if (badge) {
         const n = Math.max(0, (parseInt(badge.textContent) || 0) + delta);
         badge.textContent = n;
         badge.closest('[data-review-badge]').classList.toggle('hidden', n === 0);
     }
-    /* Update the inline count pill inside the fragment */
+    ['mobile-bottom-review-badge', 'mobile-more-review-badge'].forEach(function(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const n = Math.max(0, (parseInt(el.textContent) || 0) + delta);
+        el.textContent = n;
+        el.classList.toggle('hidden', n === 0);
+    });
+
+    // ── Inline pending pill + approve-all button ──────────────────────────
     const pill = document.getElementById('review-pending-pill');
-    if (pill) {
-        const n = Math.max(0, (parseInt(pill.dataset.count) || 0) + delta);
-        pill.dataset.count = n;
-        const countEl = pill.querySelector('[data-count-label]');
-        if (countEl) countEl.textContent = n + ' transaction' + (n !== 1 ? 's' : '') + ' pending';
-        if (n === 0) {
-            /* All gone — swap to empty state */
-            const list = document.getElementById('review-list');
-            if (list) {
-                htmx.trigger(list, 'refresh');
-            }
-        }
+    if (!pill) return;
+    const n = Math.max(0, (parseInt(pill.dataset.count) || 0) + delta);
+    pill.dataset.count = n;
+    const countEl = pill.querySelector('[data-count-label]');
+    if (countEl) countEl.textContent = n + ' transaction' + (n !== 1 ? 's' : '') + ' pending';
+
+    // Hide "Approve all" when only 0 or 1 item remains
+    const approveAllBtn = document.getElementById('review-approve-all-btn');
+    if (approveAllBtn) approveAllBtn.classList.toggle('hidden', n <= 1);
+
+    // Reload to show empty state when all cleared
+    if (n === 0) {
+        const list = document.getElementById('review-list');
+        if (list) htmx.trigger(list, 'refresh');
     }
 }
 </script>

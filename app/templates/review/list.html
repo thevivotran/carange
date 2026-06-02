@@ -18,7 +18,7 @@
     <span data-count-label>{{ count }} transaction{{ '' if count == 1 else 's' }} pending</span>
   </span>
   {% if count > 1 %}
-  <button onclick="approveAll()"
+  <button id="review-approve-all-btn" onclick="approveAll()"
           class="inline-flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition">
     <i class="fas fa-check-double text-xs"></i> Approve all
   </button>
