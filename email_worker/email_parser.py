@@ -10,6 +10,7 @@ from bs4 import BeautifulSoup
 from email_worker.parsers.base import BaseEmailParser, ParsedEmailTransaction
 from email_worker.parsers.grab import GrabParser
 from email_worker.parsers.shopee import ShopeeParser
+from email_worker.parsers.timo import TimoParser
 from email_worker.parsers.vcb import VCBParser
 from email_worker.parsers.uob import UOBParser
 from email_worker.parsers.payoo import PayooParser
@@ -24,6 +25,7 @@ _PARSERS: list[BaseEmailParser] = [
     PayooParser(),
     ShopeeParser(),
     GrabParser(),
+    TimoParser(),
     GenericOllamaParser(),
 ]
 
