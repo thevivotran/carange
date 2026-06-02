@@ -80,7 +80,7 @@ def test_icon_button_w11_flagged():
 
 def test_icon_button_w10_passes():
     line = (
-        '<button class="w-10 h-10 rounded-lg flex items-center'
+        '<button title="Refresh" class="w-10 h-10 rounded-lg flex items-center'
         ' justify-center bg-white border"><i class="fas fa-sync-alt text-sm"></i></button>'
     )
     assert lint_line(line, Path("t.html"), 1) == []
@@ -101,9 +101,9 @@ def test_month_nav_w10_passes():
 
 
 def test_table_row_icon_no_width_not_flagged():
-    """Table row action buttons use p-2, not explicit width — not checked."""
+    """Table row action buttons use p-2, not explicit width — not checked by icon-button-size."""
     line = (
-        '<button class="p-2 text-gray-400 hover:text-primary'
+        '<button title="Edit" class="p-2 text-gray-400 hover:text-primary'
         ' rounded-lg hover:bg-gray-100"><i class="fas fa-edit"></i></button>'
     )
     assert lint_line(line, Path("t.html"), 1) == []
@@ -136,6 +136,123 @@ def test_modal_button_font_semibold_passes():
 def test_non_modal_button_not_flagged():
     """No flex-1 → not a modal footer button."""
     line = '<button class="px-4 py-2 bg-primary text-white rounded-lg text-sm">Open</button>'
+    assert lint_line(line, Path("t.html"), 1) == []
+
+
+# ── page-heading-color ────────────────────────────────────────────────────────
+
+
+def test_page_heading_missing_gray800_flagged():
+    line = '<h2 class="text-3xl font-bold">Transactions</h2>'
+    assert any("page-heading-color" in v for v in lint_line(line, Path("t.html"), 1))
+
+
+def test_page_heading_wrong_color_flagged():
+    line = '<h2 class="text-3xl font-bold text-gray-700">Transactions</h2>'
+    assert any("page-heading-color" in v for v in lint_line(line, Path("t.html"), 1))
+
+
+def test_page_heading_with_gray800_passes():
+    line = '<h2 class="text-3xl font-bold text-gray-800">Transactions</h2>'
+    assert lint_line(line, Path("t.html"), 1) == []
+
+
+def test_page_heading_not_3xl_not_checked():
+    """Smaller headings (card titles, sidebar) are not page-level headings."""
+    line = '<h2 class="text-xl font-bold">Card Title</h2>'
+    assert lint_line(line, Path("t.html"), 1) == []
+
+
+# ── icon-btn-label ────────────────────────────────────────────────────────────
+
+
+def test_icon_btn_no_label_flagged():
+    line = '<button onclick="doThing()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>'
+    assert any("icon-btn-label" in v for v in lint_line(line, Path("t.html"), 1))
+
+
+def test_icon_btn_with_title_passes():
+    line = '<button onclick="doThing()" title="Close" class="text-gray-400"><i class="fas fa-times"></i></button>'
+    assert lint_line(line, Path("t.html"), 1) == []
+
+
+def test_icon_btn_with_aria_label_passes():
+    line = '<button onclick="doThing()" aria-label="Close" class="text-gray-400"><i class="fas fa-times"></i></button>'
+    assert lint_line(line, Path("t.html"), 1) == []
+
+
+def test_icon_btn_with_text_not_flagged():
+    """Button with visible text does not need aria-label."""
+    line = (
+        '<button class="bg-primary text-white px-4 py-2 rounded-lg">'
+        '<i class="fas fa-plus mr-2"></i>Add Transaction</button>'
+    )
+    assert lint_line(line, Path("t.html"), 1) == []
+
+
+def test_icon_btn_multiline_not_checked():
+    """Multi-line buttons (no </button> on same line) are skipped."""
+    line = '<button class="w-10 h-10 rounded-lg">'
+    assert lint_line(line, Path("t.html"), 1) == []
+
+
+# ── input-focus-ring ──────────────────────────────────────────────────────────
+
+
+def test_input_missing_focus_ring_flagged():
+    line = '<input type="text" class="border rounded-lg px-3 py-2 text-sm">'
+    assert any("input-focus-ring" in v for v in lint_line(line, Path("t.html"), 1))
+
+
+def test_select_missing_focus_ring_flagged():
+    line = '<select class="border rounded-lg px-3 py-2 text-sm">'
+    assert any("input-focus-ring" in v for v in lint_line(line, Path("t.html"), 1))
+
+
+def test_input_with_focus_ring_passes():
+    line = '<input type="text" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary">'
+    assert lint_line(line, Path("t.html"), 1) == []
+
+
+def test_input_checkbox_not_checked():
+    """Checkboxes and radios don't need focus:ring-2 via this rule."""
+    line = '<input type="checkbox" class="border w-5 h-5 rounded">'
+    assert lint_line(line, Path("t.html"), 1) == []
+
+
+def test_input_hidden_not_checked():
+    line = '<input type="hidden" class="border">'
+    assert lint_line(line, Path("t.html"), 1) == []
+
+
+def test_input_border_none_not_checked():
+    """Explicitly borderless inputs don't need a focus ring."""
+    line = '<input type="text" class="border-none bg-transparent outline-none">'
+    assert lint_line(line, Path("t.html"), 1) == []
+
+
+def test_input_no_border_class_not_checked():
+    """Inputs without the border class token are not checked."""
+    line = '<input type="text" class="border-gray-300 rounded-lg px-3 py-2">'
+    assert lint_line(line, Path("t.html"), 1) == []
+
+
+# ── img-alt ───────────────────────────────────────────────────────────────────
+
+
+def test_img_without_alt_flagged():
+    line = '<img src="/static/logo.png" class="w-32">'
+    assert any("img-alt" in v for v in lint_line(line, Path("t.html"), 1))
+
+
+def test_img_with_alt_passes():
+    line = '<img src="/static/logo.png" alt="Company logo" class="w-32">'
+    assert lint_line(line, Path("t.html"), 1) == []
+
+
+def test_img_with_empty_alt_passes():
+    """alt="" is valid for decorative images."""
+    line = '<img src="/static/decoration.png" alt="" class="w-full">'
     assert lint_line(line, Path("t.html"), 1) == []
 
 
