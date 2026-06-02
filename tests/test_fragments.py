@@ -252,6 +252,60 @@ def test_fragment_import_job_transactions_nonexistent(client):
     assert r.status_code == 200
 
 
+def test_fragment_import_jobs_search(client):
+    r = client.get("/fragments/import/jobs?search=timo", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+
+
+def test_fragment_import_jobs_search_with_data(client, db_session):
+    from app.models.database import ImportJob, ImportJobStatus
+
+    job = ImportJob(
+        filename="timo_june.jpg",
+        file_path="abc123.jpg",
+        image_hash="abc" * 21 + "a",
+        status=ImportJobStatus.DONE,
+        transaction_count=1,
+    )
+    db_session.add(job)
+    db_session.commit()
+
+    r = client.get("/fragments/import/jobs?search=timo", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "timo_june.jpg" in r.text
+
+    r2 = client.get("/fragments/import/jobs?search=uob", headers={"HX-Request": "true"})
+    assert r2.status_code == 200
+    assert "timo_june.jpg" not in r2.text
+
+
+def test_fragment_import_jobs_invalid_status(client):
+    r = client.get("/fragments/import/jobs?status=bogus", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+
+
+def test_group_by_date_helper():
+    from datetime import timedelta, timezone, datetime as dt
+    from app.routers.fragments.import_page import _group_by_date
+
+    class Obj:
+        def __init__(self, d):
+            self.created_at = d
+
+    today = dt.now(timezone.utc)
+    yesterday_dt = today - timedelta(days=1)
+    old_dt = today - timedelta(days=10)
+
+    items = [Obj(today), Obj(yesterday_dt), Obj(old_dt), Obj(None)]
+    groups = _group_by_date(items)
+    labels = [label for label, _ in groups]
+    assert "Today" in labels
+    assert "Yesterday" in labels
+    assert "Unknown" in labels
+    assert len(groups[0][1]) == 1  # Today: 1 item
+    assert len(groups[1][1]) == 1  # Yesterday: 1 item
+
+
 # ── Templates fragment tests ──────────────────────────────────────────────────
 
 
@@ -349,6 +403,59 @@ def test_fragment_import_email_logs_with_data(client, db_session):
     r = client.get("/fragments/import/email-logs", headers={"HX-Request": "true"})
     assert r.status_code == 200
     assert "Timo receipt #123" in r.text
+
+
+def test_fragment_import_email_logs_status_filter(client, db_session):
+    from datetime import datetime, timezone
+    from app.models.database import EmailIngestLog
+
+    db_session.add(
+        EmailIngestLog(
+            message_id="<done-01@example.com>",
+            sender="a@b.com",
+            subject="Done receipt",
+            status="done",
+            processed_at=datetime.now(timezone.utc),
+        )
+    )
+    db_session.add(
+        EmailIngestLog(
+            message_id="<fail-01@example.com>",
+            sender="a@b.com",
+            subject="Failed receipt",
+            status="failed",
+        )
+    )
+    db_session.commit()
+
+    r = client.get("/fragments/import/email-logs?status=done", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "Done receipt" in r.text
+    assert "Failed receipt" not in r.text
+
+
+def test_fragment_import_email_logs_search(client, db_session):
+    from datetime import datetime, timezone
+    from app.models.database import EmailIngestLog
+
+    db_session.add(
+        EmailIngestLog(
+            message_id="<shopee-01@example.com>",
+            sender="receipts@shopee.com",
+            subject="Shopee order #999",
+            status="done",
+            processed_at=datetime.now(timezone.utc),
+        )
+    )
+    db_session.commit()
+
+    r = client.get("/fragments/import/email-logs?search=shopee", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "Shopee order #999" in r.text
+
+    r2 = client.get("/fragments/import/email-logs?search=grab", headers={"HX-Request": "true"})
+    assert r2.status_code == 200
+    assert "Shopee order #999" not in r2.text
 
 
 # ── Templates has_cadence filter ─────────────────────────────────────────────

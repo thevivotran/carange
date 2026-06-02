@@ -84,9 +84,9 @@
 
     <!-- Screenshot job history panel -->
     <div id="ocr-panel">
-        <div class="flex items-center justify-between mb-3">
-            <h3 class="font-semibold text-gray-700">Screenshot Jobs</h3>
-            <div class="flex gap-2">
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+            <h3 class="font-semibold text-gray-700 mr-1">Screenshot Jobs</h3>
+            <div class="flex gap-1.5 flex-wrap flex-1">
                 <button onclick="setJobFilter('all')" id="filter-all"
                         class="job-filter-btn active-filter text-xs px-3 py-1 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition">
                     All
@@ -104,6 +104,13 @@
                     Failed
                 </button>
             </div>
+            <div class="relative">
+                <i class="fas fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-300 text-xs pointer-events-none"></i>
+                <input id="ocr-search" name="search" type="search"
+                       placeholder="Search filenames…"
+                       oninput="debouncedOcrSearch()"
+                       class="pl-7 pr-3 py-1 text-xs border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent w-36 sm:w-44 bg-white">
+            </div>
         </div>
 
         <!-- HTMX-managed job list region -->
@@ -111,6 +118,7 @@
              hx-get="/fragments/import/jobs"
              hx-trigger="load, import-jobs-updated from:body, every 3s [document.querySelector('.job-pending')]"
              hx-swap="outerHTML"
+             hx-include="#ocr-search"
              class="space-y-3">
             <div class="text-center py-10 text-gray-400">
                 <i class="fas fa-inbox text-3xl mb-2 block"></i>
@@ -121,21 +129,36 @@
 
     <!-- Email ingest history panel -->
     <div id="email-panel" class="hidden">
-        <div class="flex items-center justify-between mb-3">
-            <h3 class="font-semibold text-gray-700">Email Receipt Log</h3>
-            <button onclick="htmx.trigger('#email-log-region', 'email-refresh')"
-                    class="text-xs text-gray-400 hover:text-primary transition flex items-center gap-1">
-                <i class="fas fa-sync-alt text-xs"></i> Refresh
-            </button>
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+            <h3 class="font-semibold text-gray-700 mr-1">Email Receipts</h3>
+            <div class="flex gap-1.5 flex-wrap flex-1">
+                <button onclick="setEmailFilter('all')" id="email-filter-all"
+                        class="email-filter-btn active-email-filter text-xs px-3 py-1 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition">
+                    All
+                </button>
+                <button onclick="setEmailFilter('done')" id="email-filter-done"
+                        class="email-filter-btn text-xs px-3 py-1 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition">
+                    Done
+                </button>
+                <button onclick="setEmailFilter('failed')" id="email-filter-failed"
+                        class="email-filter-btn text-xs px-3 py-1 rounded-full border border-gray-300 text-gray-600 hover:bg-gray-100 transition">
+                    Failed
+                </button>
+            </div>
+            <div class="relative">
+                <i class="fas fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-300 text-xs pointer-events-none"></i>
+                <input id="email-search" name="search" type="search"
+                       placeholder="Search subject, sender…"
+                       oninput="debouncedEmailSearch()"
+                       class="pl-7 pr-3 py-1 text-xs border border-gray-300 rounded-full focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent w-40 sm:w-52 bg-white">
+            </div>
         </div>
-        <p class="text-xs text-gray-400 mb-4">
-            Receipts from Timo, Shopee, Grab and UOB forwarded to your ingest address are processed automatically.
-        </p>
         <div id="email-log-region"
              class="bg-white rounded-xl shadow-sm border overflow-hidden"
              hx-get="/fragments/import/email-logs"
              hx-trigger="load, email-refresh"
-             hx-swap="innerHTML">
+             hx-swap="innerHTML"
+             hx-include="#email-search">
             <div class="text-center py-10 text-gray-400">
                 <i class="fas fa-spinner fa-spin text-2xl mb-2 block"></i>
                 <p class="text-sm">Loading…</p>
@@ -170,7 +193,8 @@
 
 {% block extra_css %}
 <style>
-    .job-filter-btn.active-filter { background-color: #3B82F6; color: #fff; border-color: #3B82F6; }
+    .job-filter-btn.active-filter        { background-color: #3B82F6; color: #fff; border-color: #3B82F6; }
+    .email-filter-btn.active-email-filter { background-color: #3B82F6; color: #fff; border-color: #3B82F6; }
     #drop-zone.drag-over { border-color: #3B82F6; background-color: rgba(59,130,246,0.06); }
     .status-badge-pending    { background:rgba(107,114,128,.15); color:#6b7280; }
     .status-badge-processing { background:rgba(245,158,11,.18);  color:#b45309; }
@@ -363,12 +387,47 @@ function setJobFilter(filter) {
     const activeBtn = document.getElementById('filter-' + filter);
     if (activeBtn) activeBtn.classList.add('active-filter');
 
-    // Update HTMX target with new filter param and trigger reload
     const region = document.getElementById('job-list-region');
     if (region) {
         region.setAttribute('hx-vals', JSON.stringify({ status: filter }));
         htmx.trigger(region, 'import-jobs-updated');
     }
+}
+
+// ── OCR search ────────────────────────────────────────────────────────────────
+var _ocrSearchTimer = null;
+function debouncedOcrSearch() {
+    clearTimeout(_ocrSearchTimer);
+    _ocrSearchTimer = setTimeout(function() {
+        document.body.dispatchEvent(new CustomEvent('import-jobs-updated'));
+    }, 380);
+}
+
+// ── Email filter ──────────────────────────────────────────────────────────────
+var currentEmailFilter = 'all';
+
+function setEmailFilter(filter) {
+    currentEmailFilter = filter;
+    document.querySelectorAll('.email-filter-btn').forEach(function(btn) {
+        btn.classList.remove('active-email-filter');
+    });
+    var activeBtn = document.getElementById('email-filter-' + filter);
+    if (activeBtn) activeBtn.classList.add('active-email-filter');
+
+    var region = document.getElementById('email-log-region');
+    if (region) {
+        region.setAttribute('hx-vals', JSON.stringify({ status: filter }));
+        htmx.trigger(region, 'email-refresh');
+    }
+}
+
+// ── Email search ──────────────────────────────────────────────────────────────
+var _emailSearchTimer = null;
+function debouncedEmailSearch() {
+    clearTimeout(_emailSearchTimer);
+    _emailSearchTimer = setTimeout(function() {
+        htmx.trigger(document.getElementById('email-log-region'), 'email-refresh');
+    }, 380);
 }
 
 // ── Delete job ────────────────────────────────────────────────────────────────
