@@ -26,7 +26,7 @@
         <td class="px-4 py-3 font-medium text-gray-800">{{ p.canonical_name }}</td>
         <td class="px-4 py-3">
             {% if p.default_category_name %}
-            <span class="bg-green-50 text-green-700 text-xs px-2 py-0.5 rounded-full">{{ p.default_category_name }}</span>
+            <span class="bg-green-50 text-green-700 text-xs font-medium px-2 py-0.5 rounded-full">{{ p.default_category_name }}</span>
             {% else %}
             <span class="text-gray-300 text-xs">—</span>
             {% endif %}
@@ -43,11 +43,11 @@
         </td>
         <td class="px-4 py-3">
             {% if p.source == 'bootstrap' %}
-            <span class="bg-purple-50 text-purple-600 text-xs px-2 py-0.5 rounded-full">bootstrap</span>
+            <span class="bg-purple-50 text-purple-600 text-xs font-medium px-2 py-0.5 rounded-full">bootstrap</span>
             {% elif p.source == 'learned' %}
-            <span class="bg-blue-50 text-blue-600 text-xs px-2 py-0.5 rounded-full">learned</span>
+            <span class="bg-blue-50 text-blue-600 text-xs font-medium px-2 py-0.5 rounded-full">learned</span>
             {% else %}
-            <span class="bg-gray-50 text-gray-500 text-xs px-2 py-0.5 rounded-full">manual</span>
+            <span class="bg-gray-50 text-gray-500 text-xs font-medium px-2 py-0.5 rounded-full">manual</span>
             {% endif %}
         </td>
         <td class="px-4 py-3 text-right">
@@ -76,16 +76,16 @@
             <div class="flex items-center gap-2 flex-wrap">
                 <span class="font-medium text-gray-800 text-sm">{{ p.canonical_name }}</span>
                 {% if p.source == 'bootstrap' %}
-                <span class="bg-purple-50 text-purple-600 text-xs px-1.5 py-0.5 rounded-full">bootstrap</span>
+                <span class="bg-purple-50 text-purple-600 text-xs font-medium px-2 py-0.5 rounded-full">bootstrap</span>
                 {% elif p.source == 'learned' %}
-                <span class="bg-blue-50 text-blue-600 text-xs px-1.5 py-0.5 rounded-full">learned</span>
+                <span class="bg-blue-50 text-blue-600 text-xs font-medium px-2 py-0.5 rounded-full">learned</span>
                 {% else %}
-                <span class="bg-gray-50 text-gray-500 text-xs px-1.5 py-0.5 rounded-full">manual</span>
+                <span class="bg-gray-50 text-gray-500 text-xs font-medium px-2 py-0.5 rounded-full">manual</span>
                 {% endif %}
             </div>
             {% if p.default_category_name %}
             <div class="mt-1">
-                <span class="bg-green-50 text-green-700 text-xs px-2 py-0.5 rounded-full">→ {{ p.default_category_name }}</span>
+                <span class="bg-green-50 text-green-700 text-xs font-medium px-2 py-0.5 rounded-full">→ {{ p.default_category_name }}</span>
             </div>
             {% endif %}
             {% if p.alias_patterns %}

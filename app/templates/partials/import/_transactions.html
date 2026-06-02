@@ -21,7 +21,7 @@
     <span class="text-sm font-semibold flex-shrink-0 w-28 text-right {{ 'text-green-600' if tx.type == 'income' else 'text-red-600' }}">
         {{ '+' if tx.type == 'income' else '-' }}{{ "{:,.0f}".format(tx.amount) }} ₫
     </span>
-    <span class="text-xs px-2 py-0.5 rounded-full flex-shrink-0 max-w-[80px] truncate"
+    <span class="text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 max-w-[80px] truncate"
           style="background-color: {{ tx.category.color }}20; color: {{ tx.category.color }}">
         {{ tx.category.name }}
     </span>

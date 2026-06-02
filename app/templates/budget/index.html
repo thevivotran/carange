@@ -22,7 +22,7 @@
                 class="hidden w-7 h-7 flex items-center justify-center rounded-lg text-base text-gray-400 hover:text-red-500 hover:bg-red-50 transition select-none">&#215;</button>
       </div>
       <button onclick="openHistoryModal()" title="Budget History" aria-label="Budget History"
-              class="hidden md:flex items-center justify-center w-11 h-11 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition flex-shrink-0">
+              class="hidden md:flex items-center justify-center w-10 h-10 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition flex-shrink-0">
         <i class="fas fa-history"></i>
       </button>
       <button onclick="openAddModal()" class="hidden md:flex items-center gap-2 px-4 py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition">
@@ -56,8 +56,8 @@
     </div>
     <div id="edit-form" class="flex-1 overflow-y-auto overscroll-contain px-6 py-4 space-y-3"></div>
     <div class="px-6 py-4 border-t flex gap-3">
-      <button onclick="closeEditModal()" class="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50 transition text-sm">Cancel</button>
-      <button onclick="saveEdits()" class="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition text-sm">Save</button>
+      <button onclick="closeEditModal()" class="flex-1 px-4 py-2.5 border rounded-lg hover:bg-gray-50 transition text-sm font-medium">Cancel</button>
+      <button onclick="saveEdits()" class="flex-1 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">Save</button>
     </div>
   </div>
 </div>
@@ -83,8 +83,8 @@
       </div>
     </div>
     <div class="px-6 py-4 border-t flex gap-3">
-      <button onclick="closeAddModal()" class="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50 transition text-sm">Cancel</button>
-      <button onclick="confirmAdd()" class="flex-1 px-4 py-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition text-sm">Add</button>
+      <button onclick="closeAddModal()" class="flex-1 px-4 py-2.5 border rounded-lg hover:bg-gray-50 transition text-sm font-medium">Cancel</button>
+      <button onclick="confirmAdd()" class="flex-1 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">Add</button>
     </div>
   </div>
 </div>
