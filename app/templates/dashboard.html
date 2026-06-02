@@ -164,7 +164,7 @@
             </div>
           </div>
           <div class="text-xs text-gray-400 mt-0.5 text-right">
-            {{ "{:,.0f}".format(cat.this_month_spent) }} / {{ "{:,.0f}".format(cat.monthly_allocation) }} ₫
+            {{ "{:,.0f}".format(cat.this_month_spent) }} / {{ "{:,.0f}".format(cat.available_balance + cat.this_month_spent) }} ₫
           </div>
         </div>
         {% endfor %}

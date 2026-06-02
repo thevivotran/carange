@@ -20,7 +20,8 @@
   {% set total_budget  = rows | sum(attribute='monthly_allocation') %}
   {% set total_spent   = rows | sum(attribute='this_month_spent') %}
   {% set total_balance = rows | sum(attribute='available_balance') %}
-  {% set spent_pct     = [total_spent / total_budget * 100, 100] | min if total_budget > 0 else 0 %}
+  {% set total_effective = total_balance + total_spent %}
+  {% set spent_pct     = [total_spent / total_effective * 100, 100] | min if total_effective > 0 else 0 %}
   {% set has_any_own   = rows | selectattr('has_own_allocation') | list | length > 0 %}
 
   {% macro fmt_vnd(n) %}{% if n | abs >= 1000000 %}{{ "%.1f"|format(n / 1000000) }}M{% elif n | abs >= 1000 %}{{ "%.0f"|format(n / 1000) }}K{% else %}{{ n | int }}{% endif %}{% endmacro %}

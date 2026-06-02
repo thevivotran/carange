@@ -171,7 +171,9 @@ def compute_budget_rows(db: Session, year_month: str) -> list[dict]:
         this_month_spent = this_month_map.get(cat_id, 0)
         available_balance = cumulative_allocated - cumulative_spent
         usage_pct = (this_month_spent / current_alloc_amount * 100) if current_alloc_amount else 0
-        cumulative_pct = (cumulative_spent / cumulative_allocated * 100) if cumulative_allocated else 0
+        # % of effective budget (monthly allocation + rollover) used THIS month
+        effective_budget = available_balance + this_month_spent
+        cumulative_pct = (this_month_spent / effective_budget * 100) if effective_budget else 0
 
         result.append(
             {
