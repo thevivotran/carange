@@ -68,25 +68,34 @@ def compute_budget_rows(db: Session, year_month: str) -> list[dict]:
 
     cats = {c.id: c for c in db.query(Category).filter(Category.id.in_(active_cat_ids)).all()}
 
-    start_date = f"{baseline}-01"
     end_date_str = end_of_month(year_month)
     month_start_str = f"{year_month}-01"
     month_end_str = end_of_month(year_month)
 
-    # ── ORM: cumulative spending (baseline → end of target month) ─────────────
-    cumulative_spent_rows = (
-        db.query(Transaction.category_id, func.sum(Transaction.amount).label("total"))
-        .filter(
-            Transaction.type == TransactionType.EXPENSE,
-            Transaction.category_id.in_(active_cat_ids),
-            Transaction.date >= start_date,
-            Transaction.date <= end_date_str,
-            Transaction.deleted_at.is_(None),
-        )
-        .group_by(Transaction.category_id)
-        .all()
-    )
-    cumulative_spent_map = {r[0]: r[1] or 0 for r in cumulative_spent_rows}
+    # Per-category first-allocation date: spending before a category's own budget
+    # window must not count as rollover, even when the global baseline is earlier.
+    # alloc_by_cat entries are in year_month order (ORDER BY in the records query).
+    cat_first_alloc_start = {cat_id: f"{allocs[0][0]}-01" for cat_id, allocs in alloc_by_cat.items()}
+
+    # ── SQL: cumulative spending using per-category start dates ───────────────
+    # A single query with a VALUES table avoids N round-trips while respecting
+    # each category's own budget window start.
+    starts_values = ", ".join(f"({cat_id}, '{start}')" for cat_id, start in cat_first_alloc_start.items())
+    cumulative_spent_rows = db.execute(
+        text(f"""
+        WITH cat_starts(cat_id, start_date) AS (VALUES {starts_values})
+        SELECT t.category_id, SUM(t.amount)
+        FROM transactions t
+        JOIN cat_starts cs ON t.category_id = cs.cat_id
+        WHERE t.type = 'expense'
+          AND t.deleted_at IS NULL
+          AND t.date >= cs.start_date
+          AND t.date <= :end_date
+        GROUP BY t.category_id
+        """),
+        {"end_date": end_date_str},
+    ).fetchall()
+    cumulative_spent_map = {r[0]: float(r[1] or 0) for r in cumulative_spent_rows}
 
     # ── ORM: this-month spending ───────────────────────────────────────────────
     this_month_rows = (
