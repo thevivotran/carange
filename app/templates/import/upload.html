@@ -165,6 +165,46 @@
             </div>
         </div>
     </div>
+
+    <!-- CSV Import — lowest priority, collapsible -->
+    <div class="mt-8 border-t pt-6">
+        <button id="csv-toggle-btn" onclick="toggleCsvPanel()"
+                class="flex w-full items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition">
+            <i class="fas fa-file-csv text-gray-400"></i>
+            <span>CSV Import</span>
+            <i id="csv-chevron" class="fas fa-chevron-down text-xs text-gray-400 ml-auto transition-transform"></i>
+        </button>
+        <div id="csv-panel" class="hidden mt-4 space-y-4">
+            <div class="bg-blue-50 rounded-lg p-4">
+                <p class="text-sm text-blue-700 mb-2"><i class="fas fa-info-circle mr-1"></i> <strong>CSV Format:</strong></p>
+                <p class="text-xs text-blue-600 mb-3">date (YYYY-MM-DD), amount, type (income/expense), category, description (optional)</p>
+                <button onclick="csvDownloadTemplate()" class="text-sm text-blue-600 hover:text-blue-800 underline">
+                    <i class="fas fa-download mr-1"></i>Download English Template
+                </button>
+            </div>
+            <div class="bg-purple-50 rounded-lg p-4">
+                <p class="text-sm text-purple-700"><i class="fas fa-exchange-alt mr-1"></i> <strong>Alternative Vietnamese Format:</strong></p>
+                <p class="text-xs text-purple-600 mt-1">N&#259;m (Year), Th&#225;ng (Month), Thu (Income), Chi (Expense), Lo&#7841;i (Category), Ghi ch&#250; (Description)</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Select CSV File</label>
+                <input type="file" id="csv-file" accept=".csv"
+                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+            <div id="csv-upload-status"></div>
+            <div id="csv-upload-result" class="hidden"></div>
+            <div class="flex gap-3">
+                <button type="button" onclick="csvSubmitUpload()"
+                        class="px-5 py-2.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition">
+                    <i class="fas fa-upload mr-1.5"></i>Upload &amp; Import
+                </button>
+                <button type="button" onclick="csvReset()"
+                        class="px-5 py-2.5 border text-sm rounded-lg hover:bg-gray-50 transition text-gray-600">
+                    Clear
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Post-import Summary Modal -->
@@ -453,5 +493,130 @@ document.addEventListener('htmx:configRequest', function(evt) {
         }
     }
 });
+
+// ── CSV Import ────────────────────────────────────────────────────────────────
+function toggleCsvPanel() {
+    var panel   = document.getElementById('csv-panel');
+    var chevron = document.getElementById('csv-chevron');
+    var hidden  = panel.classList.toggle('hidden');
+    chevron.style.transform = hidden ? '' : 'rotate(180deg)';
+}
+
+function csvReset() {
+    document.getElementById('csv-file').value = '';
+    var statusEl = document.getElementById('csv-upload-status');
+    var resultEl = document.getElementById('csv-upload-result');
+    statusEl.replaceChildren();
+    resultEl.replaceChildren();
+    resultEl.classList.add('hidden');
+}
+
+async function csvSubmitUpload() {
+    var fileInput = document.getElementById('csv-file');
+    var file = fileInput.files[0];
+    if (!file) { showToast('Please select a CSV file', 'error'); return; }
+    if (!file.name.endsWith('.csv')) { showToast('Please select a CSV file', 'error'); return; }
+
+    var formData = new FormData();
+    formData.append('file', file);
+    var statusEl = document.getElementById('csv-upload-status');
+    var resultEl = document.getElementById('csv-upload-result');
+    statusEl.replaceChildren();
+    resultEl.classList.add('hidden');
+    var spinnerIco = document.createElement('i');
+    spinnerIco.className = 'fas fa-spinner fa-spin mr-2 text-gray-500';
+    var statusText = document.createTextNode(' Uploading and processing…');
+    statusEl.appendChild(spinnerIco);
+    statusEl.appendChild(statusText);
+
+    try {
+        var response = await fetch('/api/transactions/bulk-upload', { method: 'POST', body: formData });
+        var result = await response.json();
+        statusEl.replaceChildren();
+        resultEl.classList.remove('hidden');
+        resultEl.replaceChildren();
+
+        if (result.success) {
+            var successBox = document.createElement('div');
+            successBox.className = 'bg-green-50 border border-green-200 rounded-lg p-4';
+            var msgP = document.createElement('p');
+            msgP.className = 'text-green-800 font-medium';
+            var checkIco = document.createElement('i');
+            checkIco.className = 'fas fa-check-circle mr-2';
+            msgP.appendChild(checkIco);
+            msgP.appendChild(document.createTextNode(result.message));
+            var statsDiv = document.createElement('div');
+            statsDiv.className = 'mt-3 text-sm text-green-700';
+            var incP = document.createElement('p');
+            incP.textContent = '✅ Income: ' + result.stats.income;
+            var expP = document.createElement('p');
+            expP.textContent = '✅ Expense: ' + result.stats.expense;
+            statsDiv.appendChild(incP);
+            statsDiv.appendChild(expP);
+            if (result.stats.skipped > 0) {
+                var skipP = document.createElement('p');
+                skipP.textContent = '⚠️ Skipped: ' + result.stats.skipped;
+                statsDiv.appendChild(skipP);
+            }
+            successBox.appendChild(msgP);
+            successBox.appendChild(statsDiv);
+            if (result.stats.errors && result.stats.errors.length > 0) {
+                var details = document.createElement('details');
+                details.className = 'mt-2';
+                var summary = document.createElement('summary');
+                summary.className = 'cursor-pointer text-red-600 text-sm';
+                summary.textContent = 'Show errors (' + result.stats.errors.length + ')';
+                var ul = document.createElement('ul');
+                ul.className = 'mt-2 text-xs text-red-600 max-h-32 overflow-y-auto';
+                result.stats.errors.forEach(function(errMsg) {
+                    var li = document.createElement('li');
+                    li.textContent = '• ' + errMsg;
+                    ul.appendChild(li);
+                });
+                details.appendChild(summary);
+                details.appendChild(ul);
+                successBox.appendChild(details);
+            }
+            resultEl.appendChild(successBox);
+        } else {
+            var errBox = document.createElement('div');
+            errBox.className = 'bg-red-50 border border-red-200 rounded-lg p-4';
+            var errP = document.createElement('p');
+            errP.className = 'text-red-800 font-medium';
+            var errIco = document.createElement('i');
+            errIco.className = 'fas fa-exclamation-circle mr-2';
+            errP.appendChild(errIco);
+            errP.appendChild(document.createTextNode(result.error));
+            errBox.appendChild(errP);
+            resultEl.appendChild(errBox);
+        }
+    } catch (err) {
+        statusEl.replaceChildren();
+        var catchBox = document.createElement('div');
+        catchBox.className = 'bg-red-50 border border-red-200 rounded-lg p-4';
+        var catchP = document.createElement('p');
+        catchP.className = 'text-red-800';
+        var catchIco = document.createElement('i');
+        catchIco.className = 'fas fa-exclamation-circle mr-2';
+        catchP.appendChild(catchIco);
+        catchP.appendChild(document.createTextNode('Upload failed: ' + err.message));
+        catchBox.appendChild(catchP);
+        statusEl.appendChild(catchBox);
+    }
+}
+
+function csvDownloadTemplate() {
+    var csvContent = 'date,amount,type,category,description,payment_method\n' +
+        '2024-01-15,5000000,expense,Food & Dining,Lunch with team,cash\n' +
+        '2024-01-15,2500000,expense,Transportation,Grab ride,cash\n' +
+        '2024-01-16,15000000,income,Salary,January salary,bank_transfer\n' +
+        '2024-01-20,500000,expense,Shopping,Clothes,credit_card\n' +
+        '2024-02-01,3000000,expense,Utilities,Electricity bill,bank_transfer';
+    var blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    var link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = 'carange_template.csv';
+    link.click();
+}
 </script>
 {% endblock %}

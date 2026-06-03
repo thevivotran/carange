@@ -25,10 +25,6 @@
                 <span class="hidden sm:inline">Filters</span>
                 <span id="active-filter-count" class="hidden bg-primary text-white text-xs rounded-full w-5 h-5 items-center justify-center font-semibold">0</span>
             </button>
-            <button onclick="openBulkUploadModal()" title="Bulk Upload" aria-label="Bulk Upload"
-                    class="bg-purple-100 text-purple-700 w-10 h-10 rounded-lg hover:bg-purple-200 transition flex items-center justify-center flex-shrink-0">
-                <i class="fas fa-file-upload"></i>
-            </button>
             <button onclick="openAddModal()" class="hidden md:flex bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition items-center">
                 <i class="fas fa-plus mr-2"></i>Add Transaction
             </button>
@@ -1674,176 +1670,13 @@
         }
     }
     
-    function openBulkUploadModal() {
-        document.getElementById('bulk-upload-modal').classList.remove('hidden');
-    }
-    
-    function closeBulkUploadModal() {
-        document.getElementById('bulk-upload-modal').classList.add('hidden');
-        document.getElementById('csv-file').value = '';
-        document.getElementById('upload-result').classList.add('hidden');
-        document.getElementById('upload-status').textContent = '';
-        document.getElementById('upload-status').classList.remove('hidden');
-    }
-    
-    async function submitBulkUpload() {
-        const fileInput = document.getElementById('csv-file');
-        const file = fileInput.files[0];
-        if (!file) { showToast('Please select a CSV file', 'error'); return; }
-        if (!file.name.endsWith('.csv')) { showToast('Please select a CSV file', 'error'); return; }
-        
-        const formData = new FormData();
-        formData.append('file', file);
-        const uploadStatus = document.getElementById('upload-status');
-        uploadStatus.replaceChildren();
-        const spinnerIco = document.createElement('i');
-        spinnerIco.className = 'fas fa-spinner fa-spin mr-2';
-        uploadStatus.appendChild(spinnerIco);
-        uploadStatus.appendChild(document.createTextNode(' Uploading and processing...'));
-        
-        try {
-            const response = await fetch('/api/transactions/bulk-upload', { method: 'POST', body: formData });
-            const result = await response.json();
-            
-            document.getElementById('upload-status').classList.add('hidden');
-            document.getElementById('upload-result').classList.remove('hidden');
-            
-            if (result.success) {
-                const resultEl = document.getElementById('upload-result');
-                resultEl.replaceChildren();
-                const successBox = document.createElement('div');
-                successBox.className = 'bg-green-50 border border-green-200 rounded-lg p-4';
-                const msgP = document.createElement('p');
-                msgP.className = 'text-green-800 font-medium';
-                const checkIco = document.createElement('i');
-                checkIco.className = 'fas fa-check-circle mr-2';
-                msgP.appendChild(checkIco);
-                msgP.appendChild(document.createTextNode(result.message));
-                const statsDiv = document.createElement('div');
-                statsDiv.className = 'mt-3 text-sm text-green-700';
-                const incP = document.createElement('p');
-                incP.textContent = '✅ Income: ' + result.stats.income;
-                const expP = document.createElement('p');
-                expP.textContent = '✅ Expense: ' + result.stats.expense;
-                statsDiv.appendChild(incP);
-                statsDiv.appendChild(expP);
-                if (result.stats.skipped > 0) {
-                    const skipP = document.createElement('p');
-                    skipP.textContent = '⚠️ Skipped: ' + result.stats.skipped;
-                    statsDiv.appendChild(skipP);
-                }
-                successBox.appendChild(msgP);
-                successBox.appendChild(statsDiv);
-                if (result.stats.errors && result.stats.errors.length > 0) {
-                    const details = document.createElement('details');
-                    details.className = 'mt-2';
-                    const summary = document.createElement('summary');
-                    summary.className = 'cursor-pointer text-red-600';
-                    summary.textContent = 'Show errors (' + result.stats.errors.length + ')';
-                    const ul = document.createElement('ul');
-                    ul.className = 'mt-2 text-xs text-red-600 max-h-32 overflow-y-auto';
-                    result.stats.errors.forEach(function(errMsg) {
-                        const li = document.createElement('li');
-                        li.textContent = '• ' + errMsg;
-                        ul.appendChild(li);
-                    });
-                    details.appendChild(summary);
-                    details.appendChild(ul);
-                    successBox.appendChild(details);
-                }
-                resultEl.appendChild(successBox);
-                setTimeout(() => { loadTransactions(); loadMonthlySummary(); }, 1500);
-            } else {
-                const resultEl2 = document.getElementById('upload-result');
-                resultEl2.replaceChildren();
-                const errBox = document.createElement('div');
-                errBox.className = 'bg-red-50 border border-red-200 rounded-lg p-4';
-                const errP = document.createElement('p');
-                errP.className = 'text-red-800 font-medium';
-                const errIco = document.createElement('i');
-                errIco.className = 'fas fa-exclamation-circle mr-2';
-                errP.appendChild(errIco);
-                errP.appendChild(document.createTextNode(result.error));
-                errBox.appendChild(errP);
-                resultEl2.appendChild(errBox);
-            }
-        } catch (error) {
-            const statusEl2 = document.getElementById('upload-status');
-            statusEl2.replaceChildren();
-            const catchBox = document.createElement('div');
-            catchBox.className = 'bg-red-50 border border-red-200 rounded-lg p-4';
-            const catchP = document.createElement('p');
-            catchP.className = 'text-red-800';
-            const catchIco = document.createElement('i');
-            catchIco.className = 'fas fa-exclamation-circle mr-2';
-            catchP.appendChild(catchIco);
-            catchP.appendChild(document.createTextNode('Upload failed: ' + error.message));
-            catchBox.appendChild(catchP);
-            statusEl2.appendChild(catchBox);
-        }
-    }
-    
-    function downloadTemplate() {
-        const csvContent = `date,amount,type,category,description,payment_method
-2024-01-15,5000000,expense,Food & Dining,Lunch with team,cash
-2024-01-15,2500000,expense,Transportation,Grab ride,cash
-2024-01-16,15000000,income,Salary,January salary,bank_transfer
-2024-01-20,500000,expense,Shopping,Clothes,credit_card
-2024-02-01,3000000,expense,Utilities,Electricity bill,bank_transfer`;
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = 'carange_template.csv';
-        link.click();
-    }
+
 
     document.addEventListener('keydown', function(e) {
         if (e.key === 'Escape') closeTxDrawer();
     });
 </script>
 
-<!-- Bulk Upload Modal -->
-<div id="bulk-upload-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90dvh] flex flex-col">
-        <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
-            <h3 class="text-xl font-bold text-gray-800">Bulk Upload Transactions</h3>
-            <button onclick="closeBulkUploadModal()" class="text-gray-500 hover:text-gray-700">
-                <i class="fas fa-times text-xl"></i>
-            </button>
-        </div>
-
-        <div class="flex-1 overflow-y-auto overscroll-contain p-6 space-y-4">
-            <div class="bg-blue-50 rounded-lg p-4">
-                <p class="text-sm text-blue-700 mb-2"><i class="fas fa-info-circle mr-1"></i> <strong>CSV Format:</strong></p>
-                <p class="text-xs text-blue-600 mb-3">date (YYYY-MM-DD), amount, type (income/expense), category, description (optional)</p>
-                <button onclick="downloadTemplate()" class="text-sm text-blue-600 hover:text-blue-800 underline">
-                    <i class="fas fa-download mr-1"></i>Download English Template
-                </button>
-            </div>
-
-            <div class="bg-purple-50 rounded-lg p-4">
-                <p class="text-sm text-purple-700"><i class="fas fa-exchange-alt mr-1"></i> <strong>Alternative Vietnamese Format:</strong></p>
-                <p class="text-xs text-purple-600 mt-1">N&#259;m (Year), Th&#225;ng (Month), Thu (Income), Chi (Expense), Lo&#7841;i (Category), Ghi ch&#250; (Description)</p>
-            </div>
-
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Select CSV File</label>
-                <input type="file" id="csv-file" accept=".csv"
-                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
-            </div>
-
-            <div id="upload-status"></div>
-            <div id="upload-result" class="hidden"></div>
-        </div>
-
-        <div class="flex-shrink-0 flex gap-4 px-6 py-4 border-t">
-            <button type="button" onclick="closeBulkUploadModal()"
-                    class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition">Close</button>
-            <button type="button" onclick="submitBulkUpload()"
-                    class="flex-1 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">Upload &amp; Import</button>
-        </div>
-    </div>
-</div>
 <!-- History Modal -->
 <div id="history-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[80dvh] flex flex-col">

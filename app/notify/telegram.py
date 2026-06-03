@@ -106,12 +106,7 @@ def send_personal_advance_ping(tx: Transaction, action: str = "created") -> bool
     cat_name = tx.category.name if tx.category else "?"
     desc = tx.description or "No description"
     verb = "Created" if action == "created" else "Updated"
-    text = (
-        f"💳 <b>Personal advance — {verb}</b>\n"
-        f"-{amount_str} — {cat_name}\n"
-        f"<i>{desc}</i>\n"
-        f"💰 Remember to claim this back!"
-    )
+    text = f"💳 <b>Personal advance — {verb}</b>\n-{amount_str} — {cat_name}\n<i>{desc}</i>\n📌 Pending settlement."
     return _send(text)
 
 
