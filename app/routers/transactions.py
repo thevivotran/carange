@@ -26,6 +26,7 @@ from app.models.schemas import (
 )
 from app.services import transaction_service
 from app.services.dashboard_service import invalidate_dashboard_cache
+from app.notify.telegram import send_personal_advance_ping
 
 _AUDIT_FIELDS = list(AuditField)
 
@@ -185,6 +186,8 @@ def create_transaction(transaction: TransactionCreate, force: bool = False, db: 
 
     result = transaction_service.create_transaction(db, transaction)
     invalidate_dashboard_cache()
+    if result.is_advance and not result.advance_settled:
+        send_personal_advance_ping(result, action="created")
     return result
 
 
@@ -238,6 +241,8 @@ def update_transaction(transaction_id: int, transaction: TransactionUpdate, db: 
         raise
     db.refresh(db_transaction)
     invalidate_dashboard_cache()
+    if db_transaction.is_advance and not db_transaction.advance_settled:
+        send_personal_advance_ping(db_transaction, action="updated")
     return db_transaction
 
 

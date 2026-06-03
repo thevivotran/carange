@@ -94,6 +94,27 @@ def send_review_reminder(count: int) -> bool:
     return _send(text)
 
 
+def send_personal_advance_ping(tx: Transaction, action: str = "created") -> bool:
+    """Notify when a personal-advance transaction is created or updated (unsettled).
+
+    action: "created" | "updated"
+    Only fires when is_advance=True and advance_settled=False.
+    """
+    if not tx.is_advance or tx.advance_settled:
+        return False
+    amount_str = f"{tx.amount:,.0f}đ"
+    cat_name = tx.category.name if tx.category else "?"
+    desc = tx.description or "No description"
+    verb = "Created" if action == "created" else "Updated"
+    text = (
+        f"💳 <b>Personal advance — {verb}</b>\n"
+        f"-{amount_str} — {cat_name}\n"
+        f"<i>{desc}</i>\n"
+        f"💰 Remember to claim this back!"
+    )
+    return _send(text)
+
+
 def send_message(text: str) -> bool:
     """Send an arbitrary HTML-formatted message (used by brain pipeline later)."""
     return _send(text)
