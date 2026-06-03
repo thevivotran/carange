@@ -1,4 +1,4 @@
-"""UOB card transaction alert email parser."""
+"""UOB card transaction alert and bill payment email parser."""
 
 import re
 from datetime import date, datetime
@@ -14,6 +14,11 @@ class UOBParser(BaseEmailParser):
     EN_AMOUNT = re.compile(r"transaction of VND\s+([0-9][0-9,.]*)\s+on\s+(\d{2}/\d{2}/\d{4})", re.IGNORECASE)
     # Vietnamese (no diacritics): "giao dich 1,076,400 VND vao ngay 30/05/2026"
     VN_AMOUNT = re.compile(r"giao dich\s+([0-9][0-9,.]*)\s+VND\s+vao ngay\s+(\d{2}/\d{2}/\d{4})", re.IGNORECASE)
+    # Bill payment: "bill payment(s) totaling VND 863784 at 08:44PM, 03/06/2026, VN Time"
+    BILL_AMOUNT = re.compile(
+        r"bill payment\(s\) totaling VND\s+([0-9][0-9,.]*)\s+at\s+\d+:\d+[AP]M,\s+(\d{2}/\d{2}/\d{4})",
+        re.IGNORECASE,
+    )
 
     # Card ending pattern: "card ending in 8076"
     CARD_PATTERN = re.compile(r"(?:card ending in|so cuoi)\s+(\d{4})", re.IGNORECASE)
@@ -27,7 +32,26 @@ class UOBParser(BaseEmailParser):
         )
 
     def parse(self, sender: str, subject: str, body_text: str, body_html: str) -> list[ParsedEmailTransaction]:
-        amount, tx_date = self._extract_amount_and_date(body_text)
+        # Bill payment alert
+        m = self.BILL_AMOUNT.search(body_text)
+        if m:
+            amount = self._clean_amount(m.group(1))
+            tx_date = self._parse_date(m.group(2))
+            if amount:
+                return [
+                    ParsedEmailTransaction(
+                        date=tx_date,
+                        amount=amount,
+                        tx_type="expense",
+                        description="UOB Bill Payment",
+                        confidence=0.90,
+                        category_hint=None,
+                        payment_method="bank_transfer",
+                    )
+                ]
+
+        # Card transaction alert
+        amount, tx_date = self._extract_card_amount_and_date(body_text)
         if not amount:
             return []
 
@@ -47,7 +71,7 @@ class UOBParser(BaseEmailParser):
             )
         ]
 
-    def _extract_amount_and_date(self, text: str) -> tuple:
+    def _extract_card_amount_and_date(self, text: str) -> tuple:
         for pattern in (self.EN_AMOUNT, self.VN_AMOUNT):
             m = pattern.search(text)
             if m:

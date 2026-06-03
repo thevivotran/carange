@@ -14,6 +14,7 @@ from email_worker.parsers.timo import TimoParser
 from email_worker.parsers.vcb import VCBParser
 from email_worker.parsers.uob import UOBParser
 from email_worker.parsers.payoo import PayooParser
+from email_worker.parsers.vnpay import VNPayParser
 from email_worker.parsers.generic import GenericOllamaParser
 
 log = logging.getLogger("email_worker.email_parser")
@@ -23,6 +24,7 @@ _PARSERS: list[BaseEmailParser] = [
     VCBParser(),
     UOBParser(),
     PayooParser(),
+    VNPayParser(),
     ShopeeParser(),
     GrabParser(),
     TimoParser(),

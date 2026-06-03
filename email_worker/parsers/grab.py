@@ -94,7 +94,7 @@ _DATE_PICKUP_EN = re.compile(r"Picked up on\s+(\d{1,2})\s+(\w+)\s+(\d{4})", re.I
 _DATE_PICKUP_VN = re.compile(r"Ngày đi\s+(\d{1,2})\s+(\w+)\s+(\d{4})", re.IGNORECASE)
 
 # ─── Description helpers ──────────────────────────────────────────────────────
-_RESTAURANT_RE = re.compile(r"Đặt từ\s*\n\s*(.+?)(?:\n|$)", re.IGNORECASE | re.MULTILINE)
+_RESTAURANT_RE = re.compile(r"Đặt từ[ \t\n]*(.+?)(?:\n|$)", re.IGNORECASE | re.MULTILINE)
 
 
 class GrabParser(BaseEmailParser):

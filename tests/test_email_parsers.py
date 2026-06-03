@@ -1,4 +1,4 @@
-"""Tests for the email_worker parsers — Timo and routing."""
+"""Tests for the email_worker parsers — Timo, VNPay, UOB, and Grab."""
 
 from datetime import date
 
@@ -99,6 +99,153 @@ class TestTimoParserEdgeCases:
         results = p.parse("support@timo.vn", "Debit Transaction Notice", body, "")
         assert len(results) == 1
         assert results[0].amount == 80_000
+
+
+# ── VNPayParser ───────────────────────────────────────────────────────────────
+
+_VNPAY_BODY = (
+    "BIÊN LAI THANH TOÁN\n"
+    "(Payment Receipt)\n"
+    "Ngày, giờ giao dịch:\n"
+    "Trans. Date, Time\n"
+    "03/06/2026 20:53\n"
+    "Mã giao dịch:\n"
+    "Transaction ID\n"
+    "21554029701129216\n"
+    "Địa điểm giao dịch:\n"
+    "Transaction location\n"
+    "Ứng dụng VNPAY\n"
+    "Tóm tắt giao dịch:\n"
+    "Transaction summary\n"
+    "Thanh Toán dịch vụ VNPAY\n"
+    "Payment for VNPAY Service Payment\n"
+    "- Số tiền giao dịch:\n"
+    "Transaction amount\n"
+    "183.000 VND\n"
+    "- Phí giao dịch:\n"
+    "Transaction fee\n"
+    "0 VND\n"
+    "- Số tiền thanh toán:\n"
+    "Payment amount\n"
+    "183.000 VND\n"
+)
+
+
+class TestVNPayParser:
+    def setup_method(self):
+        from email_worker.parsers.vnpay import VNPayParser
+
+        self.parser = VNPayParser()
+
+    def test_can_parse_by_sender(self):
+        assert self.parser.can_parse("noreply@vnpayapp.vn", "", "") is True
+
+    def test_can_parse_by_body(self):
+        assert self.parser.can_parse("other@gmail.com", "", _VNPAY_BODY) is True
+
+    def test_rejects_unrelated(self):
+        assert self.parser.can_parse("noreply@grab.com", "", "hello") is False
+
+    def test_amount(self):
+        results = self.parser.parse("noreply@vnpayapp.vn", "Biên lai", _VNPAY_BODY, "")
+        assert len(results) == 1
+        assert results[0].amount == 183_000
+
+    def test_date(self):
+        results = self.parser.parse("noreply@vnpayapp.vn", "Biên lai", _VNPAY_BODY, "")
+        assert results[0].date == date(2026, 6, 3)
+
+    def test_description_includes_summary(self):
+        results = self.parser.parse("noreply@vnpayapp.vn", "Biên lai", _VNPAY_BODY, "")
+        assert results[0].description == "VNPay – Thanh Toán dịch vụ VNPAY"
+
+    def test_type_is_expense(self):
+        results = self.parser.parse("noreply@vnpayapp.vn", "Biên lai", _VNPAY_BODY, "")
+        assert results[0].tx_type == "expense"
+
+    def test_no_amount_returns_empty(self):
+        results = self.parser.parse("noreply@vnpayapp.vn", "", "BIÊN LAI THANH TOÁN\nno amount here", "")
+        assert results == []
+
+
+# ── UOBParser: bill payment ────────────────────────────────────────────────────
+
+_UOB_BILL_BODY = (
+    "---------- Forwarded message ---------\n"
+    "From: <unialerts@uobgroup.com>\n"
+    "Subject: UOB Personal Internet Banking Notification Alerts\n"
+    "\n"
+    "You have made/scheduled bill payment(s) totaling VND 863784 at 08:44PM,"
+    " 03/06/2026, VN Time. For assistance, call 1800 5999 21.\n"
+)
+
+
+class TestUOBBillPayment:
+    def setup_method(self):
+        from email_worker.parsers.uob import UOBParser
+
+        self.parser = UOBParser()
+
+    def test_can_parse_bill_body(self):
+        assert self.parser.can_parse("nguyenmkhanhlinh@gmail.com", "", _UOB_BILL_BODY) is True
+
+    def test_amount(self):
+        results = self.parser.parse("unialerts@uobgroup.com", "", _UOB_BILL_BODY, "")
+        assert len(results) == 1
+        assert results[0].amount == 863_784
+
+    def test_date(self):
+        results = self.parser.parse("unialerts@uobgroup.com", "", _UOB_BILL_BODY, "")
+        assert results[0].date == date(2026, 6, 3)
+
+    def test_description(self):
+        results = self.parser.parse("unialerts@uobgroup.com", "", _UOB_BILL_BODY, "")
+        assert results[0].description == "UOB Bill Payment"
+
+    def test_payment_method_is_bank_transfer(self):
+        results = self.parser.parse("unialerts@uobgroup.com", "", _UOB_BILL_BODY, "")
+        assert results[0].payment_method == "bank_transfer"
+
+
+# ── GrabParser: food restaurant extraction ────────────────────────────────────
+
+_GRAB_FOOD_BODY_MULTILINE = (
+    "Chúc bạn ngon miệng!\n"
+    "Tổng cộng\n\n\n59600₫\n"
+    "Đặt từ\n\n\nPhở Bò Gánh Xưa\n"
+    "Giao đến\nNhà\n"
+    "Hồ sơ\nCá nhân\n"
+    "05 May 26 11:57\n"
+)
+
+_GRAB_FOOD_BODY_INLINE = (
+    "Chúc bạn ngon miệng!\nTổng cộng\n59600₫\nĐặt từ Phở Bò Gánh Xưa\nGiao đến Nhà\nHồ sơ\nCá nhân\n05 May 26 11:57\n"
+)
+
+
+class TestGrabFoodRestaurant:
+    def setup_method(self):
+        from email_worker.parsers.grab import GrabParser
+
+        self.parser = GrabParser()
+
+    def test_restaurant_extracted_multiline_format(self):
+        results = self.parser._parse_food(_GRAB_FOOD_BODY_MULTILINE)
+        assert len(results) == 1
+        assert results[0].description == "Grab Food – Phở Bò Gánh Xưa"
+
+    def test_restaurant_extracted_inline_format(self):
+        results = self.parser._parse_food(_GRAB_FOOD_BODY_INLINE)
+        assert len(results) == 1
+        assert results[0].description == "Grab Food – Phở Bò Gánh Xưa"
+
+    def test_food_amount_parsed(self):
+        results = self.parser._parse_food(_GRAB_FOOD_BODY_MULTILINE)
+        assert results[0].amount == 59_600
+
+    def test_food_category_hint(self):
+        results = self.parser._parse_food(_GRAB_FOOD_BODY_MULTILINE)
+        assert results[0].category_hint == "Ăn uống"
 
 
 # ── GrabParser: transport route description ───────────────────────────────────
