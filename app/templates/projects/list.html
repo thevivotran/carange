@@ -46,7 +46,7 @@
 </div>
 
 <!-- ===== Add/Edit Project Modal ===== -->
-<div id="project-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+<div id="project-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90dvh] flex flex-col">
         <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
             <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Financial Project</h3>
@@ -104,34 +104,39 @@
 </div>
 
 <!-- ===== Payment Timeline Modal ===== -->
-<div id="timeline-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+<div id="timeline-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-2 md:p-4">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[95dvh] flex flex-col">
-        <div class="p-6 border-b flex justify-between items-center shrink-0">
-            <h3 class="text-xl font-bold text-gray-800" id="timeline-title">Payment Timeline</h3>
+        <div class="p-4 md:p-6 border-b flex justify-between items-center shrink-0">
+            <h3 class="text-lg md:text-xl font-bold text-gray-800" id="timeline-title">Payment Timeline</h3>
             <button onclick="closeTimelineModal()" aria-label="Close" class="text-gray-500 hover:text-gray-700"><i class="fas fa-times text-xl"></i></button>
         </div>
 
-        <div class="overflow-y-auto overscroll-contain flex-1 p-6 space-y-6">
-            <!-- Payments Table -->
-            <div class="overflow-x-auto">
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="bg-gray-50 text-gray-600 text-left">
-                            <th class="px-3 py-2">#</th>
-                            <th class="px-3 py-2">Due Date</th>
-                            <th class="px-3 py-2">Amount</th>
-                            <th class="px-3 py-2">Notes</th>
-                            <th class="px-3 py-2">Status</th>
-                            <th class="px-3 py-2">Tx</th>
-                            <th class="px-3 py-2">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="payments-table-body"></tbody>
-                </table>
+        <div class="overflow-y-auto overscroll-contain flex-1 p-3 md:p-6 space-y-4 md:space-y-6">
+            <!-- Payments List (card on mobile, table on desktop) -->
+            <div>
+                <!-- Desktop table (hidden on mobile) -->
+                <div class="hidden md:block overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="bg-gray-50 text-gray-600 text-left">
+                                <th class="px-3 py-2">#</th>
+                                <th class="px-3 py-2">Due Date</th>
+                                <th class="px-3 py-2">Amount</th>
+                                <th class="px-3 py-2">Notes</th>
+                                <th class="px-3 py-2">Status</th>
+                                <th class="px-3 py-2">Tx</th>
+                                <th class="px-3 py-2">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="payments-table-body"></tbody>
+                    </table>
+                </div>
+                <!-- Mobile card list (shown on mobile only) -->
+                <div id="payments-card-list" class="md:hidden space-y-2"></div>
             </div>
 
             <!-- Footer Totals -->
-            <div class="bg-gray-50 rounded-lg p-4 text-sm grid grid-cols-2 md:grid-cols-4 gap-3" id="payments-totals"></div>
+            <div class="bg-gray-50 rounded-lg p-3 md:p-4 text-sm grid grid-cols-2 md:grid-cols-4 gap-3" id="payments-totals"></div>
 
             <!-- Linked Transactions Section (#9) -->
             <div class="border rounded-lg p-4">
@@ -145,9 +150,9 @@
             </div>
 
             <!-- Add Single Payment -->
-            <div class="border rounded-lg p-4">
+            <div class="border rounded-lg p-3 md:p-4">
                 <h4 class="font-semibold text-gray-700 mb-3">Add Single Payment</h4>
-                <form id="add-payment-form" class="grid grid-cols-2 md:grid-cols-4 gap-3 items-end">
+                <form id="add-payment-form" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-end">
                     <div>
                         <label class="block text-xs text-gray-600 mb-1">Due Date (optional)</label>
                         <input type="date" id="new-payment-date" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
@@ -213,7 +218,7 @@
 </div>
 
 <!-- ===== Edit Payment Modal ===== -->
-<div id="edit-payment-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-30 z-[60] flex items-center justify-center p-4">
+<div id="edit-payment-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-30 z-[105] flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
         <h4 class="font-semibold text-gray-800 mb-4">Edit Payment</h4>
         <input type="hidden" id="edit-payment-id">
@@ -239,7 +244,7 @@
 </div>
 
 <!-- ===== Mark Paid Pop-over ===== -->
-<div id="mark-paid-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-30 z-[60] flex items-center justify-center p-4">
+<div id="mark-paid-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-30 z-[105] flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
         <h4 class="font-semibold text-gray-800 mb-4">Mark as Paid</h4>
         <input type="hidden" id="mark-paid-payment-id">
@@ -423,29 +428,68 @@
         } catch(e) { console.error(e); }
     }
 
+    function _buildPaymentActions(p) {
+        const wrap = document.createElement('div');
+        wrap.className = 'flex gap-1 flex-wrap';
+        if (p.status === 'paid') {
+            const undoBtn = document.createElement('button');
+            undoBtn.className = 'text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100';
+            undoBtn.textContent = 'Undo';
+            undoBtn.onclick = () => undoPayment(p.id);
+            wrap.appendChild(undoBtn);
+        } else {
+            const paidBtn = document.createElement('button');
+            paidBtn.className = 'text-xs text-green-600 hover:text-green-800 px-2 py-1 rounded hover:bg-green-50 font-medium';
+            paidBtn.textContent = 'Mark Paid';
+            paidBtn.onclick = () => openMarkPaidModal(p.id, p.due_date, p.amount);
+            wrap.appendChild(paidBtn);
+        }
+        const editPayBtn = document.createElement('button');
+        editPayBtn.className = 'text-xs text-blue-500 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50';
+        editPayBtn.title = 'Edit';
+        const editPayIco = document.createElement('i');
+        editPayIco.className = 'fas fa-pencil-alt';
+        editPayBtn.appendChild(editPayIco);
+        editPayBtn.onclick = () => openEditPaymentModal(p);
+        wrap.appendChild(editPayBtn);
+        const delBtn = document.createElement('button');
+        delBtn.className = 'text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50';
+        delBtn.textContent = 'Del';
+        delBtn.onclick = () => deletePayment(p.id);
+        wrap.appendChild(delBtn);
+        return wrap;
+    }
+
     function renderPaymentsTable(payments) {
         const tbody = document.getElementById('payments-table-body');
+        const cardList = document.getElementById('payments-card-list');
         tbody.replaceChildren();
+        cardList.replaceChildren();
 
         let totalAmt = 0, paidAmt = 0;
         payments.forEach((p, idx) => {
             totalAmt += p.amount;
             if (p.status === 'paid') paidAmt += p.amount;
 
+            const isPaid = p.status === 'paid';
+            const badgeCls = isPaid
+                ? 'px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium'
+                : 'px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium';
+            const dateStr = p.due_date ? formatDate(p.due_date) : 'TBD';
+
+            // ── Desktop table row ──────────────────────────────────────────────
             const tr = document.createElement('tr');
             tr.className = 'border-b hover:bg-gray-50';
 
-            // #
             const tdIdx = document.createElement('td');
             tdIdx.className = 'px-3 py-2 text-gray-500';
             tdIdx.textContent = idx + 1;
             tr.appendChild(tdIdx);
 
-            // Due date
             const tdDate = document.createElement('td');
-            tdDate.className = 'px-3 py-2 text-gray-800 dark:text-gray-200';
+            tdDate.className = 'px-3 py-2 text-gray-800';
             if (p.due_date) {
-                tdDate.textContent = formatDate(p.due_date);
+                tdDate.textContent = dateStr;
             } else {
                 const tbd = document.createElement('span');
                 tbd.className = 'text-gray-400';
@@ -454,30 +498,24 @@
             }
             tr.appendChild(tdDate);
 
-            // Amount
             const tdAmt = document.createElement('td');
-            tdAmt.className = 'px-3 py-2 font-medium text-gray-800 dark:text-gray-200';
+            tdAmt.className = 'px-3 py-2 font-medium text-gray-800';
             tdAmt.textContent = formatVND(p.amount);
             tr.appendChild(tdAmt);
 
-            // Notes
             const tdNotes = document.createElement('td');
             tdNotes.className = 'px-3 py-2 text-gray-500 max-w-xs truncate';
             tdNotes.textContent = p.notes || '';
             tr.appendChild(tdNotes);
 
-            // Status badge
             const tdStatus = document.createElement('td');
             tdStatus.className = 'px-3 py-2';
             const badge = document.createElement('span');
-            badge.className = p.status === 'paid'
-                ? 'px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium'
-                : 'px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium';
-            badge.textContent = p.status === 'paid' ? 'Paid' : 'Pending';
+            badge.className = badgeCls;
+            badge.textContent = isPaid ? 'Paid' : 'Pending';
             tdStatus.appendChild(badge);
             tr.appendChild(tdStatus);
 
-            // Transaction link
             const tdTx = document.createElement('td');
             tdTx.className = 'px-3 py-2';
             if (p.transaction_id) {
@@ -493,38 +531,70 @@
             }
             tr.appendChild(tdTx);
 
-            // Actions
             const tdAct = document.createElement('td');
-            tdAct.className = 'px-3 py-2 flex gap-1';
-            if (p.status === 'paid') {
-                const undoBtn = document.createElement('button');
-                undoBtn.className = 'text-xs text-gray-500 hover:text-gray-700 px-2 py-1 rounded hover:bg-gray-100';
-                undoBtn.textContent = 'Undo';
-                undoBtn.onclick = () => undoPayment(p.id);
-                tdAct.appendChild(undoBtn);
-            } else {
-                const paidBtn = document.createElement('button');
-                paidBtn.className = 'text-xs text-green-600 hover:text-green-800 px-2 py-1 rounded hover:bg-green-50';
-                paidBtn.textContent = 'Mark Paid';
-                paidBtn.onclick = () => openMarkPaidModal(p.id, p.due_date, p.amount);
-                tdAct.appendChild(paidBtn);
-            }
-            const editPayBtn = document.createElement('button');
-            editPayBtn.className = 'text-xs text-blue-500 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50';
-            editPayBtn.title = 'Edit';
-            const editPayIco = document.createElement('i');
-            editPayIco.className = 'fas fa-pencil-alt';
-            editPayBtn.appendChild(editPayIco);
-            editPayBtn.onclick = () => openEditPaymentModal(p);
-            tdAct.appendChild(editPayBtn);
-            const delBtn = document.createElement('button');
-            delBtn.className = 'text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50';
-            delBtn.textContent = 'Del';
-            delBtn.onclick = () => deletePayment(p.id);
-            tdAct.appendChild(delBtn);
+            tdAct.className = 'px-3 py-2';
+            tdAct.appendChild(_buildPaymentActions(p));
             tr.appendChild(tdAct);
-
             tbody.appendChild(tr);
+
+            // ── Mobile card ────────────────────────────────────────────────────
+            const card = document.createElement('div');
+            card.className = 'border rounded-lg p-3 ' + (isPaid ? 'bg-green-50 border-green-200' : 'bg-white');
+
+            const cardTop = document.createElement('div');
+            cardTop.className = 'flex items-start justify-between gap-2';
+
+            const cardLeft = document.createElement('div');
+            cardLeft.className = 'flex-1 min-w-0';
+
+            const cardNum = document.createElement('span');
+            cardNum.className = 'text-xs text-gray-400 mr-2';
+            cardNum.textContent = '#' + (idx + 1);
+            cardLeft.appendChild(cardNum);
+
+            const cardDate = document.createElement('span');
+            cardDate.className = 'text-sm font-semibold text-gray-800';
+            cardDate.textContent = dateStr;
+            cardLeft.appendChild(cardDate);
+
+            if (p.notes) {
+                const cardNotes = document.createElement('p');
+                cardNotes.className = 'text-xs text-gray-500 mt-0.5 truncate';
+                cardNotes.textContent = p.notes;
+                cardLeft.appendChild(cardNotes);
+            }
+
+            const cardRight = document.createElement('div');
+            cardRight.className = 'text-right flex-shrink-0';
+
+            const cardAmt = document.createElement('p');
+            cardAmt.className = 'text-sm font-bold text-gray-800';
+            cardAmt.textContent = formatVND(p.amount);
+            cardRight.appendChild(cardAmt);
+
+            const cardBadge = document.createElement('span');
+            cardBadge.className = badgeCls + ' mt-1 inline-block';
+            cardBadge.textContent = isPaid ? 'Paid' : 'Pending';
+            cardRight.appendChild(cardBadge);
+
+            if (p.transaction_id) {
+                const txLink = document.createElement('a');
+                txLink.href = '/transactions?highlight=' + p.transaction_id;
+                txLink.className = 'block text-xs text-blue-500 mt-1';
+                txLink.textContent = 'View Tx';
+                cardRight.appendChild(txLink);
+            }
+
+            cardTop.appendChild(cardLeft);
+            cardTop.appendChild(cardRight);
+            card.appendChild(cardTop);
+
+            const cardActions = document.createElement('div');
+            cardActions.className = 'mt-2 pt-2 border-t border-gray-100 flex gap-1';
+            cardActions.appendChild(_buildPaymentActions(p));
+            card.appendChild(cardActions);
+
+            cardList.appendChild(card);
         });
 
         // Totals

@@ -91,7 +91,7 @@
 </div>
 
 <!-- Add/Edit Template Modal -->
-<div id="template-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+<div id="template-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90dvh] flex flex-col">
         <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
             <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Template</h3>
@@ -425,7 +425,7 @@
             const template = await res.json();
 
             const overlay = document.createElement('div');
-            overlay.className = 'fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4';
+            overlay.className = 'fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4';
             const box = document.createElement('div');
             box.className = 'bg-white rounded-xl shadow-xl p-6 w-80 space-y-4';
             const title = document.createElement('h3');

@@ -52,7 +52,11 @@ def _build_tx_query(
     if is_advance is not None:
         query = query.filter(Transaction.is_advance == is_advance)
     if advance_settled is not None:
-        query = query.filter(Transaction.advance_settled == advance_settled)
+        if advance_settled is False:
+            # Treat NULL as unsettled (handles rows created before the column was added)
+            query = query.filter((Transaction.advance_settled == False) | (Transaction.advance_settled.is_(None)))
+        else:
+            query = query.filter(Transaction.advance_settled == advance_settled)
     if source:
         query = query.filter(Transaction.source == source)
     if needs_review is not None:

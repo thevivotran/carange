@@ -65,15 +65,16 @@
   </div>
   <div class="bg-white rounded-lg shadow px-4 py-3 mb-6">
     <div class="w-full bg-gray-100 rounded-full h-3">
-      <div class="h-3 rounded-full transition-all duration-500" style="width:{{ spent_pct | int }}%; background:{{ bar_color }}"></div>
+      {% set remaining_summary_pct = [[100 - spent_pct, 100] | min, 0] | max %}
+      <div class="h-3 rounded-full transition-all duration-500" style="width:{{ remaining_summary_pct | int }}%; background:{{ bar_color }}"></div>
     </div>
-    <div class="text-right text-xs text-gray-400 mt-1">{{ "%.1f"|format(spent_pct) }}% of monthly budgets used this month</div>
+    <div class="text-right text-xs text-gray-400 mt-1">{{ "%.1f"|format(100 - spent_pct) }}% of monthly budgets remaining</div>
   </div>
 
   <!-- Category cards grid -->
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     {% for r in rows %}
-    {% set pct = [r.cumulative_pct, 100] | min %}
+    {% set remaining_pct = [[100 - r.cumulative_pct, 100] | min, 0] | max %}
     {% if r.available_balance < 0 or r.cumulative_pct >= 95 %}{% set color = '#ef4444' %}
     {% elif r.cumulative_pct >= 75 %}{% set color = '#f59e0b' %}
     {% else %}{% set color = '#22c55e' %}{% endif %}
@@ -99,7 +100,7 @@
         </div>
       </div>
       <div class="progress-bg">
-        <div class="progress-bar" style="width:{{ pct | int }}%; background:{{ color }}"></div>
+        <div class="progress-bar" style="width:{{ remaining_pct | int }}%; background:{{ color }}"></div>
       </div>
       <div class="flex justify-between text-xs text-gray-400 mt-1">
         <span>
@@ -112,7 +113,7 @@
             {{ fmt_vnd(r.monthly_allocation) }}/month
           {% endif %}
         </span>
-        <span style="color:{{ color }}">{{ r.cumulative_pct | int }}%</span>
+        <span style="color:{{ color }}">{{ remaining_pct | int }}% left</span>
       </div>
     </div>
     {% endfor %}

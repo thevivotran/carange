@@ -19,6 +19,12 @@
                 <button id="tx-exit-btn" onclick="exitTxMonthTracking()" title="Exit month filter — show all transactions"
                         class="hidden w-7 h-7 flex items-center justify-center rounded-lg text-base text-gray-400 hover:text-red-500 hover:bg-red-50 transition select-none">&#215;</button>
             </div>
+            <button id="toggle-filters-btn" onclick="toggleFiltersPanel()"
+                    class="flex items-center gap-2 bg-white border rounded-lg px-3 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition flex-shrink-0">
+                <i class="fas fa-sliders-h text-gray-500"></i>
+                <span class="hidden sm:inline">Filters</span>
+                <span id="active-filter-count" class="hidden bg-primary text-white text-xs rounded-full w-5 h-5 items-center justify-center font-semibold">0</span>
+            </button>
             <button onclick="openBulkUploadModal()" title="Bulk Upload" aria-label="Bulk Upload"
                     class="bg-purple-100 text-purple-700 w-10 h-10 rounded-lg hover:bg-purple-200 transition flex items-center justify-center flex-shrink-0">
                 <i class="fas fa-file-upload"></i>
@@ -39,10 +45,10 @@
         </button>
     </div>
 
-    <!-- Filters -->
-    <div class="bg-white rounded-xl shadow-md p-4 mb-6">
-        <!-- Always-visible row -->
-        <div class="flex flex-wrap gap-3 items-center">
+    <!-- Filters panel (collapsible) -->
+    <div id="filters-panel" class="hidden bg-white rounded-xl shadow-md p-4 mb-6">
+        <!-- Search + quick actions row -->
+        <div class="flex flex-wrap gap-3 items-center mb-3">
             <div class="flex-1 min-w-[180px] relative">
                 <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
                 <input type="text" id="filter-search"
@@ -50,12 +56,6 @@
                        placeholder="Search description..."
                        onkeydown="if(event.key==='Enter') applyFilters()">
             </div>
-            <button id="toggle-filters-btn" onclick="toggleAdvancedFilters()"
-                    class="flex items-center gap-2 border rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 transition">
-                <i class="fas fa-sliders-h text-gray-500"></i>
-                Filters
-                <span id="active-filter-count" class="hidden bg-primary text-white text-xs rounded-full w-5 h-5 items-center justify-center font-semibold">0</span>
-            </button>
             <button onclick="exportCSV()" title="Export CSV" aria-label="Export CSV"
                     class="bg-green-100 text-green-700 w-10 h-10 rounded-lg hover:bg-green-200 transition flex items-center justify-center flex-shrink-0">
                 <i class="fas fa-download text-sm"></i>
@@ -73,9 +73,8 @@
                 <span>Trash</span>
             </button>
         </div>
-
-        <!-- Advanced filters (collapsible) -->
-        <div id="advanced-filters" class="hidden mt-3 pt-3 border-t">
+        <!-- Filter dropdowns -->
+        <div id="advanced-filters" class="pt-3 border-t">
             <div class="flex flex-wrap gap-3 items-center">
                 <select id="filter-type" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary"
                         onchange="loadCategories()">
@@ -160,7 +159,7 @@
 </div>
 
 <!-- Add/Edit Transaction Modal -->
-<div id="transaction-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+<div id="transaction-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90dvh] flex flex-col">
         <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
             <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Transaction</h3>
@@ -686,9 +685,9 @@
                 if (Array.from(sel.options).some(o => o.value === urlCatId)) sel.value = urlCatId;
             }
             if (urlAdvance) document.getElementById('filter-advance').value = urlAdvance;
-            // Open the advanced panel so the active filter is immediately visible.
+            // Open the filters panel so the active filter is immediately visible.
             if (urlCatId || urlType || urlAdvance) {
-                document.getElementById('advanced-filters').classList.remove('hidden');
+                document.getElementById('filters-panel').classList.remove('hidden');
             }
             updateFilterBadge();
             saveFilters();
@@ -842,8 +841,8 @@
         if (startDate) params.start_date = startDate;
         if (endDate) params.end_date = endDate;
         if (search) params.search = search;
-        if (advanceVal === 'unsettled') { params.is_advance = true; params.advance_settled = false; }
-        else if (advanceVal === 'settled') { params.is_advance = true; params.advance_settled = true; }
+        if (advanceVal === 'unsettled') { params.is_advance = 'true'; params.advance_settled = 'false'; }
+        else if (advanceVal === 'settled') { params.is_advance = 'true'; params.advance_settled = 'true'; }
         if (source) params.source = source;
         if (needsReview) params.needs_review = true;
         if (importJobParam) params.import_job_id = importJobParam;
@@ -1450,9 +1449,19 @@
     function txPrevPage() { prevPage(); }
     function txNextPage() { nextPage(); }
     
-    function toggleAdvancedFilters() {
-        const panel = document.getElementById('advanced-filters');
+    function toggleFiltersPanel() {
+        const panel = document.getElementById('filters-panel');
         panel.classList.toggle('hidden');
+        const btn = document.getElementById('toggle-filters-btn');
+        btn.classList.toggle('bg-primary', !panel.classList.contains('hidden'));
+        btn.classList.toggle('text-white', !panel.classList.contains('hidden'));
+        btn.classList.toggle('border-primary', !panel.classList.contains('hidden'));
+        btn.classList.toggle('bg-white', panel.classList.contains('hidden'));
+        btn.classList.toggle('text-gray-600', panel.classList.contains('hidden'));
+    }
+
+    function toggleAdvancedFilters() {
+        toggleFiltersPanel();
     }
 
     function updateFilterBadge() {
@@ -1555,6 +1564,11 @@
             document.getElementById('filter-advance').value = 'unsettled';
         }
         updateFilterBadge();
+        // Auto-expand filters panel when there are active filters
+        const badge = document.getElementById('active-filter-count');
+        if (!badge.classList.contains('hidden')) {
+            document.getElementById('filters-panel').classList.remove('hidden');
+        }
     }
     
     let _txTemplates = [];
@@ -1789,7 +1803,7 @@
 </script>
 
 <!-- Bulk Upload Modal -->
-<div id="bulk-upload-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+<div id="bulk-upload-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90dvh] flex flex-col">
         <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
             <h3 class="text-xl font-bold text-gray-800">Bulk Upload Transactions</h3>
@@ -1831,7 +1845,7 @@
     </div>
 </div>
 <!-- History Modal -->
-<div id="history-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+<div id="history-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[80dvh] flex flex-col">
         <div class="p-4 border-b flex justify-between items-center flex-shrink-0">
             <h3 class="text-base font-bold text-gray-800 flex items-center gap-2">
@@ -1861,7 +1875,7 @@
     </div>
 </div>
 <!-- Duplicate Warning Modal -->
-<div id="duplicate-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+<div id="duplicate-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
         <div class="p-5 border-b flex items-start gap-3">
             <div class="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
@@ -1889,7 +1903,7 @@
     </div>
 </div>
 <!-- Cascade Warning Modal -->
-<div id="cascade-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-50 flex items-center justify-center p-4">
+<div id="cascade-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
         <div class="p-5 border-b flex items-start gap-3">
             <div class="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
