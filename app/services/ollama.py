@@ -23,11 +23,11 @@ import httpx
 log = logging.getLogger("carange.ollama")
 
 OLLAMA_URL = os.getenv("OLLAMA_URL", "").rstrip("/")
-OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3.5:9b")
+OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen3.6:35b-a3b-mtp-q4_K_M")
 
-# 120s covers cold-start model load (~30s) + inference (~20-40s) in one budget.
-# Warm requests typically complete in under 10s.
-_GENERATE_TIMEOUT = 120.0
+# 600s budget: 35B MoE + think mode with CPU offloading can take 3-8 min cold.
+# Warm requests typically complete in 30-90s.
+_GENERATE_TIMEOUT = 600.0
 _HEALTH_TIMEOUT = 5.0
 
 
@@ -63,7 +63,7 @@ def generate_sync(
         "prompt": prompt,
         "stream": False,
         "options": {"temperature": temperature},
-        "think": False,
+        "think": True,
     }
     if system:
         payload["system"] = system
@@ -102,7 +102,7 @@ def vision_sync(
         "images": [image_b64],
         "stream": False,
         "options": {"temperature": 0.1},
-        "think": False,
+        "think": True,
     }
     if system:
         payload["system"] = system
@@ -148,7 +148,7 @@ async def generate(
         "prompt": prompt,
         "stream": False,
         "options": {"temperature": temperature},
-        "think": False,
+        "think": True,
     }
     if system:
         payload["system"] = system
