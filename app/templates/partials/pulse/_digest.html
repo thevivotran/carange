@@ -1,5 +1,10 @@
 {% if ollama_enabled %}
-<div class="bg-white rounded-2xl border border-gray-100 p-4">
+<div class="bg-white rounded-2xl border border-gray-100 p-4"
+     {% if not digest_text %}
+     hx-get="/fragments/pulse/digest"
+     hx-trigger="every 30s"
+     hx-swap="outerHTML"
+     {% endif %}>
   <div class="flex items-center gap-2 mb-3">
     <svg class="w-4 h-4 text-primary flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -13,7 +18,7 @@
   {% if digest_text %}
   <p class="text-sm text-gray-700 leading-relaxed">{{ digest_text }}</p>
   {% else %}
-  <p class="text-sm text-gray-400 italic">Đang tạo phân tích... Quay lại sau ít phút.</p>
+  <p class="text-sm text-gray-400 italic animate-pulse">Đang tạo phân tích...</p>
   {% endif %}
 </div>
 {% endif %}
