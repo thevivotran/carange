@@ -108,6 +108,33 @@ def test_build_budget_advisor_prompt_returns_string_with_budget(db_session):
     prompt = _build_budget_advisor_prompt(db_session)
     assert prompt is not None
     assert "Food" in prompt
+    assert "Dự báo cuối tháng" in prompt
+
+
+def test_build_budget_advisor_prompt_includes_trigger_transaction(db_session):
+    today = date.today()
+    year_month = f"{today.year:04d}-{today.month:02d}"
+    cat = Category(name="Dining", type=TransactionType.EXPENSE, color="#EF4444", icon="utensils")
+    db_session.add(cat)
+    db_session.flush()
+    db_session.add(BudgetAllocation(category_id=cat.id, year_month=year_month, amount=2_000_000))
+    tx = Transaction(
+        date=today,
+        amount=250_000,
+        type=TransactionType.EXPENSE,
+        category_id=cat.id,
+        description="Bữa trưa",
+        payment_method="cash",
+        source="manual",
+    )
+    db_session.add(tx)
+    db_session.commit()
+    db_session.refresh(tx)
+    prompt = _build_budget_advisor_prompt(db_session, trigger_transaction_id=tx.id)
+    assert prompt is not None
+    assert "250,000" in prompt
+    assert "Bữa trưa" in prompt
+    assert "Dining" in prompt
 
 
 # ── generate_weekly_digest_sync ───────────────────────────────────────────────
