@@ -429,6 +429,21 @@ class Setting(Base):
     )
 
 
+class InsightType(str, enum.Enum):
+    WEEKLY_DIGEST = "weekly_digest"
+    BUDGET_ADVISOR = "budget_advisor"
+
+
+class AIInsight(Base):
+    __tablename__ = "ai_insights"
+
+    id = Column(Integer, primary_key=True, index=True)
+    insight_type = Column(CIEnum(InsightType), unique=True, nullable=False)
+    content = Column(Text, nullable=False)
+    generated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    trigger_transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=True)
+
+
 # Database configuration
 import os
 from sqlalchemy import event

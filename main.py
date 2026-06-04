@@ -59,6 +59,20 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 # Templates
 templates = Jinja2Templates(directory="app/templates")
 
+_VN_TZ_OFFSET = __import__("datetime").timezone(__import__("datetime").timedelta(hours=7))
+
+
+def _format_vn_dt(dt) -> str:
+    """Format a UTC datetime as HH:MM DD/MM in Vietnam time (UTC+7)."""
+    if not dt:
+        return ""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=__import__("datetime").timezone.utc)
+    return dt.astimezone(_VN_TZ_OFFSET).strftime("%H:%M %d/%m")
+
+
+templates.env.filters["format_vn_dt"] = _format_vn_dt
+
 
 def seed_default_categories():
     db = SessionLocal()

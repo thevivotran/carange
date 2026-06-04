@@ -15,11 +15,14 @@
       {{ at_risk_count }} at risk
     </span>
     {% endif %}
+    {% if generated_at %}
+    <span class="{% if not over_count and not at_risk_count %}ml-auto{% endif %} text-xs text-gray-300">{{ generated_at | format_vn_dt }}</span>
+    {% endif %}
   </div>
   {% if advisor_text %}
   <p class="text-sm text-gray-700 leading-relaxed">{{ advisor_text }}</p>
   {% else %}
-  <p class="text-sm text-gray-400 italic">AI unavailable right now. Try again later.</p>
+  <p class="text-sm text-gray-400 italic">Đang tạo phân tích... Quay lại sau ít phút.</p>
   {% endif %}
 </div>
 {% endif %}

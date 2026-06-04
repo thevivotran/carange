@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func, case, and_
@@ -26,6 +26,7 @@ from app.models.schemas import (
 )
 from app.services import transaction_service
 from app.services.dashboard_service import invalidate_dashboard_cache
+from app.services.insight_service import generate_budget_advisor_sync
 from app.notify.telegram import send_personal_advance_ping
 
 _AUDIT_FIELDS = list(AuditField)
@@ -159,7 +160,12 @@ def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/", response_model=TransactionSchema)
-def create_transaction(transaction: TransactionCreate, force: bool = False, db: Session = Depends(get_db)):
+def create_transaction(
+    transaction: TransactionCreate,
+    background_tasks: BackgroundTasks,
+    force: bool = False,
+    db: Session = Depends(get_db),
+):
     category = db.query(Category).filter(Category.id == transaction.category_id).first()
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
@@ -186,6 +192,7 @@ def create_transaction(transaction: TransactionCreate, force: bool = False, db: 
 
     result = transaction_service.create_transaction(db, transaction)
     invalidate_dashboard_cache()
+    background_tasks.add_task(generate_budget_advisor_sync, trigger_transaction_id=result.id)
     if result.is_advance and not result.advance_settled:
         send_personal_advance_ping(result, action="created")
     return result
