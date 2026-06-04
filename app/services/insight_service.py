@@ -32,9 +32,7 @@ from app.services.budget_service import compute_budget_rows
 
 log = logging.getLogger("carange.insight")
 
-_SYSTEM = (
-    "Bạn là trợ lý tài chính gia đình, viết bằng tiếng Việt, ngắn gọn và thực tế. Không dùng markdown."
-)
+_SYSTEM = "Bạn là trợ lý tài chính gia đình, viết bằng tiếng Việt, ngắn gọn và thực tế. Không dùng markdown."
 
 
 # ── Read ──────────────────────────────────────────────────────────────────────
