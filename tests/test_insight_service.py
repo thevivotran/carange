@@ -111,7 +111,7 @@ def test_build_budget_advisor_prompt_returns_string_with_budget(db_session):
     assert "Dự báo cuối tháng" in prompt
 
 
-def test_build_budget_advisor_prompt_includes_trigger_transaction(db_session):
+def test_build_budget_advisor_prompt_includes_transaction_data(db_session):
     today = date.today()
     year_month = f"{today.year:04d}-{today.month:02d}"
     cat = Category(name="Dining", type=TransactionType.EXPENSE, color="#EF4444", icon="utensils")
@@ -129,15 +129,61 @@ def test_build_budget_advisor_prompt_includes_trigger_transaction(db_session):
     )
     db_session.add(tx)
     db_session.commit()
-    db_session.refresh(tx)
-    prompt = _build_budget_advisor_prompt(db_session, trigger_transaction_id=tx.id)
+    prompt = _build_budget_advisor_prompt(db_session)
     assert prompt is not None
-    assert "250,000" in prompt
-    assert "Bữa trưa" in prompt
     assert "Dining" in prompt
 
 
+# ── _is_stale ─────────────────────────────────────────────────────────────────
+
+
+def test_is_stale_returns_false_when_fresh(db_session):
+    from app.services.insight_service import _is_stale
+
+    db_session.add(
+        AIInsight(
+            insight_type=InsightType.WEEKLY_DIGEST,
+            content="x",
+            generated_at=datetime.now(timezone.utc),
+        )
+    )
+    db_session.commit()
+    assert _is_stale(db_session, InsightType.WEEKLY_DIGEST, 12) is False
+
+
+def test_is_stale_returns_true_when_old(db_session):
+    from app.services.insight_service import _is_stale
+
+    db_session.add(
+        AIInsight(
+            insight_type=InsightType.BUDGET_ADVISOR,
+            content="old",
+            generated_at=datetime(2020, 1, 1, tzinfo=timezone.utc),
+        )
+    )
+    db_session.commit()
+    assert _is_stale(db_session, InsightType.BUDGET_ADVISOR, 2) is True
+
+
 # ── generate_weekly_digest_sync ───────────────────────────────────────────────
+
+
+def test_generate_weekly_digest_sync_skips_when_fresh(db_session):
+    db_session.add(
+        AIInsight(
+            insight_type=InsightType.WEEKLY_DIGEST,
+            content="cached",
+            generated_at=datetime.now(timezone.utc),
+        )
+    )
+    db_session.commit()
+    with (
+        patch("app.services.insight_service._ollama.is_enabled", return_value=True),
+        patch("app.services.insight_service.SessionLocal", return_value=db_session),
+        patch("app.services.insight_service._ollama.generate_sync") as mock_gen,
+    ):
+        generate_weekly_digest_sync()
+        mock_gen.assert_not_called()
 
 
 def test_generate_weekly_digest_sync_skips_when_ollama_disabled():
@@ -210,6 +256,24 @@ def test_generate_weekly_digest_sync_skips_store_when_llm_returns_none(db_sessio
 # ── generate_budget_advisor_sync ──────────────────────────────────────────────
 
 
+def test_generate_budget_advisor_sync_skips_when_fresh(db_session):
+    db_session.add(
+        AIInsight(
+            insight_type=InsightType.BUDGET_ADVISOR,
+            content="cached",
+            generated_at=datetime.now(timezone.utc),
+        )
+    )
+    db_session.commit()
+    with (
+        patch("app.services.insight_service._ollama.is_enabled", return_value=True),
+        patch("app.services.insight_service.SessionLocal", return_value=db_session),
+        patch("app.services.insight_service._ollama.generate_sync") as mock_gen,
+    ):
+        generate_budget_advisor_sync()
+        mock_gen.assert_not_called()
+
+
 def test_generate_budget_advisor_sync_skips_when_ollama_disabled():
     with patch("app.services.insight_service._ollama.is_enabled", return_value=False):
         generate_budget_advisor_sync()  # should not raise
@@ -239,8 +303,7 @@ def test_generate_budget_advisor_sync_stores_result(db_session):
         patch("app.services.insight_service.SessionLocal", return_value=db_session),
         patch("app.services.insight_service._ollama.generate_sync", return_value="Budget insight."),
     ):
-        generate_budget_advisor_sync(trigger_transaction_id=7)
+        generate_budget_advisor_sync()
 
     row = get_insight(db_session, InsightType.BUDGET_ADVISOR)
     assert row.content == "Budget insight."
-    assert row.trigger_transaction_id == 7

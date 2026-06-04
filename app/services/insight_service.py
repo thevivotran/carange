@@ -1,9 +1,9 @@
 """
 AI insight generation service.
 
-Triggers:
-  WEEKLY_DIGEST  — generated every hour by the background scheduler thread.
-  BUDGET_ADVISOR — generated after every new transaction via FastAPI BackgroundTask.
+Schedules (enforced by the scheduler thread, not wall-clock):
+  WEEKLY_DIGEST  — regenerated every 12 hours.
+  BUDGET_ADVISOR — regenerated every 2 hours.
 
 Both generators are fully synchronous (use generate_sync + SessionLocal) so they
 work from daemon threads with no active event loop.
@@ -36,22 +36,41 @@ _SYSTEM_WEEKLY = (
     "Bạn là chuyên gia phân tích tài chính cá nhân với 15 năm kinh nghiệm tư vấn cho các gia đình Việt Nam. "
     "Nhiệm vụ: phân tích chi tiêu tuần và đưa ra nhận xét CHÍNH XÁC, NGẮN GỌN, có số liệu cụ thể. "
     "Viết bằng tiếng Việt. Không dùng markdown, không dùng emoji. "
-    "Luôn trích dẫn con số cụ thể khi nhận xét."
+    "QUY TẮC SỐ LIỆU: chỉ trích dẫn đúng các con số đã được cung cấp trong dữ liệu — "
+    "không làm tròn, không ước tính, không tự tính toán thêm."
 )
 
 _SYSTEM_BUDGET = (
     "Bạn là cố vấn tài chính cá nhân theo dõi ngân sách theo thời gian thực cho gia đình Việt Nam. "
-    "Nhiệm vụ: đánh giá nhanh tác động của giao dịch vừa thêm và tình trạng ngân sách tháng hiện tại. "
+    "Nhiệm vụ: đánh giá tình trạng ngân sách tháng hiện tại và đưa ra lời khuyên thực tế. "
     "Viết bằng tiếng Việt. Không dùng markdown, không dùng emoji. "
+    "QUY TẮC SỐ LIỆU: chỉ trích dẫn đúng các con số đã được cung cấp — "
+    "không làm tròn, không ước tính, không tự tính toán thêm. "
     "Lời khuyên phải CỤ THỂ, ĐO LƯỜNG ĐƯỢC — không nói chung chung."
 )
 
 
-# ── Read ──────────────────────────────────────────────────────────────────────
+WEEKLY_DIGEST_MAX_AGE_HOURS = 12
+BUDGET_ADVISOR_MAX_AGE_HOURS = 2
+
+
+# ── Read / staleness ──────────────────────────────────────────────────────────
 
 
 def get_insight(db: Session, insight_type: InsightType) -> Optional[AIInsight]:
     return db.query(AIInsight).filter(AIInsight.insight_type == insight_type).first()
+
+
+def _is_stale(db: Session, insight_type: InsightType, max_age_hours: float) -> bool:
+    """Return True if the insight doesn't exist or is older than max_age_hours."""
+    row = get_insight(db, insight_type)
+    if row is None:
+        return True
+    ts = row.generated_at
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    age_seconds = (datetime.now(timezone.utc) - ts).total_seconds()
+    return age_seconds >= max_age_hours * 3600
 
 
 # ── Write (upsert) ────────────────────────────────────────────────────────────
@@ -228,15 +247,19 @@ KHUYẾN NGHỊ: [1 hành động cụ thể, đo lường được cho 7 ngày 
 
 
 def generate_weekly_digest_sync() -> None:
-    """Regenerate and store the weekly digest. Called every hour by the scheduler thread."""
+    """Regenerate weekly digest if older than WEEKLY_DIGEST_MAX_AGE_HOURS (12 h)."""
     if not _ollama.is_enabled():
         return
     db: Session = SessionLocal()
     try:
+        if not _is_stale(db, InsightType.WEEKLY_DIGEST, WEEKLY_DIGEST_MAX_AGE_HOURS):
+            log.debug("Weekly digest still fresh, skipping")
+            return
         prompt = _build_weekly_digest_prompt(db)
         if prompt is None:
             log.debug("Weekly digest: no expenses in last 7 days, skipping")
             return
+        log.info("Generating weekly digest...")
         text = _ollama.generate_sync(prompt=prompt, system=_SYSTEM_WEEKLY)
         if text:
             _upsert(db, InsightType.WEEKLY_DIGEST, text)
@@ -249,10 +272,7 @@ def generate_weekly_digest_sync() -> None:
 # ── Budget Advisor ────────────────────────────────────────────────────────────
 
 
-def _build_budget_advisor_prompt(
-    db: Session,
-    trigger_transaction_id: Optional[int] = None,
-) -> Optional[str]:
+def _build_budget_advisor_prompt(db: Session) -> Optional[str]:
     today = date.today()
     year_month = f"{today.year:04d}-{today.month:02d}"
     _, days_in_month = monthrange(today.year, today.month)
@@ -295,11 +315,6 @@ def _build_budget_advisor_prompt(
     projected_expense = round(mtd_expense / days_elapsed * days_in_month) if days_elapsed > 0 else mtd_expense
     expense_income_ratio = round(mtd_expense / mtd_income * 100) if mtd_income > 0 else None
 
-    # ── Triggering transaction ────────────────────────────────────────────────
-    trigger_tx = None
-    if trigger_transaction_id:
-        trigger_tx = db.query(Transaction).filter(Transaction.id == trigger_transaction_id).first()
-
     # ── Budget status ─────────────────────────────────────────────────────────
     over = [r for r in rows if r["usage_pct"] > 100]
     at_risk = [r for r in rows if 80 <= r["usage_pct"] <= 100]
@@ -335,31 +350,17 @@ def _build_budget_advisor_prompt(
     else:
         pace_note = f"tốc độ chi tiêu phù hợp: {budget_pct}% ngân sách / {day_pct}% tháng"
 
-    # ── Triggering transaction context ────────────────────────────────────────
-    if trigger_tx:
-        cat_name = db.query(Category.name).filter(Category.id == trigger_tx.category_id).scalar() or "Không rõ danh mục"
-        tx_type_str = "Chi tiêu" if trigger_tx.type == TransactionType.EXPENSE else "Thu nhập"
-        trigger_block = (
-            f"\n[GIAO DỊCH VỪA THÊM]\n"
-            f"  {tx_type_str}: {trigger_tx.amount:,.0f} VND\n"
-            f"  Danh mục: {cat_name}\n"
-            f"  Mô tả: {trigger_tx.description or '(không có)'}\n"
-            f"  Ngày: {trigger_tx.date.strftime('%d/%m/%Y')}"
-        )
-    else:
-        trigger_block = ""
-
     income_line = f"{mtd_income:,.0f} VND" if mtd_income > 0 else "chưa ghi nhận"
     ratio_line = f" ({expense_income_ratio}% thu nhập)" if expense_income_ratio else ""
 
-    return f"""[ĐÁNH GIÁ NGÂN SÁCH THỜI GIAN THỰC — Ngày {today.day}/{today.month}/{today.year}]
+    return f"""[ĐÁNH GIÁ NGÂN SÁCH — Ngày {today.day}/{today.month}/{today.year}]
 
 Tiến độ tháng: {days_elapsed}/{days_in_month} ngày ({day_pct}%), còn {days_remaining} ngày
 Thu nhập tháng đến nay: {income_line}
 Chi tiêu tháng đến nay: {mtd_expense:,.0f} VND{ratio_line}
 Dự báo cuối tháng: {projected_expense:,.0f} VND (nếu giữ đà hiện tại)
 Tốc độ ngân sách: {pace_note}
-{trigger_block}
+
 [TÌNH TRẠNG NGÂN SÁCH]
 Vượt ngân sách ({len(over)} danh mục):
 {over_lines}
@@ -372,25 +373,28 @@ Cảnh báo 80-100% ({len(at_risk)} danh mục):
 
 ---
 Viết ĐÚNG 2-3 câu ngắn theo thứ tự:
-1. Đánh giá nhanh giao dịch vừa thêm trong bối cảnh ngân sách\
-{" (nếu không có giao dịch cụ thể, đánh giá tổng thể)" if not trigger_tx else ""}
-2. Cảnh báo cụ thể nếu có rủi ro (hoặc xác nhận tích cực nếu tình hình tốt), trích dẫn số liệu
+1. Đánh giá tổng thể tình hình ngân sách tháng, nêu mức chi so với kế hoạch và dự báo cuối tháng
+2. Cảnh báo cụ thể nếu có rủi ro (hoặc xác nhận tích cực nếu tình hình tốt), trích dẫn đúng số liệu
 3. Một điều chỉnh CỤ THỂ, ĐO LƯỜNG ĐƯỢC có thể thực hiện ngay (nếu cần cải thiện)"""
 
 
-def generate_budget_advisor_sync(trigger_transaction_id: Optional[int] = None) -> None:
-    """Regenerate and store the budget advisor insight. Called after each new transaction."""
+def generate_budget_advisor_sync() -> None:
+    """Regenerate budget advisor if older than BUDGET_ADVISOR_MAX_AGE_HOURS (2 h)."""
     if not _ollama.is_enabled():
         return
     db: Session = SessionLocal()
     try:
-        prompt = _build_budget_advisor_prompt(db, trigger_transaction_id=trigger_transaction_id)
+        if not _is_stale(db, InsightType.BUDGET_ADVISOR, BUDGET_ADVISOR_MAX_AGE_HOURS):
+            log.debug("Budget advisor still fresh, skipping")
+            return
+        prompt = _build_budget_advisor_prompt(db)
         if prompt is None:
             log.debug("Budget advisor: no budget rows, skipping")
             return
+        log.info("Generating budget advisor...")
         text = _ollama.generate_sync(prompt=prompt, system=_SYSTEM_BUDGET)
         if text:
-            _upsert(db, InsightType.BUDGET_ADVISOR, text, trigger_id=trigger_transaction_id)
+            _upsert(db, InsightType.BUDGET_ADVISOR, text)
     except Exception:
         log.exception("Failed to generate budget advisor")
     finally:

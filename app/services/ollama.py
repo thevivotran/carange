@@ -48,8 +48,16 @@ def _build_messages(prompt: str, system: str) -> list[dict]:
     return msgs
 
 
+import re as _re
+
+_THINK_RE = _re.compile(r"<think>.*?</think>", _re.DOTALL | _re.IGNORECASE)
+
+
 def _extract_response(data: dict) -> str:
-    return data["choices"][0]["message"]["content"].strip()
+    content = data["choices"][0]["message"]["content"].strip()
+    # Qwen3 think mode may embed <think>…</think> reasoning in content — strip it.
+    content = _THINK_RE.sub("", content).strip()
+    return content
 
 
 # ── Sync client (OCR worker) ──────────────────────────────────────────────────

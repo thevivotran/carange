@@ -102,10 +102,11 @@ def _create_from_template(db: Session, tmpl: TransactionTemplate, today: date) -
 def _scheduler_loop() -> None:
     """Daemon loop: wakes every hour.
 
+    Each wakeup:
     - Template processing runs once per calendar day.
-    - Weekly digest insight is refreshed every wakeup (hourly).
+    - AI insights delegate their own staleness check (12 h digest, 2 h budget advisor).
     """
-    from app.services.insight_service import generate_weekly_digest_sync
+    from app.services.insight_service import generate_budget_advisor_sync, generate_weekly_digest_sync
 
     log.info("Scheduler: background thread started")
     last_run_date: date | None = None
@@ -120,6 +121,7 @@ def _scheduler_loop() -> None:
                     last_run_date = today
                 finally:
                     db.close()
+            generate_budget_advisor_sync()
             generate_weekly_digest_sync()
         except Exception:
             log.exception("Scheduler: unexpected error in main loop")
