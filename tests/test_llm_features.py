@@ -322,7 +322,10 @@ def test_budget_advisor_no_card_when_no_budget_set(client):
 
 
 def test_budget_advisor_shows_insight_when_budget_exists(client, db_session):
-    from app.models.database import BudgetAllocation, Category, TransactionType
+    """Pre-seeded AIInsight row is shown directly — no LLM call on page load."""
+    from datetime import datetime, timezone
+
+    from app.models.database import AIInsight, BudgetAllocation, Category, InsightType, TransactionType
 
     today = date.today()
     year_month = f"{today.year:04d}-{today.month:02d}"
@@ -330,18 +333,23 @@ def test_budget_advisor_shows_insight_when_budget_exists(client, db_session):
     db_session.add(cat)
     db_session.flush()
     db_session.add(BudgetAllocation(category_id=cat.id, year_month=year_month, amount=3_000_000))
+    db_session.add(
+        AIInsight(
+            insight_type=InsightType.BUDGET_ADVISOR,
+            content="Chi tiêu tháng này ổn định.",
+            generated_at=datetime.now(timezone.utc),
+        )
+    )
     db_session.commit()
 
-    with (
-        patch("app.services.ollama.is_enabled", return_value=True),
-        patch("app.services.ollama.generate", return_value="Chi tiêu tháng này ổn định."),
-    ):
+    with patch("app.services.ollama.is_enabled", return_value=True):
         r = client.get("/fragments/pulse/budget-advisor")
     assert r.status_code == 200
     assert "Chi tiêu tháng này ổn định.".encode() in r.content
 
 
-def test_budget_advisor_shows_unavailable_when_generate_fails(client, db_session):
+def test_budget_advisor_shows_pending_when_no_insight(client, db_session):
+    """No AIInsight row yet → show 'generating' placeholder, not 'AI unavailable'."""
     from app.models.database import BudgetAllocation, Category, TransactionType
 
     today = date.today()
@@ -352,17 +360,14 @@ def test_budget_advisor_shows_unavailable_when_generate_fails(client, db_session
     db_session.add(BudgetAllocation(category_id=cat.id, year_month=year_month, amount=2_000_000))
     db_session.commit()
 
-    with (
-        patch("app.services.ollama.is_enabled", return_value=True),
-        patch("app.services.ollama.generate", return_value=None),
-    ):
+    with patch("app.services.ollama.is_enabled", return_value=True):
         r = client.get("/fragments/pulse/budget-advisor")
     assert r.status_code == 200
-    assert b"AI unavailable" in r.content
+    assert "Đang tạo phân tích".encode() in r.content
 
 
 def test_budget_advisor_over_budget_badge(client, db_session):
-    """Over-budget category produces the 'vượt' badge in the card."""
+    """Over-budget category shows the 'over budget' badge in the card."""
     from app.models.database import BudgetAllocation, Category, Transaction, TransactionType
 
     today = date.today()
@@ -383,10 +388,7 @@ def test_budget_advisor_over_budget_badge(client, db_session):
     )
     db_session.commit()
 
-    with (
-        patch("app.services.ollama.is_enabled", return_value=True),
-        patch("app.services.ollama.generate", return_value="Danh mục Giải trí đã vượt ngân sách."),
-    ):
+    with patch("app.services.ollama.is_enabled", return_value=True):
         r = client.get("/fragments/pulse/budget-advisor")
     assert r.status_code == 200
-    assert "vượt".encode() in r.content
+    assert b"over budget" in r.content
