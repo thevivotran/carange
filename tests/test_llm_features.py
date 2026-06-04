@@ -50,6 +50,30 @@ def db_with_category(session_factory):
         yield db, cat
 
 
+# ── ollama.py helpers ─────────────────────────────────────────────────────────
+
+
+def test_build_messages_with_system():
+    from app.services.ollama import _build_messages
+
+    msgs = _build_messages("hello", "be concise")
+    assert msgs == [{"role": "system", "content": "be concise"}, {"role": "user", "content": "hello"}]
+
+
+def test_build_messages_no_system():
+    from app.services.ollama import _build_messages
+
+    msgs = _build_messages("hello", "")
+    assert msgs == [{"role": "user", "content": "hello"}]
+
+
+def test_extract_response():
+    from app.services.ollama import _extract_response
+
+    data = {"choices": [{"message": {"content": "  answer  "}}]}
+    assert _extract_response(data) == "answer"
+
+
 # ── Vision extraction ─────────────────────────────────────────────────────────
 
 
