@@ -35,6 +35,7 @@ jobs:
               - 'alembic/**'
             worker:
               - 'ocr_worker/**'
+              - 'requirements.txt'
             email_worker:
               - 'email_worker/**'
               - 'requirements.txt'
