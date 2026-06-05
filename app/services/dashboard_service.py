@@ -1,11 +1,14 @@
 """Dashboard aggregation service — replaces the inline logic in dashboard.py."""
 
+import logging
 import time
 import threading
 from datetime import date, datetime, timedelta, timezone
 from calendar import monthrange
 from types import SimpleNamespace
 from typing import Any
+
+log = logging.getLogger("app.dashboard_service")
 
 from sqlalchemy import func, case, and_
 from sqlalchemy.orm import Session, joinedload
@@ -511,6 +514,8 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     try:
         budget_rows = compute_budget_rows(db, today_ym)
     except Exception:
+        log.exception("compute_budget_rows failed for %s — rolling back and continuing", today_ym)
+        db.rollback()
         budget_rows = []
 
     budget_total = len(budget_rows)
