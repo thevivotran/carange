@@ -35,8 +35,8 @@ def approve(tx_id: int, payload: ApprovePayload = ApprovePayload(), db: Session 
     if payload.category_id is not None:
         tx.category_id = payload.category_id
     if payload.description is not None:
-        canonical, payee_id = normalize_description(db, payload.description)
-        tx.description = canonical or payload.description
+        _, payee_id = normalize_description(db, payload.description)
+        tx.description = payload.description
         tx.payee_id = payee_id
     if payload.amount is not None:
         tx.amount = payload.amount

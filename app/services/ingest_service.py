@@ -62,16 +62,15 @@ def commit_ingest_batch(
             log.warning("No category for '%s' — skipping", item.description)
             continue
 
-        # Payee normalization before writing description to DB
-        canonical_desc, payee_id = normalize_description(db, item.description or "")
-        display_desc = canonical_desc or item.description
+        # Resolve payee_id without touching the description
+        _, payee_id = normalize_description(db, item.description or "")
 
         tx = Transaction(
             date=item.date,
             amount=item.amount,
             type=TransactionType(item.tx_type),
             category_id=category_id,
-            description=display_desc,
+            description=item.description,
             payment_method=item.payment_method,
             source=source_tag,
             import_job_id=import_job_id,

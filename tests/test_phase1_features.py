@@ -93,7 +93,7 @@ def test_normalize_description_matches_alias(db_session):
     db_session.refresh(payee)
 
     canonical, pid = normalize_description(db_session, "Grab Food delivery")
-    assert canonical == "Grab"
+    assert canonical == "Grab Food delivery"
     assert pid == payee.id
 
 

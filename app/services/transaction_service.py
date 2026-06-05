@@ -125,11 +125,8 @@ def create_transaction(db: Session, data: TransactionCreate) -> Transaction:
 
         transaction_data["savings_bundle_id"] = savings_bundle_id
 
-        # Payee normalization for manual entries
-        raw_desc = transaction_data.get("description") or ""
-        canonical_desc, payee_id = normalize_description(db, raw_desc)
-        if canonical_desc != raw_desc:
-            transaction_data["description"] = canonical_desc
+        # Resolve payee_id without touching the description
+        _, payee_id = normalize_description(db, transaction_data.get("description") or "")
         transaction_data["payee_id"] = payee_id
 
         db_tx = Transaction(**transaction_data)

@@ -56,8 +56,9 @@ def _load_payee_cache(db: Session) -> list[tuple[int, str, list[re.Pattern]]]:
 def normalize_description(db: Session, raw: str) -> tuple[str, Optional[int]]:
     """Match raw description against payee alias_patterns.
 
-    Returns (canonical_name, payee_id) when a payee matches,
-    or (raw, None) when nothing matches.
+    Returns (raw, payee_id) when a payee matches — description is intentionally
+    kept verbatim so detail information is not lost.
+    Returns (raw, None) when nothing matches.
     Patterns are pre-compiled and cached; invalidated on payee writes.
     """
     if not raw:
@@ -66,7 +67,7 @@ def normalize_description(db: Session, raw: str) -> tuple[str, Optional[int]]:
     for payee_id, canonical_name, rxs in _load_payee_cache(db):
         for rx in rxs:
             if rx.search(raw):
-                return canonical_name, payee_id
+                return raw, payee_id
     return raw, None
 
 
