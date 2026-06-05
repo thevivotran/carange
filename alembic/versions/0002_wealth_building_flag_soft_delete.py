@@ -22,7 +22,9 @@ def upgrade() -> None:
     cat_cols = {col["name"] for col in inspector.get_columns("categories")}
     if "is_wealth_building" not in cat_cols:
         with op.batch_alter_table("categories") as batch_op:
-            batch_op.add_column(sa.Column("is_wealth_building", sa.Boolean(), server_default=sa.false(), nullable=False))
+            batch_op.add_column(
+                sa.Column("is_wealth_building", sa.Boolean(), server_default=sa.false(), nullable=False)
+            )
         conn.execute(
             sa.text(
                 "UPDATE categories SET is_wealth_building = true"
