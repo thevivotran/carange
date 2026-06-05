@@ -450,11 +450,17 @@ from sqlalchemy import event
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./carange.db")
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+_is_sqlite = DATABASE_URL.startswith("sqlite")
+engine = create_engine(
+    DATABASE_URL,
+    connect_args={"check_same_thread": False} if _is_sqlite else {},
+)
 
 
 @event.listens_for(engine, "connect")
 def set_sqlite_pragma(dbapi_conn, _):
+    if not _is_sqlite:
+        return
     cursor = dbapi_conn.cursor()
     cursor.execute("PRAGMA journal_mode=WAL")
     cursor.execute("PRAGMA synchronous=NORMAL")

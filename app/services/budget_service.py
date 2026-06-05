@@ -78,17 +78,19 @@ def compute_budget_rows(db: Session, year_month: str) -> list[dict]:
     cat_first_alloc_start = {cat_id: f"{allocs[0][0]}-01" for cat_id, allocs in alloc_by_cat.items()}
 
     # ── SQL: cumulative spending using per-category start dates ───────────────
-    # VALUES placeholders are bound parameters — never interpolate values into SQL.
+    # UNION ALL instead of VALUES (...) so the CTE is portable across SQLite and PostgreSQL.
+    # Pass start dates as Python date objects so SQLAlchemy binds them correctly on both
+    # dialects (no manual CAST needed — sqlite3 uses isoformat text, psycopg2 uses DATE).
     params: dict = {"end_date": end_date_str}
-    placeholders: list[str] = []
+    union_rows: list[str] = []
     for i, (cat_id, start) in enumerate(cat_first_alloc_start.items()):
         params[f"cid_{i}"] = cat_id
-        params[f"sd_{i}"] = start
-        placeholders.append(f"(:cid_{i}, :sd_{i})")
-    values_sql = ", ".join(placeholders)
+        params[f"sd_{i}"] = _date.fromisoformat(start)
+        union_rows.append(f"SELECT :cid_{i}, :sd_{i}")
+    cat_starts_sql = " UNION ALL ".join(union_rows)
     cumulative_spent_rows = db.execute(
         text(f"""
-        WITH cat_starts(cat_id, start_date) AS (VALUES {values_sql})
+        WITH cat_starts(cat_id, start_date) AS ({cat_starts_sql})
         SELECT t.category_id, SUM(t.amount)
         FROM transactions t
         JOIN cat_starts cs ON t.category_id = cs.cat_id
@@ -118,13 +120,12 @@ def compute_budget_rows(db: Session, year_month: str) -> list[dict]:
     this_month_map = {r[0]: r[1] or 0 for r in this_month_rows}
 
     # ── Cumulative allocated: step-function carry-forward via SQL CTE ─────────
-    # Build a VALUES clause from the Python-generated month list. SQLite lacks
-    # generate_series, so we pass months as literal VALUES rows.
+    # UNION ALL instead of VALUES (...) so the CTE is portable across SQLite and PostgreSQL.
     if all_months:
-        month_values = ", ".join(f"('{m}')" for m in all_months)
+        month_selects = " UNION ALL ".join(f"SELECT '{m}'" for m in all_months)
         cumulative_alloc_rows = db.execute(
             text(f"""
-            WITH month_series(ym) AS (VALUES {month_values}),
+            WITH month_series(ym) AS ({month_selects}),
             resolved AS (
                 SELECT
                     cats.cat_id,
