@@ -46,6 +46,10 @@ audit:
 	$(PYTHON) -m pip_audit -r requirements.txt
 
 # ── Local PostgreSQL (podman) ─────────────────────────────────────────────────
+# Force Podman to use the canonical XDG data dir so the storage DB is always
+# at ~/.local/share/containers regardless of whether we're running inside a
+# snap-isolated editor (which overrides XDG_DATA_HOME to its own prefix).
+export XDG_DATA_HOME := $(HOME)/.local/share
 
 PG_CONTAINER := carange-pg
 PG_IMAGE     := docker.io/postgres:16-alpine
@@ -54,7 +58,7 @@ PG_TEST_URL  := postgresql://carange:carange@localhost:5432/carange_test
 
 .PHONY: db-up
 db-up:
-	@if ! podman ps --format '{{.Names}}' | grep -q '^$(PG_CONTAINER)$$'; then \
+	@if ! podman ps --format '{{.Names}}' 2>/dev/null | grep -q '^$(PG_CONTAINER)$$'; then \
 	    podman run -d --name $(PG_CONTAINER) \
 	        -e POSTGRES_USER=carange \
 	        -e POSTGRES_PASSWORD=carange \

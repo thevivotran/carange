@@ -36,6 +36,10 @@ def _group_by_date(items, date_attr: str = "created_at"):
         if dt is None:
             label = "Unknown"
         else:
+            # Convert timezone-aware datetimes to local time before date comparison
+            # so items created "today" locally are never shown as "Yesterday" (UTC off-by-one)
+            if hasattr(dt, "tzinfo") and dt.tzinfo is not None:
+                dt = dt.astimezone()
             d = dt.date() if hasattr(dt, "date") else dt
             if d == today:
                 label = "Today"

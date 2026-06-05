@@ -134,7 +134,7 @@ def compute_budget_rows(db: Session, year_month: str) -> list[dict]:
                 WITH month_series(ym) AS (
                     SELECT to_char(gs::date, 'YYYY-MM')
                     FROM generate_series(
-                        :start_gs::date, :end_gs::date, '1 month'::interval
+                        CAST(:start_gs AS date), CAST(:end_gs AS date), '1 month'::interval
                     ) AS gs
                 ),
                 resolved AS (
