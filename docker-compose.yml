@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: carange
+      POSTGRES_PASSWORD: carange
+      POSTGRES_DB: carange
+    ports:
+      - "5432:5432"
+    volumes:
+      - carange-pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carange"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  carange-pg-data:
