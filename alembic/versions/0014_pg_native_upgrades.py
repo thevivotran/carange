@@ -126,6 +126,10 @@ def upgrade() -> None:
             )
 
     # ── 4. JSONB for JSON text columns ────────────────────────────────────────
+    # Map of columns that carry a text DEFAULT which must be re-expressed as JSONB
+    _jsonb_defaults: dict[tuple, str] = {
+        ("transaction_rules", "action_json"): "'{}'::jsonb",
+    }
     for table, col, nullable in [
         ("transaction_rules", "action_json", False),
         ("payees", "alias_patterns", True),
@@ -133,6 +137,9 @@ def upgrade() -> None:
     ]:
         if table not in inspector.get_table_names():
             continue
+        # Drop any existing default before type change; PostgreSQL refuses to
+        # auto-cast a text default to jsonb.
+        bind.execute(sa.text(f"ALTER TABLE {table} ALTER COLUMN {col} DROP DEFAULT"))
         op.alter_column(
             table,
             col,
@@ -140,6 +147,9 @@ def upgrade() -> None:
             postgresql_using=f"CASE WHEN {col} IS NULL THEN NULL ELSE {col}::jsonb END",
             nullable=nullable,
         )
+        new_default = _jsonb_defaults.get((table, col))
+        if new_default:
+            bind.execute(sa.text(f"ALTER TABLE {table} ALTER COLUMN {col} SET DEFAULT {new_default}"))
 
     # ── 5. updated_at trigger function ────────────────────────────────────────
     bind.execute(
