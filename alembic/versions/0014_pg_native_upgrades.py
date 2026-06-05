@@ -115,11 +115,14 @@ def upgrade() -> None:
             col_type = existing_cols[col]["type"]
             if getattr(col_type, "timezone", False):
                 continue  # already TIMESTAMPTZ — skip
+            # text columns came from SQLite migration; cast directly
+            is_text = isinstance(col_type, (sa.String, sa.Text)) or str(col_type) in ("TEXT", "VARCHAR")
+            using = f"{col}::timestamptz" if is_text else f"{col} AT TIME ZONE 'UTC'"
             op.alter_column(
                 table,
                 col,
                 type_=sa.TIMESTAMP(timezone=True),
-                postgresql_using=f"{col} AT TIME ZONE 'UTC'",
+                postgresql_using=using,
             )
 
     # ── 4. JSONB for JSON text columns ────────────────────────────────────────
