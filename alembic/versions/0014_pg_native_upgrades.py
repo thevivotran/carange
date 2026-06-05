@@ -235,7 +235,11 @@ def upgrade() -> None:
         ALTER TABLE transactions
         DROP CONSTRAINT IF EXISTS chk_tx_source,
         ADD CONSTRAINT chk_tx_source
-        CHECK (source IN ('manual','csv','ocr','email','template') OR source IS NULL)
+        CHECK (source IN (
+            'manual','csv','ocr','email','template',
+            'timo','shopee','grab','uob','liobank',
+            'savings_maturity','project_payment'
+        ) OR source IS NULL)
     """)
     )
 
