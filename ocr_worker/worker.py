@@ -33,18 +33,21 @@ STUCK_TIMEOUT_MINUTES = int(os.getenv("STUCK_TIMEOUT", "30"))
 
 
 def _make_session_factory():
+    _is_sqlite = DATABASE_URL.startswith("sqlite")
     engine = create_engine(
         DATABASE_URL,
-        connect_args={"check_same_thread": False},
+        connect_args={"check_same_thread": False} if _is_sqlite else {},
     )
 
-    @event.listens_for(engine, "connect")
-    def set_sqlite_pragma(dbapi_conn, _):
-        cursor = dbapi_conn.cursor()
-        cursor.execute("PRAGMA journal_mode=WAL")
-        cursor.execute("PRAGMA busy_timeout=5000")  # wait up to 5 s on write contention
-        cursor.execute("PRAGMA synchronous=NORMAL")
-        cursor.close()
+    if _is_sqlite:
+
+        @event.listens_for(engine, "connect")
+        def set_sqlite_pragma(dbapi_conn, _):
+            cursor = dbapi_conn.cursor()
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA busy_timeout=5000")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.close()
 
     return sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
