@@ -38,7 +38,14 @@ def _load_payee_cache(db: Session) -> list[tuple[int, str, list[re.Pattern]]]:
         compiled = []
         for payee in payees:
             try:
-                patterns: list[str] = json.loads(payee.alias_patterns)
+                raw = payee.alias_patterns
+                # JSON column returns a Python list directly; TEXT fallback needs parsing
+                if isinstance(raw, str):
+                    patterns: list[str] = json.loads(raw)
+                elif isinstance(raw, list):
+                    patterns = raw
+                else:
+                    continue
             except (json.JSONDecodeError, TypeError):
                 continue
             rxs: list[re.Pattern] = []
@@ -94,8 +101,14 @@ def apply_rules(db: Session, tx: Transaction, payee_id: Optional[int] = None) ->
 
     for rule in rules:
         if _matches(rule, tx, payee_id):
+            raw = rule.action_json
             try:
-                raw_action = json.loads(rule.action_json or "{}")
+                if isinstance(raw, str):
+                    raw_action = json.loads(raw or "{}")
+                elif isinstance(raw, dict):
+                    raw_action = raw
+                else:
+                    raw_action = {}
             except json.JSONDecodeError:
                 log.warning("Rule %d has invalid action_json — skipping", rule.id)
                 continue
@@ -135,8 +148,6 @@ def _matches(rule: TransactionRule, tx: Transaction, payee_id: Optional[int]) ->
         val = str(payee_id) if payee_id is not None else ""
     elif field == "type":
         val = tx.type.value if tx.type else ""
-    else:
-        return False
 
     if op == "equals":
         return val.lower() == pattern.lower()
@@ -167,5 +178,3 @@ def _matches(rule: TransactionRule, tx: Transaction, payee_id: Optional[int]) ->
             return float(val) < float(pattern)
         except (ValueError, TypeError):
             return False
-
-    return False

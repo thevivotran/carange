@@ -2,7 +2,7 @@
 
 import time
 import threading
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from calendar import monthrange
 from types import SimpleNamespace
 from typing import Any
@@ -26,34 +26,114 @@ from app.models.database import (
 from app.services.budget_service import compute_budget_rows
 from app.services.settings_service import get_setting
 
-# ── In-memory dashboard cache (TTL = 120 s) ──────────────────────────────────
+# ── Dashboard cache ───────────────────────────────────────────────────────────
+# In-memory dict for fast within-pod serving. Cross-pod invalidation (by the
+# OCR/email workers running in separate k8s pods) uses a sentinel row written
+# to period_rollups so the main app detects external mutations on the next
+# cache hit check.
+#
+# Cache entry format: (monotonic_ts, wall_ts_float, value)
+# wall_ts_float is datetime.now(utc).timestamp() at the time of the set, used
+# to compare against the DB sentinel's computed_at.
+
 _CACHE_TTL = 120.0
-_cache: dict[tuple, tuple[float, Any]] = {}
+_cache: dict[tuple, tuple[float, float, Any]] = {}
 _cache_lock = threading.Lock()
 
+_SENTINEL_HORIZON = "__inv__"
+_SENTINEL_KEY = "global"
 
-def invalidate_dashboard_cache() -> None:
-    """Clear the dashboard cache — call after any write that affects dashboard metrics."""
+
+def _db_get_sentinel_wall_ts(db: Session) -> float | None:
+    """Return the sentinel's computed_at as a UTC timestamp float, or None if absent."""
+    try:
+        from app.models.database import PeriodRollup
+
+        row = (
+            db.query(PeriodRollup.computed_at)
+            .filter(
+                PeriodRollup.horizon == _SENTINEL_HORIZON,
+                PeriodRollup.period_key == _SENTINEL_KEY,
+            )
+            .scalar()
+        )
+        if row is None:
+            return None
+        if row.tzinfo is None:
+            row = row.replace(tzinfo=timezone.utc)
+        return row.timestamp()
+    except Exception:
+        return None
+
+
+def _db_write_sentinel(db: Session) -> None:
+    """Upsert the invalidation sentinel with computed_at = now."""
+    try:
+        from app.models.database import PeriodRollup
+
+        now = datetime.now(timezone.utc)
+        row = (
+            db.query(PeriodRollup)
+            .filter(
+                PeriodRollup.horizon == _SENTINEL_HORIZON,
+                PeriodRollup.period_key == _SENTINEL_KEY,
+            )
+            .first()
+        )
+        if row is None:
+            db.add(
+                PeriodRollup(
+                    horizon=_SENTINEL_HORIZON,
+                    period_key=_SENTINEL_KEY,
+                    payload_json={},
+                    computed_at=now,
+                )
+            )
+        else:
+            row.computed_at = now
+        db.commit()
+    except Exception:
+        db.rollback()
+
+
+def invalidate_dashboard_cache(db: Session = None) -> None:
+    """Invalidate the dashboard cache.
+
+    Always clears the in-process in-memory dict. When *db* is supplied, also
+    writes a sentinel row to period_rollups so that other pods (OCR worker,
+    email worker) can trigger invalidation in the main app on the next request.
+    """
     with _cache_lock:
         _cache.clear()
+    if db is not None:
+        _db_write_sentinel(db)
 
 
-def _cache_get(key: tuple) -> Any | None:
+def _cache_get(key: tuple, db: Session = None) -> Any | None:
     with _cache_lock:
         entry = _cache.get(key)
     if entry is None:
         return None
-    ts, value = entry
-    if time.monotonic() - ts > _CACHE_TTL:
+    mono_ts, wall_ts, value = entry
+    if time.monotonic() - mono_ts > _CACHE_TTL:
         with _cache_lock:
             _cache.pop(key, None)
         return None
+    # Cross-pod check: did a worker write a sentinel AFTER this pod cached the value?
+    if db is not None:
+        sentinel_ts = _db_get_sentinel_wall_ts(db)
+        if sentinel_ts is not None and sentinel_ts > wall_ts:
+            with _cache_lock:
+                _cache.pop(key, None)
+            return None
     return value
 
 
 def _cache_set(key: tuple, value: Any) -> None:
+    mono_ts = time.monotonic()
+    wall_ts = datetime.now(timezone.utc).timestamp()
     with _cache_lock:
-        _cache[key] = (time.monotonic(), value)
+        _cache[key] = (mono_ts, wall_ts, value)
 
 
 def _project_ns(p) -> SimpleNamespace:
@@ -104,7 +184,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     current_year = year or today.year
 
     _cache_key = (current_year, current_month)
-    cached = _cache_get(_cache_key)
+    cached = _cache_get(_cache_key, db)
     if cached is not None:
         return cached
     month_start = date(current_year, current_month, 1)
@@ -420,7 +500,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     total_assets_purchase = float(_assets_agg.pur)
     _assets_count = int(_assets_agg.cnt)
 
-    total_projects_paid = (
+    total_projects_paid = float(
         db.query(func.sum(ProjectPayment.amount)).filter(ProjectPayment.status == PaymentStatus.PAID).scalar() or 0
     )
 
@@ -541,7 +621,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         bds_completion_date = _last_pmt.due_date if _last_pmt else None
 
     # ── One-income stress test ────────────────────────────────────────────────
-    bds_monthly_installment = (bds_next_payment.amount if bds_next_payment else monthly_bds) or 0
+    bds_monthly_installment = float((bds_next_payment.amount if bds_next_payment else monthly_bds) or 0)
     stress_test_required = avg_monthly_expense + 20_000_000 + bds_monthly_installment
     stress_test_cushion = monthly_income - stress_test_required
 

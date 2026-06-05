@@ -163,6 +163,47 @@ def test_apply_rules_matches_description_contains(db_session):
     assert rule.match_count == 1
 
 
+def test_apply_rules_action_json_dict_column(db_session):
+    """action_json stored as a Python dict (JSON column path) is applied correctly."""
+    cat = _make_cat(db_session)
+    cat2 = _make_cat(db_session, name="Transport")
+    tx = _make_tx(db_session, cat, desc="grab bike")
+    rule = TransactionRule(
+        name="r",
+        match_field="description",
+        match_op="contains",
+        match_value="grab",
+        action_json={"set_category_id": cat2.id, "auto_approve": True},
+    )
+    db_session.add(rule)
+    db_session.commit()
+    db_session.refresh(rule)
+
+    action = apply_rules(db_session, tx, None)
+    assert action.category_id == cat2.id
+    assert action.auto_approve is True
+
+
+def test_apply_rules_action_json_invalid_type_returns_empty(db_session):
+    """action_json with non-dict, non-str value (e.g. list) falls back to empty action."""
+    cat = _make_cat(db_session)
+    tx = _make_tx(db_session, cat, desc="grab")
+    rule = TransactionRule(
+        name="r",
+        match_field="description",
+        match_op="contains",
+        match_value="grab",
+        action_json=[],
+    )
+    db_session.add(rule)
+    db_session.commit()
+    db_session.refresh(rule)
+
+    action = apply_rules(db_session, tx, None)
+    assert action.category_id is None
+    assert action.auto_approve is False
+
+
 def test_apply_rules_inactive_rule_ignored(db_session):
     cat = _make_cat(db_session)
     tx = _make_tx(db_session, cat, desc="Grab")
@@ -282,6 +323,38 @@ def test_matches_gt_lt_bad_value(db_session):
             name="r", match_field="amount", match_op=op, match_value="not_a_number", action_json="{}"
         )
         assert _matches(rule, tx, None) is False
+
+
+def test_matches_unknown_field_returns_false(db_session):
+    """Unknown match_field falls through to the final return False."""
+    cat = _make_cat(db_session)
+    tx = _make_tx(db_session, cat)
+    rule = TransactionRule(
+        name="r", match_field="nonexistent_field", match_op="equals", match_value="x", action_json="{}"
+    )
+    assert _matches(rule, tx, None) is False
+
+
+def test_matches_unknown_op_returns_false(db_session):
+    """Unknown match_op falls through to the final return False."""
+    cat = _make_cat(db_session)
+    tx = _make_tx(db_session, cat, desc="hello")
+    rule = TransactionRule(
+        name="r", match_field="description", match_op="not_an_op", match_value="hello", action_json="{}"
+    )
+    assert _matches(rule, tx, None) is False
+
+
+def test_normalize_description_list_alias_patterns(db_session):
+    """alias_patterns stored as a Python list (JSON column path) is matched correctly."""
+    from app.models.database import Payee
+
+    payee = Payee(canonical_name="Grab", alias_patterns=["grab food", "grab\\s"])
+    db_session.add(payee)
+    db_session.commit()
+
+    canonical, pid = normalize_description(db_session, "Grab Food delivery")
+    assert pid == payee.id
 
 
 def test_matches_payee_id_field(db_session):

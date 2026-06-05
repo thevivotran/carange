@@ -18,7 +18,7 @@ import os
 import time
 from datetime import datetime, timedelta, timezone
 
-from app.models.database import EmailIngestLog, SessionLocal
+from app.models.database import EmailIngestLog, SessionLocal, DATABASE_URL
 from app.models.database import engine
 from sqlalchemy import event as sa_event
 
@@ -34,10 +34,11 @@ STUCK_TIMEOUT_MIN = int(os.getenv("STUCK_TIMEOUT_MIN", "30"))
 LIVENESS_FILE = "/tmp/worker_alive"
 
 
-# SQLite write-contention timeout (ms)
+# SQLite write-contention timeout — only runs on SQLite connections
 @sa_event.listens_for(engine, "connect")
 def _set_busy(dbapi_conn, _):
-    dbapi_conn.execute("PRAGMA busy_timeout=5000")
+    if DATABASE_URL.startswith("sqlite"):
+        dbapi_conn.execute("PRAGMA busy_timeout=5000")
 
 
 def _touch_liveness():

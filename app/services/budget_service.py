@@ -10,6 +10,10 @@ from sqlalchemy.orm import Session
 from app.models.database import BudgetAllocation, Category, Transaction, TransactionType
 
 
+def _is_postgresql(db: Session) -> bool:
+    return db.get_bind().dialect.name == "postgresql"
+
+
 def get_baseline_month(db: Session) -> str:
     """Return the earliest allocation month, or current month if none exist."""
     earliest = db.query(func.min(BudgetAllocation.year_month)).scalar()
@@ -60,7 +64,7 @@ def compute_budget_rows(db: Session, year_month: str) -> list[dict]:
 
     alloc_by_cat: dict[int, list] = defaultdict(list)
     for r in records:
-        alloc_by_cat[r.category_id].append((r.year_month, r.amount, r.id))
+        alloc_by_cat[r.category_id].append((r.year_month, float(r.amount), r.id))
 
     active_cat_ids = list(alloc_by_cat.keys())
     if not active_cat_ids:
@@ -117,40 +121,73 @@ def compute_budget_rows(db: Session, year_month: str) -> list[dict]:
         .group_by(Transaction.category_id)
         .all()
     )
-    this_month_map = {r[0]: r[1] or 0 for r in this_month_rows}
+    this_month_map = {r[0]: float(r[1] or 0) for r in this_month_rows}
 
     # ── Cumulative allocated: step-function carry-forward via SQL CTE ─────────
-    # UNION ALL instead of VALUES (...) so the CTE is portable across SQLite and PostgreSQL.
     if all_months:
-        month_selects = " UNION ALL ".join(f"SELECT '{m}'" for m in all_months)
-        cumulative_alloc_rows = db.execute(
-            text(f"""
-            WITH month_series(ym) AS ({month_selects}),
-            resolved AS (
-                SELECT
-                    cats.cat_id,
-                    ms.ym,
-                    (
-                        SELECT amount
-                        FROM budget_allocations ba
-                        WHERE ba.category_id = cats.cat_id
-                          AND ba.year_month <= ms.ym
-                        ORDER BY ba.year_month DESC
-                        LIMIT 1
-                    ) AS applicable_amount
-                FROM (SELECT DISTINCT category_id AS cat_id FROM budget_allocations
-                      WHERE year_month <= :year_month) AS cats
-                CROSS JOIN month_series ms
-            )
-            SELECT cat_id, SUM(COALESCE(applicable_amount, 0)) AS cumulative_allocated
-            FROM resolved
-            GROUP BY cat_id
-            """),
-            {"year_month": year_month},
-        ).fetchall()
+        if _is_postgresql(db):
+            # generate_series replaces the UNION ALL month list on PostgreSQL
+            start_gs = f"{all_months[0]}-01"
+            end_gs = f"{all_months[-1]}-01"
+            cumulative_alloc_rows = db.execute(
+                text("""
+                WITH month_series(ym) AS (
+                    SELECT to_char(gs::date, 'YYYY-MM')
+                    FROM generate_series(
+                        :start_gs::date, :end_gs::date, '1 month'::interval
+                    ) AS gs
+                ),
+                resolved AS (
+                    SELECT
+                        cats.cat_id,
+                        ms.ym,
+                        (
+                            SELECT amount
+                            FROM budget_allocations ba
+                            WHERE ba.category_id = cats.cat_id
+                              AND ba.year_month <= ms.ym
+                            ORDER BY ba.year_month DESC
+                            LIMIT 1
+                        ) AS applicable_amount
+                    FROM (SELECT DISTINCT category_id AS cat_id FROM budget_allocations
+                          WHERE year_month <= :year_month) AS cats
+                    CROSS JOIN month_series ms
+                )
+                SELECT cat_id, SUM(COALESCE(applicable_amount, 0)) AS cumulative_allocated
+                FROM resolved
+                GROUP BY cat_id
+                """),
+                {"year_month": year_month, "start_gs": start_gs, "end_gs": end_gs},
+            ).fetchall()
+        else:
+            # SQLite fallback: explicit UNION ALL month list
+            month_selects = " UNION ALL ".join(f"SELECT '{m}'" for m in all_months)
+            cumulative_alloc_rows = db.execute(
+                text(f"""
+                WITH month_series(ym) AS ({month_selects}),
+                resolved AS (
+                    SELECT
+                        cats.cat_id,
+                        ms.ym,
+                        (
+                            SELECT amount
+                            FROM budget_allocations ba
+                            WHERE ba.category_id = cats.cat_id
+                              AND ba.year_month <= ms.ym
+                            ORDER BY ba.year_month DESC
+                            LIMIT 1
+                        ) AS applicable_amount
+                    FROM (SELECT DISTINCT category_id AS cat_id FROM budget_allocations
+                          WHERE year_month <= :year_month) AS cats
+                    CROSS JOIN month_series ms
+                )
+                SELECT cat_id, SUM(COALESCE(applicable_amount, 0)) AS cumulative_allocated
+                FROM resolved
+                GROUP BY cat_id
+                """),
+                {"year_month": year_month},
+            ).fetchall()
         cumulative_alloc_map = {r[0]: float(r[1] or 0) for r in cumulative_alloc_rows}
-    else:
-        cumulative_alloc_map = {}
 
     result = []
     for cat_id, allocs in alloc_by_cat.items():

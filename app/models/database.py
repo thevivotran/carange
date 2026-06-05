@@ -1,7 +1,9 @@
 from sqlalchemy import (
+    JSON,
     create_engine,
     Column,
     Integer,
+    Numeric,
     String,
     Float,
     DateTime,
@@ -10,6 +12,7 @@ from sqlalchemy import (
     ForeignKey,
     Text,
     Index,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import declarative_base, sessionmaker, relationship
 from sqlalchemy import types as sa_types
@@ -129,13 +132,13 @@ class ImportJob(Base):
     filename = Column(String(255), nullable=False)
     file_path = Column(String(500), nullable=False)
     image_hash = Column(String(64), nullable=False, unique=True)  # SHA-256, dedup guard
-    source_hint = Column(CIEnum(ImportSource), nullable=True)  # manual override at upload
-    detected_source = Column(CIEnum(ImportSource), nullable=True)  # set by OCR worker
+    source_hint = Column(CIEnum(ImportSource), nullable=True)
+    detected_source = Column(CIEnum(ImportSource), nullable=True)
     status = Column(CIEnum(ImportJobStatus), default=ImportJobStatus.PENDING, nullable=False)
     error_message = Column(Text, nullable=True)
-    transaction_count = Column(Integer, default=0)  # how many tx were extracted
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    processed_at = Column(DateTime, nullable=True)
+    transaction_count = Column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    processed_at = Column(DateTime(timezone=True), nullable=True)
 
     transactions = relationship("Transaction", back_populates="import_job")
 
@@ -151,7 +154,7 @@ class Category(Base):
     is_active = Column(Boolean, default=True)
     is_wealth_building = Column(Boolean, default=False, nullable=False, server_default="0")
     is_passive_income = Column(Boolean, default=False, nullable=False, server_default="0")
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     transactions = relationship("Transaction", back_populates="category")
     budget_allocations = relationship("BudgetAllocation", cascade="all, delete-orphan")
@@ -162,7 +165,7 @@ class Transaction(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     date = Column(Date, nullable=False, index=True)
-    amount = Column(Float, nullable=False)
+    amount = Column(Numeric(18, 0), nullable=False)
     type = Column(CIEnum(TransactionType), nullable=False)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
     description = Column(Text, nullable=True)
@@ -176,13 +179,14 @@ class Transaction(Base):
     import_job_id = Column(Integer, ForeignKey("import_jobs.id"), nullable=True)
     email_ingest_log_id = Column(Integer, ForeignKey("email_ingest_log.id"), nullable=True)
     payee_id = Column(Integer, ForeignKey("payees.id"), nullable=True)
-    confidence_score = Column(Float, nullable=True)  # NULL for manual entries
+    confidence_score = Column(Float, nullable=True)
     needs_review = Column(Boolean, default=False)
-    deleted_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     category = relationship("Category", back_populates="transactions")
@@ -208,7 +212,7 @@ class TransactionAuditLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=False)
-    changed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    changed_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     field_name = Column(CIEnum(AuditField), nullable=False)
     old_value = Column(Text, nullable=True)
     new_value = Column(Text, nullable=True)
@@ -223,18 +227,18 @@ class SavingsBundle(Base):
     name = Column(String(200), nullable=False)
     bank_name = Column(String(100), nullable=False)
     type = Column(CIEnum(SavingsType), nullable=False)
-    initial_deposit = Column(Float, nullable=False)  # Amount deposited
-    current_amount = Column(Float, nullable=False)  # Current available balance
-    future_amount = Column(Float, nullable=False)  # Amount at maturity (including interest)
-    interest_rate = Column(Float, nullable=True)  # Annual interest rate
+    initial_deposit = Column(Numeric(18, 0), nullable=False)
+    current_amount = Column(Numeric(18, 0), nullable=False)
+    future_amount = Column(Numeric(18, 0), nullable=False)
+    interest_rate = Column(Float, nullable=True)  # percentage, keep Float
     start_date = Column(Date, nullable=False)
     maturity_date = Column(Date, nullable=True)
     status = Column(CIEnum(SavingsStatus), default=SavingsStatus.ACTIVE)
     notes = Column(Text, nullable=True)
     linked_project_id = Column(Integer, ForeignKey("financial_projects.id"), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    completed_at = Column(DateTime, nullable=True)
-    deleted_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     transactions = relationship("Transaction", back_populates="savings_bundle")
     linked_project = relationship("FinancialProject", back_populates="linked_savings")
@@ -249,15 +253,15 @@ class FinancialProject(Base):
     name = Column(String(200), nullable=False)
     type = Column(CIEnum(ProjectType), nullable=False)
     description = Column(Text, nullable=True)
-    target_amount = Column(Float, nullable=False, default=0)
-    current_amount = Column(Float, default=0)
+    target_amount = Column(Numeric(18, 0), nullable=False, default=0, server_default="0")
+    current_amount = Column(Numeric(18, 0), default=0, server_default="0")
     priority = Column(CIEnum(Priority), default=Priority.MEDIUM)
     status = Column(CIEnum(ProjectStatus), default=ProjectStatus.PLANNING)
     deadline = Column(Date, nullable=True)
     default_category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    completed_at = Column(DateTime, nullable=True)
-    deleted_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    completed_at = Column(DateTime(timezone=True), nullable=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     transactions = relationship("Transaction", back_populates="project")
     linked_savings = relationship("SavingsBundle", back_populates="linked_project")
@@ -272,12 +276,12 @@ class ProjectPayment(Base):
     id = Column(Integer, primary_key=True, index=True)
     project_id = Column(Integer, ForeignKey("financial_projects.id"), nullable=False)
     due_date = Column(Date, nullable=True)
-    amount = Column(Float, nullable=False)
+    amount = Column(Numeric(18, 0), nullable=False)
     status = Column(CIEnum(PaymentStatus), default=PaymentStatus.PENDING, nullable=False)
     notes = Column(Text, nullable=True)
     sort_order = Column(Integer, default=0)
     transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     project = relationship("FinancialProject", back_populates="payments")
     transaction = relationship("Transaction")
@@ -289,16 +293,18 @@ class OtherAsset(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
     asset_type = Column(CIEnum(AssetType), nullable=False)
-    symbol = Column(String(20), nullable=True)  # e.g., USD, EUR, SJC
-    quantity = Column(Float, nullable=False)  # amount held
-    unit = Column(String(50), nullable=False)  # display unit, e.g., USD, tael, gram
-    purchase_price_vnd = Column(Float, nullable=False)  # total VND cost basis
-    current_value_vnd = Column(Float, nullable=False)  # current estimated VND value
+    symbol = Column(String(20), nullable=True)
+    quantity = Column(Float, nullable=False)  # physical quantity (grams, units), keep Float
+    unit = Column(String(50), nullable=False)
+    purchase_price_vnd = Column(Numeric(18, 0), nullable=False)
+    current_value_vnd = Column(Numeric(18, 0), nullable=False)
     notes = Column(Text, nullable=True)
     acquired_date = Column(Date, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
 
@@ -307,21 +313,22 @@ class TransactionTemplate(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
-    amount = Column(Float, nullable=False)
+    amount = Column(Numeric(18, 0), nullable=False)
     type = Column(CIEnum(TransactionType), nullable=False)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
     description = Column(Text, nullable=True)
     payment_method = Column(String(50), default="cash")
     is_active = Column(Boolean, default=True)
-    # Recurring scheduler fields
     cadence = Column(String(20), nullable=True)  # daily|weekly|monthly|yearly
     next_run_at = Column(Date, nullable=True)
     last_run_at = Column(Date, nullable=True)
     auto_approve = Column(Boolean, default=False, nullable=False, server_default="0")
     lead_days = Column(Integer, default=0, nullable=False, server_default="0")
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     category = relationship("Category")
@@ -333,17 +340,17 @@ class BudgetAllocation(Base):
     id = Column(Integer, primary_key=True, index=True)
     category_id = Column(Integer, ForeignKey("categories.id"), nullable=False)
     year_month = Column(String(7), nullable=False)  # "2026-05"
-    amount = Column(Float, nullable=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    amount = Column(Numeric(18, 0), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     category = relationship("Category", back_populates="budget_allocations")
 
-    __table_args__ = (
-        __import__("sqlalchemy").UniqueConstraint("category_id", "year_month", name="uq_budget_category_month"),
-    )
+    __table_args__ = (UniqueConstraint("category_id", "year_month", name="uq_budget_category_month"),)
 
 
 class TransactionRule(Base):
@@ -359,16 +366,18 @@ class TransactionRule(Base):
     match_op = Column(String(20), nullable=False)  # equals|contains|regex|range|in
     match_value = Column(Text, nullable=False)
 
-    # Action (JSON: {"set_category_id": 5, "auto_approve": true, "force_needs_review": false})
-    action_json = Column(Text, nullable=False, default="{}")
+    # Action stored as JSON (JSONB in PostgreSQL via migration 0014)
+    action_json = Column(JSON, nullable=False, default=dict)
 
     # Stats
     match_count = Column(Integer, default=0)
-    last_matched_at = Column(DateTime, nullable=True)
+    last_matched_at = Column(DateTime(timezone=True), nullable=True)
 
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
 
@@ -378,12 +387,14 @@ class Payee(Base):
     id = Column(Integer, primary_key=True, index=True)
     canonical_name = Column(String(200), nullable=False, unique=True)
     default_category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
-    alias_patterns = Column(Text, nullable=True)  # JSON array of regex strings
+    alias_patterns = Column(JSON, nullable=True)  # list[str] — JSONB in PostgreSQL via migration 0014
     source = Column(String(20), default="manual")  # manual|learned|bootstrap
 
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
     default_category = relationship("Category")
@@ -396,12 +407,12 @@ class EmailIngestLog(Base):
     message_id = Column(String(500), nullable=False, unique=True)  # RFC 2822 Message-ID header
     sender = Column(String(200), nullable=True)
     subject = Column(String(500), nullable=True)
-    received_at = Column(DateTime, nullable=True)
-    processed_at = Column(DateTime, nullable=True)
+    received_at = Column(DateTime(timezone=True), nullable=True)
+    processed_at = Column(DateTime(timezone=True), nullable=True)
     status = Column(String(20), default="pending", nullable=False)  # pending|done|failed
     error_message = Column(Text, nullable=True)
     transaction_count = Column(Integer, default=0)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     transactions = relationship("Transaction", back_populates="email_ingest_log")
 
@@ -413,9 +424,11 @@ class Note(Base):
     title = Column(String(200), nullable=False)
     content = Column(Text, nullable=True)
     type = Column(String(50), nullable=True)  # e.g. 'money_owed', 'general'
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
 
@@ -425,7 +438,9 @@ class Setting(Base):
     key = Column(String(100), primary_key=True)
     value = Column(Text, nullable=False)
     updated_at = Column(
-        DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
     )
 
 
@@ -444,6 +459,21 @@ class AIInsight(Base):
     trigger_transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=True)
 
 
+class PeriodRollup(Base):
+    """Pre-computed period metrics. Used as a cross-pod cache invalidation signal
+    (horizon='__inv__', period_key='global') and for future materialized rollups."""
+
+    __tablename__ = "period_rollups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    horizon = Column(String(10), nullable=False)  # 'monthly' | 'weekly' | '__inv__'
+    period_key = Column(String(20), nullable=False)  # '2026-06' | 'global'
+    payload_json = Column(JSON, nullable=False, default=dict)  # JSONB in PG via migration 0014
+    computed_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
+
+    __table_args__ = (UniqueConstraint("horizon", "period_key", name="uq_period_rollups_horizon_key"),)
+
+
 # Database configuration
 import os
 from sqlalchemy import event
@@ -454,6 +484,7 @@ _is_sqlite = DATABASE_URL.startswith("sqlite")
 engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False} if _is_sqlite else {},
+    pool_pre_ping=not _is_sqlite,  # reconnect silently after postgres restarts
 )
 
 

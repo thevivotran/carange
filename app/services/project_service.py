@@ -18,8 +18,8 @@ from app.models.database import (
 def recompute_project_totals(db: Session, project: FinancialProject) -> None:
     """Recompute target_amount and current_amount from payments. Flushes; caller commits."""
     payments = db.query(ProjectPayment).filter(ProjectPayment.project_id == project.id).all()
-    project.target_amount = sum(p.amount for p in payments)
-    project.current_amount = sum(p.amount for p in payments if p.status == PaymentStatus.PAID)
+    project.target_amount = sum(float(p.amount) for p in payments)
+    project.current_amount = sum(float(p.amount) for p in payments if p.status == PaymentStatus.PAID)
     if project.current_amount > 0 and project.status == ProjectStatus.PLANNING:
         project.status = ProjectStatus.IN_PROGRESS
     db.flush()

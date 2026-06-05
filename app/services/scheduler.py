@@ -54,6 +54,9 @@ def _run_once(db: Session, today: date) -> int:
     if created:
         db.commit()
         log.info("Scheduler: created %d recurring transaction(s)", created)
+        from app.services.dashboard_service import invalidate_dashboard_cache
+
+        invalidate_dashboard_cache(db)
     return created
 
 

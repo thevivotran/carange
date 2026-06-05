@@ -98,6 +98,13 @@ def commit_ingest_batch(
 
     db.commit()
 
+    # Cross-pod cache invalidation: workers run in separate pods from the main app.
+    # Writing the sentinel here ensures the main app recomputes on the next request.
+    if committed:
+        from app.services.dashboard_service import invalidate_dashboard_cache
+
+        invalidate_dashboard_cache(db)
+
     # Telegram ping — extract scalar fields now (session still open),
     # then fire each HTTP POST in a daemon thread so transaction creation
     # is never blocked by Telegram network latency or timeouts.

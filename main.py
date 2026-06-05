@@ -58,6 +58,9 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # Templates
 templates = Jinja2Templates(directory="app/templates")
+from app.routers.fragments._helpers import _decimal_safe_tojson
+
+templates.env.filters["tojson"] = _decimal_safe_tojson
 
 
 def seed_default_categories():

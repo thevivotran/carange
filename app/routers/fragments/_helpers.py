@@ -1,9 +1,30 @@
+import decimal
 import json
+import markupsafe
 from datetime import timedelta, timezone
 from fastapi import Request
 from fastapi.templating import Jinja2Templates
 
 templates = Jinja2Templates(directory="app/templates")
+
+
+def _decimal_safe_tojson(value, **kwargs):
+    class _Enc(json.JSONEncoder):
+        def default(self, o):
+            if isinstance(o, decimal.Decimal):
+                return float(o)
+            return super().default(o)
+
+    return markupsafe.Markup(
+        json.dumps(value, cls=_Enc)
+        .replace("&", "\\u0026")
+        .replace("<", "\\u003c")
+        .replace(">", "\\u003e")
+        .replace("'", "\\u0027")
+    )
+
+
+templates.env.filters["tojson"] = _decimal_safe_tojson
 
 _VN_TZ = timezone(timedelta(hours=7))
 

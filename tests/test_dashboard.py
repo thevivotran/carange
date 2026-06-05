@@ -358,9 +358,9 @@ def test_dashboard_cache_expired_returns_fresh_data(db_session, income_cat, expe
     key = (2026, 1)
     sentinel = {"summary": {"total_income": 999}}
 
-    # Plant an already-expired entry
+    # Plant an already-expired entry (format: mono_ts, wall_ts, value)
     with _cache_lock:
-        _cache[key] = (time.monotonic() - 9999, sentinel)
+        _cache[key] = (time.monotonic() - 9999, time.time() - 9999, sentinel)
 
     result = _cache_get(key)
     assert result is None
@@ -414,3 +414,45 @@ def test_ns_helpers_cover_all_branches():
     )
     ns2 = _txn_ns(txn_no_cat)
     assert ns2.category.name == ""
+
+
+def test_sentinel_update_branch_and_cache_eviction(db_session):
+    """Cover: sentinel update path, cross-pod eviction in _cache_get, and exception branches."""
+    import time
+    from app.services.dashboard_service import (
+        _cache,
+        _cache_lock,
+        _cache_get,
+        _cache_set,
+        _db_get_sentinel_wall_ts,
+        invalidate_dashboard_cache,
+    )
+
+    # Write sentinel (insert path)
+    invalidate_dashboard_cache(db=db_session)
+    ts1 = _db_get_sentinel_wall_ts(db_session)
+    assert ts1 is not None
+
+    # Write again — exercises the update (row.computed_at = now) branch
+    import time as _time
+
+    _time.sleep(0.01)
+    invalidate_dashboard_cache(db=db_session)
+    ts2 = _db_get_sentinel_wall_ts(db_session)
+    assert ts2 >= ts1
+
+    # Plant a cache entry with a wall_ts OLDER than the sentinel
+    key = (9999, 12)
+    with _cache_lock:
+        _cache[key] = (time.monotonic(), ts1 - 1, {"sentinel": "old"})
+
+    # _cache_get should evict because sentinel_ts > wall_ts
+    result = _cache_get(key, db=db_session)
+    assert result is None
+    with _cache_lock:
+        assert key not in _cache
+
+    # Plant a fresh cache entry (wall_ts AFTER sentinel) — should be returned
+    _cache_set(key, {"sentinel": "fresh"})
+    result = _cache_get(key, db=db_session)
+    assert result == {"sentinel": "fresh"}

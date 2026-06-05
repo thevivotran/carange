@@ -178,7 +178,7 @@ def create_transaction(transaction: TransactionCreate, force: bool = False, db: 
                 content={
                     "duplicate_warning": True,
                     "matches": [
-                        {"id": tx.id, "date": str(tx.date), "amount": tx.amount, "description": tx.description}
+                        {"id": tx.id, "date": str(tx.date), "amount": float(tx.amount), "description": tx.description}
                         for tx in similar
                     ],
                 }
