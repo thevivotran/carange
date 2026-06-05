@@ -108,10 +108,13 @@ def upgrade() -> None:
     for table, cols in _TIMESTAMPTZ_COLS:
         if table not in inspector.get_table_names():
             continue
-        existing_col_names = {c["name"] for c in inspector.get_columns(table)}
+        existing_cols = {c["name"]: c for c in inspector.get_columns(table)}
         for col in cols:
-            if col not in existing_col_names:
+            if col not in existing_cols:
                 continue
+            col_type = existing_cols[col]["type"]
+            if getattr(col_type, "timezone", False):
+                continue  # already TIMESTAMPTZ — skip
             op.alter_column(
                 table,
                 col,
