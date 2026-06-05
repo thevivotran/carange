@@ -174,7 +174,7 @@ def _is_anomaly(db: Session, item: IngestItem, category_id: int) -> bool:
     )
     if not row or row.n < ANOMALY_MIN_SAMPLES or not row.avg:
         return False
-    return item.amount > row.avg * ANOMALY_MULTIPLIER
+    return item.amount > float(row.avg) * ANOMALY_MULTIPLIER
 
 
 def _resolve_category(db: Session, item: IngestItem) -> Optional[int]:
