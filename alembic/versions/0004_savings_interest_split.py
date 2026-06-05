@@ -24,13 +24,14 @@ def upgrade() -> None:
     if existing:
         interest_cat_id = existing[0]
     else:
-        conn.execute(
+        row = conn.execute(
             sa.text(
                 "INSERT INTO categories (name, type, color, icon, is_active, is_wealth_building, created_at)"
-                " VALUES ('Lãi tiết kiệm', 'income', '#f59e0b', 'piggy-bank', 1, 0, CURRENT_TIMESTAMP)"
+                " VALUES ('Lãi tiết kiệm', 'income', '#f59e0b', 'piggy-bank', true, false, CURRENT_TIMESTAMP)"
+                " RETURNING id"
             )
-        )
-        interest_cat_id = conn.execute(sa.text("SELECT last_insert_rowid()")).scalar()
+        ).fetchone()
+        interest_cat_id = row[0]
 
     # ── 2. Migrate existing maturity income transactions ──────────────────────
     # Find all savings-related income transactions linked to a completed bundle
@@ -40,7 +41,7 @@ def upgrade() -> None:
             " FROM transactions t"
             " JOIN savings_bundles b ON b.id = t.savings_bundle_id"
             " WHERE t.type = 'income'"
-            "   AND t.is_savings_related = 1"
+            "   AND t.is_savings_related = true"
             "   AND t.savings_bundle_id IS NOT NULL"
             "   AND t.deleted_at IS NULL"
         )
@@ -50,12 +51,12 @@ def upgrade() -> None:
         interest = (future_amount or 0) - (initial_deposit or 0)
         if interest < 0:
             interest = 0
-        needs_review = 1 if interest <= 0 else 0
+        needs_review = interest <= 0
         conn.execute(
             sa.text(
                 "UPDATE transactions"
                 " SET amount = :amount,"
-                "     is_savings_related = 0,"
+                "     is_savings_related = false,"
                 "     category_id = :cat_id,"
                 "     needs_review = :nr"
                 " WHERE id = :tx_id"

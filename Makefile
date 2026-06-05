@@ -45,36 +45,46 @@ audit:
 	@echo "── pip-audit ─────────────────────────────────────────────────────"
 	$(PYTHON) -m pip_audit -r requirements.txt
 
-# ── Local PostgreSQL (docker-compose) ─────────────────────────────────────────
+# ── Local PostgreSQL (podman) ─────────────────────────────────────────────────
 
-PG_URL ?= postgresql://carange:carange@localhost:5432/carange
+PG_CONTAINER := carange-pg
+PG_IMAGE     := docker.io/postgres:16-alpine
+PG_URL       ?= postgresql://carange:carange@localhost:5432/carange
+PG_TEST_URL  := postgresql://carange:carange@localhost:5432/carange_test
 
 .PHONY: db-up
 db-up:
-	docker compose up -d postgres
+	@if ! podman ps --format '{{.Names}}' | grep -q '^$(PG_CONTAINER)$$'; then \
+	    podman run -d --name $(PG_CONTAINER) \
+	        -e POSTGRES_USER=carange \
+	        -e POSTGRES_PASSWORD=carange \
+	        -e POSTGRES_DB=carange \
+	        -p 5432:5432 \
+	        $(PG_IMAGE); \
+	fi
 	@echo "Waiting for postgres to be ready..."
-	@until docker compose exec postgres pg_isready -U carange > /dev/null 2>&1; do sleep 1; done
+	@until podman exec $(PG_CONTAINER) pg_isready -U carange > /dev/null 2>&1; do sleep 1; done
 	@echo "PostgreSQL is ready."
 
 .PHONY: db-down
 db-down:
-	docker compose down
+	podman rm -f $(PG_CONTAINER) 2>/dev/null || true
 
 .PHONY: migrate
 migrate:
 	DATABASE_URL=$(PG_URL) .venv/bin/alembic upgrade head
 
 .PHONY: migrate-fresh
-migrate-fresh:
-	docker compose exec postgres psql -U carange -c "DROP DATABASE IF EXISTS carange_test; CREATE DATABASE carange_test;"
-	DATABASE_URL=postgresql://carange:carange@localhost:5432/carange_test .venv/bin/alembic upgrade head
+migrate-fresh: db-up
+	podman exec $(PG_CONTAINER) psql -U carange -c "DROP DATABASE IF EXISTS carange_test;" || true
+	podman exec $(PG_CONTAINER) psql -U carange -c "CREATE DATABASE carange_test;"
+	DATABASE_URL=$(PG_TEST_URL) .venv/bin/alembic upgrade head
 	@echo "Fresh migration against carange_test OK."
 
 .PHONY: test-pg
-test-pg: db-up migrate-fresh
+test-pg: migrate-fresh
 	@echo "── migration smoke test against real PostgreSQL ──────────────────"
-	DATABASE_URL=postgresql://carange:carange@localhost:5432/carange_test \
-	    $(PYTEST) tests/test_schema_sync.py -v
+	DATABASE_URL=$(PG_TEST_URL) $(PYTEST) tests/test_schema_sync.py -v
 	@echo "── PostgreSQL migration test passed ──────────────────────────────"
 
 # ── Pre-push (all CI checks except Docker build) ──────────────────────────────
