@@ -471,6 +471,10 @@ def test_hard_delete_bundle_rollback_on_error(db_session):
 # ── budget_service: skip category missing from DB (line 144) ─────────────────
 
 
+@pytest.mark.skipif(
+    __import__("os").getenv("TEST_DATABASE_URL", "").startswith("postgresql"),
+    reason="PostgreSQL FK enforcement prevents orphaned allocations; defensive code path is SQLite-only",
+)
 def test_compute_budget_rows_skips_orphaned_allocation(db_session):
     """Covers line 144: 'continue' when category_id in allocation has no matching Category row."""
     cat = Category(name="Temp Cat", type=TransactionType.EXPENSE, color="#000", icon="circle")

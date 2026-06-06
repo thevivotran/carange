@@ -3,6 +3,7 @@
 import csv
 import logging
 import io
+import math
 import random
 import threading
 from datetime import date, datetime, timedelta, timezone
@@ -387,6 +388,8 @@ def parse_csv_english(content: bytes, db: Session) -> dict:
             amount_str = row.get(field_map["amount"], "0").strip().replace(",", "")
             try:
                 amount = abs(float(amount_str))
+                if not math.isfinite(amount):
+                    raise ValueError("non-finite")
             except Exception:
                 stats["errors"].append(f"Row {row_num}: Invalid amount '{amount_str}'")
                 stats["skipped"] += 1

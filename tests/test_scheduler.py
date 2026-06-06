@@ -8,6 +8,18 @@ from app.models.database import Category, Transaction, TransactionTemplate, Tran
 from app.services.scheduler import _run_once
 
 
+@pytest.fixture(autouse=True)
+def _no_seed(monkeypatch):
+    """Override the global _no_seed: suppress seeding but keep real start_scheduler.
+
+    Tests in this file call start_scheduler() directly, so the global no-op
+    patch from conftest must not apply here.
+    """
+    import main
+
+    monkeypatch.setattr(main, "seed_default_categories", lambda: None)
+
+
 @pytest.fixture()
 def expense_cat(db_session):
     cat = Category(name="Rent", type=TransactionType.EXPENSE, color="#EF4444", icon="home")

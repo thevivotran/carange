@@ -100,12 +100,10 @@ def test_filter_by_source(client, cat_ids):
     _make_tx(
         client, date_str="2026-05-01", amount=1_000, type_="income", category_id=cat_ids["income"], source="manual"
     )
-    _make_tx(
-        client, date_str="2026-05-02", amount=2_000, type_="income", category_id=cat_ids["income"], source="import"
-    )
-    r = client.get("/api/transactions/?source=import")
+    _make_tx(client, date_str="2026-05-02", amount=2_000, type_="income", category_id=cat_ids["income"], source="csv")
+    r = client.get("/api/transactions/?source=csv")
     assert r.status_code == 200
-    assert all(t["source"] == "import" for t in r.json())
+    assert all(t["source"] == "csv" for t in r.json())
 
 
 def test_invalid_date_range_returns_400(client):

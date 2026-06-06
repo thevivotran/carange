@@ -87,9 +87,9 @@ migrate-fresh: db-up
 
 .PHONY: test-pg
 test-pg: migrate-fresh
-	@echo "── migration smoke test against real PostgreSQL ──────────────────"
-	DATABASE_URL=$(PG_TEST_URL) $(PYTEST) tests/test_schema_sync.py -v
-	@echo "── PostgreSQL migration test passed ──────────────────────────────"
+	@echo "── full test suite against real PostgreSQL ───────────────────────"
+	DATABASE_URL=$(PG_TEST_URL) TEST_DATABASE_URL=$(PG_TEST_URL) $(PYTEST) --tb=short -q
+	@echo "── PostgreSQL test suite passed ──────────────────────────────────"
 
 # ── Pre-push (all CI checks except Docker build) ──────────────────────────────
 

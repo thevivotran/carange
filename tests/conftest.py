@@ -1,17 +1,54 @@
 """Shared pytest fixtures for Carange tests.
 
-Each test function gets a fresh in-memory SQLite database so tests are
-fully isolated from the production carange.db and from each other.
+Each test function gets a fresh isolated database:
+- SQLite in-memory (default, fast) when TEST_DATABASE_URL is unset
+- Real PostgreSQL (catches dialect bugs) when TEST_DATABASE_URL=postgresql://...
 """
+
+import os
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.models.database import Base, get_db, Category, TransactionType
 from main import app
+
+
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:")
+_is_pg = TEST_DATABASE_URL.startswith("postgresql")
+
+# For PostgreSQL: one engine for the whole session; tables created once.
+# For SQLite: engine is created per-test (StaticPool gives a fresh in-memory DB).
+_pg_engine = None
+if _is_pg:
+    _pg_engine = create_engine(TEST_DATABASE_URL)
+    Base.metadata.create_all(_pg_engine)
+
+
+def _truncate_all_tables() -> None:
+    """Wipe all rows after each PG test, preserving schema."""
+    table_names = ", ".join(t.name for t in Base.metadata.sorted_tables)
+    with _pg_engine.connect() as conn:
+        conn.execute(text(f"TRUNCATE {table_names} RESTART IDENTITY CASCADE"))
+        conn.commit()
+
+
+@pytest.fixture(autouse=True)
+def _no_seed(monkeypatch):
+    """Suppress lifespan side-effects that bypass the test get_db override.
+
+    seed_default_categories() opens its own SessionLocal() and writes directly
+    to the test DB, causing duplicate-name 400s for API-level category tests.
+    start_scheduler() opens background DB connections that deadlock TRUNCATE.
+    """
+    import main
+    from app.services import scheduler as _scheduler_mod
+
+    monkeypatch.setattr(main, "seed_default_categories", lambda: None)
+    monkeypatch.setattr(_scheduler_mod, "start_scheduler", lambda: None)
 
 
 @pytest.fixture(autouse=True)
@@ -26,32 +63,38 @@ def _clear_module_caches():
     rules_service.invalidate_payee_cache()
 
 
-TEST_DATABASE_URL = "sqlite:///:memory:"
-
-
 @pytest.fixture()
 def db_session():
-    # StaticPool keeps a single shared connection so all code sees the same
-    # in-memory database (default pool opens a new DB per connection).
-    engine = create_engine(
-        TEST_DATABASE_URL,
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
-    )
-    Base.metadata.create_all(engine)
-    Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-    session = Session()
-    try:
-        yield session
-    finally:
-        session.close()
-        Base.metadata.drop_all(engine)
-        engine.dispose()
+    if not _is_pg:
+        # Fresh in-memory SQLite per test — fast, fully isolated
+        engine = create_engine(
+            TEST_DATABASE_URL,
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        Base.metadata.create_all(engine)
+        Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        session = Session()
+        try:
+            yield session
+        finally:
+            session.close()
+            Base.metadata.drop_all(engine)
+            engine.dispose()
+    else:
+        # Real PostgreSQL — catches dialect bugs; isolate via TRUNCATE after each test
+        Session = sessionmaker(autocommit=False, autoflush=False, bind=_pg_engine)
+        session = Session()
+        try:
+            yield session
+        finally:
+            session.close()
+            _truncate_all_tables()
 
 
 @pytest.fixture()
 def client(db_session):
-    """TestClient whose every request uses the isolated in-memory DB."""
+    """TestClient whose every request uses the isolated DB session."""
     app.dependency_overrides[get_db] = lambda: db_session
     with TestClient(app, raise_server_exceptions=True) as c:
         yield c

@@ -59,8 +59,14 @@ def test_upsert_overwrites_existing_row(db_session):
 
 
 def test_upsert_stores_trigger_transaction_id(db_session):
-    _upsert(db_session, InsightType.BUDGET_ADVISOR, "text", trigger_id=42)
-    assert get_insight(db_session, InsightType.BUDGET_ADVISOR).trigger_transaction_id == 42
+    cat = Category(name="Salary", type=TransactionType.INCOME, color="#10B981", icon="money")
+    db_session.add(cat)
+    db_session.flush()
+    tx = Transaction(date=date.today(), amount=100_000, type=TransactionType.INCOME, category_id=cat.id)
+    db_session.add(tx)
+    db_session.flush()
+    _upsert(db_session, InsightType.BUDGET_ADVISOR, "text", trigger_id=tx.id)
+    assert get_insight(db_session, InsightType.BUDGET_ADVISOR).trigger_transaction_id == tx.id
 
 
 # ── _build_weekly_digest_prompt ───────────────────────────────────────────────
