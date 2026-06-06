@@ -490,6 +490,7 @@ engine = create_engine(
     DATABASE_URL,
     connect_args={"check_same_thread": False} if _is_sqlite else {},
     pool_pre_ping=not _is_sqlite,  # reconnect silently after postgres restarts
+    **({} if _is_sqlite else {"pool_size": 3, "max_overflow": 7, "pool_timeout": 30, "pool_recycle": 1800}),
 )
 
 
@@ -502,6 +503,9 @@ def set_sqlite_pragma(dbapi_conn, _):
     cursor.execute("PRAGMA synchronous=NORMAL")
     cursor.execute("PRAGMA cache_size=-16000")  # 16 MB page cache
     cursor.execute("PRAGMA temp_store=MEMORY")  # temp tables in RAM
+    cursor.execute("PRAGMA mmap_size=134217728")  # 128 MB memory-mapped I/O
+    cursor.execute("PRAGMA foreign_keys=ON")  # enforce FK constraints
+    cursor.execute("PRAGMA busy_timeout=10000")  # 10 s before "locked" error
     cursor.close()
 
 

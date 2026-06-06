@@ -115,7 +115,7 @@ def get_monthly_trend(db: Session = Depends(get_db)):
                 )
             ).label("savings"),
         )
-        .filter(Transaction.date >= start_date)
+        .filter(Transaction.date >= start_date, Transaction.deleted_at.is_(None))
         .group_by(
             extract("year", Transaction.date),
             extract("month", Transaction.date),
@@ -160,6 +160,7 @@ def get_expense_by_category(year: Optional[int] = None, month: Optional[int] = N
             Transaction.date <= month_end,
             Transaction.type == TransactionType.EXPENSE,
             Transaction.is_savings_related == False,
+            Transaction.deleted_at.is_(None),
         )
         .scalar()
         or 1
@@ -177,6 +178,7 @@ def get_expense_by_category(year: Optional[int] = None, month: Optional[int] = N
             Transaction.date <= month_end,
             Transaction.type == TransactionType.EXPENSE,
             Transaction.is_savings_related == False,
+            Transaction.deleted_at.is_(None),
         )
         .group_by(Category.id)
         .all()
