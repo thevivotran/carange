@@ -58,7 +58,7 @@ def create_rule(payload: RuleCreate, db: Session = Depends(get_db)):
         match_field=payload.match_field,
         match_op=payload.match_op,
         match_value=payload.match_value,
-        action_json=json.dumps(payload.action_json),
+        action_json=payload.action_json,
     )
     db.add(rule)
     db.commit()
@@ -84,7 +84,7 @@ def update_rule(rule_id: int, payload: RuleUpdate, db: Session = Depends(get_db)
     if payload.match_value is not None:
         rule.match_value = payload.match_value
     if payload.action_json is not None:
-        rule.action_json = json.dumps(payload.action_json)
+        rule.action_json = payload.action_json
     db.commit()
     db.refresh(rule)
     return _to_dict(rule)
@@ -113,7 +113,7 @@ def _to_dict(r: TransactionRule) -> dict:
         "match_field": r.match_field,
         "match_op": r.match_op,
         "match_value": r.match_value,
-        "action_json": json.loads(r.action_json or "{}"),
+        "action_json": r.action_json if isinstance(r.action_json, dict) else json.loads(r.action_json or "{}"),
         "match_count": r.match_count,
         "last_matched_at": r.last_matched_at.isoformat() if r.last_matched_at else None,
         "created_at": r.created_at.isoformat() if r.created_at else None,

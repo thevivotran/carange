@@ -18,8 +18,12 @@ def rules_list(request: Request, db: Session = Depends(get_db)):
     rows = []
     for r in rules:
         try:
-            action = json.loads(r.action_json or "{}")
-        except json.JSONDecodeError:
+            raw = r.action_json
+            if isinstance(raw, dict):
+                action = raw
+            else:
+                action = json.loads(raw or "{}")
+        except (json.JSONDecodeError, TypeError):
             action = {}
         cat_id = action.get("set_category_id")
         rows.append(
