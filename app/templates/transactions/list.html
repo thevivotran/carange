@@ -681,10 +681,6 @@
                 if (Array.from(sel.options).some(o => o.value === urlCatId)) sel.value = urlCatId;
             }
             if (urlAdvance) document.getElementById('filter-advance').value = urlAdvance;
-            // Open the filters panel so the active filter is immediately visible.
-            if (urlCatId || urlType || urlAdvance) {
-                document.getElementById('filters-panel').classList.remove('hidden');
-            }
             updateFilterBadge();
             saveFilters();
         } else {
@@ -1560,11 +1556,6 @@
             document.getElementById('filter-advance').value = 'unsettled';
         }
         updateFilterBadge();
-        // Auto-expand filters panel when there are active filters
-        const badge = document.getElementById('active-filter-count');
-        if (!badge.classList.contains('hidden')) {
-            document.getElementById('filters-panel').classList.remove('hidden');
-        }
     }
     
     let _txTemplates = [];
