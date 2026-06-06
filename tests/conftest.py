@@ -34,6 +34,12 @@ def _truncate_all_tables() -> None:
     with _pg_engine.connect() as conn:
         conn.execute(text(f"TRUNCATE {table_names} RESTART IDENTITY CASCADE"))
         conn.commit()
+        # Refresh MATVIEW so the next test starts with empty aggregates
+        try:
+            conn.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_monthly_totals"))
+            conn.commit()
+        except Exception:
+            pass
 
 
 @pytest.fixture(autouse=True)
@@ -82,9 +88,23 @@ def db_session():
             Base.metadata.drop_all(engine)
             engine.dispose()
     else:
-        # Real PostgreSQL — catches dialect bugs; isolate via TRUNCATE after each test
+        # Real PostgreSQL — catches dialect bugs; isolate via TRUNCATE after each test.
+        # Attach an after_commit hook that refreshes mv_monthly_totals so dashboard
+        # tests see fresh data immediately after inserting transactions.
+        from sqlalchemy import event as sa_event
+
         Session = sessionmaker(autocommit=False, autoflush=False, bind=_pg_engine)
         session = Session()
+
+        @sa_event.listens_for(session, "after_commit")
+        def _refresh_mv(s):
+            try:
+                with _pg_engine.connect() as conn:
+                    conn.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_monthly_totals"))
+                    conn.commit()
+            except Exception:
+                pass
+
         try:
             yield session
         finally:
@@ -146,6 +166,20 @@ def bds_cat(db_session):
     return cat
 
 
+def _refresh_matview_pg(db) -> None:
+    """Synchronously refresh mv_monthly_totals so dashboard tests see fresh data.
+
+    Only runs when the test DB is PostgreSQL and the MATVIEW exists.
+    """
+    if not _is_pg:
+        return
+    try:
+        db.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_monthly_totals"))
+        db.commit()
+    except Exception:
+        pass
+
+
 def make_transaction(db, *, date_val, amount, type_, category_id, is_savings_related=False):
     """Helper: insert a Transaction directly and return it."""
     from app.models.database import Transaction
@@ -160,4 +194,5 @@ def make_transaction(db, *, date_val, amount, type_, category_id, is_savings_rel
     db.add(t)
     db.commit()
     db.refresh(t)
+    _refresh_matview_pg(db)
     return t

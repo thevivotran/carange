@@ -10,11 +10,12 @@ from typing import Any
 
 log = logging.getLogger("app.dashboard_service")
 
-from sqlalchemy import func, case, and_
+from sqlalchemy import func, case, and_, text
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.database import (
     Category,
+    DATABASE_URL,
     FinancialProject,
     OtherAsset,
     PaymentStatus,
@@ -28,6 +29,8 @@ from app.models.database import (
 )
 from app.services.budget_service import compute_budget_rows
 from app.services.settings_service import get_setting
+
+_USE_MATVIEW = DATABASE_URL.startswith("postgresql") or DATABASE_URL.startswith("postgres")
 
 # ── Dashboard cache ───────────────────────────────────────────────────────────
 # In-memory dict for fast within-pod serving. Cross-pod invalidation (by the
@@ -99,17 +102,90 @@ def _db_write_sentinel(db: Session) -> None:
         db.rollback()
 
 
+def _fetch_matview_rows(db: Session) -> list | None:
+    """Fetch all rows from mv_monthly_totals in one shot.
+
+    Returns None if the view is unavailable (e.g. migration not yet applied),
+    triggering the ORM fallback path in get_dashboard_data().
+    """
+    try:
+        rows = (
+            db.execute(text("SELECT month, type, is_savings_related, category_id, total FROM mv_monthly_totals"))
+            .mappings()
+            .fetchall()
+        )
+        return rows
+    except Exception as exc:
+        log.warning("mv_monthly_totals unavailable (%s) — falling back to ORM queries", exc)
+        db.rollback()
+        return None
+
+
+def _mv_sum(
+    rows,
+    *,
+    month: date | None = None,
+    from_month: date | None = None,
+    until_month: date | None = None,
+    type_val: str | None = None,
+    savings: bool | None = None,
+    cat_ids: set[int] | None = None,
+) -> float:
+    """Sum `total` over MATVIEW rows matching the given filters."""
+    total = 0.0
+    for r in rows:
+        m = r["month"]
+        if month is not None and m != month:
+            continue
+        if from_month is not None and m < from_month:
+            continue
+        if until_month is not None and m > until_month:
+            continue
+        if type_val is not None and r["type"] != type_val:
+            continue
+        if savings is not None and bool(r["is_savings_related"]) != savings:
+            continue
+        if cat_ids is not None and r["category_id"] not in cat_ids:
+            continue
+        total += float(r["total"] or 0)
+    return total
+
+
+def _schedule_matview_refresh() -> None:
+    """Fire-and-forget REFRESH MATERIALIZED VIEW CONCURRENTLY (PostgreSQL only).
+
+    Spawns a daemon thread so the caller (ingest pipeline) is never blocked.
+    CONCURRENTLY means existing readers are not locked out during the refresh.
+    """
+    if not _USE_MATVIEW:
+        return
+
+    def _refresh():
+        from app.models.database import engine
+
+        try:
+            with engine.connect() as conn:
+                conn.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_monthly_totals"))
+                conn.commit()
+        except Exception as exc:
+            log.warning("MATVIEW refresh failed: %s", exc)
+
+    threading.Thread(target=_refresh, daemon=True).start()
+
+
 def invalidate_dashboard_cache(db: Session = None) -> None:
     """Invalidate the dashboard cache.
 
     Always clears the in-process in-memory dict. When *db* is supplied, also
     writes a sentinel row to period_rollups so that other pods (OCR worker,
-    email worker) can trigger invalidation in the main app on the next request.
+    email worker) can trigger invalidation in the main app on the next request,
+    and schedules an async MATVIEW refresh so the next dashboard load is fast.
     """
     with _cache_lock:
         _cache.clear()
     if db is not None:
         _db_write_sentinel(db)
+        _schedule_matview_refresh()
 
 
 def _cache_get(key: tuple, db: Session = None) -> Any | None:
@@ -196,7 +272,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
 
     from sqlalchemy import false as sqla_false
 
-    # Split wealth into per-legacy-name buckets so the template/schema keys are preserved
+    # Category IDs for wealth-building filters
     tiet_kiem_ids = [
         r[0]
         for r in db.query(Category.id)
@@ -209,115 +285,64 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         .filter(Category.name == "Bất động sản", Category.type == TransactionType.EXPENSE)
         .all()
     ]
-    tk_filter = Transaction.category_id.in_(tiet_kiem_ids) if tiet_kiem_ids else sqla_false()
-    bds_filter = Transaction.category_id.in_(bds_ids) if bds_ids else sqla_false()
+    tiet_kiem_set = set(tiet_kiem_ids)
+    bds_set = set(bds_ids)
 
-    # ── Single-query aggregates ───────────────────────────────────────────────
-    _agg = db.query(
-        func.sum(
-            case(
-                (
-                    and_(
-                        Transaction.type == TransactionType.INCOME,
-                        Transaction.is_savings_related == False,
-                        Transaction.date >= month_start,
-                        Transaction.date <= month_end,
-                        Transaction.deleted_at.is_(None),
-                    ),
-                    Transaction.amount,
-                ),
-                else_=0,
-            )
-        ).label("monthly_income"),
-        func.sum(
-            case(
-                (
-                    and_(
-                        Transaction.type == TransactionType.EXPENSE,
-                        Transaction.is_savings_related == False,
-                        Transaction.date >= month_start,
-                        Transaction.date <= month_end,
-                        Transaction.deleted_at.is_(None),
-                    ),
-                    Transaction.amount,
-                ),
-                else_=0,
-            )
-        ).label("monthly_expense"),
-        func.sum(
-            case(
-                (
-                    and_(
-                        Transaction.type == TransactionType.EXPENSE,
-                        Transaction.is_savings_related == True,
-                        Transaction.date >= month_start,
-                        Transaction.date <= month_end,
-                        Transaction.deleted_at.is_(None),
-                    ),
-                    Transaction.amount,
-                ),
-                else_=0,
-            )
-        ).label("monthly_savings"),
-        func.sum(
-            case(
-                (
-                    and_(
-                        Transaction.type == TransactionType.EXPENSE,
-                        Transaction.date >= month_start,
-                        Transaction.date <= month_end,
-                        Transaction.deleted_at.is_(None),
-                        tk_filter,
-                    ),
-                    Transaction.amount,
-                ),
-                else_=0,
-            )
-        ).label("monthly_tiet_kiem"),
-        func.sum(
-            case(
-                (
-                    and_(
-                        Transaction.type == TransactionType.EXPENSE,
-                        Transaction.date >= month_start,
-                        Transaction.date <= month_end,
-                        Transaction.deleted_at.is_(None),
-                        bds_filter,
-                    ),
-                    Transaction.amount,
-                ),
-                else_=0,
-            )
-        ).label("monthly_bds"),
-        func.sum(
-            case(
-                (
-                    and_(
-                        Transaction.type == TransactionType.INCOME,
-                        Transaction.is_savings_related == False,
-                        Transaction.deleted_at.is_(None),
-                    ),
-                    Transaction.amount,
-                ),
-                else_=0,
-            )
-        ).label("total_income"),
-        func.sum(
-            case(
-                (
-                    and_(Transaction.type == TransactionType.EXPENSE, Transaction.deleted_at.is_(None)),
-                    Transaction.amount,
-                ),
-                else_=0,
-            )
-        ).label("total_expense"),
-    ).first()
+    # ── Aggregates ────────────────────────────────────────────────────────────
+    # Fast path: read from mv_monthly_totals (pre-aggregated, refreshed async).
+    # Fallback: inline ORM queries when the MATVIEW is unavailable (SQLite dev).
+    mv_rows = _fetch_matview_rows(db) if _USE_MATVIEW else None
 
-    monthly_income = float(_agg.monthly_income or 0)
-    monthly_expense = float(_agg.monthly_expense or 0)
-    monthly_savings = float(_agg.monthly_savings or 0)
-    monthly_tiet_kiem = float(_agg.monthly_tiet_kiem or 0)
-    monthly_bds = float(_agg.monthly_bds or 0)
+    if mv_rows is not None:
+        monthly_income = _mv_sum(mv_rows, month=month_start, type_val="income", savings=False)
+        monthly_expense = _mv_sum(mv_rows, month=month_start, type_val="expense", savings=False)
+        monthly_savings = _mv_sum(mv_rows, month=month_start, type_val="expense", savings=True)
+        monthly_tiet_kiem = (
+            _mv_sum(mv_rows, month=month_start, type_val="expense", cat_ids=tiet_kiem_set) if tiet_kiem_ids else 0.0
+        )
+        monthly_bds = _mv_sum(mv_rows, month=month_start, type_val="expense", cat_ids=bds_set) if bds_ids else 0.0
+        total_income_all = _mv_sum(mv_rows, type_val="income", savings=False)
+        total_expense_all = _mv_sum(mv_rows, type_val="expense")
+    else:
+        tk_filter = Transaction.category_id.in_(tiet_kiem_ids) if tiet_kiem_ids else sqla_false()
+        bds_filter = Transaction.category_id.in_(bds_ids) if bds_ids else sqla_false()
+
+        def _month_case(type_val, savings_val, extra=None):
+            conds = [
+                Transaction.type == type_val,
+                Transaction.date >= month_start,
+                Transaction.date <= month_end,
+                Transaction.deleted_at.is_(None),
+            ]
+            if savings_val is not None:
+                conds.append(Transaction.is_savings_related == savings_val)
+            if extra is not None:
+                conds.append(extra)
+            return func.sum(case((and_(*conds), Transaction.amount), else_=0))
+
+        def _alltime_case(type_val, savings_val=None):
+            conds = [Transaction.type == type_val, Transaction.deleted_at.is_(None)]
+            if savings_val is not None:
+                conds.append(Transaction.is_savings_related == savings_val)
+            return func.sum(case((and_(*conds), Transaction.amount), else_=0))
+
+        _agg = db.query(
+            _month_case(TransactionType.INCOME, False).label("monthly_income"),
+            _month_case(TransactionType.EXPENSE, False).label("monthly_expense"),
+            _month_case(TransactionType.EXPENSE, True).label("monthly_savings"),
+            _month_case(TransactionType.EXPENSE, None, tk_filter).label("monthly_tiet_kiem"),
+            _month_case(TransactionType.EXPENSE, None, bds_filter).label("monthly_bds"),
+            _alltime_case(TransactionType.INCOME, False).label("total_income"),
+            _alltime_case(TransactionType.EXPENSE).label("total_expense"),
+        ).first()
+        monthly_income = float(_agg.monthly_income or 0)
+        monthly_expense = float(_agg.monthly_expense or 0)
+        monthly_savings = float(_agg.monthly_savings or 0)
+        monthly_tiet_kiem = float(_agg.monthly_tiet_kiem or 0)
+        monthly_bds = float(_agg.monthly_bds or 0)
+        total_income_all = float(_agg.total_income or 0)
+        total_expense_all = float(_agg.total_expense or 0)
+
     monthly_wealth_building = monthly_tiet_kiem + monthly_bds
 
     savings_rate = round(monthly_wealth_building / monthly_income * 100, 1) if monthly_income > 0 else 0
@@ -334,89 +359,48 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     _, _prev_last = monthrange(prev_year_num, prev_month_num)
     prev_month_end = date(prev_year_num, prev_month_num, _prev_last)
 
-    _prev = db.query(
-        func.sum(
-            case(
-                (
-                    and_(
-                        Transaction.type == TransactionType.INCOME,
-                        Transaction.is_savings_related == False,
-                        Transaction.date >= prev_month_start,
-                        Transaction.date <= prev_month_end,
-                        Transaction.deleted_at.is_(None),
-                    ),
-                    Transaction.amount,
-                ),
-                else_=0,
-            )
-        ).label("income"),
-        func.sum(
-            case(
-                (
-                    and_(
-                        Transaction.type == TransactionType.EXPENSE,
-                        Transaction.is_savings_related == False,
-                        Transaction.date >= prev_month_start,
-                        Transaction.date <= prev_month_end,
-                        Transaction.deleted_at.is_(None),
-                    ),
-                    Transaction.amount,
-                ),
-                else_=0,
-            )
-        ).label("expense"),
-        func.sum(
-            case(
-                (
-                    and_(
-                        Transaction.type == TransactionType.EXPENSE,
-                        Transaction.is_savings_related == True,
-                        Transaction.date >= prev_month_start,
-                        Transaction.date <= prev_month_end,
-                        Transaction.deleted_at.is_(None),
-                    ),
-                    Transaction.amount,
-                ),
-                else_=0,
-            )
-        ).label("savings"),
-        func.sum(
-            case(
-                (
-                    and_(
-                        Transaction.type == TransactionType.EXPENSE,
-                        Transaction.date >= prev_month_start,
-                        Transaction.date <= prev_month_end,
-                        Transaction.deleted_at.is_(None),
-                        tk_filter,
-                    ),
-                    Transaction.amount,
-                ),
-                else_=0,
-            )
-        ).label("tiet_kiem"),
-        func.sum(
-            case(
-                (
-                    and_(
-                        Transaction.type == TransactionType.EXPENSE,
-                        Transaction.date >= prev_month_start,
-                        Transaction.date <= prev_month_end,
-                        Transaction.deleted_at.is_(None),
-                        bds_filter,
-                    ),
-                    Transaction.amount,
-                ),
-                else_=0,
-            )
-        ).label("bds"),
-    ).first()
+    if mv_rows is not None:
+        _pi = _mv_sum(mv_rows, month=prev_month_start, type_val="income", savings=False)
+        _pe = _mv_sum(mv_rows, month=prev_month_start, type_val="expense", savings=False)
+        _ps = _mv_sum(mv_rows, month=prev_month_start, type_val="expense", savings=True)
+        _prev_tiet_kiem = (
+            _mv_sum(mv_rows, month=prev_month_start, type_val="expense", cat_ids=tiet_kiem_set)
+            if tiet_kiem_ids
+            else 0.0
+        )
+        _prev_bds = _mv_sum(mv_rows, month=prev_month_start, type_val="expense", cat_ids=bds_set) if bds_ids else 0.0
+    else:
+        tk_filter = Transaction.category_id.in_(tiet_kiem_ids) if tiet_kiem_ids else sqla_false()
+        bds_filter = Transaction.category_id.in_(bds_ids) if bds_ids else sqla_false()
 
-    _pi = float(_prev.income or 0)
-    _pe = float(_prev.expense or 0)
-    _ps = float(_prev.savings or 0)
-    prev_liquid_savings_rate = round(float(_prev.tiet_kiem or 0) / _pi * 100, 1) if _pi > 0 else 0
-    prev_bds_rate = round(float(_prev.bds or 0) / _pi * 100, 1) if _pi > 0 else 0
+        def _prev_case(type_val, savings_val, extra=None):
+            conds = [
+                Transaction.type == type_val,
+                Transaction.date >= prev_month_start,
+                Transaction.date <= prev_month_end,
+                Transaction.deleted_at.is_(None),
+            ]
+            if savings_val is not None:
+                conds.append(Transaction.is_savings_related == savings_val)
+            if extra is not None:
+                conds.append(extra)
+            return func.sum(case((and_(*conds), Transaction.amount), else_=0))
+
+        _prev = db.query(
+            _prev_case(TransactionType.INCOME, False).label("income"),
+            _prev_case(TransactionType.EXPENSE, False).label("expense"),
+            _prev_case(TransactionType.EXPENSE, True).label("savings"),
+            _prev_case(TransactionType.EXPENSE, None, tk_filter).label("tiet_kiem"),
+            _prev_case(TransactionType.EXPENSE, None, bds_filter).label("bds"),
+        ).first()
+        _pi = float(_prev.income or 0)
+        _pe = float(_prev.expense or 0)
+        _ps = float(_prev.savings or 0)
+        _prev_tiet_kiem = float(_prev.tiet_kiem or 0)
+        _prev_bds = float(_prev.bds or 0)
+
+    prev_liquid_savings_rate = round(_prev_tiet_kiem / _pi * 100, 1) if _pi > 0 else 0
+    prev_bds_rate = round(_prev_bds / _pi * 100, 1) if _pi > 0 else 0
     prev_net_cash = _pi - _pe - _ps
     prev_living_expense_ratio = round(_pe / _pi * 100, 1) if _pi > 0 else 0
 
@@ -463,18 +447,27 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         _ef_sy -= 1
     _ef_start = date(_ef_sy, _ef_sm, 1)
     _ef_end = prev_month_end
-    _ef_total = float(
-        db.query(func.sum(Transaction.amount))
-        .filter(
-            Transaction.type == TransactionType.EXPENSE,
-            Transaction.is_savings_related == False,  # noqa: E712
-            Transaction.date >= _ef_start,
-            Transaction.date <= _ef_end,
-            Transaction.deleted_at.is_(None),
+    if mv_rows is not None:
+        _ef_total = _mv_sum(
+            mv_rows,
+            from_month=_ef_start,
+            until_month=prev_month_start,
+            type_val="expense",
+            savings=False,
         )
-        .scalar()
-        or 0
-    )
+    else:
+        _ef_total = float(
+            db.query(func.sum(Transaction.amount))
+            .filter(
+                Transaction.type == TransactionType.EXPENSE,
+                Transaction.is_savings_related == False,  # noqa: E712
+                Transaction.date >= _ef_start,
+                Transaction.date <= _ef_end,
+                Transaction.deleted_at.is_(None),
+            )
+            .scalar()
+            or 0
+        )
     avg_monthly_expense = _ef_total / 3 if _ef_total > 0 else monthly_expense or 1
     emergency_fund_months = round(total_savings / avg_monthly_expense, 1) if avg_monthly_expense > 0 else 0
 
@@ -492,7 +485,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         .count()
     )
 
-    cash_on_hand = float((_agg.total_income or 0) - (_agg.total_expense or 0))
+    cash_on_hand = total_income_all - total_expense_all
 
     _assets_agg = db.query(
         func.coalesce(func.sum(OtherAsset.current_value_vnd), 0).label("cur"),
@@ -663,30 +656,54 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     )
 
     # ── Expense by category ───────────────────────────────────────────────────
-    cat_rows = (
-        db.query(Category.name, Category.color, func.sum(Transaction.amount).label("total"))
-        .join(Transaction)
-        .filter(
-            Transaction.date >= month_start,
-            Transaction.date <= month_end,
-            Transaction.type == TransactionType.EXPENSE,
-            Transaction.is_savings_related == False,  # noqa: E712
-            Transaction.deleted_at.is_(None),
+    if mv_rows is not None:
+        all_cats_dict = {c.id: c for c in db.query(Category).all()}
+        cat_totals: dict[int, float] = {}
+        for r in mv_rows:
+            if (
+                r["month"] == month_start
+                and r["type"] == "expense"
+                and not r["is_savings_related"]
+                and r["category_id"] != 0  # 0 = COALESCE sentinel for NULL
+            ):
+                cid = r["category_id"]
+                cat_totals[cid] = cat_totals.get(cid, 0.0) + float(r["total"] or 0)
+        cat_rows_sorted = sorted(cat_totals.items(), key=lambda x: -x[1])
+        expense_by_category = [
+            {
+                "name": all_cats_dict[cid].name,
+                "total": total,
+                "color": all_cats_dict[cid].color,
+                "percentage": total / monthly_expense * 100 if monthly_expense > 0 else 0,
+            }
+            for cid, total in cat_rows_sorted
+            if cid in all_cats_dict and total > 0
+        ]
+    else:
+        cat_rows = (
+            db.query(Category.name, Category.color, func.sum(Transaction.amount).label("total"))
+            .join(Transaction)
+            .filter(
+                Transaction.date >= month_start,
+                Transaction.date <= month_end,
+                Transaction.type == TransactionType.EXPENSE,
+                Transaction.is_savings_related == False,  # noqa: E712
+                Transaction.deleted_at.is_(None),
+            )
+            .group_by(Category.id)
+            .all()
         )
-        .group_by(Category.id)
-        .all()
-    )
-    cat_rows = sorted(cat_rows, key=lambda x: x[2] or 0, reverse=True)
-    expense_by_category = [
-        {
-            "name": name,
-            "total": float(total),
-            "color": color,
-            "percentage": float(total) / monthly_expense * 100 if monthly_expense > 0 else 0,
-        }
-        for name, color, total in cat_rows
-        if total and total > 0
-    ]
+        cat_rows = sorted(cat_rows, key=lambda x: x[2] or 0, reverse=True)
+        expense_by_category = [
+            {
+                "name": name,
+                "total": float(total),
+                "color": color,
+                "percentage": float(total) / monthly_expense * 100 if monthly_expense > 0 else 0,
+            }
+            for name, color, total in cat_rows
+            if total and total > 0
+        ]
 
     # ── Settings-powered metrics ──────────────────────────────────────────────
     savings_target_pct = float(get_setting(db, "savings_target_pct", "25") or 25)
@@ -697,29 +714,32 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
 
     runway_months = round((cash_on_hand + total_savings) / avg_monthly_expense, 1) if avg_monthly_expense > 0 else 0
 
-    # Net worth 1 month ago — reuse same cumulative income/expense logic for prior month snapshot
-    # We do a lightweight query: cumulative income - cumulative expense at end of prev month
-    _prev_cum_income = float(
-        db.query(func.sum(Transaction.amount))
-        .filter(
-            Transaction.type == TransactionType.INCOME,
-            Transaction.is_savings_related == False,  # noqa: E712
-            Transaction.date <= prev_month_end,
-            Transaction.deleted_at.is_(None),
+    # Net worth 1 month ago: cumulative income − expense up to end of prev month
+    if mv_rows is not None:
+        _prev_cum_income = _mv_sum(mv_rows, until_month=prev_month_start, type_val="income", savings=False)
+        _prev_cum_expense = _mv_sum(mv_rows, until_month=prev_month_start, type_val="expense")
+    else:
+        _prev_cum_income = float(
+            db.query(func.sum(Transaction.amount))
+            .filter(
+                Transaction.type == TransactionType.INCOME,
+                Transaction.is_savings_related == False,  # noqa: E712
+                Transaction.date <= prev_month_end,
+                Transaction.deleted_at.is_(None),
+            )
+            .scalar()
+            or 0
         )
-        .scalar()
-        or 0
-    )
-    _prev_cum_expense = float(
-        db.query(func.sum(Transaction.amount))
-        .filter(
-            Transaction.type == TransactionType.EXPENSE,
-            Transaction.date <= prev_month_end,
-            Transaction.deleted_at.is_(None),
+        _prev_cum_expense = float(
+            db.query(func.sum(Transaction.amount))
+            .filter(
+                Transaction.type == TransactionType.EXPENSE,
+                Transaction.date <= prev_month_end,
+                Transaction.deleted_at.is_(None),
+            )
+            .scalar()
+            or 0
         )
-        .scalar()
-        or 0
-    )
     _prev_savings_total = float(
         db.query(func.sum(SavingsBundle.future_amount))
         .filter(SavingsBundle.status == SavingsStatus.ACTIVE, SavingsBundle.deleted_at.is_(None))
@@ -744,22 +764,29 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         .filter(Category.is_passive_income == True, Category.type == TransactionType.INCOME)  # noqa: E712
         .all()
     ]
-    passive_income_monthly = (
-        float(
-            db.query(func.sum(Transaction.amount))
-            .filter(
-                Transaction.type == TransactionType.INCOME,
-                Transaction.category_id.in_(passive_cat_ids),
-                Transaction.date >= month_start,
-                Transaction.date <= month_end,
-                Transaction.deleted_at.is_(None),
+    if passive_cat_ids:
+        if mv_rows is not None:
+            passive_income_monthly = _mv_sum(
+                mv_rows,
+                month=month_start,
+                type_val="income",
+                cat_ids=set(passive_cat_ids),
             )
-            .scalar()
-            or 0
-        )
-        if passive_cat_ids
-        else 0.0
-    )
+        else:
+            passive_income_monthly = float(
+                db.query(func.sum(Transaction.amount))
+                .filter(
+                    Transaction.type == TransactionType.INCOME,
+                    Transaction.category_id.in_(passive_cat_ids),
+                    Transaction.date >= month_start,
+                    Transaction.date <= month_end,
+                    Transaction.deleted_at.is_(None),
+                )
+                .scalar()
+                or 0
+            )
+    else:
+        passive_income_monthly = 0.0
     passive_income_pct = round(passive_income_monthly / monthly_income * 100, 1) if monthly_income > 0 else 0.0
 
     # Baby fund bundle

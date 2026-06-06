@@ -31,6 +31,7 @@ IMAP_PASSWORD = os.getenv("IMAP_PASSWORD", "")
 IMAP_FOLDER = os.getenv("IMAP_FOLDER", "INBOX")
 POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", "300"))
 STUCK_TIMEOUT_MIN = int(os.getenv("STUCK_TIMEOUT_MIN", "30"))
+MAX_EMAIL_RETRIES = int(os.getenv("MAX_EMAIL_RETRIES", "3"))
 LIVENESS_FILE = "/tmp/worker_alive"
 
 
@@ -67,17 +68,18 @@ def _mark_seen(imap: imaplib.IMAP4_SSL, uid: bytes) -> None:
 
 
 def _reclaim_stuck_pending(db) -> None:
-    """Reset log rows stuck in 'pending' longer than STUCK_TIMEOUT_MIN.
+    """Delete log rows that are stuck in 'pending' from a crashed run.
 
-    A pending row with no processed_at means processing never completed
-    (e.g. worker was killed mid-run). Reset it so the email is reprocessed
-    on the next UNSEEN poll rather than silently skipped.
+    Only targets rows where retry_after IS NULL — those represent a worker
+    crash mid-processing, not a scheduled retry. Deleting them lets the UNSEEN
+    email be picked up again on the next poll.
     """
     cutoff = datetime.now(timezone.utc) - timedelta(minutes=STUCK_TIMEOUT_MIN)
     stuck = (
         db.query(EmailIngestLog)
         .filter(
             EmailIngestLog.status == "pending",
+            EmailIngestLog.retry_after.is_(None),
             EmailIngestLog.created_at < cutoff,
         )
         .all()
@@ -94,19 +96,40 @@ def _reclaim_stuck_pending(db) -> None:
         db.commit()
 
 
-def _already_processed(db, message_id: str) -> bool:
-    """Return True for done or failed emails; False for pending (interrupted) or absent.
+def _check_email_status(db, message_id: str) -> tuple[bool, bool]:
+    """Return (skip_this_poll, mark_seen_in_imap) for the given message_id.
 
-    - done: successfully processed — skip and mark SEEN
-    - failed: permanently failed — skip and mark SEEN (no point retrying a parse error)
-    - pending: processing was interrupted (worker killed mid-run); reclaimed by
-      _reclaim_stuck_pending so the email is reprocessed on the next poll
+    Status semantics:
+    - absent:                        → process it (False, False)
+    - done:                          → skip + mark SEEN (True, True)
+    - failed at max retries:         → skip + mark SEEN (True, True)
+    - pending + retry_after future:  → skip, keep UNSEEN so it retries (True, False)
+    - pending + retry due / no backoff: → reprocess (False, False)
     """
     row = db.query(EmailIngestLog).filter(EmailIngestLog.message_id == message_id).first()
-    return row is not None and row.status in ("done", "failed")
+    if row is None:
+        return False, False
+    if row.status == "done":
+        return True, True
+    if row.status == "failed" and (row.retry_count or 0) >= MAX_EMAIL_RETRIES:
+        return True, True
+    if row.status == "pending" and row.retry_after is not None:
+        due = row.retry_after
+        if due.tzinfo is None:
+            due = due.replace(tzinfo=timezone.utc)
+        if due > datetime.now(timezone.utc):
+            return True, False  # retry not yet due — leave UNSEEN in IMAP
+    return False, False
 
 
-def _create_log_row(db, message_id: str) -> EmailIngestLog:
+def _get_or_create_log_row(db, message_id: str) -> EmailIngestLog:
+    """Return existing log row (retry scenario) or create a fresh one."""
+    row = db.query(EmailIngestLog).filter(EmailIngestLog.message_id == message_id).first()
+    if row is not None:
+        # Clear retry_after so the row is treated as in-progress
+        row.retry_after = None
+        db.commit()
+        return row
     row = EmailIngestLog(
         message_id=message_id,
         status="pending",
@@ -152,13 +175,15 @@ def poll_once() -> None:
                     # Fabricate a unique ID from uid when header is missing
                     message_id = f"uid-{uid.decode()}-{int(time.time())}"
 
-                if _already_processed(db, message_id):
-                    log.debug("Already processed: %s", message_id)
-                    _mark_seen(imap, uid)
+                skip, do_mark_seen = _check_email_status(db, message_id)
+                if skip:
+                    log.debug("Skipping %s (mark_seen=%s)", message_id, do_mark_seen)
+                    if do_mark_seen:
+                        _mark_seen(imap, uid)
                     continue
 
                 log.info("Processing email: %s / %s", sender, subject)
-                log_row = _create_log_row(db, message_id)
+                log_row = _get_or_create_log_row(db, message_id)
                 log_row.sender = sender
                 log_row.subject = subject
                 db.commit()
@@ -168,16 +193,33 @@ def poll_once() -> None:
 
             except Exception as exc:
                 log.exception("Unhandled error processing email uid=%s: %s", uid, exc)
-                # Mark the log row failed so it doesn't stay pending and get
-                # silently skipped on the next restart.
                 if log_row is not None:
                     try:
-                        log_row.status = "failed"
-                        log_row.error_message = f"Internal error: {exc}"
-                        log_row.processed_at = datetime.now(timezone.utc)
-                        db.commit()
+                        retry_count = (log_row.retry_count or 0) + 1
+                        if retry_count <= MAX_EMAIL_RETRIES:
+                            # Leave UNSEEN in IMAP — it will be retried next poll when due.
+                            backoff_secs = (2 ** (retry_count - 1)) * 60
+                            log_row.status = "pending"
+                            log_row.retry_count = retry_count
+                            log_row.retry_after = datetime.now(timezone.utc) + timedelta(seconds=backoff_secs)
+                            log_row.error_message = f"Retry {retry_count}/{MAX_EMAIL_RETRIES}: {exc}"
+                            db.commit()
+                            log.warning(
+                                "Email %s → retry %d/%d in %ds",
+                                message_id,
+                                retry_count,
+                                MAX_EMAIL_RETRIES,
+                                backoff_secs,
+                            )
+                            continue  # skip _mark_seen — email stays UNSEEN for retry
+                        else:
+                            log_row.status = "failed"
+                            log_row.error_message = f"Max retries exceeded. Last: {exc}"
+                            log_row.processed_at = datetime.now(timezone.utc)
+                            db.commit()
                     except Exception:
-                        log.exception("Could not mark log row %d as failed", log_row.id)
+                        log.exception("Could not update log row %d after failure", log_row.id)
+                _mark_seen(imap, uid)
             finally:
                 db.close()
 

@@ -138,7 +138,10 @@ class ImportJob(Base):
     error_message = Column(Text, nullable=True)
     transaction_count = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    started_at = Column(DateTime(timezone=True), nullable=True)
     processed_at = Column(DateTime(timezone=True), nullable=True)
+    retry_count = Column(Integer, default=0, nullable=False, server_default="0")
+    retry_after = Column(DateTime(timezone=True), nullable=True)
 
     transactions = relationship("Transaction", back_populates="import_job")
 
@@ -413,6 +416,8 @@ class EmailIngestLog(Base):
     error_message = Column(Text, nullable=True)
     transaction_count = Column(Integer, default=0)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    retry_count = Column(Integer, default=0, nullable=False, server_default="0")
+    retry_after = Column(DateTime(timezone=True), nullable=True)
 
     transactions = relationship("Transaction", back_populates="email_ingest_log")
 

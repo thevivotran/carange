@@ -92,7 +92,7 @@ def test_processor_copies_source_hint_to_detected(session_factory, image_file, m
 
 
 def test_worker_claim_sets_processing(session_factory, image_file):
-    from ocr_worker.worker import _claim_next
+    from ocr_worker.worker import _claim_next_sqlite as _claim_next
 
     with session_factory() as db:
         _make_job(db, image_file)
@@ -104,7 +104,7 @@ def test_worker_claim_sets_processing(session_factory, image_file):
 
 
 def test_worker_claim_returns_none_when_empty(session_factory):
-    from ocr_worker.worker import _claim_next
+    from ocr_worker.worker import _claim_next_sqlite as _claim_next
 
     with session_factory() as db:
         result = _claim_next(db)
@@ -113,11 +113,72 @@ def test_worker_claim_returns_none_when_empty(session_factory):
 
 def test_worker_claim_skips_non_pending(session_factory, image_file):
     """Processing and done jobs should not be re-claimed."""
-    from ocr_worker.worker import _claim_next
+    from ocr_worker.worker import _claim_next_sqlite as _claim_next
 
     with session_factory() as db:
         job = _make_job(db, image_file)
         job.status = ImportJobStatus.DONE
+        db.commit()
+
+    with session_factory() as db:
+        result = _claim_next(db)
+        assert result is None
+
+
+def test_worker_claim_sets_started_at(session_factory, image_file):
+    from ocr_worker.worker import _claim_next_sqlite as _claim_next
+
+    with session_factory() as db:
+        _make_job(db, image_file)
+
+    with session_factory() as db:
+        job = _claim_next(db)
+        assert job.started_at is not None
+
+
+def test_handle_failure_retries(session_factory, image_file):
+    from ocr_worker.worker import _handle_failure
+
+    with session_factory() as db:
+        job = _make_job(db, image_file)
+        job.status = ImportJobStatus.PROCESSING
+        db.commit()
+        _handle_failure(db, job, "transient error")
+        db.refresh(job)
+        assert job.status == ImportJobStatus.PENDING
+        assert job.retry_count == 1
+        assert job.retry_after is not None
+
+
+def test_handle_failure_permanent_after_max_retries(session_factory, image_file):
+    from ocr_worker.worker import _handle_failure, MAX_RETRIES
+
+    with session_factory() as db:
+        job = _make_job(db, image_file)
+        job.status = ImportJobStatus.PROCESSING
+        job.retry_count = MAX_RETRIES
+        db.commit()
+        _handle_failure(db, job, "still broken")
+        db.refresh(job)
+        assert job.status == ImportJobStatus.FAILED
+        assert job.processed_at is not None
+
+
+def test_psycopg2_dsn_strips_driver_prefix():
+    from ocr_worker.worker import _psycopg2_dsn
+
+    assert _psycopg2_dsn("postgresql+psycopg2://user:pw@host/db") == "postgresql://user:pw@host/db"
+    assert _psycopg2_dsn("postgres://user:pw@host/db") == "postgresql://user:pw@host/db"
+    assert _psycopg2_dsn("postgresql://user:pw@host/db") == "postgresql://user:pw@host/db"
+
+
+def test_worker_claim_skips_retry_after_in_future(session_factory, image_file):
+    from datetime import datetime, timedelta, timezone
+    from ocr_worker.worker import _claim_next_sqlite as _claim_next
+
+    with session_factory() as db:
+        job = _make_job(db, image_file)
+        job.retry_after = datetime.now(timezone.utc) + timedelta(hours=1)
         db.commit()
 
     with session_factory() as db:
