@@ -38,6 +38,9 @@ jobs:
               - 'requirements.txt'
             email_worker:
               - 'email_worker/**'
+              - 'app/services/**'
+              - 'app/models/**'
+              - 'app/notify/**'
               - 'requirements.txt'
 
   # ── 1. Lint ───────────────────────────────────────────────────────────────────
