@@ -15,11 +15,12 @@ from email_worker.parsers.vcb import VCBParser
 from email_worker.parsers.uob import UOBParser
 from email_worker.parsers.payoo import PayooParser
 from email_worker.parsers.vnpay import VNPayParser
+from email_worker.parsers.learned import LearnedRegexParser
 from email_worker.parsers.generic import GenericOllamaParser
 
 log = logging.getLogger("email_worker.email_parser")
 
-# Ordered by specificity — generic must be last
+# Ordered by specificity — LearnedRegexParser before generic LLM fallback
 _PARSERS: list[BaseEmailParser] = [
     VCBParser(),
     UOBParser(),
@@ -28,6 +29,7 @@ _PARSERS: list[BaseEmailParser] = [
     ShopeeParser(),
     GrabParser(),
     TimoParser(),
+    LearnedRegexParser(),
     GenericOllamaParser(),
 ]
 
