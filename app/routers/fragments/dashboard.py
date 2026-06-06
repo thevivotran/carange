@@ -2,10 +2,9 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 from typing import Optional
 
-from app.models.database import get_db, SavingsBundle, SavingsStatus
+from app.models.database import get_db
 from app.routers.fragments._helpers import render_fragment
 from app.services.dashboard_service import get_dashboard_data
-from app.services.settings_service import get_setting, set_setting
 
 router = APIRouter()
 
@@ -57,46 +56,4 @@ def fragment_kpi_cards(
             "net_delta": s["net_this_month"] - s["prev_net_cash"],
             "living_delta": s["living_expense_ratio"] - s["prev_living_expense_ratio"],
         },
-    )
-
-
-@router.get("/settings-form")
-def fragment_settings_form(
-    request: Request,
-    db: Session = Depends(get_db),
-):
-    savings_bundles = (
-        db.query(SavingsBundle.id, SavingsBundle.name)
-        .filter(SavingsBundle.status == SavingsStatus.ACTIVE, SavingsBundle.deleted_at.is_(None))
-        .order_by(SavingsBundle.name)
-        .all()
-    )
-    return render_fragment(
-        request,
-        "partials/dashboard/_settings_form.html",
-        {
-            "savings_target_pct": get_setting(db, "savings_target_pct", "25"),
-            "fi_target_vnd": get_setting(db, "fi_target_vnd", ""),
-            "baby_fund_bundle_id": get_setting(db, "baby_fund_bundle_id", ""),
-            "savings_bundles": [{"id": r.id, "name": r.name} for r in savings_bundles],
-        },
-    )
-
-
-@router.post("/settings")
-async def fragment_save_settings(
-    request: Request,
-    db: Session = Depends(get_db),
-):
-    form = await request.form()
-    allowed = {"savings_target_pct", "fi_target_vnd", "baby_fund_bundle_id"}
-    for key in allowed:
-        if key in form:
-            set_setting(db, key, str(form[key]).strip())
-    return render_fragment(
-        request,
-        "partials/dashboard/_settings_saved.html",
-        {},
-        toast="Settings saved",
-        trigger_events={"dashboard-month-changed": True},
     )

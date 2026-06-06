@@ -439,25 +439,13 @@
 
                 <!-- Settings -->
                 <div class="px-6 pt-5 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest sidebar-section-label">Settings</div>
-                <a href="/categories" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'categories' %}active font-semibold{% endif %}" title="Categories">
-                    <i class="fas fa-tags w-6 flex-shrink-0"></i>
-                    <span class="sidebar-label">Categories</span>
-                </a>
-                <a href="/templates" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'templates' %}active font-semibold{% endif %}" title="Templates">
-                    <i class="fas fa-copy w-6 flex-shrink-0"></i>
-                    <span class="sidebar-label">Templates</span>
-                </a>
                 <a href="/notes" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'notes' %}active font-semibold{% endif %}" title="IOUs &amp; Notes">
                     <i class="fas fa-sticky-note w-6 flex-shrink-0"></i>
                     <span class="sidebar-label">IOUs &amp; Notes</span>
                 </a>
-                <a href="/rules" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'rules' %}active font-semibold{% endif %}" title="Rules">
-                    <i class="fas fa-bolt w-6 flex-shrink-0"></i>
-                    <span class="sidebar-label">Rules</span>
-                </a>
-                <a href="/payees" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'payees' %}active font-semibold{% endif %}" title="Payees">
-                    <i class="fas fa-store w-6 flex-shrink-0"></i>
-                    <span class="sidebar-label">Payees</span>
+                <a href="/settings" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'settings' %}active font-semibold{% endif %}" title="Settings">
+                    <i class="fas fa-gear w-6 flex-shrink-0"></i>
+                    <span class="sidebar-label">Settings</span>
                 </a>
 
             </nav>
@@ -488,6 +476,7 @@
             'review':       'Review Inbox',
             'rules':        'Rules',
             'payees':       'Payees',
+            'settings':     'Settings',
         } %}
         <div class="md:hidden fixed top-0 left-0 right-0 bg-white shadow-md z-50" style="padding-top:env(safe-area-inset-top)">
             <div class="flex items-center px-4 py-3 gap-2">
@@ -564,21 +553,9 @@
                 <!-- Settings section -->
                 <div class="px-5 pt-3 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest">Settings</div>
                 <div class="grid grid-cols-4 gap-px bg-gray-100 border-t border-b mx-0">
-                    <a href="/categories" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'categories' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
-                        <i class="fas fa-tags text-xl"></i>
-                        <span class="text-xs font-medium">Categories</span>
-                    </a>
-                    <a href="/templates" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'templates' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
-                        <i class="fas fa-copy text-xl"></i>
-                        <span class="text-xs font-medium">Templates</span>
-                    </a>
-                    <a href="/rules" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'rules' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
-                        <i class="fas fa-bolt text-xl"></i>
-                        <span class="text-xs font-medium">Rules</span>
-                    </a>
-                    <a href="/payees" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'payees' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
-                        <i class="fas fa-store text-xl"></i>
-                        <span class="text-xs font-medium">Payees</span>
+                    <a href="/settings" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'settings' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
+                        <i class="fas fa-gear text-xl"></i>
+                        <span class="text-xs font-medium">Settings</span>
                     </a>
                 </div>
                 <div class="h-3"></div>

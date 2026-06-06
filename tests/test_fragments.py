@@ -113,17 +113,68 @@ def test_fragment_dashboard_kpi_cards_with_month(client):
     assert "Net Worth" in r.text
 
 
-def test_fragment_dashboard_settings_form(client):
-    r = client.get("/fragments/dashboard/settings-form", headers={"HX-Request": "true"})
+def test_settings_page(client):
+    r = client.get("/settings")
     assert r.status_code == 200
     assert "text/html" in r.headers["content-type"]
     assert "savings_target_pct" in r.text
 
 
-def test_fragment_dashboard_settings_post(client):
+def test_settings_general_post(client):
     r = client.post(
-        "/fragments/dashboard/settings",
+        "/settings/general",
         data={"savings_target_pct": "30", "fi_target_vnd": "", "baby_fund_bundle_id": ""},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert "HX-Trigger" in r.headers
+
+
+def test_settings_email_post(client):
+    r = client.post(
+        "/settings/email",
+        data={
+            "imap_host": "imap.gmail.com",
+            "imap_user": "test@test.com",
+            "imap_folder": "INBOX",
+            "email_poll_interval": "300",
+        },  # noqa: E501
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert "HX-Trigger" in r.headers
+
+
+def test_settings_telegram_post(client):
+    r = client.post(
+        "/settings/telegram",
+        data={"telegram_bot_token": "abc123", "telegram_chat_id": "456"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert "HX-Trigger" in r.headers
+
+
+def test_settings_ocr_post(client):
+    r = client.post(
+        "/settings/ocr",
+        data={"ollama_url": "", "ollama_model": "Qwen3.6-35B-A3B"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert "HX-Trigger" in r.headers
+
+
+def test_settings_thresholds_post(client):
+    r = client.post(
+        "/settings/thresholds",
+        data={
+            "review_threshold": "0.9",
+            "anomaly_multiplier": "3.0",
+            "anomaly_min_samples": "3",
+            "stuck_timeout_min": "30",
+            "max_retries": "3",
+        },
         headers={"HX-Request": "true"},
     )
     assert r.status_code == 200

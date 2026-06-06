@@ -18,14 +18,11 @@
         <button onclick="shiftMonth(1)"
                 class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 transition select-none">&#8250;</button>
       </div>
-      <button onclick="openSettingsModal()"
-              hx-get="/fragments/dashboard/settings-form"
-              hx-target="#settings-modal-body"
-              hx-swap="innerHTML"
-              class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border shadow-sm text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition"
-              title="Dashboard settings">
-        <i class="fas fa-cog text-sm"></i>
-      </button>
+      <a href="/settings"
+         class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border shadow-sm text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition"
+         title="Settings">
+        <i class="fas fa-gear text-sm"></i>
+      </a>
     </div>
   </div>
 
@@ -934,7 +931,7 @@ const KPI_INFO = {
         formula: 'Current Net Worth ÷ FI Target × 100',
         target: '100%  →  net worth generates enough to cover all expenses passively',
         notes: [
-            'Set your FI Target via the ⚙ gear button in the dashboard header',
+            'Set your FI Target via Settings → General',
             'FI Target = the net worth you need so investment returns cover living costs',
             'Milestone markers at 25%, 50%, 75% for motivation',
             'Not affected by the month selector — always shows current state',
@@ -1097,50 +1094,5 @@ function toggleRecentTransactions() {
 <!-- KPI info popover -->
 <div id="kpi-popover" class="hidden fixed z-[300] w-72 bg-white rounded-xl shadow-xl border border-gray-100 p-4" style="top:0;left:0"></div>
 
-<!-- Settings Modal -->
-<div id="settings-modal" class="hidden fixed inset-0 z-[400] flex items-center justify-center p-4 bg-black/40">
-  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-    <div class="flex justify-between items-center mb-5">
-      <h3 class="font-semibold text-gray-800 text-base">Dashboard Settings</h3>
-      <button onclick="closeSettingsModal()" aria-label="Close" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
-    </div>
-    <div id="settings-modal-body">
-      <p class="text-sm text-gray-400 text-center py-6 animate-pulse">Loading…</p>
-    </div>
-  </div>
-</div>
-
-<script>
-// ── Settings modal ────────────────────────────────────────────────────────────
-function openSettingsModal(focusField) {
-    document.getElementById('settings-modal').classList.remove('hidden');
-}
-
-function closeSettingsModal() {
-    document.getElementById('settings-modal').classList.add('hidden');
-}
-
-document.getElementById('settings-modal').addEventListener('click', function(e) {
-    if (e.target === this) closeSettingsModal();
-});
-
-// Reload page after settings are saved so server-rendered sections refresh
-document.addEventListener('dashboard-month-changed', function(e) {
-    if (e.detail && e.detail.fromSettings) {
-        setTimeout(() => window.location.reload(), 800);
-    }
-});
-
-// Close settings modal after HTMX form saves successfully
-document.addEventListener('htmx:afterRequest', function(e) {
-    if (e.target && e.target.closest && e.target.closest('#settings-modal-body form')) {
-        const trigger = e.detail.xhr && e.detail.xhr.getResponseHeader('HX-Trigger');
-        if (trigger && trigger.includes('dashboard-month-changed')) {
-            closeSettingsModal();
-            setTimeout(() => window.location.reload(), 600);
-        }
-    }
-});
-</script>
 
 {% endblock %}

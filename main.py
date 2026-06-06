@@ -22,6 +22,7 @@ from app.routers import import_jobs
 from app.routers import review as review_router
 from app.routers import rules as rules_router
 from app.routers import payees as payees_router
+from app.routers import settings as settings_router
 from app.routers.dashboard import get_dashboard_page_data
 from app.routers.fragments import transactions as frag_transactions
 from app.routers.fragments import dashboard as frag_dashboard
@@ -108,6 +109,7 @@ app.include_router(import_jobs.router, prefix="/api/import")
 app.include_router(review_router.router, prefix="/api/review")
 app.include_router(rules_router.router, prefix="/api/rules")
 app.include_router(payees_router.router, prefix="/api/payees")
+app.include_router(settings_router.router, prefix="/settings")
 
 # Fragment routers (HTML partials for HTMX)
 app.include_router(frag_transactions.router, prefix="/fragments/transactions", tags=["fragments"])

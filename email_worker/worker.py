@@ -20,6 +20,7 @@ from datetime import datetime, timedelta, timezone
 
 from app.models.database import EmailIngestLog, SessionLocal, DATABASE_URL
 from app.models.database import engine
+from app.services.settings_service import get_setting
 from sqlalchemy import event as sa_event
 
 log = logging.getLogger("email_worker")
@@ -32,6 +33,27 @@ IMAP_FOLDER = os.getenv("IMAP_FOLDER", "INBOX")
 POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", "300"))
 STUCK_TIMEOUT_MIN = int(os.getenv("STUCK_TIMEOUT_MIN", "30"))
 MAX_EMAIL_RETRIES = int(os.getenv("MAX_EMAIL_RETRIES", "3"))
+
+
+def _load_config() -> None:
+    """Reload IMAP config from DB, falling back to env vars for each key."""
+    global IMAP_HOST, IMAP_USER, IMAP_PASSWORD, IMAP_FOLDER, POLL_INTERVAL, STUCK_TIMEOUT_MIN, MAX_EMAIL_RETRIES
+    try:
+        with SessionLocal() as db:
+            IMAP_HOST = get_setting(db, "imap_host") or os.getenv("IMAP_HOST", "imap.gmail.com")
+            IMAP_USER = get_setting(db, "imap_user") or os.getenv("IMAP_USER", "")
+            IMAP_PASSWORD = get_setting(db, "imap_password") or os.getenv("IMAP_PASSWORD", "")
+            IMAP_FOLDER = get_setting(db, "imap_folder") or os.getenv("IMAP_FOLDER", "INBOX")
+            interval_str = get_setting(db, "email_poll_interval") or os.getenv("POLL_INTERVAL", "300")
+            POLL_INTERVAL = int(interval_str)
+            stuck_str = get_setting(db, "stuck_timeout_min") or os.getenv("STUCK_TIMEOUT_MIN", "30")
+            STUCK_TIMEOUT_MIN = int(stuck_str)
+            retries_str = get_setting(db, "max_retries") or os.getenv("MAX_EMAIL_RETRIES", "3")
+            MAX_EMAIL_RETRIES = int(retries_str)
+    except Exception as exc:
+        log.warning("Could not load config from DB, using env vars: %s", exc)
+
+
 LIVENESS_FILE = "/tmp/worker_alive"
 
 
@@ -142,6 +164,7 @@ def _get_or_create_log_row(db, message_id: str) -> EmailIngestLog:
 
 
 def poll_once() -> None:
+    _load_config()
     if not IMAP_USER or not IMAP_PASSWORD:
         log.error("IMAP_USER or IMAP_PASSWORD not set — skipping poll")
         return
