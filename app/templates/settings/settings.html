@@ -73,6 +73,36 @@
     </form>
   </div>
 
+  <!-- ── Dashboard Layout ─────────────────────────────────────── -->
+  <div class="bg-white rounded-2xl shadow-sm border p-6 mb-4">
+    <h3 class="font-semibold text-gray-800 mb-1">Dashboard Layout</h3>
+    <p class="text-xs text-gray-400 mb-5">Choose how much detail your dashboard shows. Core health cards, net worth, and recent transactions are always visible.</p>
+    <form hx-post="/settings/dashboard"
+          hx-target="#dashboard-status"
+          hx-swap="innerHTML">
+      <div class="space-y-3">
+        {% for preset in dashboard_presets %}
+        <label class="flex items-start gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition has-[:checked]:border-indigo-300 has-[:checked]:bg-indigo-50">
+          <input type="radio" name="dashboard_layout" value="{{ preset.key }}"
+                 {% if preset.key == dashboard_preset %}checked{% endif %}
+                 class="mt-0.5 text-indigo-600 focus:ring-indigo-300">
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-gray-800">{{ preset.label }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ preset.description }}</p>
+          </div>
+        </label>
+        {% endfor %}
+      </div>
+      <div class="flex items-center gap-4 mt-6">
+        <button type="submit"
+                class="px-5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition">
+          Save
+        </button>
+        <span id="dashboard-status"></span>
+      </div>
+    </form>
+  </div>
+
   <!-- ── Advanced (collapsed) ──────────────────────────────────── -->
   <details class="group">
     <summary class="flex items-center justify-between bg-white rounded-2xl shadow-sm border px-6 py-4 cursor-pointer select-none list-none mb-4">

@@ -118,9 +118,11 @@
   </div>
   {% endif %}
 
+  {% if 'cash_flow' in visible_sections or 'budget_snapshot' in visible_sections %}
   <!-- ── Row 2: Chart + Budget Snapshot ────────────────────────────── -->
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
+    {% if 'cash_flow' in visible_sections %}
     <!-- Cash Flow Chart -->
     <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border p-6">
       <div class="flex justify-between items-center mb-4">
@@ -131,7 +133,9 @@
         <canvas id="cashFlowChart"></canvas>
       </div>
     </div>
+    {% endif %}
 
+    {% if 'budget_snapshot' in visible_sections %}
     <!-- Budget Snapshot -->
     <div class="bg-white rounded-2xl shadow-sm border p-6">
       <div class="flex justify-between items-center mb-4">
@@ -173,9 +177,12 @@
       </div>
       {% endif %}
     </div>
+    {% endif %}
 
   </div>
+  {% endif %}
 
+  {% if 'wealth_building' in visible_sections %}
   <!-- ── Wealth Building Toggle ───────────────────────────────────── -->
   <button id="wealth-toggle-btn" onclick="toggleWealthSection()"
           class="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-widest hover:text-gray-600 transition w-full mb-3 px-1">
@@ -218,7 +225,9 @@
   </div>
 
   </div><!-- end #wealth-section -->
+  {% endif %}
 
+  {% if 'stress_test' in visible_sections %}
   <!-- ── One-Income Stress Test ────────────────────────────────────── -->
   <button id="stress-toggle-btn" onclick="toggleStressSection()"
           class="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-widest hover:text-gray-600 transition w-full mb-3 px-1">
@@ -270,6 +279,7 @@
       </div>
     </div>
   </div>
+  {% endif %}
 
   <!-- ── Row 4: Alerts ──────────────────────────────────────────────── -->
   {% if alert_maturities or alert_over_budget or unsettled_advance_count > 0 %}
@@ -335,9 +345,11 @@
   </div>
   {% endif %}
 
+  {% if 'active_projects' in visible_sections or 'savings_goals' in visible_sections %}
   <!-- ── Row 4: Projects + Savings ───────────────────────────────────── -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
 
+    {% if 'active_projects' in visible_sections %}
     <!-- Active Projects -->
     <div class="bg-white rounded-2xl shadow-sm border p-6">
       <div class="flex justify-between items-center mb-4">
@@ -382,7 +394,9 @@
       <p class="text-sm text-gray-500 text-center py-8">No active projects</p>
       {% endif %}
     </div>
+    {% endif %}
 
+    {% if 'savings_goals' in visible_sections %}
     <!-- Upcoming Maturities -->
     <div class="bg-white rounded-2xl shadow-sm border p-6">
       <div class="flex justify-between items-center mb-4">
@@ -438,8 +452,10 @@
       <p class="text-sm text-gray-500 text-center py-8">No upcoming maturities</p>
       {% endif %}
     </div>
+    {% endif %}
 
   </div>
+  {% endif %}
 
   <!-- ── Row 5: Recent Transactions ─────────────────────────────────── -->
   <div class="bg-white rounded-2xl shadow-sm border p-6">

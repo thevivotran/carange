@@ -8,6 +8,13 @@ from app.models.database import get_db, SavingsBundle, SavingsStatus
 from app.routers.fragments._helpers import render_fragment
 from app.services.currency_format import CURRENCIES, DEFAULT_CURRENCY, inject_currency
 from app.services.currency_format import register as register_currency_filters
+from app.services.dashboard_layout import (
+    PRESET_DESCRIPTIONS,
+    PRESET_LABELS,
+    PRESETS,
+    get_dashboard_preset,
+    set_dashboard_preset,
+)
 from app.services.settings_service import get_settings_bulk, set_setting
 
 router = APIRouter()
@@ -81,6 +88,10 @@ def _get_all_settings(db: Session) -> dict:
         **thresholds,
         "savings_bundles": [{"id": r.id, "name": r.name} for r in savings_bundles],
         "currencies": [{"code": code, "label": cfg["label"]} for code, cfg in CURRENCIES.items()],
+        "dashboard_preset": get_dashboard_preset(db),
+        "dashboard_presets": [
+            {"key": key, "label": PRESET_LABELS[key], "description": PRESET_DESCRIPTIONS[key]} for key in PRESETS
+        ],
         # masks: show placeholder bullet if a secret is already set
         "imap_password_set": bool(email["imap_password"]),
         "telegram_bot_token_set": bool(telegram["telegram_bot_token"]),
@@ -106,6 +117,15 @@ async def save_general(request: Request, db: Session = Depends(get_db)):
     if currency in CURRENCIES:
         set_setting(db, "display_currency", currency)
     return render_fragment(request, "settings/_saved.html", {}, toast="General settings saved")
+
+
+@router.post("/dashboard")
+async def save_dashboard(request: Request, db: Session = Depends(get_db)):
+    form = await request.form()
+    preset = str(form.get("dashboard_layout", "")).strip()
+    if preset in PRESETS:
+        set_dashboard_preset(db, preset)
+    return render_fragment(request, "settings/_saved.html", {}, toast="Dashboard layout saved")
 
 
 @router.post("/email")

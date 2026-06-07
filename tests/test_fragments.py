@@ -165,6 +165,31 @@ def test_settings_ocr_post(client):
     assert "HX-Trigger" in r.headers
 
 
+def test_settings_dashboard_post(client):
+    r = client.post(
+        "/settings/dashboard",
+        data={"dashboard_layout": "simple"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert "HX-Trigger" in r.headers
+
+    page = client.get("/settings")
+    assert 'value="simple" checked' in page.text or "checked" in page.text
+
+
+def test_settings_dashboard_post_invalid_preset_ignored(client, db_session):
+    from app.services.dashboard_layout import get_dashboard_preset
+
+    r = client.post(
+        "/settings/dashboard",
+        data={"dashboard_layout": "bogus"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert get_dashboard_preset(db_session) != "bogus"
+
+
 def test_settings_thresholds_post(client):
     r = client.post(
         "/settings/thresholds",
