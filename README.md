@@ -22,6 +22,15 @@ for LAN access from any device. Runs as three Docker containers on a k3s homelab
 - **Alerts panel** — maturing savings within 30 days, over-budget categories, open advances
 - Budget category links navigate to transactions pre-filtered for that category and month
 
+### Onboarding
+- **Welcome banner** on the dashboard walks new users through the first four steps
+  (add a transaction, review categories, set a budget, explore Pulse) and dismisses permanently
+- **Sample data** — load ~2 months of synthetic transactions and a sample savings goal from
+  Settings to see a populated dashboard; clearly tagged and fully reversible with one click
+- New installs default to the **Simple dashboard layout** (~6 KPI cards instead of 20+
+  empty metrics); inline help text explains "rollover," "personal advance," and the
+  Savings Bundle types for first-time users
+
 ### Transactions
 - Log income and expense with date, category, description, and payment method
 - Advanced filters: date range, type, category, keyword, project, source (OCR/Email/Manual),
@@ -209,7 +218,7 @@ make all        # ruff lint + ui-lint design-token check + tests + coverage ≥ 
 make test-fast  # fast pytest run without coverage
 ```
 
-**677 tests** across 37 modules using in-memory SQLite — production DB is never touched.
+**802 tests** across 42 modules using in-memory SQLite — production DB is never touched.
 
 CI builds Docker images on every push to `main`:
 ```
