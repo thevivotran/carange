@@ -13,9 +13,40 @@
   <!-- ── General ──────────────────────────────────────────────── -->
   <div class="bg-white rounded-2xl shadow-sm border p-6 mb-4">
     <h3 class="font-semibold text-gray-800 mb-1">General</h3>
-    <p class="text-xs text-gray-400 mb-5">Financial goals used across the dashboard</p>
+    <p class="text-xs text-gray-400 mb-5">System-wide preferences</p>
     <form hx-post="/settings/general"
           hx-target="#general-status"
+          hx-swap="innerHTML">
+      <div class="space-y-5">
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Display Currency</label>
+          <p class="text-xs text-gray-400 mb-2">Changes the symbol shown for amounts across the app. Stored values are not converted.</p>
+          <select name="display_currency"
+                  class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            {% for c in currencies %}
+            <option value="{{ c.code }}" {% if c.code == display_currency %}selected{% endif %}>{{ c.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+      </div>
+      <div class="flex items-center gap-4 mt-6">
+        <button type="submit"
+                class="px-5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition">
+          Save
+        </button>
+        <span id="general-status"></span>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Dashboard Goals ──────────────────────────────────────── -->
+  <div class="bg-white rounded-2xl shadow-sm border p-6 mb-4">
+    <h3 class="font-semibold text-gray-800 mb-1">Dashboard Goals</h3>
+    <p class="text-xs text-gray-400 mb-5">Targets that power the goal-tracking cards on your dashboard</p>
+    <form hx-post="/settings/dashboard-goals"
+          hx-target="#dashboard-goals-status"
           hx-swap="innerHTML">
       <div class="space-y-5">
 
@@ -51,24 +82,13 @@
           </select>
         </div>
 
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Display Currency</label>
-          <p class="text-xs text-gray-400 mb-2">Changes the symbol shown for amounts across the app. Stored values are not converted.</p>
-          <select name="display_currency"
-                  class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
-            {% for c in currencies %}
-            <option value="{{ c.code }}" {% if c.code == display_currency %}selected{% endif %}>{{ c.label }}</option>
-            {% endfor %}
-          </select>
-        </div>
-
       </div>
       <div class="flex items-center gap-4 mt-6">
         <button type="submit"
                 class="px-5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition">
           Save
         </button>
-        <span id="general-status"></span>
+        <span id="dashboard-goals-status"></span>
       </div>
     </form>
   </div>
@@ -82,7 +102,7 @@
           hx-swap="innerHTML">
       <div class="space-y-3">
         {% for preset in dashboard_presets %}
-        <label class="flex items-start gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition has-[:checked]:border-indigo-300 has-[:checked]:bg-indigo-50">
+        <label class="flex items-start gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition has-[:checked]:border-indigo-300 has-[:checked]:bg-indigo-50 dark:has-[:checked]:border-indigo-400 dark:has-[:checked]:bg-indigo-500/20">
           <input type="radio" name="dashboard_layout" value="{{ preset.key }}"
                  {% if preset.key == dashboard_preset %}checked{% endif %}
                  class="mt-0.5 text-indigo-600 focus:ring-indigo-300">
@@ -99,6 +119,36 @@
           Save
         </button>
         <span id="dashboard-status"></span>
+      </div>
+    </form>
+  </div>
+
+  <!-- ── Navigation Menu ──────────────────────────────────────── -->
+  <div class="bg-white rounded-2xl shadow-sm border p-6 mb-4">
+    <h3 class="font-semibold text-gray-800 mb-1">Navigation Menu</h3>
+    <p class="text-xs text-gray-400 mb-5">Choose how many pages appear in the sidebar and mobile menu. Dashboard, Transactions, Budget, Savings, and Settings are always available.</p>
+    <form hx-post="/settings/navigation"
+          hx-target="#navigation-status"
+          hx-swap="innerHTML">
+      <div class="space-y-3">
+        {% for preset in nav_presets %}
+        <label class="flex items-start gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition has-[:checked]:border-indigo-300 has-[:checked]:bg-indigo-50 dark:has-[:checked]:border-indigo-400 dark:has-[:checked]:bg-indigo-500/20">
+          <input type="radio" name="nav_layout" value="{{ preset.key }}"
+                 {% if preset.key == nav_preset %}checked{% endif %}
+                 class="mt-0.5 text-indigo-600 focus:ring-indigo-300">
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-gray-800">{{ preset.label }}</p>
+            <p class="text-xs text-gray-400 mt-0.5">{{ preset.description }}</p>
+          </div>
+        </label>
+        {% endfor %}
+      </div>
+      <div class="flex items-center gap-4 mt-6">
+        <button type="submit"
+                class="px-5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition">
+          Save
+        </button>
+        <span id="navigation-status"></span>
       </div>
     </form>
   </div>

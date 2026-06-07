@@ -205,7 +205,7 @@ This app has **no authentication layer**. Run it:
 ## Tests & CI
 
 ```bash
-make all        # ruff lint + ui_lint design-token check + tests + coverage ≥ 95%
+make all        # ruff lint + ui-lint design-token check + tests + coverage ≥ 95%
 make test-fast  # fast pytest run without coverage
 ```
 
@@ -228,7 +228,7 @@ tags and rolls out the updated pods automatically.
 
 ## Design system
 
-`ui_lint.py` runs as part of `make lint` and enforces 7 template rules to prevent UI drift:
+`tests/test_ui_lint.py` runs as part of `make lint` and enforces 7 template rules to prevent UI drift:
 
 | Rule | Prevents |
 |------|---------|

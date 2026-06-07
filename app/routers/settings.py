@@ -9,11 +9,17 @@ from app.routers.fragments._helpers import render_fragment
 from app.services.currency_format import CURRENCIES, DEFAULT_CURRENCY, inject_currency
 from app.services.currency_format import register as register_currency_filters
 from app.services.dashboard_layout import (
+    NAV_PRESET_DESCRIPTIONS,
+    NAV_PRESET_LABELS,
+    NAV_PRESETS,
     PRESET_DESCRIPTIONS,
     PRESET_LABELS,
     PRESETS,
     get_dashboard_preset,
+    get_nav_preset,
+    inject_nav_items,
     set_dashboard_preset,
+    set_nav_preset,
 )
 from app.services.sample_data_service import has_sample_data, load_sample_data, remove_sample_data
 from app.services.settings_service import get_settings_bulk, set_setting
@@ -23,6 +29,7 @@ templates = Jinja2Templates(directory="app/templates")
 
 register_currency_filters(templates.env)
 templates.context_processors.append(inject_currency)
+templates.context_processors.append(inject_nav_items)
 
 
 def _get_all_settings(db: Session) -> dict:
@@ -42,6 +49,8 @@ def _get_all_settings(db: Session) -> dict:
             "display_currency": DEFAULT_CURRENCY,
         },
     )
+
+    nav_preset = get_nav_preset(db)
 
     email = get_settings_bulk(
         db,
@@ -93,6 +102,11 @@ def _get_all_settings(db: Session) -> dict:
         "dashboard_presets": [
             {"key": key, "label": PRESET_LABELS[key], "description": PRESET_DESCRIPTIONS[key]} for key in PRESETS
         ],
+        "nav_preset": nav_preset,
+        "nav_presets": [
+            {"key": key, "label": NAV_PRESET_LABELS[key], "description": NAV_PRESET_DESCRIPTIONS[key]}
+            for key in NAV_PRESETS
+        ],
         "sample_data_loaded": has_sample_data(db),
         # masks: show placeholder bullet if a secret is already set
         "imap_password_set": bool(email["imap_password"]),
@@ -112,13 +126,19 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
 @router.post("/general")
 async def save_general(request: Request, db: Session = Depends(get_db)):
     form = await request.form()
-    for key in ("savings_target_pct", "fi_target_vnd", "baby_fund_bundle_id"):
-        if key in form:
-            set_setting(db, key, str(form[key]).strip())
     currency = str(form.get("display_currency", "")).strip().upper()
     if currency in CURRENCIES:
         set_setting(db, "display_currency", currency)
     return render_fragment(request, "settings/_saved.html", {}, toast="General settings saved")
+
+
+@router.post("/dashboard-goals")
+async def save_dashboard_goals(request: Request, db: Session = Depends(get_db)):
+    form = await request.form()
+    for key in ("savings_target_pct", "fi_target_vnd", "baby_fund_bundle_id"):
+        if key in form:
+            set_setting(db, key, str(form[key]).strip())
+    return render_fragment(request, "settings/_saved.html", {}, toast="Dashboard goals saved")
 
 
 @router.post("/dashboard")
@@ -128,6 +148,15 @@ async def save_dashboard(request: Request, db: Session = Depends(get_db)):
     if preset in PRESETS:
         set_dashboard_preset(db, preset)
     return render_fragment(request, "settings/_saved.html", {}, toast="Dashboard layout saved")
+
+
+@router.post("/navigation")
+async def save_navigation(request: Request, db: Session = Depends(get_db)):
+    form = await request.form()
+    preset = str(form.get("nav_layout", "")).strip()
+    if preset in NAV_PRESETS:
+        set_nav_preset(db, preset)
+    return render_fragment(request, "settings/_saved.html", {}, toast="Navigation menu saved")
 
 
 @router.post("/sample-data/load")

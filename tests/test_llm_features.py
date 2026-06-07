@@ -363,7 +363,7 @@ def test_budget_advisor_shows_pending_when_no_insight(client, db_session):
     with patch("app.services.ollama.is_enabled", return_value=True):
         r = client.get("/fragments/pulse/budget-advisor")
     assert r.status_code == 200
-    assert "Đang tạo phân tích".encode() in r.content
+    assert "Generating analysis".encode() in r.content
 
 
 def test_budget_advisor_over_budget_badge(client, db_session):

@@ -199,49 +199,49 @@ def _build_weekly_digest_prompt(db: Session) -> Optional[str]:
     if two_weeks_ago_expense and prev_expense and this_expense:
         nums = f"{two_weeks_ago_expense:,.0f} → {prev_expense:,.0f} → {this_expense:,.0f} VND"
         if this_expense > prev_expense > two_weeks_ago_expense:
-            trend_3w = f"tăng liên tiếp 3 tuần ({nums})"
+            trend_3w = f"rising for 3 straight weeks ({nums})"
         elif this_expense < prev_expense < two_weeks_ago_expense:
-            trend_3w = f"giảm liên tiếp 3 tuần ({nums})"
+            trend_3w = f"falling for 3 straight weeks ({nums})"
         else:
-            trend_3w = f"không đồng đều ({nums})"
+            trend_3w = f"mixed ({nums})"
     elif prev_expense:
-        trend_3w = f"tuần -2 chưa đủ dữ liệu; tuần trước {prev_expense:,.0f} VND"
+        trend_3w = f"week -2 lacks data; last week {prev_expense:,.0f} VND"
     else:
-        trend_3w = "chưa đủ dữ liệu lịch sử"
+        trend_3w = "not enough historical data"
 
     if week_delta_pct is not None:
-        direction = "tăng" if week_delta_pct >= 0 else "giảm"
-        delta_str = f"{direction} {abs(week_delta_pct):.0f}% so tuần trước ({prev_expense:,.0f} VND)"
+        direction = "up" if week_delta_pct >= 0 else "down"
+        delta_str = f"{direction} {abs(week_delta_pct):.0f}% vs last week ({prev_expense:,.0f} VND)"
     else:
-        delta_str = "tuần trước chưa có dữ liệu"
+        delta_str = "no data for last week"
 
     cat_lines = "\n".join(
         f"  {i + 1}. {r.name}: {r.total:,.0f} VND ({r.total / this_expense * 100:.0f}%)"
         for i, r in enumerate(this_week_cats[:6])
     )
 
-    income_line = f"{this_income:,.0f} VND" if this_income > 0 else "không có ghi nhận"
-    ratio_line = f" (chi = {expense_income_ratio}% thu nhập tuần)" if expense_income_ratio else ""
-    largest_line = f"{largest.amount:,.0f} VND ({largest.name})" if largest else "không xác định"
+    income_line = f"{this_income:,.0f} VND" if this_income > 0 else "no income recorded"
+    ratio_line = f" (spending = {expense_income_ratio}% of weekly income)" if expense_income_ratio else ""
+    largest_line = f"{largest.amount:,.0f} VND ({largest.name})" if largest else "unknown"
 
-    return f"""[PHÂN TÍCH CHI TIÊU TUẦN — {week_start.strftime("%d/%m")} đến {today.strftime("%d/%m/%Y")}]
+    return f"""[WEEKLY SPENDING ANALYSIS — {week_start.strftime("%d/%m")} to {today.strftime("%d/%m/%Y")}]
 
-Thu nhập tuần: {income_line}
-Chi tiêu tuần: {this_expense:,.0f} VND{ratio_line}
-Chi tiêu/ngày TB: {daily_avg:,.0f} VND (tuần trước: {prev_daily_avg:,.0f} VND)
-Số giao dịch: {tx_count}
-Giao dịch lớn nhất: {largest_line}
-So tuần trước: {delta_str}
-Xu hướng 3 tuần: {trend_3w}
+Weekly income: {income_line}
+Weekly expense: {this_expense:,.0f} VND{ratio_line}
+Avg daily spend: {daily_avg:,.0f} VND (last week: {prev_daily_avg:,.0f} VND)
+Transaction count: {tx_count}
+Largest expense: {largest_line}
+Vs last week: {delta_str}
+3-week trend: {trend_3w}
 
-Top danh mục chi tiêu:
+Top spending categories:
 {cat_lines}
 
 ---
-Viết ĐÚNG 3 dòng ngắn, mỗi dòng bắt đầu bằng tiêu đề in hoa:
-NHẬN XÉT: [1 câu tóm tắt tình hình tổng thể, trích dẫn ít nhất 1 con số]
-ĐÁNG CHÚ Ý: [1 điểm nổi bật — tích cực hoặc đáng lo, có số liệu cụ thể]
-KHUYẾN NGHỊ: [1 hành động cụ thể, đo lường được cho 7 ngày tới]"""
+Write EXACTLY 3 short lines, each starting with an uppercase header on its own line:
+SUMMARY: [1 sentence summarizing the overall situation, citing at least 1 figure]
+NOTABLE: [1 highlight — positive or concerning — with a specific figure]
+RECOMMENDATION: [1 specific, measurable action for the next 7 days]"""
 
 
 def generate_weekly_digest_sync() -> None:
@@ -320,15 +320,15 @@ def _build_budget_advisor_prompt(db: Session) -> Optional[str]:
 
     def fmt_budget(r: dict) -> str:
         balance = r.get("available_balance", 0)
-        balance_str = f"còn {balance:,.0f}" if balance >= 0 else f"vượt {abs(balance):,.0f}"
+        balance_str = f"{balance:,.0f} left" if balance >= 0 else f"{abs(balance):,.0f} over"
         return (
-            f"  - {r['category_name']}: {r['usage_pct']:.0f}% ngân sách"
-            f" ({r['this_month_spent']:,.0f}/{r['monthly_allocation']:,.0f} VND, {balance_str} VND)"
+            f"  - {r['category_name']}: {r['usage_pct']:.0f}% of budget"
+            f" ({r['this_month_spent']:,.0f}/{r['monthly_allocation']:,.0f} VND, {balance_str})"
         )
 
-    over_lines = "\n".join(fmt_budget(r) for r in over) or "  Không có"
-    risk_lines = "\n".join(fmt_budget(r) for r in at_risk) or "  Không có"
-    ok_sample = "\n".join(fmt_budget(r) for r in on_track[:3]) or "  Không có"
+    over_lines = "\n".join(fmt_budget(r) for r in over) or "  None"
+    risk_lines = "\n".join(fmt_budget(r) for r in at_risk) or "  None"
+    ok_sample = "\n".join(fmt_budget(r) for r in on_track[:3]) or "  None"
 
     # Budget utilization vs time utilization gap
     total_allocated = sum(r["monthly_allocation"] for r in rows)
@@ -338,42 +338,43 @@ def _build_budget_advisor_prompt(db: Session) -> Optional[str]:
 
     if budget_vs_time_gap > 15:
         pace_note = (
-            f"CHI TIÊU NHANH HƠN KẾ HOẠCH: đã dùng {budget_pct}%"
-            f" ngân sách nhưng chỉ qua {day_pct}% tháng (+{budget_vs_time_gap}%)"
+            f"SPENDING FASTER THAN PLANNED: used {budget_pct}%"
+            f" of budget but only {day_pct}% of the month has passed (+{budget_vs_time_gap}%)"
         )
     elif budget_vs_time_gap < -15:
         pace_note = (
-            f"CHI TIÊU CHẬM HƠN KẾ HOẠCH: mới dùng {budget_pct}% ngân sách sau {day_pct}% tháng ({budget_vs_time_gap}%)"
+            f"SPENDING SLOWER THAN PLANNED: only used {budget_pct}% of budget"
+            f" after {day_pct}% of the month ({budget_vs_time_gap}%)"
         )
     else:
-        pace_note = f"tốc độ chi tiêu phù hợp: {budget_pct}% ngân sách / {day_pct}% tháng"
+        pace_note = f"spending pace on track: {budget_pct}% of budget / {day_pct}% of month"
 
-    income_line = f"{mtd_income:,.0f} VND" if mtd_income > 0 else "chưa ghi nhận"
-    ratio_line = f" ({expense_income_ratio}% thu nhập)" if expense_income_ratio else ""
+    income_line = f"{mtd_income:,.0f} VND" if mtd_income > 0 else "not recorded yet"
+    ratio_line = f" ({expense_income_ratio}% of income)" if expense_income_ratio else ""
 
-    return f"""[ĐÁNH GIÁ NGÂN SÁCH — Ngày {today.day}/{today.month}/{today.year}]
+    return f"""[BUDGET REVIEW — {today.day}/{today.month}/{today.year}]
 
-Tiến độ tháng: {days_elapsed}/{days_in_month} ngày ({day_pct}%), còn {days_remaining} ngày
-Thu nhập tháng đến nay: {income_line}
-Chi tiêu tháng đến nay: {mtd_expense:,.0f} VND{ratio_line}
-Dự báo cuối tháng: {projected_expense:,.0f} VND (nếu giữ đà hiện tại)
-Tốc độ ngân sách: {pace_note}
+Month progress: {days_elapsed}/{days_in_month} days ({day_pct}%), {days_remaining} days left
+Income month-to-date: {income_line}
+Expense month-to-date: {mtd_expense:,.0f} VND{ratio_line}
+End-of-month forecast: {projected_expense:,.0f} VND (at current pace)
+Spending pace: {pace_note}
 
-[TÌNH TRẠNG NGÂN SÁCH]
-Vượt ngân sách ({len(over)} danh mục):
+[BUDGET STATUS]
+Over budget ({len(over)} categories):
 {over_lines}
 
-Cảnh báo 80-100% ({len(at_risk)} danh mục):
+At risk 80-100% ({len(at_risk)} categories):
 {risk_lines}
 
-Ổn định dưới 80% (mẫu):
+On track under 80% (sample):
 {ok_sample}
 
 ---
-Viết ĐÚNG 2-3 câu ngắn theo thứ tự:
-1. Đánh giá tổng thể tình hình ngân sách tháng, nêu mức chi so với kế hoạch và dự báo cuối tháng
-2. Cảnh báo cụ thể nếu có rủi ro (hoặc xác nhận tích cực nếu tình hình tốt), trích dẫn đúng số liệu
-3. Một điều chỉnh CỤ THỂ, ĐO LƯỜNG ĐƯỢC có thể thực hiện ngay (nếu cần cải thiện)"""
+Write EXACTLY 2-3 short sentences, in this order:
+1. Overall assessment of this month's budget status, noting spend vs plan and the end-of-month forecast
+2. A specific warning if there's risk (or a positive confirmation if things look good), citing exact figures
+3. One SPECIFIC, MEASURABLE adjustment that can be made right now (if improvement is needed)"""
 
 
 def generate_budget_advisor_sync() -> None:

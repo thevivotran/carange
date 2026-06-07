@@ -114,7 +114,7 @@ def test_build_budget_advisor_prompt_returns_string_with_budget(db_session):
     prompt = _build_budget_advisor_prompt(db_session)
     assert prompt is not None
     assert "Food" in prompt
-    assert "Dự báo cuối tháng" in prompt
+    assert "End-of-month forecast" in prompt
 
 
 def test_build_budget_advisor_prompt_includes_transaction_data(db_session):

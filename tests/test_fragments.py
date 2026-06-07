@@ -190,6 +190,44 @@ def test_settings_dashboard_post_invalid_preset_ignored(client, db_session):
     assert get_dashboard_preset(db_session) != "bogus"
 
 
+def test_settings_dashboard_goals_post(client):
+    r = client.post(
+        "/settings/dashboard-goals",
+        data={"savings_target_pct": "30", "fi_target_vnd": "1000000000", "baby_fund_bundle_id": ""},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert "HX-Trigger" in r.headers
+
+    page = client.get("/settings")
+    assert "30" in page.text
+
+
+def test_settings_navigation_post(client, db_session):
+    from app.services.dashboard_layout import get_nav_preset
+
+    r = client.post(
+        "/settings/navigation",
+        data={"nav_layout": "simple"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert "HX-Trigger" in r.headers
+    assert get_nav_preset(db_session) == "simple"
+
+
+def test_settings_navigation_post_invalid_preset_ignored(client, db_session):
+    from app.services.dashboard_layout import get_nav_preset
+
+    r = client.post(
+        "/settings/navigation",
+        data={"nav_layout": "bogus"},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert get_nav_preset(db_session) != "bogus"
+
+
 def test_settings_thresholds_post(client):
     r = client.post(
         "/settings/thresholds",
