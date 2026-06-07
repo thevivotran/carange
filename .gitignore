@@ -68,5 +68,8 @@ backups/
 utils/*
 config/*
 docs/*
+!docs/FEATURES.md
+!docs/images/
+!docs/images/*
 
 memory/*
