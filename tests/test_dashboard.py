@@ -28,6 +28,55 @@ def _summary(db, year=THIS_YEAR, month=THIS_MONTH):
     return get_dashboard_page_data(db, year=year, month=month)["summary"]
 
 
+# ── Family Safety Score ───────────────────────────────────────────────────────
+# Regression coverage for a bug where the initial dashboard render never computed
+# these checks (only the HTMX safety-score fragment did), so the card always showed
+# "0/4" with every check failing until the user changed months.
+
+
+def test_safety_score_checks_present_on_initial_page_data(db_session, income_cat):
+    """get_dashboard_page_data must expose the same check_* / ss_score keys the
+    safety-score template reads — both on first load and on HTMX refresh."""
+    make_transaction(
+        db_session,
+        date_val=date(THIS_YEAR, THIS_MONTH, 1),
+        amount=25_000_000,
+        type_=TransactionType.INCOME,
+        category_id=income_cat.id,
+    )
+
+    data = get_dashboard_page_data(db_session, year=THIS_YEAR, month=THIS_MONTH)
+
+    assert data["check_income"] is True
+    assert data["check_net"] is True
+    assert data["ss_score"] >= 2
+
+
+def test_safety_score_checks_false_when_no_income(db_session):
+    data = get_dashboard_page_data(db_session, year=THIS_YEAR, month=THIS_MONTH)
+
+    assert data["check_income"] is False
+    assert data["check_bds"] is False
+    assert data["ss_score"] == 0
+
+
+def test_dashboard_page_shows_income_in_safety_score_on_first_load(client, db_session, income_cat):
+    """The initial '/' render must reflect real data immediately — not just the
+    HTMX safety-score fragment that loads after a month change."""
+    make_transaction(
+        db_session,
+        date_val=date.today().replace(day=1),
+        amount=25_000_000,
+        type_=TransactionType.INCOME,
+        category_id=income_cat.id,
+    )
+
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "No income recorded" not in r.text
+    assert "Salary Received" in r.text
+
+
 # ── Savings Rate ──────────────────────────────────────────────────────────────
 
 

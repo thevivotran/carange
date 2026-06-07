@@ -712,6 +712,9 @@ fetch('/api/dashboard/monthly-trend')
     });
 
 // ── Wealth Building Trend chart (with savings rate rolling line) ──────────────
+// Guarded: this section is hidden in the Simple/Standard layout presets, so the
+// canvas may not exist — fetching anyway would surface a misleading error toast.
+if (document.getElementById('wealthTrendChart')) {
 fetch('/api/dashboard/wealth-building-trend')
     .then(r => r.json())
     .then(data => {
@@ -797,8 +800,11 @@ fetch('/api/dashboard/wealth-building-trend')
         });
     })
     .catch(() => showToast('Failed to load wealth trend chart', 'error'));
+}
 
 // ── Wealth Allocation donut chart ─────────────────────────────────────────────
+// Guarded for the same reason — hidden in Simple/Standard layout presets.
+if (document.getElementById('wealthAllocChart')) {
 (function renderWealthAlloc() {
     const projectSegs = {{ project_amounts_by_type | tojson }};
     const savings     = {{ summary.total_savings_initial | default(0) }};
@@ -870,6 +876,7 @@ fetch('/api/dashboard/wealth-building-trend')
         legend.appendChild(row);
     });
 })();
+}
 
 // ── KPI info popover ─────────────────────────────────────────────────────────
 const KPI_INFO = {

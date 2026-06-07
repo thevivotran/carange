@@ -797,12 +797,25 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
             db.query(SavingsBundle).filter(SavingsBundle.id == int(_bf_raw), SavingsBundle.deleted_at.is_(None)).first()
         )
 
+    # ── Family Safety Score checks (shared by initial render and HTMX refresh) ──
+    _net_this_month = monthly_income - monthly_expense - monthly_savings
+    check_income = monthly_income > 0
+    check_bds = monthly_bds > 0
+    check_tk = liquid_savings_rate >= savings_target_pct
+    check_net = _net_this_month > 0
+    ss_score = sum([check_income, check_bds, check_tk, check_net])
+
     result = {
+        "check_income": check_income,
+        "check_bds": check_bds,
+        "check_tk": check_tk,
+        "check_net": check_net,
+        "ss_score": ss_score,
         "summary": {
             "total_income": monthly_income,
             "total_expense": monthly_expense,
             "total_savings_expense": monthly_savings,
-            "net_this_month": monthly_income - monthly_expense - monthly_savings,
+            "net_this_month": _net_this_month,
             "savings_rate": savings_rate,
             "liquid_savings_rate": liquid_savings_rate,
             "bds_rate": bds_rate,

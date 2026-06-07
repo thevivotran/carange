@@ -33,22 +33,16 @@ def fragment_safety_score(
     db: Session = Depends(get_db),
 ):
     data = get_dashboard_data(db, year=year, month=month)
-    s = data["summary"]
-    check_income = s["total_income"] > 0
-    check_bds = s["monthly_bds"] > 0
-    check_tk = s["liquid_savings_rate"] >= s["savings_target_pct"]
-    check_net = s["net_this_month"] > 0
-    ss_score = sum([check_income, check_bds, check_tk, check_net])
     return render_fragment(
         request,
         "partials/dashboard/_safety_score.html",
         {
-            "summary": s,
-            "check_income": check_income,
-            "check_bds": check_bds,
-            "check_tk": check_tk,
-            "check_net": check_net,
-            "ss_score": ss_score,
+            "summary": data["summary"],
+            "check_income": data["check_income"],
+            "check_bds": data["check_bds"],
+            "check_tk": data["check_tk"],
+            "check_net": data["check_net"],
+            "ss_score": data["ss_score"],
         },
     )
 
