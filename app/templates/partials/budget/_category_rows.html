@@ -106,7 +106,8 @@
         <span>
           {% if rollover | abs >= 1000 %}
             {{ fmt_vnd(r.monthly_allocation) }} new
-            <span style="color:{{ '#60a5fa' if rollover >= 0 else '#f87171' }}">
+            <span style="color:{{ '#60a5fa' if rollover >= 0 else '#f87171' }}"
+                  title="{{ 'Unspent budget from past months carries forward as extra room here' if rollover >= 0 else 'Past overspending in this category is carried forward, reducing what you can spend now' }} (envelope-style rollover budgeting)">
               {{ ' + ' if rollover >= 0 else ' − ' }}{{ fmt_vnd(rollover | abs) }} rollover
             </span>
           {% else %}

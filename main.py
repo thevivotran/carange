@@ -96,6 +96,12 @@ def seed_default_categories():
             ]
             db.add_all(default_categories)
             db.commit()
+
+            # Fresh install — start new users on the decluttered "Simple" dashboard
+            # rather than the 20+ card "Full" view; they can switch in Settings.
+            from app.services.settings_service import set_setting
+
+            set_setting(db, "dashboard_layout", "simple")
     finally:
         db.close()
 

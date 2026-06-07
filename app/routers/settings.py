@@ -15,6 +15,7 @@ from app.services.dashboard_layout import (
     get_dashboard_preset,
     set_dashboard_preset,
 )
+from app.services.sample_data_service import has_sample_data, load_sample_data, remove_sample_data
 from app.services.settings_service import get_settings_bulk, set_setting
 
 router = APIRouter()
@@ -92,6 +93,7 @@ def _get_all_settings(db: Session) -> dict:
         "dashboard_presets": [
             {"key": key, "label": PRESET_LABELS[key], "description": PRESET_DESCRIPTIONS[key]} for key in PRESETS
         ],
+        "sample_data_loaded": has_sample_data(db),
         # masks: show placeholder bullet if a secret is already set
         "imap_password_set": bool(email["imap_password"]),
         "telegram_bot_token_set": bool(telegram["telegram_bot_token"]),
@@ -126,6 +128,24 @@ async def save_dashboard(request: Request, db: Session = Depends(get_db)):
     if preset in PRESETS:
         set_dashboard_preset(db, preset)
     return render_fragment(request, "settings/_saved.html", {}, toast="Dashboard layout saved")
+
+
+@router.post("/sample-data/load")
+def load_sample_data_route(request: Request, db: Session = Depends(get_db)):
+    count = load_sample_data(db)
+    toast = (
+        f"Loaded {count} sample records — explore the dashboard, then remove them anytime from here."
+        if count
+        else "Sample data is already loaded."
+    )
+    return render_fragment(request, "settings/_sample_data_card.html", {"sample_data_loaded": True}, toast=toast)
+
+
+@router.post("/sample-data/remove")
+def remove_sample_data_route(request: Request, db: Session = Depends(get_db)):
+    removed = remove_sample_data(db)
+    toast = f"Removed {removed} sample records." if removed else "No sample data to remove."
+    return render_fragment(request, "settings/_sample_data_card.html", {"sample_data_loaded": False}, toast=toast)
 
 
 @router.post("/email")

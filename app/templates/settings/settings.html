@@ -339,8 +339,21 @@
         </div>
       </div>
 
+      <!-- Sample Data -->
+      {% include "settings/_sample_data_card.html" %}
+
     </div>
   </details>
 
 </div>
+
+<script>
+function confirmRemoveSampleData() {
+  showConfirm(
+    'Remove all sample data? This deletes the synthetic transactions and sample savings goal — your real data is untouched.',
+    function() { htmx.ajax('POST', '/settings/sample-data/remove', { target: '#sample-data-card', swap: 'outerHTML' }); },
+    'Remove', 'bg-red-600 hover:bg-red-700'
+  );
+}
+</script>
 {% endblock %}
