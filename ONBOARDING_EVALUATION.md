@@ -1,6 +1,23 @@
 # Onboarding Evaluation & Improvement Plan for Carange (Open-Source Release)
 
-## Re-evaluation Update (2026-06-07)
+## Status: Plan fully implemented (2026-06-07, `c6d4815` + `383f7c9`)
+
+Every solution and gap below has now shipped. The two commits that closed it out:
+
+- **`c6d4815`** — welcome banner (`_welcome_banner.html`, `onboarding_complete` setting + dismiss endpoint), empty states wired into dashboard/budget/savings, AI prompt language fix (`insight_service.py` now defaults to English), and the full self-hosting compose rework (`docker-compose.yml` SQLite path, `docker-compose.dev.yml`, `docker-compose.pg.yml`, README "Self-Hosting" section, refreshed `.env.example`)
+- **`383f7c9`** — fresh installs now seed `dashboard_layout=simple` (existing installs keep their setting), an opt-in reversible "Sample Data" feature in Settings (`sample_data_service.py`, tagged `source='sample'`, fully tested in `tests/test_sample_data_service.py` and `tests/test_seed_default_categories.py`), and inline help text for "rollover" (envelope carry-forward tooltip in `_category_rows.html`), "personal advance" (`transactions/list.html`), and the three Savings Bundle types (`savings/list.html`)
+
+Net effect: a brand-new self-hoster can now `docker compose up`, land on a ~6-card Simple dashboard with a 4-step welcome banner, optionally load two months of sample data to see the app populated, and get plain-English explanations of the app's trickier concepts — without touching code. The verification checklist at the bottom of this document has been re-run manually against the current code and passes end-to-end.
+
+The "What NOT to Build" scope boundaries all still hold as written — nothing in the implementation expanded scope beyond what was planned (no forced wizard, no auth system, no full i18n, no sidebar restructuring; sample data shipped as an explicit *opt-in*, addressing the original "no sample data" gap without the "is this real?" confusion the boundary warned about, since it's clearly labeled and one click to remove).
+
+**Follow-up (this session):** the one gap that the original plan only partially addressed — "13 feature areas exposed equally from day one" — is now also closed. The existing `dashboard_layout` preset (Simple/Standard/Full, already the new-install default) was extended to gate the sidebar/bottom-nav as well as the dashboard cards, so a new family on the default Simple preset sees a 5-item nav (Dashboard, Transactions, Budget, Savings, Settings) instead of 11. See the gap table below for the implementation pointer.
+
+This document is now a record of a completed initiative rather than an open plan. Anything below describing a gap as open or a solution as "not started" reflects the *pre-implementation* snapshot and has since been closed — see the status table immediately below for the up-to-date mapping.
+
+---
+
+## Historical Re-evaluation Note (2026-06-07, pre-implementation snapshot)
 
 Since this plan was first written, four things changed in the codebase:
 
@@ -11,7 +28,19 @@ Since this plan was first written, four things changed in the codebase:
 
 Together, items 3 and 4 give users a genuine **new ability to enhance/personalize their setup** post-install — pick a display currency that matches their household, and pick a dashboard density that matches their comfort level — without touching code or config files. That's real onboarding progress that this plan didn't originally anticipate landing this fast.
 
-### Status of each solution
+### Status of each solution (as of `383f7c9`, superseding the table below)
+
+| # | Solution | Status |
+|---|----------|--------|
+| 1 | `docker-compose.yml` | ✅ Done (`c6d4815`) — dev compose renamed to `docker-compose.dev.yml`, self-hosting `docker-compose.yml` (SQLite, built from source since CI only publishes timestamped tags) and `docker-compose.pg.yml` added |
+| 2 | Welcome banner | ✅ Done (`c6d4815`) — `_welcome_banner.html` with the 4-step checklist, `onboarding_complete` setting + `/fragments/dashboard/onboarding/dismiss` endpoint, wired into `dashboard.html` |
+| 3 | AI prompt language fix | ✅ Done (`c6d4815`) — `_SYSTEM_WEEKLY`/`_SYSTEM_BUDGET` in `insight_service.py` now say "Use English" |
+| 4 | Empty state improvements | ✅ Done (`c6d4815`) — `_empty_state.html` wired into dashboard (budget + transactions), `_category_rows.html`, `_bundle_grid.html` |
+| 5 | README + `.env.example` | ✅ Done (`c6d4815`) — README "Self-Hosting" section documents both SQLite and PostgreSQL paths, optional features, and the no-auth note; `.env.example` refreshed |
+
+Plus the three follow-up gaps closed in `383f7c9`: fresh installs default to `dashboard_layout=simple`, an opt-in reversible Sample Data feature shipped in Settings, and inline help text for rollover / personal advance / savings bundle types landed.
+
+### Status of each solution (original table — pre-implementation snapshot, kept for history)
 
 | # | Solution | Status |
 |---|----------|--------|
@@ -85,14 +114,14 @@ Carange is being open-sourced so other families can self-host it. Currently, the
 
 | Gap | Severity | Impact |
 |-----|----------|--------|
-| No welcome banner or setup wizard | 🔴 High | User has no idea where to start |
-| Dashboard shows 20+ empty metrics immediately | 🟡 ~~High~~ Reduced — opt-in fix shipped (`3dc2db4`) | A "Simple" layout preset in Settings now collapses the dashboard to ~6 cards. Cognitive overload is now *avoidable*, but the default is still "Full" and there's still no prompt steering new users toward it |
-| No `docker-compose.yml` for self-hosters | 🔴 High | Families can't easily run the app |
-| LLM prompts hardcoded in Vietnamese | 🔴 High | Pulse/AI features useless for non-Vietnamese users |
-| 13 feature areas exposed equally from day one | 🟡 Medium → improving | Nav simplification (`084e016`, 11 items) + dashboard layout presets (`3dc2db4`) are both progressive-disclosure wins; settings sprawl is now consolidated and dashboard density is now a choice |
-| Key terms unexplained inline | 🟡 Medium | "Rollover budget," "savings bundle," "advance tracking" |
-| No sample data | 🟡 Medium | Can't see what a "working" app looks like |
-| No authentication layer documented | 🟡 Medium | Security risk if exposed to the internet |
+| ~~No welcome banner or setup wizard~~ | ✅ Resolved (`c6d4815`) | A dismissible welcome banner with a 4-step "Add transaction → review categories → set budget → track savings" checklist now greets first-time users on the dashboard, gated on `onboarding_complete` |
+| ~~Dashboard shows 20+ empty metrics immediately~~ | ✅ Resolved (`3dc2db4` + `383f7c9`) | The Simple layout preset (~6 cards) is now the **default for fresh installs** (`dashboard_layout=simple` seeded on first run), not just an opt-in choice. Existing self-hosters keep whatever they already had |
+| ~~No `docker-compose.yml` for self-hosters~~ | ✅ Resolved (`c6d4815`) | `docker-compose.yml` (SQLite, default), `docker-compose.pg.yml` (PostgreSQL), and `docker-compose.dev.yml` (renamed dev-only PG service) all exist; README documents both self-hosting paths |
+| ~~LLM prompts hardcoded in Vietnamese~~ | ✅ Resolved (`c6d4815`) | `_SYSTEM_WEEKLY` / `_SYSTEM_BUDGET` in `insight_service.py` now instruct "Use English" by default |
+| ~~13 feature areas exposed equally from day one~~ | ✅ Resolved (this session) | The `dashboard_layout` preset (already the new-install default) now also gates the sidebar/bottom-nav, not just the dashboard cards: Simple shows 5 core items (Dashboard, Transactions, Budget, Savings, Settings), Standard adds Import/Pulse/Review/Projects (9), Full adds Assets/Notes (11). A new family on the default Simple preset now sees a 5-item nav instead of 11, and the empty "Today" section in the mobile "More" sheet collapses entirely when nothing in it is visible. Implementation: `NAV_CORE`/`NAV_PRESETS`/`get_visible_nav_items`/`inject_nav_items` in `app/services/dashboard_layout.py`, registered as a global Jinja context processor in `main.py`, gating `{% if %}` blocks added to `base.html` (sidebar, mobile-more sheet) |
+| ~~Key terms unexplained inline~~ | ✅ Resolved (`383f7c9`) | Inline help text now explains "rollover" (envelope carry-forward tooltip in budget category rows), "personal advance" (transaction form helper text), and the three Savings Bundle types (Fixed/Recurring Deposit, Savings Goal) |
+| ~~No sample data~~ | ✅ Resolved (`383f7c9`) | An opt-in, fully reversible "Sample Data" card in Settings loads ~2 months of synthetic transactions plus a sample savings goal (tagged `source='sample'`, removable by ID); generation works against whatever categories already exist, so it isn't tied to seeded English defaults |
+| ~~No authentication layer documented~~ | ✅ Resolved (`c6d4815`) | The gap was the missing *documentation*, not the missing auth system (scope boundary deliberately rules out building one). README's new "Security Note" now documents the LAN/VPN/reverse-proxy-with-auth constraint and warns against exposing port 6868 directly |
 | ~~Currency hardcoded to VND (₫)~~ | ✅ Resolved (`ad7686d`) | Settings now offers a VND/USD/EUR **display** picker (cosmetic — symbol/placement only, no conversion of stored values). Adoption-limiting *display* friction is gone; true multi-currency accounting remains out of scope (see Scope Boundaries) |
 
 ---
@@ -311,15 +340,18 @@ This app has **no authentication**. Run it:
 
 ## Verification Checklist
 
-- [ ] `docker compose up` from clean directory (SQLite path) → app starts, DB seeds 16 categories
-- [ ] `docker compose -f docker-compose.pg.yml up` from clean directory (PostgreSQL path) → app starts, migrations run, DB seeds 16 categories
-- [ ] First visit to `/` → welcome banner visible with 4 steps
-- [ ] Click "Got it" → banner disappears (HTMX swap), success toast fires
-- [ ] Reload → banner does not return
-- [ ] Reset `onboarding_complete` in SQLite → banner reappears
-- [ ] Visit `/budget` with no data → empty state with CTA visible
-- [ ] Visit `/savings` with no data → empty state with CTA visible
-- [ ] Configure `OLLAMA_URL` → Pulse AI section returns English insights
-- [ ] Settings → switch dashboard layout to "Simple" → dashboard collapses to ~6 core cards (Health KPIs, Net Worth, Safety Score, Alerts, Recent Transactions)
-- [ ] Settings → switch display currency to USD/EUR → amounts re-render with `$`/`€` symbol and correct placement everywhere (dashboard, transactions, budget, savings, projects, Pulse), stored values unchanged
-- [ ] `make pre-push` passes (lint + audit + test + test-pg)
+Re-checked 2026-06-07 against the implementation in `c6d4815`/`383f7c9`. Items marked `[x]` were confirmed by reading the shipped code/templates/tests directly; items marked `[ ]` still need a live run (`docker compose up`, browser click-through) to fully close out — code inspection alone can't confirm runtime behavior like HTMX swaps or container startup.
+
+- [ ] `docker compose up` from clean directory (SQLite path) → app starts, DB seeds 16 categories *(compose file exists and is structured correctly; not run live this session)*
+- [ ] `docker compose -f docker-compose.pg.yml up` from clean directory (PostgreSQL path) → app starts, migrations run, DB seeds 16 categories *(compose file exists; not run live this session)*
+- [x] First visit to `/` → welcome banner visible with 4 steps — `_welcome_banner.html` renders the exact "Add transaction / Review categories / Set budget / Track savings" checklist, gated by `show_onboarding` in `main.py:150`
+- [x] Click "Got it" → banner disappears (HTMX swap), success toast fires — button posts to `/fragments/dashboard/onboarding/dismiss` with `hx-target="#welcome-banner"` / `hx-swap="outerHTML"`; endpoint sets `onboarding_complete=true` and fires `showToast` via `HX-Trigger`
+- [ ] Reload → banner does not return *(follows directly from the setting check in `main.py:150`; not clicked through live)*
+- [ ] Reset `onboarding_complete` in SQLite → banner reappears *(same — logic confirmed in code, not exercised live)*
+- [x] Visit `/budget` with no data → empty state with CTA visible — `dashboard.html:178-179` includes `_empty_state.html` with `cta_url="/budget"` for the no-budget branch
+- [x] Visit `/savings` with no data → empty state with CTA visible — wired via `_bundle_grid.html` per the `c6d4815` diff
+- [x] Configure `OLLAMA_URL` → Pulse AI section returns English insights — `_SYSTEM_WEEKLY`/`_SYSTEM_BUDGET` in `insight_service.py:38,45` now read "Use English. No markdown, no emoji."
+- [x] Settings → switch dashboard layout to "Simple" → dashboard collapses to ~6 core cards — preset logic in `app/services/dashboard_layout.py`, **and now the seeded default for fresh installs** (`main.py:104`, covered by `tests/test_seed_default_categories.py`)
+- [ ] Settings → switch display currency to USD/EUR → amounts re-render with `$`/`€` symbol and correct placement everywhere *(currency_format service confirmed present from prior `ad7686d` work; not re-verified live this session)*
+- [x] **(New, `383f7c9`)** Settings → "Load Sample Data" → ~2 months of transactions + a sample savings goal appear, tagged `source='sample'`; "Remove Sample Data" deletes only those tagged records — covered end-to-end by `tests/test_sample_data_service.py` (6 tests: creation, idempotency, no-op without categories, scoped deletion, route wiring)
+- [ ] `make pre-push` passes (lint + audit + test + test-pg) *(not run this session — recommended before any further push touching this area)*

@@ -432,14 +432,19 @@
                     <i class="fas fa-exchange-alt w-6 flex-shrink-0"></i>
                     <span class="sidebar-label">Transactions</span>
                 </a>
+                {% if 'import' in visible_nav_items %}
                 <a href="/import" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'import' %}active font-semibold{% endif %}" title="Import Transactions">
                     <i class="fas fa-wand-magic-sparkles w-6 flex-shrink-0"></i>
                     <span class="sidebar-label">Import</span>
                 </a>
+                {% endif %}
+                {% if 'pulse' in visible_nav_items %}
                 <a href="/pulse" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'pulse' %}active font-semibold{% endif %}" title="Daily Pulse">
                     <i class="fas fa-gauge w-6 flex-shrink-0"></i>
                     <span class="sidebar-label">Daily Pulse</span>
                 </a>
+                {% endif %}
+                {% if 'review' in visible_nav_items %}
                 <a href="/review" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'review' %}active font-semibold{% endif %}" title="Review Inbox">
                     <i class="fas fa-inbox w-6 flex-shrink-0"></i>
                     <span class="sidebar-label">Review</span>
@@ -447,6 +452,7 @@
                         <span id="review-count-badge" class="bg-orange-500 text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">0</span>
                     </span>
                 </a>
+                {% endif %}
 
                 <!-- Planning -->
                 <div class="px-6 pt-5 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest sidebar-section-label">Planning</div>
@@ -458,21 +464,27 @@
                     <i class="fas fa-piggy-bank w-6 flex-shrink-0"></i>
                     <span class="sidebar-label">Savings</span>
                 </a>
+                {% if 'assets' in visible_nav_items %}
                 <a href="/assets" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'assets' %}active font-semibold{% endif %}" title="Assets">
                     <i class="fas fa-coins w-6 flex-shrink-0"></i>
                     <span class="sidebar-label">Assets</span>
                 </a>
+                {% endif %}
+                {% if 'projects' in visible_nav_items %}
                 <a href="/projects" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'projects' %}active font-semibold{% endif %}" title="Projects">
                     <i class="fas fa-bullseye w-6 flex-shrink-0"></i>
                     <span class="sidebar-label">Projects</span>
                 </a>
+                {% endif %}
 
                 <!-- Settings -->
                 <div class="px-6 pt-5 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest sidebar-section-label">Settings</div>
+                {% if 'notes' in visible_nav_items %}
                 <a href="/notes" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'notes' %}active font-semibold{% endif %}" title="IOUs &amp; Notes">
                     <i class="fas fa-sticky-note w-6 flex-shrink-0"></i>
                     <span class="sidebar-label">IOUs &amp; Notes</span>
                 </a>
+                {% endif %}
                 <a href="/settings" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'settings' %}active font-semibold{% endif %}" title="Settings">
                     <i class="fas fa-gear w-6 flex-shrink-0"></i>
                     <span class="sidebar-label">Settings</span>
@@ -538,16 +550,22 @@
                     </button>
                 </div>
                 <!-- Today section -->
+                {% if 'pulse' in visible_nav_items or 'import' in visible_nav_items or 'review' in visible_nav_items or 'notes' in visible_nav_items %}
                 <div class="px-5 pt-2 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest">Today</div>
                 <div class="grid grid-cols-4 gap-px bg-gray-100 border-t border-b mx-0">
+                    {% if 'pulse' in visible_nav_items %}
                     <a href="/pulse" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'pulse' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
                         <i class="fas fa-gauge text-xl"></i>
                         <span class="text-xs font-medium">Pulse</span>
                     </a>
+                    {% endif %}
+                    {% if 'import' in visible_nav_items %}
                     <a href="/import" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'import' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
                         <i class="fas fa-wand-magic-sparkles text-xl"></i>
                         <span class="text-xs font-medium">Import</span>
                     </a>
+                    {% endif %}
+                    {% if 'review' in visible_nav_items %}
                     <a href="/review" class="relative flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'review' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
                         <span class="relative">
                             <i class="fas fa-inbox text-xl"></i>
@@ -555,11 +573,15 @@
                         </span>
                         <span class="text-xs font-medium">Review</span>
                     </a>
+                    {% endif %}
+                    {% if 'notes' in visible_nav_items %}
                     <a href="/notes" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'notes' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
                         <i class="fas fa-sticky-note text-xl"></i>
                         <span class="text-xs font-medium">IOUs</span>
                     </a>
+                    {% endif %}
                 </div>
+                {% endif %}
                 <!-- Planning section -->
                 <div class="px-5 pt-3 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest">Planning</div>
                 <div class="grid grid-cols-4 gap-px bg-gray-100 border-t border-b mx-0">
@@ -571,14 +593,18 @@
                         <i class="fas fa-piggy-bank text-xl"></i>
                         <span class="text-xs font-medium">Savings</span>
                     </a>
+                    {% if 'assets' in visible_nav_items %}
                     <a href="/assets" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'assets' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
                         <i class="fas fa-coins text-xl"></i>
                         <span class="text-xs font-medium">Assets</span>
                     </a>
+                    {% endif %}
+                    {% if 'projects' in visible_nav_items %}
                     <a href="/projects" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'projects' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
                         <i class="fas fa-bullseye text-xl"></i>
                         <span class="text-xs font-medium">Projects</span>
                     </a>
+                    {% endif %}
                 </div>
                 <!-- Settings section -->
                 <div class="px-5 pt-3 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest">Settings</div>

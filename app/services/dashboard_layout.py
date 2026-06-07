@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 
+from app.models.database import SessionLocal
 from app.services.settings_service import get_setting, set_setting
 
 DEFAULT_PRESET = "full"
@@ -49,3 +50,31 @@ def set_dashboard_preset(db: Session, preset: str) -> None:
     if preset not in PRESETS:
         raise ValueError(f"Unknown dashboard preset: {preset}")
     set_setting(db, "dashboard_layout", preset)
+
+
+# Sidebar/bottom-nav items every user needs regardless of preset — the
+# day-to-day core of logging spend and checking the budget.
+NAV_CORE = frozenset({"dashboard", "transactions", "budget", "savings", "settings"})
+
+# Items layered on top of NAV_CORE per preset. Mirrors the same progressive-
+# disclosure idea as PRESETS above: Simple shows only what a brand-new family
+# needs in week one, Standard adds the next tier of "actionable" pages, and
+# Full surfaces everything, including the more occasional-use pages.
+NAV_PRESETS: dict[str, frozenset[str]] = {
+    "simple": frozenset(),
+    "standard": frozenset({"import", "pulse", "review", "projects"}),
+    "full": frozenset({"import", "pulse", "review", "projects", "assets", "notes"}),
+}
+
+
+def get_visible_nav_items(db: Session) -> frozenset[str]:
+    return NAV_CORE | NAV_PRESETS[get_dashboard_preset(db)]
+
+
+def inject_nav_items(request) -> dict:
+    """Context processor: makes the visible nav item set available to every template."""
+    db = SessionLocal()
+    try:
+        return {"visible_nav_items": get_visible_nav_items(db)}
+    finally:
+        db.close()

@@ -63,10 +63,12 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 from app.routers.fragments._helpers import _decimal_safe_tojson
 from app.services.currency_format import register as register_currency_filters, inject_currency
+from app.services.dashboard_layout import inject_nav_items
 
 templates.env.filters["tojson"] = _decimal_safe_tojson
 register_currency_filters(templates.env)
 templates.context_processors.append(inject_currency)
+templates.context_processors.append(inject_nav_items)
 
 
 def seed_default_categories():
