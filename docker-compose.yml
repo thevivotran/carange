@@ -1,19 +1,57 @@
+# Self-hosting setup — SQLite (recommended default for families).
+# No extra services to run. Clone this repo, then:
+#   docker compose up -d
+# and open http://localhost:6868
+#
+# Prefer PostgreSQL (needed for OCR/email worker queues, MATVIEW dashboard,
+# multi-pod setups)? Use docker-compose.pg.yml instead.
+
 services:
-  postgres:
-    image: docker.io/postgres:16-alpine
-    environment:
-      POSTGRES_USER: carange
-      POSTGRES_PASSWORD: carange
-      POSTGRES_DB: carange
+  app:
+    build: .
     ports:
-      - "5432:5432"
+      - "6868:6868"
     volumes:
-      - carange-pg-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U carange"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
+      - carange_data:/data
+    environment:
+      - DATABASE_URL=sqlite:////data/carange.db
+      - UPLOAD_DIR=/data/uploads
+      # --- Optional: Telegram push notifications ---
+      # - TELEGRAM_BOT_TOKEN=
+      # - TELEGRAM_CHAT_ID=
+      # --- Optional: AI budget insights (requires a self-hosted LLM, e.g. Ollama) ---
+      # - OLLAMA_URL=http://your-llm-server:11434
+      # - OLLAMA_MODEL=llama3.1
+    restart: unless-stopped
+
+  # Optional OCR worker — uncomment to enable screenshot import.
+  # Requires DATABASE_URL to be reachable from the worker; SQLite over a shared
+  # volume works for single-host setups only (see docker-compose.pg.yml for
+  # multi-host queue processing).
+  # ocr_worker:
+  #   build:
+  #     context: .
+  #     dockerfile: ocr_worker/Dockerfile
+  #   volumes:
+  #     - carange_data:/data
+  #   environment:
+  #     - DATABASE_URL=sqlite:////data/carange.db
+  #     - UPLOAD_DIR=/data/uploads
+  #   restart: unless-stopped
+
+  # Optional Email worker — uncomment to enable bank email ingestion.
+  # email_worker:
+  #   build:
+  #     context: .
+  #     dockerfile: email_worker/Dockerfile
+  #   volumes:
+  #     - carange_data:/data
+  #   environment:
+  #     - DATABASE_URL=sqlite:////data/carange.db
+  #     - IMAP_HOST=imap.gmail.com
+  #     - IMAP_USER=
+  #     - IMAP_PASSWORD=   # Gmail App Password (requires 2FA enabled)
+  #   restart: unless-stopped
 
 volumes:
-  carange-pg-data:
+  carange_data:

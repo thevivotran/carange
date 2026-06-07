@@ -39,6 +39,8 @@ ENV/
 # Database
 carange.db
 *.db
+*.db-shm
+*.db-wal
 *.sqlite3
 
 # Logs

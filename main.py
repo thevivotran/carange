@@ -25,6 +25,7 @@ from app.routers import payees as payees_router
 from app.routers import settings as settings_router
 from app.routers.dashboard import get_dashboard_page_data
 from app.services.dashboard_layout import get_visible_sections
+from app.services.settings_service import get_setting
 from app.routers.fragments import transactions as frag_transactions
 from app.routers.fragments import dashboard as frag_dashboard
 from app.routers.fragments import budget as frag_budget
@@ -140,12 +141,14 @@ async def health():
 @app.get("/", response_class=HTMLResponse)
 async def dashboard_page(request: Request, db: Session = Depends(get_db)):
     data = get_dashboard_page_data(db)
+    show_onboarding = get_setting(db, "onboarding_complete", "false") != "true"
     return templates.TemplateResponse(
         request,
         "dashboard.html",
         {
             "active_menu": "dashboard",
             "visible_sections": get_visible_sections(db),
+            "show_onboarding": show_onboarding,
             **data,
         },
     )

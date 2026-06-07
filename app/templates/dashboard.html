@@ -26,6 +26,10 @@
     </div>
   </div>
 
+  {% if show_onboarding %}
+  {% include "partials/onboarding/_welcome_banner.html" %}
+  {% endif %}
+
   <!-- ── Family Safety Score ────────────────────────────────────── -->
   {% set check_income = summary.total_income > 0 %}
   {% set check_bds    = summary.monthly_bds > 0 %}
@@ -171,10 +175,9 @@
         {% endfor %}
       </div>
       {% else %}
-      <div class="text-center py-10">
-        <p class="text-sm text-gray-400 mb-3">No budget configured</p>
-        <a href="/budget" class="text-xs text-primary hover:underline">Set up budget →</a>
-      </div>
+      {% with icon="fa-wallet", title="No budget configured", message="Your categories are ready — set monthly limits to start tracking against a budget.", cta_url="/budget", cta_label="Set up budget" %}
+      {% include "partials/_empty_state.html" %}
+      {% endwith %}
       {% endif %}
     </div>
     {% endif %}
@@ -492,7 +495,17 @@
     </button>
     {% endif %}
     {% else %}
-    <p class="text-sm text-gray-500 text-center py-8">No transactions yet</p>
+    <div class="text-center py-8">
+      <div class="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
+        <i class="fas fa-receipt text-2xl text-gray-400 dark:text-gray-500"></i>
+      </div>
+      <p class="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-1">No transactions yet</p>
+      <p class="text-xs text-gray-400 dark:text-gray-500 max-w-xs mx-auto">Log your first income or expense to start seeing your activity here.</p>
+      <button onclick="openGlobalAddModal()"
+              class="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors">
+        Add a transaction
+      </button>
+    </div>
     {% endif %}
   </div>
 
