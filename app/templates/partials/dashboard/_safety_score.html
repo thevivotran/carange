@@ -35,7 +35,7 @@
       <div class="min-w-0">
         <p class="text-xs font-semibold {{ 'text-green-800' if check_income else 'text-red-800' }}">Salary Received</p>
         <p class="text-xs mt-0.5 {{ 'text-green-600' if check_income else 'text-red-500' }}">
-          {% if check_income %}{{ "{:,.0f}".format(summary.total_income) }} ₫{% else %}No income recorded{% endif %}
+          {% if check_income %}{{ summary.total_income | currency }}{% else %}No income recorded{% endif %}
         </p>
       </div>
     </div>
@@ -45,7 +45,7 @@
       <div class="min-w-0">
         <p class="text-xs font-semibold {{ 'text-green-800' if check_bds else 'text-red-800' }}">Real Estate Paid</p>
         <p class="text-xs mt-0.5 {{ 'text-green-600' if check_bds else 'text-red-500' }}">
-          {% if check_bds %}{{ "{:,.0f}".format(summary.monthly_bds) }} ₫{% else %}No payment recorded{% endif %}
+          {% if check_bds %}{{ summary.monthly_bds | currency }}{% else %}No payment recorded{% endif %}
         </p>
       </div>
     </div>
@@ -55,7 +55,7 @@
       <div class="min-w-0">
         <p class="text-xs font-semibold {{ 'text-green-800' if check_tk else 'text-red-800' }}">Savings ≥ {{ summary.savings_target_pct | int }}%</p>
         <p class="text-xs mt-0.5 {{ 'text-green-600' if check_tk else 'text-red-500' }}">
-          {{ "{:,.0f}".format(summary.monthly_tiet_kiem) }} ₫
+          {{ summary.monthly_tiet_kiem | currency }}
         </p>
       </div>
     </div>
@@ -65,7 +65,7 @@
       <div class="min-w-0">
         <p class="text-xs font-semibold {{ 'text-green-800' if check_net else 'text-red-800' }}">Net Cash &gt; 0</p>
         <p class="text-xs mt-0.5 {{ 'text-green-600' if check_net else 'text-red-500' }}">
-          {{ "{:+,.0f}".format(summary.net_this_month) }} ₫
+          {{ summary.net_this_month | currency(signed=true) }}
         </p>
       </div>
     </div>

@@ -137,8 +137,6 @@ function fmtVND(n) {
     return n.toLocaleString();
 }
 
-function fmtVNDFull(n) { return n.toLocaleString('vi-VN') + ' ₫'; }
-
 function addMonths(ym, delta) {
     let [y, m] = ym.split('-').map(Number);
     m += delta;

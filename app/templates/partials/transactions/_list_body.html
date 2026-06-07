@@ -12,7 +12,7 @@
       {{ txs[0].date.strftime('%a, %d %b %Y') }}
     </span>
     <span class="text-xs font-semibold {{ 'text-green-600' if day_net >= 0 else 'text-red-500' }}">
-      {{ '+' if day_net >= 0 else '' }}{{ '{:,.0f}'.format(day_net | abs) }} ₫
+      {{ day_net | currency(signed=true) }}
     </span>
   </div>
   {% for t in txs %}
@@ -69,7 +69,7 @@
 
         <!-- Amount -->
         <span class="text-sm font-semibold whitespace-nowrap {{ 'text-green-600' if t.type == 'income' else 'text-red-600' }}">
-          {{ '+' if t.type == 'income' else '-' }}{{ '{:,.0f}'.format(t.amount) }} ₫
+          {{ '+' if t.type == 'income' else '-' }}{{ t.amount | currency }}
         </span>
       </div>
     </div>
@@ -78,10 +78,10 @@
 
 <div class="bg-gray-50 border-t px-6 py-3 flex flex-wrap gap-x-6 gap-y-1 text-sm font-semibold">
   <span class="text-gray-600">Filtered totals:</span>
-  <span class="text-green-600">Income: {{ '{:,.0f}'.format(total_income) }} ₫</span>
-  <span class="text-red-600">Expense: {{ '{:,.0f}'.format(total_expense) }} ₫</span>
+  <span class="text-green-600">Income: {{ total_income | currency }}</span>
+  <span class="text-red-600">Expense: {{ total_expense | currency }}</span>
   <span class="{{ 'text-green-700' if total_net >= 0 else 'text-red-700' }}">
-    Net: {{ '+' if total_net >= 0 else '' }}{{ '{:,.0f}'.format(total_net | abs) }} ₫
+    Net: {{ total_net | currency(signed=true) }}
   </span>
 </div>
 {% endif %}

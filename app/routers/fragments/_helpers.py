@@ -26,6 +26,11 @@ def _decimal_safe_tojson(value, **kwargs):
 
 templates.env.filters["tojson"] = _decimal_safe_tojson
 
+from app.services.currency_format import register as register_currency_filters, inject_currency
+
+register_currency_filters(templates.env)
+templates.context_processors.append(inject_currency)
+
 _VN_TZ = timezone(timedelta(hours=7))
 
 

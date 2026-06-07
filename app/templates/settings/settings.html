@@ -51,6 +51,17 @@
           </select>
         </div>
 
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Display Currency</label>
+          <p class="text-xs text-gray-400 mb-2">Changes the symbol shown for amounts across the app. Stored values are not converted.</p>
+          <select name="display_currency"
+                  class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            {% for c in currencies %}
+            <option value="{{ c.code }}" {% if c.code == display_currency %}selected{% endif %}>{{ c.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
       </div>
       <div class="flex items-center gap-4 mt-6">
         <button type="submit"

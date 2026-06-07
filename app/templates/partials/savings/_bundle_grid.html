@@ -12,15 +12,15 @@
     </div>
     <div class="bg-white rounded-lg shadow p-4">
       <p class="text-sm text-gray-500">Total Deposited</p>
-      <p class="text-2xl font-bold text-blue-600">{{ "{:,.0f}".format(total_initial) }} ₫</p>
+      <p class="text-2xl font-bold text-blue-600">{{ total_initial | currency }}</p>
     </div>
     <div class="bg-white rounded-lg shadow p-4">
       <p class="text-sm text-gray-500">Future Amount</p>
-      <p class="text-2xl font-bold text-green-600">{{ "{:,.0f}".format(total_future) }} ₫</p>
+      <p class="text-2xl font-bold text-green-600">{{ total_future | currency }}</p>
     </div>
     <div class="bg-white rounded-lg shadow p-4">
       <p class="text-sm text-gray-500">Total Interest</p>
-      <p class="text-2xl font-bold text-purple-600">{{ "{:,.0f}".format(total_interest) }} ₫</p>
+      <p class="text-2xl font-bold text-purple-600">{{ total_interest | currency }}</p>
     </div>
   </div>
 
@@ -61,23 +61,23 @@
         <div class="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
           <div>
             <p class="text-xs text-gray-500">Initial Deposit</p>
-            <p class="font-semibold text-blue-700">{{ "{:,.0f}".format(bundle.initial_deposit) }} ₫</p>
+            <p class="font-semibold text-blue-700">{{ bundle.initial_deposit | currency }}</p>
           </div>
           <i class="fas fa-arrow-right text-gray-400"></i>
           <div class="text-right">
             <p class="text-xs text-gray-500">Future Amount</p>
-            <p class="font-semibold text-green-700">{{ "{:,.0f}".format(bundle.future_amount) }} ₫</p>
+            <p class="font-semibold text-green-700">{{ bundle.future_amount | currency }}</p>
           </div>
         </div>
         {% if bundle.current_amount is not none and bundle.current_amount != bundle.initial_deposit %}
         <div class="flex justify-between text-sm">
           <span class="text-gray-500">Current Amount:</span>
-          <span class="font-semibold text-blue-600">{{ "{:,.0f}".format(bundle.current_amount) }} ₫</span>
+          <span class="font-semibold text-blue-600">{{ bundle.current_amount | currency }}</span>
         </div>
         {% endif %}
         <div class="flex justify-between text-sm">
           <span class="text-gray-500">Interest Earned:</span>
-          <span class="font-semibold text-purple-600">+{{ "{:,.0f}".format(interest) }} ₫ ({{ interest_pct }}%)</span>
+          <span class="font-semibold text-purple-600">{{ interest | currency(signed=true) }} ({{ interest_pct }}%)</span>
         </div>
         {% if bundle.interest_rate %}
         <div class="flex justify-between text-sm">

@@ -44,7 +44,7 @@
   {% if income > 0 and total_budget > income %}
   <div class="mb-4 flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 text-sm text-amber-700">
     <i class="fas fa-exclamation-triangle mt-0.5 flex-shrink-0"></i>
-    <span>Total budgeted ({{ "{:,.0f}".format(total_budget) }} ₫) exceeds this month's recorded income ({{ "{:,.0f}".format(income) }} ₫) by {{ "{:,.0f}".format(total_budget - income) }} ₫. Consider adjusting allocations.</span>
+    <span>Total budgeted ({{ total_budget | currency }}) exceeds this month's recorded income ({{ income | currency }}) by {{ (total_budget - income) | currency }}. Consider adjusting allocations.</span>
   </div>
   {% endif %}
 
@@ -52,15 +52,15 @@
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
     <div class="bg-white rounded-lg shadow p-4">
       <p class="text-sm text-gray-500">Total Budgeted</p>
-      <p class="text-2xl font-bold text-gray-800">{{ "{:,.0f}".format(total_budget) }} ₫</p>
+      <p class="text-2xl font-bold text-gray-800">{{ total_budget | currency }}</p>
     </div>
     <div class="bg-white rounded-lg shadow p-4">
       <p class="text-sm text-gray-500">Spent This Month</p>
-      <p class="text-2xl font-bold text-red-500">{{ "{:,.0f}".format(total_spent) }} ₫</p>
+      <p class="text-2xl font-bold text-red-500">{{ total_spent | currency }}</p>
     </div>
     <div class="bg-white rounded-lg shadow p-4">
       <p class="text-sm text-gray-500">Available Balance</p>
-      <p class="text-2xl font-bold {{ 'text-green-600' if total_balance >= 0 else 'text-red-500' }}">{{ "{:,.0f}".format(total_balance) }} ₫</p>
+      <p class="text-2xl font-bold {{ 'text-green-600' if total_balance >= 0 else 'text-red-500' }}">{{ total_balance | currency }}</p>
     </div>
   </div>
   <div class="bg-white rounded-lg shadow px-4 py-3 mb-6">

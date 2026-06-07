@@ -1,7 +1,7 @@
 {% set data = summary %}
 <div class="grid grid-cols-2 gap-x-4 gap-y-1 sm:flex sm:flex-wrap sm:gap-x-5 sm:gap-y-1 w-full">
-  <span class="text-gray-500">Income <span class="font-semibold text-green-700">{{ '{:,.0f}'.format(data.income) }} ₫</span></span>
-  <span class="text-gray-500">Expense <span class="font-semibold text-red-600">{{ '{:,.0f}'.format(data.expense) }} ₫</span></span>
-  <span class="text-gray-500">Savings <span class="font-semibold text-indigo-600">{{ '{:,.0f}'.format(data.savings) }} ₫</span></span>
-  <span class="text-gray-500">Cash on Hand <span class="font-semibold text-blue-600">{{ '{:,.0f}'.format(data.cash_on_hand) }} ₫</span></span>
+  <span class="text-gray-500">Income <span class="font-semibold text-green-700">{{ data.income | currency }}</span></span>
+  <span class="text-gray-500">Expense <span class="font-semibold text-red-600">{{ data.expense | currency }}</span></span>
+  <span class="text-gray-500">Savings <span class="font-semibold text-indigo-600">{{ data.savings | currency }}</span></span>
+  <span class="text-gray-500">Cash on Hand <span class="font-semibold text-blue-600">{{ data.cash_on_hand | currency }}</span></span>
 </div>

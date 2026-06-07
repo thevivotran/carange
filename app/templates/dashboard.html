@@ -60,8 +60,8 @@
     </div>
     <p class="text-xs text-gray-500 mb-4">
       {% set paid_v = bds_project.current_amount %}{% set total_v = bds_project.target_amount %}
-      {% if paid_v >= 1000000000 %}{{ "%.2f"|format(paid_v/1000000000) }}B{% elif paid_v >= 1000000 %}{{ "%.0f"|format(paid_v/1000000) }}M{% else %}{{ "{:,.0f}".format(paid_v) }}{% endif %} ₫ paid of
-      {% if total_v >= 1000000000 %}{{ "%.2f"|format(total_v/1000000000) }}B{% elif total_v >= 1000000 %}{{ "%.0f"|format(total_v/1000000) }}M{% else %}{{ "{:,.0f}".format(total_v) }}{% endif %} ₫ total
+      {{ paid_v | currency_abbrev }} paid of
+      {{ total_v | currency_abbrev }} total
     </p>
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
 
@@ -70,7 +70,7 @@
       {% set urgency = 'overdue' if bds_days_until_next is not none and bds_days_until_next < 0 else ('hot' if bds_days_until_next is not none and bds_days_until_next <= 15 else ('warn' if bds_days_until_next is not none and bds_days_until_next <= 30 else 'ok')) %}
       <div class="rounded-xl p-3 border {{ 'bg-red-50 border-red-200' if urgency in ['overdue','hot'] else ('bg-amber-50 border-amber-200' if urgency == 'warn' else 'bg-gray-50 border-gray-100') }}">
         <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Next Payment</p>
-        <p class="text-lg font-bold text-gray-800 mt-1">{{ "{:,.0f}".format(bds_next_payment.amount) }} ₫</p>
+        <p class="text-lg font-bold text-gray-800 mt-1">{{ bds_next_payment.amount | currency }}</p>
         <p class="text-xs mt-0.5 {{ 'text-red-600 font-semibold' if urgency in ['overdue','hot'] else ('text-amber-600' if urgency == 'warn' else 'text-gray-500') }}">
           {% if bds_days_until_next is not none %}
             {% if bds_days_until_next < 0 %}Overdue {{ bds_days_until_next|abs }}d ❗
@@ -93,12 +93,12 @@
       {% set ytd_pct = (bds_ytd_paid / bds_ytd_planned * 100) if bds_ytd_planned > 0 else 0 %}
       <div class="rounded-xl p-3 bg-gray-50 border border-gray-100">
         <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">{{ today.year }} Progress</p>
-        <p class="text-lg font-bold text-gray-800 mt-1">{% set v = bds_ytd_paid %}{% if v >= 1000000000 %}{{ "%.2f"|format(v/1000000000) }}B{% elif v >= 1000000 %}{{ "%.0f"|format(v/1000000) }}M{% else %}{{ "{:,.0f}".format(v) }}{% endif %} ₫</p>
+        <p class="text-lg font-bold text-gray-800 mt-1">{{ bds_ytd_paid | currency_abbrev }}</p>
         <div class="mt-1.5 w-full bg-gray-200 rounded-full h-1.5">
           <div class="h-1.5 rounded-full {{ 'bg-green-500' if ytd_pct >= 100 else ('bg-blue-400' if ytd_pct >= 50 else 'bg-gray-400') }}"
                style="width:{{ [ytd_pct, 100]|min | int }}%"></div>
         </div>
-        <p class="text-xs text-gray-500 mt-1">{{ ytd_pct | int }}% of {% set v = bds_ytd_planned %}{% if v >= 1000000 %}{{ "%.0f"|format(v/1000000) }}M{% else %}{{ "{:,.0f}".format(v) }}{% endif %} ₫ planned</p>
+        <p class="text-xs text-gray-500 mt-1">{{ ytd_pct | int }}% of {{ bds_ytd_planned | currency_abbrev }} planned</p>
       </div>
 
       <!-- Est. Completion -->
@@ -161,7 +161,7 @@
             </div>
           </div>
           <div class="text-xs text-gray-400 mt-0.5 text-right">
-            {{ "{:,.0f}".format(cat.this_month_spent) }} / {{ "{:,.0f}".format(cat.available_balance + cat.this_month_spent) }} ₫
+            {{ "{:,.0f}".format(cat.this_month_spent) }} / {{ (cat.available_balance + cat.this_month_spent) | currency }}
           </div>
         </div>
         {% endfor %}
@@ -237,7 +237,7 @@
             {% else %}Single income is not enough to cover all obligations{% endif %}
           </p>
           <p class="text-xs {{ 'text-green-600' if cushion_ok else 'text-red-600' }} mt-0.5">
-            Monthly cushion: {{ '{:+,.0f}'.format(summary.stress_test_cushion) }} ₫
+            Monthly cushion: {{ summary.stress_test_cushion | currency(signed=true) }}
           </p>
         </div>
       </div>
@@ -245,27 +245,27 @@
         <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Required monthly minimum</div>
         <div class="flex justify-between text-sm">
           <span class="text-gray-600">Avg living expense (3-mo)</span>
-          <span class="font-medium text-gray-800">{{ "{:,.0f}".format(summary.avg_monthly_expense) }} ₫</span>
+          <span class="font-medium text-gray-800">{{ summary.avg_monthly_expense | currency }}</span>
         </div>
         <div class="flex justify-between text-sm">
           <span class="text-gray-600">Min. savings deposit</span>
-          <span class="font-medium text-gray-800">20,000,000 ₫</span>
+          <span class="font-medium text-gray-800">{{ 20000000 | currency }}</span>
         </div>
         <div class="flex justify-between text-sm">
           <span class="text-gray-600">Real Estate instalment</span>
-          <span class="font-medium text-gray-800">{{ "{:,.0f}".format(summary.stress_test_required - summary.avg_monthly_expense - 20000000) }} ₫</span>
+          <span class="font-medium text-gray-800">{{ (summary.stress_test_required - summary.avg_monthly_expense - 20000000) | currency }}</span>
         </div>
         <div class="border-t border-gray-200 pt-2 mt-2 flex justify-between text-sm font-semibold">
           <span class="text-gray-700">Total required</span>
-          <span class="text-gray-900">{{ "{:,.0f}".format(summary.stress_test_required) }} ₫</span>
+          <span class="text-gray-900">{{ summary.stress_test_required | currency }}</span>
         </div>
         <div class="flex justify-between text-sm font-semibold pt-1">
           <span class="text-gray-700">This month's income</span>
-          <span class="text-gray-900">{{ "{:,.0f}".format(summary.total_income) }} ₫</span>
+          <span class="text-gray-900">{{ summary.total_income | currency }}</span>
         </div>
         <div class="flex justify-between text-sm font-bold pt-1 {{ 'text-green-700' if cushion_ok else 'text-red-700' }}">
           <span>Monthly cushion</span>
-          <span>{{ '{:+,.0f}'.format(summary.stress_test_cushion) }} ₫</span>
+          <span>{{ summary.stress_test_cushion | currency(signed=true) }}</span>
         </div>
       </div>
     </div>
@@ -285,7 +285,7 @@
           <span class="ml-auto bg-orange-100 text-orange-700 text-xs font-semibold px-2 py-0.5 rounded-full">{{ unsettled_advance_count }}</span>
         </div>
         <p class="text-xs text-orange-700 mb-3">
-          <span class="font-semibold text-orange-800">{{ "{:,.0f}".format(unsettled_advance_total) }} ₫</span> pending repayment
+          <span class="font-semibold text-orange-800">{{ unsettled_advance_total | currency }}</span> pending repayment
         </p>
         <a href="/transactions?advance=unsettled" class="block text-xs text-orange-600 font-medium hover:underline">View advances →</a>
       </div>
@@ -323,7 +323,7 @@
           {% for cat in alert_over_budget %}
           <a href="/transactions?category_id={{ cat.category_id }}&month={{ today.strftime('%Y-%m') }}" class="flex justify-between items-center text-xs hover:opacity-75 transition">
             <span class="text-red-800 font-medium underline decoration-dotted">{{ cat.category_name }}</span>
-            <span class="text-red-600">{{ "{:,.0f}".format(cat.available_balance | abs) }} ₫ over</span>
+            <span class="text-red-600">{{ (cat.available_balance | abs) | currency }} over</span>
           </a>
           {% endfor %}
         </div>
@@ -373,7 +373,7 @@
             <span>
               {% if p.deadline %}Due {{ p.deadline.strftime('%d/%m/%Y') }}{% else %}No deadline{% endif %}
             </span>
-            <span>Gap: {{ "{:,.0f}".format([p.target_amount - p.current_amount, 0]|max) }} ₫</span>
+            <span>Gap: {{ ([p.target_amount - p.current_amount, 0]|max) | currency }}</span>
           </div>
         </div>
         {% endfor %}
@@ -407,8 +407,8 @@
           <div class="h-2 rounded-full bg-pink-400 transition-all duration-500" style="width:{{ [bf_pct, 100]|min | int }}%"></div>
         </div>
         <p class="text-xs text-pink-500">
-          {% set v = bf.current_amount %}{% if v >= 1000000000 %}{{ "%.1f"|format(v/1000000000) }}B{% elif v >= 1000000 %}{{ "%.0f"|format(v/1000000) }}M{% else %}{{ "{:,.0f}".format(v) }}{% endif %} ₫ saved
-          of {% set t = bf.future_amount %}{% if t >= 1000000000 %}{{ "%.1f"|format(t/1000000000) }}B{% elif t >= 1000000 %}{{ "%.0f"|format(t/1000000) }}M{% else %}{{ "{:,.0f}".format(t) }}{% endif %} ₫ target
+          {{ bf.current_amount | currency_abbrev }} saved
+          of {{ bf.future_amount | currency_abbrev }} target
         </p>
       </div>
       {% endif %}
@@ -430,7 +430,7 @@
               {% endif %}
             </p>
           </div>
-          <span class="text-sm font-bold text-indigo-600 flex-shrink-0">{{ "{:,.0f}".format(s.future_amount) }} ₫</span>
+          <span class="text-sm font-bold text-indigo-600 flex-shrink-0">{{ s.future_amount | currency }}</span>
         </div>
         {% endfor %}
       </div>
@@ -463,7 +463,7 @@
         </div>
         <span class="text-sm font-semibold ml-4 flex-shrink-0
           {{ 'text-green-600' if t.type.value == 'income' else 'text-red-500' }}">
-          {{ '+' if t.type.value == 'income' else '-' }}{{ "{:,.0f}".format(t.amount) }} ₫
+          {{ '+' if t.type.value == 'income' else '-' }}{{ t.amount | currency }}
         </span>
       </div>
       {% endfor %}
@@ -582,13 +582,14 @@ new MutationObserver(_refreshChartColors).observe(
 );
 
 // ── Helpers ───────────────────────────────────────────────────────────────
-function fmtVND(v) { return new Intl.NumberFormat('vi-VN').format(Math.round(v)) + ' ₫'; }
+function fmtVND(v) { return window.formatAmount(v); }
 function fmtSigned(v) { return (v >= 0 ? '+' : '') + fmtVND(Math.abs(v)); }
 function fmtM(v) {
     const abs = Math.abs(v);
     if (abs >= 1e9) return (v / 1e9).toFixed(2) + 'B';
     if (abs >= 1e6) return (v / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
-    return new Intl.NumberFormat('vi-VN').format(Math.round(v));
+    const cfg = window.currencyConfig();
+    return new Intl.NumberFormat(cfg.locale).format(Math.round(v));
 }
 
 
@@ -832,7 +833,7 @@ fetch('/api/dashboard/wealth-building-trend')
         pctEl.textContent = pct + '%';
         const valEl = document.createElement('div');
         valEl.className = 'text-gray-400';
-        valEl.textContent = fmtM(values[i]) + ' ₫';
+        valEl.textContent = window.formatAmountAbbrev(values[i]);
         right.appendChild(pctEl);
         right.appendChild(valEl);
         row.appendChild(left);

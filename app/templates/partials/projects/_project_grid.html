@@ -16,7 +16,7 @@
     </div>
     <div class="bg-white rounded-lg shadow p-4">
       <p class="text-sm text-gray-500">Current Amount</p>
-      <p class="text-2xl font-bold text-blue-600">{{ "{:,.0f}".format(total_current) }} ₫</p>
+      <p class="text-2xl font-bold text-blue-600">{{ total_current | currency }}</p>
     </div>
     <div class="bg-white rounded-lg shadow p-4">
       <p class="text-sm text-gray-500">Progress</p>
@@ -81,13 +81,13 @@
       <!-- Stats -->
       <div class="text-sm text-gray-600 mb-2">
         {{ pay_count }} payment{{ '' if pay_count == 1 else 's' }}&nbsp;&nbsp;|&nbsp;&nbsp;Paid:
-        <span class="font-semibold text-green-700">{{ "{:,.0f}".format(project.current_amount) }} ₫</span>
+        <span class="font-semibold text-green-700">{{ project.current_amount | currency }}</span>
         &nbsp;&nbsp;|&nbsp;&nbsp;Remaining:
-        <span class="font-semibold text-red-600">{{ "{:,.0f}".format(remaining) }} ₫</span>
+        <span class="font-semibold text-red-600">{{ remaining | currency }}</span>
       </div>
 
       {% if next_due %}
-      <div class="text-sm text-blue-600 mb-2">Next due: {{ next_due.due_date }} — {{ "{:,.0f}".format(next_due.amount) }} ₫</div>
+      <div class="text-sm text-blue-600 mb-2">Next due: {{ next_due.due_date }} — {{ next_due.amount | currency }}</div>
       {% endif %}
       {% if project.deadline %}
       <div class="text-sm text-gray-500 mb-2">Deadline: {{ project.deadline }}</div>

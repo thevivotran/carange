@@ -19,7 +19,7 @@
         {% endif %}
     </td>
     <td class="py-3 px-6 text-right font-semibold text-sm {{ 'text-green-600' if t.type == 'income' else 'text-red-600' }}">
-        {{ '+' if t.type == 'income' else '-' }}{{ "{:,.0f}".format(t.amount) }} ₫
+        {{ '+' if t.type == 'income' else '-' }}{{ t.amount | currency }}
     </td>
     <td class="py-3 px-4 text-right">
         <button onclick="event.stopPropagation(); useTemplate({{ t.id }})"

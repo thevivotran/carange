@@ -12,16 +12,16 @@
     </div>
     <div class="bg-white rounded-lg shadow p-4">
       <p class="text-sm text-gray-500">Total Invested</p>
-      <p class="text-2xl font-bold text-blue-600">{{ "{:,.0f}".format(total_invested) }} ₫</p>
+      <p class="text-2xl font-bold text-blue-600">{{ total_invested | currency }}</p>
     </div>
     <div class="bg-white rounded-lg shadow p-4">
       <p class="text-sm text-gray-500">Current Value</p>
-      <p class="text-2xl font-bold text-green-600">{{ "{:,.0f}".format(total_current) }} ₫</p>
+      <p class="text-2xl font-bold text-green-600">{{ total_current | currency }}</p>
     </div>
     <div class="bg-white rounded-lg shadow p-4">
       <p class="text-sm text-gray-500">Gain / Loss</p>
       <p class="text-2xl font-bold {{ 'text-green-600' if gain_loss >= 0 else 'text-red-600' }}">
-        {{ '+' if gain_loss >= 0 else '' }}{{ "{:,.0f}".format(gain_loss) }} ₫ ({{ '+' if gain_loss >= 0 else '' }}{{ "%.2f"|format(gain_loss_pct) }}%)
+        {{ gain_loss | currency(signed=true) }} ({{ '+' if gain_loss >= 0 else '' }}{{ "%.2f"|format(gain_loss_pct) }}%)
       </p>
     </div>
   </div>
@@ -62,16 +62,16 @@
       <div class="space-y-2 mb-4">
         <div class="flex justify-between text-sm">
           <span class="text-gray-500">Purchase Price:</span>
-          <span class="font-semibold text-blue-700">{{ "{:,.0f}".format(per_unit_purchase) }} ₫/unit · {{ "{:,.0f}".format(asset.purchase_price_vnd) }} ₫ total</span>
+          <span class="font-semibold text-blue-700">{{ per_unit_purchase | currency }}/unit · {{ asset.purchase_price_vnd | currency }} total</span>
         </div>
         <div class="flex justify-between text-sm">
           <span class="text-gray-500">Current Value:</span>
-          <span class="font-semibold text-green-700">{{ "{:,.0f}".format(per_unit_current) }} ₫/unit · {{ "{:,.0f}".format(asset.current_value_vnd) }} ₫ total</span>
+          <span class="font-semibold text-green-700">{{ per_unit_current | currency }}/unit · {{ asset.current_value_vnd | currency }} total</span>
         </div>
         <div class="flex justify-between text-sm pt-2 border-t">
           <span class="text-gray-500">Gain / Loss:</span>
           <span class="font-semibold {{ 'text-green-600' if gain_loss >= 0 else 'text-red-600' }}">
-            {{ '+' if gain_loss >= 0 else '' }}{{ "{:,.0f}".format(gain_loss) }} ₫ ({{ '+' if gain_loss >= 0 else '' }}{{ gain_loss_pct }}%)
+            {{ gain_loss | currency(signed=true) }} ({{ '+' if gain_loss >= 0 else '' }}{{ gain_loss_pct }}%)
           </span>
         </div>
       </div>

@@ -73,7 +73,7 @@
       <div class="flex-shrink-0 text-right">
         <span class="text-sm font-bold whitespace-nowrap
                      {% if tx.type.value == 'income' %}text-green-600{% else %}text-red-600{% endif %}">
-          {{ '+' if tx.type.value == 'income' else '-' }}{{ "{:,.0f}".format(tx.amount) }} ₫
+          {{ '+' if tx.type.value == 'income' else '-' }}{{ tx.amount | currency }}
         </span>
       </div>
     </div>

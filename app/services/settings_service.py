@@ -21,6 +21,11 @@ def set_setting(db: Session, key: str, value: str) -> None:
         db.add(Setting(key=key, value=value, updated_at=datetime.now(timezone.utc)))
     db.commit()
 
+    if key == "display_currency":
+        from app.services.currency_format import invalidate_cache
+
+        invalidate_cache()
+
 
 def get_settings_bulk(db: Session, keys_with_defaults: dict[str, str]) -> dict[str, str]:
     """Fetch multiple setting keys at once, returning defaults for missing ones."""

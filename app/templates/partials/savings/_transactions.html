@@ -8,7 +8,7 @@
     <span class="shrink-0 text-gray-400">{{ tx.date }}</span>
   </div>
   <span class="shrink-0 font-semibold ml-2 {{ 'text-green-700' if tx.type == 'income' else 'text-red-700' }}">
-    {{ '+' if tx.type == 'income' else '-' }}{{ "{:,.0f}".format(tx.amount) }} ₫
+    {{ '+' if tx.type == 'income' else '-' }}{{ tx.amount | currency }}
   </span>
 </div>
 {% else %}

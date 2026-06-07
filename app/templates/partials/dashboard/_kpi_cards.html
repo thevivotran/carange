@@ -67,19 +67,19 @@
         <p class="text-xs text-gray-500 uppercase tracking-widest">Net Cash</p>
         <div class="flex items-center gap-2">
           <span class="text-xs font-semibold {{ 'text-green-600' if net_delta > 500000 else ('text-red-500' if net_delta < -500000 else 'text-gray-300') }}">
-            {% if net_delta|abs > 500000 %}{{ '↑ +' if net_delta > 0 else '↓ ' }}{% if net_delta|abs >= 1000000000 %}{{ "%.1f"|format(net_delta|abs / 1000000000) }}B{% elif net_delta|abs >= 1000000 %}{{ "%.0f"|format(net_delta|abs / 1000000) }}M{% else %}{{ "{:,.0f}".format(net_delta|abs) }}{% endif %} ₫{% endif %}
+            {% if net_delta|abs > 500000 %}{{ '↑ +' if net_delta > 0 else '↓ ' }}{{ (net_delta|abs) | currency_abbrev }}{% endif %}
           </span>
           <button onclick="showKpiInfo('net-cash', this)" class="w-6 h-6 flex items-center justify-center rounded-md text-gray-300 hover:text-gray-500 hover:bg-gray-100 focus:outline-none transition" title="About this metric"><i class="fas fa-info-circle text-xs"></i></button>
         </div>
       </div>
       <p class="text-3xl font-bold leading-tight {{ 'text-green-600' if summary.net_this_month >= 0 else 'text-red-500' }}">
-        {% set nc = summary.net_this_month %}{% if nc|abs >= 1000000000 %}{% if nc >= 0 %}+{% endif %}{{ "%.2f"|format(nc/1000000000) }}B{% elif nc|abs >= 1000000 %}{% if nc >= 0 %}+{% endif %}{{ "%.1f"|format(nc/1000000) }}M{% else %}{{ "{:+,.0f}".format(nc) }}{% endif %} ₫
+        {{ summary.net_this_month | currency_abbrev(signed=true) }}
       </p>
       <p class="text-xs text-gray-400 mt-1.5">Income − Living Expenses − Savings</p>
       <div class="mt-1 flex gap-2 text-xs text-gray-500 flex-wrap">
-        <span>In: {{ "{:,.0f}".format(summary.total_income) }} ₫</span>
+        <span>In: {{ summary.total_income | currency }}</span>
         <span class="text-gray-300">·</span>
-        <span>Out: {{ "{:,.0f}".format(summary.total_expense + summary.total_savings_expense) }} ₫</span>
+        <span>Out: {{ (summary.total_expense + summary.total_savings_expense) | currency }}</span>
       </div>
     </div>
 
@@ -149,7 +149,7 @@
           {% if summary.budget_over_count == 0 %}text-green-600{% elif summary.budget_adherence_pct >= 70 %}text-amber-600{% else %}text-red-500{% endif %}">
           {{ summary.budget_adherence_pct }}<span class="text-lg text-gray-400">%</span>
         </p>
-        <p class="text-xs text-gray-400 mt-1.5">On-track ₫ ÷ Total budgeted ₫</p>
+        <p class="text-xs text-gray-400 mt-1.5">On-track {{ currency_symbol() }} ÷ Total budgeted {{ currency_symbol() }}</p>
         <div class="mt-2 w-full bg-gray-100 rounded-full h-1.5">
           <div class="h-1.5 rounded-full transition-all duration-500"
             style="width:{{ summary.budget_adherence_pct }}%;
@@ -218,8 +218,8 @@
         <div class="mt-2 flex items-center justify-between">
           <span class="text-xs text-gray-500">
             {% set nw = summary.net_worth %}
-            {% if nw >= 1_000_000_000 %}{{ "%.1f"|format(nw/1_000_000_000) }}B{% else %}{{ "%.0f"|format(nw/1_000_000) }}M{% endif %} of
-            {% if summary.fi_target_vnd >= 1_000_000_000 %}{{ "%.1f"|format(summary.fi_target_vnd/1_000_000_000) }}B{% else %}{{ "%.0f"|format(summary.fi_target_vnd/1_000_000) }}M{% endif %} ₫
+            {{ nw | abbrev }} of
+            {{ summary.fi_target_vnd | currency_abbrev }}
           </span>
           <span class="text-xs font-medium px-2 py-0.5 rounded-full
             {% if summary.fi_progress_pct >= 75 %}bg-green-100 text-green-700{% elif summary.fi_progress_pct >= 25 %}bg-blue-100 text-blue-700{% else %}bg-indigo-100 text-indigo-700{% endif %}">
@@ -245,7 +245,7 @@
       </p>
       <p class="text-xs text-gray-400 mt-1.5">(NW − Prev NW) ÷ Prev NW</p>
       <div class="mt-2 flex items-center justify-between">
-        <span class="text-xs text-gray-500">Net Worth: {% set nw = summary.net_worth %}{% if nw >= 1_000_000_000 %}{{ "%.2f"|format(nw/1_000_000_000) }}B{% elif nw >= 1_000_000 %}{{ "%.0f"|format(nw/1_000_000) }}M{% else %}{{ "{:,.0f}".format(nw) }}{% endif %} ₫</span>
+        <span class="text-xs text-gray-500">Net Worth: {{ summary.net_worth | currency_abbrev }}</span>
         <span class="text-xs font-medium px-2 py-0.5 rounded-full {{ 'bg-green-100 text-green-700' if ngr > 0.5 else ('bg-red-100 text-red-700' if ngr < -0.5 else 'bg-gray-100 text-gray-500') }}">
           {{ '↑ Up' if ngr > 0.5 else ('↓ Down' if ngr < -0.5 else '≈ Flat') }}
         </span>
@@ -260,8 +260,7 @@
       <div>
         <p class="text-xs text-blue-200 uppercase tracking-widest">Net Worth</p>
         <p class="text-4xl font-bold mt-1 leading-tight">
-          {% set nw = summary.net_worth %}
-          {% if nw >= 1_000_000_000 %}{{ "%.2f"|format(nw / 1_000_000_000) }}B{% else %}{{ "{:,.0f}".format(nw) }}{% endif %} ₫
+          {{ summary.net_worth | currency_abbrev }}
         </p>
       </div>
       <div class="flex items-center gap-2">
@@ -279,19 +278,19 @@
     <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
       <div class="bg-white/10 rounded-xl p-3">
         <p class="text-xs text-blue-300">Cash on Hand</p>
-        <p class="text-sm font-semibold text-white mt-0.5">{% set v = summary.cash_on_hand %}{% if v|abs >= 1000000000 %}{{ "%.2f"|format(v/1000000000) }}B{% elif v|abs >= 1000000 %}{{ "%.0f"|format(v/1000000) }}M{% else %}{{ "{:,.0f}".format(v) }}{% endif %} ₫</p>
+        <p class="text-sm font-semibold text-white mt-0.5">{{ summary.cash_on_hand | currency_abbrev }}</p>
       </div>
       <div class="bg-white/10 rounded-xl p-3">
         <p class="text-xs text-blue-300">Active Savings</p>
-        <p class="text-sm font-semibold text-white mt-0.5">{% set v = summary.total_savings %}{% if v >= 1000000000 %}{{ "%.2f"|format(v/1000000000) }}B{% elif v >= 1000000 %}{{ "%.0f"|format(v/1000000) }}M{% else %}{{ "{:,.0f}".format(v) }}{% endif %} ₫</p>
+        <p class="text-sm font-semibold text-white mt-0.5">{{ summary.total_savings | currency_abbrev }}</p>
       </div>
       <div class="bg-white/10 rounded-xl p-3">
         <p class="text-xs text-blue-300">Real Estate Equity</p>
-        <p class="text-sm font-semibold text-white mt-0.5">{% set v = summary.total_projects_paid %}{% if v >= 1000000000 %}{{ "%.2f"|format(v/1000000000) }}B{% elif v >= 1000000 %}{{ "%.0f"|format(v/1000000) }}M{% else %}{{ "{:,.0f}".format(v) }}{% endif %} ₫</p>
+        <p class="text-sm font-semibold text-white mt-0.5">{{ summary.total_projects_paid | currency_abbrev }}</p>
       </div>
       <div class="bg-white/10 rounded-xl p-3">
         <p class="text-xs text-blue-300">Other Assets</p>
-        <p class="text-sm font-semibold text-white mt-0.5">{% set v = summary.total_assets_current %}{% if v >= 1000000000 %}{{ "%.2f"|format(v/1000000000) }}B{% elif v >= 1000000 %}{{ "%.0f"|format(v/1000000) }}M{% else %}{{ "{:,.0f}".format(v) }}{% endif %} ₫</p>
+        <p class="text-sm font-semibold text-white mt-0.5">{{ summary.total_assets_current | currency_abbrev }}</p>
       </div>
       <!-- col-span-2 on mobile so the 5th item fills the row instead of leaving a gap -->
       <div class="bg-white/10 rounded-xl p-3 col-span-2 sm:col-span-1">

@@ -6,10 +6,15 @@ from sqlalchemy.orm import Session
 
 from app.models.database import get_db, SavingsBundle, SavingsStatus
 from app.routers.fragments._helpers import render_fragment
+from app.services.currency_format import CURRENCIES, DEFAULT_CURRENCY, inject_currency
+from app.services.currency_format import register as register_currency_filters
 from app.services.settings_service import get_settings_bulk, set_setting
 
 router = APIRouter()
 templates = Jinja2Templates(directory="app/templates")
+
+register_currency_filters(templates.env)
+templates.context_processors.append(inject_currency)
 
 
 def _get_all_settings(db: Session) -> dict:
@@ -26,6 +31,7 @@ def _get_all_settings(db: Session) -> dict:
             "savings_target_pct": "25",
             "fi_target_vnd": "",
             "baby_fund_bundle_id": "",
+            "display_currency": DEFAULT_CURRENCY,
         },
     )
 
@@ -74,6 +80,7 @@ def _get_all_settings(db: Session) -> dict:
         **ocr,
         **thresholds,
         "savings_bundles": [{"id": r.id, "name": r.name} for r in savings_bundles],
+        "currencies": [{"code": code, "label": cfg["label"]} for code, cfg in CURRENCIES.items()],
         # masks: show placeholder bullet if a secret is already set
         "imap_password_set": bool(email["imap_password"]),
         "telegram_bot_token_set": bool(telegram["telegram_bot_token"]),
@@ -95,6 +102,9 @@ async def save_general(request: Request, db: Session = Depends(get_db)):
     for key in ("savings_target_pct", "fi_target_vnd", "baby_fund_bundle_id"):
         if key in form:
             set_setting(db, key, str(form[key]).strip())
+    currency = str(form.get("display_currency", "")).strip().upper()
+    if currency in CURRENCIES:
+        set_setting(db, "display_currency", currency)
     return render_fragment(request, "settings/_saved.html", {}, toast="General settings saved")
 
 

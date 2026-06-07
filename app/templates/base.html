@@ -12,6 +12,36 @@
             }
         })();
     </script>
+
+    <!-- Display currency: drives all client-side amount formatting (cosmetic only — no conversion) -->
+    <script>
+        window.DISPLAY_CURRENCY = "{{ display_currency | default('VND') }}";
+        window.CURRENCY_CONFIG = {
+            VND: { symbol: '₫', position: 'suffix', locale: 'vi-VN', code: 'VND' },
+            USD: { symbol: '$', position: 'prefix', locale: 'en-US', code: 'USD' },
+            EUR: { symbol: '€', position: 'suffix', locale: 'de-DE', code: 'EUR' }
+        };
+        window.currencyConfig = function() {
+            return window.CURRENCY_CONFIG[window.DISPLAY_CURRENCY] || window.CURRENCY_CONFIG.VND;
+        };
+        // Locale-formatted amount with the active currency's symbol — no decimals (amounts are whole units, not converted)
+        window.formatAmount = function(amount) {
+            var cfg = window.currencyConfig();
+            return new Intl.NumberFormat(cfg.locale, {
+                style: 'currency', currency: cfg.code, minimumFractionDigits: 0, maximumFractionDigits: 0
+            }).format(amount);
+        };
+        // Abbreviated B/M form for large figures, e.g. "1.23B ₫" / "$1.23B"
+        window.formatAmountAbbrev = function(amount) {
+            var cfg = window.currencyConfig();
+            var abs = Math.abs(amount);
+            var num;
+            if (abs >= 1e9) num = (amount / 1e9).toFixed(2) + 'B';
+            else if (abs >= 1e6) num = (amount / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
+            else num = new Intl.NumberFormat(cfg.locale, { maximumFractionDigits: 0 }).format(Math.round(amount));
+            return cfg.position === 'prefix' ? (cfg.symbol + num) : (num + ' ' + cfg.symbol);
+        };
+    </script>
     <title>{% block title %}Carange - Family Finance Tracker{% endblock %}</title>
     
     <!-- Tailwind CSS -->
@@ -654,7 +684,7 @@
 
         // ── Format utilities ──────────────────────────────────────────────────
         function formatVND(amount) {
-            return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+            return window.formatAmount(amount);
         }
 
         // Split-based date avoids UTC timezone off-by-one
