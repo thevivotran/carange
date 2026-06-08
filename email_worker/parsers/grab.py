@@ -45,15 +45,17 @@ _EN_MONTHS = {
 }
 
 # ─── Profile detection ────────────────────────────────────────────────────────
-# Matches Profile / Hồ sơ line followed by an accepted profile value.
+# Matches Profile / Hồ sơ / Tag line followed by an accepted profile value.
 # Accepted: PERSONAL, Cá nhân, FAMILY, Gia đình
+# Tip receipts label the account "Tag" instead of "Profile"/"Hồ sơ".
 _PERSONAL_RE = re.compile(
-    r"(?:Profile|Hồ\s*sơ)\s*\n\s*(?:PERSONAL|CÁ\s*NHÂN|Cá\s*nhân|FAMILY|GIA\s*ĐÌNH|Gia\s*đình)",
+    r"(?:Profile|Hồ\s*sơ|Tag)\s*\n\s*(?:PERSONAL|CÁ\s*NHÂN|Cá\s*nhân|FAMILY|GIA\s*ĐÌNH|Gia\s*đình)",
     re.IGNORECASE,
 )
 
 # ─── Service-type signals ─────────────────────────────────────────────────────
 _FOOD_RE = re.compile(r"Chúc bạn ngon miệng|BẠN TRẢ|Đặt từ", re.IGNORECASE)
+_TIP_RE = re.compile(r'bắn\s*"?típ"?\s*cho bác tài|Tiền tip', re.IGNORECASE)
 _EXPRESS_RE = re.compile(r"\bExpress\b|\bGrabExpress\b", re.IGNORECASE)
 _TRANSPORT_RE = re.compile(
     r"Hope you enjoyed your ride|Hy vọng bạn đã có một chuyến đi",
@@ -81,6 +83,8 @@ _TRANSPORT_AMT_EN = re.compile(
 )
 # Transport VN: "Tổng đã thanh toán VND 69.000"
 _TRANSPORT_AMT_VN = re.compile(r"Tổng đã thanh toán\s+VND\s+([0-9][0-9.]*)", re.IGNORECASE)
+# Tip: "Tổng cộng\nVND 30000" — VND prefix, no thousands separators
+_TIP_AMT_RE = re.compile(r"Tổng cộng\s+VND\s+([0-9][0-9.,]*)", re.IGNORECASE)
 
 # ─── Date patterns ────────────────────────────────────────────────────────────
 # Food / short: "17 May 26 18:19" or "30 May 26 18:26"
@@ -112,6 +116,8 @@ class GrabParser(BaseEmailParser):
 
         if _FOOD_RE.search(body_text):
             return self._parse_food(body_text)
+        if _TIP_RE.search(body_text):
+            return self._parse_tip(body_text)
         if _EXPRESS_RE.search(body_text):
             return self._parse_express(body_text)
         if _TRANSPORT_RE.search(body_text):
@@ -172,6 +178,30 @@ class GrabParser(BaseEmailParser):
                 tx_type="expense",
                 description=desc,
                 confidence=0.90,
+                category_hint="Di chuyển",
+            )
+        ]
+
+    # ── Tip ───────────────────────────────────────────────────────────────────
+
+    def _parse_tip(self, text: str) -> list[ParsedEmailTransaction]:
+        m = _TIP_AMT_RE.search(text)
+        if not m:
+            return []
+        amount = self._clean_amount(m.group(1))
+        if not amount:
+            return []
+
+        service_type = self._extract_service_type(text)
+        desc = f"Grab {service_type} Tip" if service_type else "Grab Tip"
+
+        return [
+            ParsedEmailTransaction(
+                date=self._extract_date_transport(text) or self._extract_date_short(text),
+                amount=amount,
+                tx_type="expense",
+                description=desc,
+                confidence=0.88,
                 category_hint="Di chuyển",
             )
         ]

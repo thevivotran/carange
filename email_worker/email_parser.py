@@ -41,6 +41,17 @@ _FROM_HDR_RE = re.compile(
 )
 _QUOTE_RE = re.compile(r"^(>\s*)+", re.MULTILINE)
 
+# Detects text/plain parts that are actually mislabeled HTML source or CSS
+# rule fragments — seen from senders like Payoo whose multipart/alternative
+# emails ship broken "plain text" alternatives alongside a good text/html part.
+_MARKUP_SOUP_RE = re.compile(
+    r"<!doctype\s+html|<html[\s>]|<body[\s>]|<table[\s>]|<tbody[\s>]|<tr[\s>]|"
+    r"<td[\s>]|<div[\s>]|<style[\s>]|<span[\s>]|"
+    r"[.#]?[\w-]+\s*\{[^{}]*:[^{}]*\}|"
+    r"@media\b|@font-face\b",
+    re.IGNORECASE,
+)
+
 
 def _unwrap_forwarded(body_text: str) -> tuple[str, str]:
     """Strip > quoting and extract the original sender from forwarded/reply emails.
@@ -84,12 +95,21 @@ def extract_email_parts(raw_message: bytes) -> tuple[str, str, str, str, str]:
     body_html = ""
 
     if msg.is_multipart():
+        plain_parts = []
         for part in msg.walk():
             ct = part.get_content_type()
-            if ct == "text/plain" and not body_text:
-                body_text = _decode_part(part)
+            if ct == "text/plain":
+                plain_parts.append(_decode_part(part))
             elif ct == "text/html" and not body_html:
                 body_html = _decode_part(part)
+
+        # Prefer the first plain part that looks like real prose. Some senders
+        # (e.g. Payoo) ship multipart/alternative messages where every
+        # text/plain alternative is mislabeled HTML/CSS soup — in that case
+        # fall through to converting the text/html part below.
+        body_text = next((t for t in plain_parts if t.strip() and not _looks_like_markup_soup(t)), "")
+        if not body_text and plain_parts and not body_html:
+            body_text = plain_parts[0]
     else:
         ct = msg.get_content_type()
         if ct == "text/html":
@@ -130,6 +150,19 @@ def _decode_part(part: Message) -> str:
         return payload.decode(charset, errors="replace")
     except (LookupError, UnicodeDecodeError):
         return payload.decode("utf-8", errors="replace")
+
+
+def _looks_like_markup_soup(text: str) -> bool:
+    """True when a "text/plain" part is actually mislabeled HTML source or
+    CSS rule fragments rather than human-readable prose.
+
+    A handful of incidental matches (e.g. one stray ``<div>`` quoted from a
+    forwarded HTML snippet) is normal in real plaintext; dense markup/CSS
+    indicates the whole part is unusable soup.
+    """
+    if not text.strip():
+        return True
+    return len(_MARKUP_SOUP_RE.findall(text)) >= 3
 
 
 def _html_to_text(html: str) -> str:

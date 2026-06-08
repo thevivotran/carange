@@ -1,6 +1,8 @@
 """Tests for the email_worker parsers — Timo, VNPay, UOB, and Grab."""
 
 from datetime import date
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 from email_worker.parsers.timo import TimoParser
 
@@ -307,6 +309,40 @@ class TestGrabTransportRoute:
         results = self.parser._parse_transport(_GRAB_BIKE_BODY, _GRAB_RIDE_HTML)
         assert results[0].description == ('Grab Bike Plus: "482/10/26F1 Nơ Trang Long" - "Ốc Đào - Trường Sa"')
 
+
+# ── GrabParser: tip receipts ──────────────────────────────────────────────────
+
+_GRAB_TIP_BODY = (
+    "Car Plus\n"
+    'Cảm ơn bạn đã bắn "típ" cho bác tài!\n'
+    "07 Jun 26 22:55 +0700\n"
+    "Tổng cộng\n\n\nVND 30000\n"
+    "Tiền tip\n"
+    "Ngày đi: 07 Jun 26 22:55 +0700\n"
+    "Tag\nFAMILY\n"
+)
+
+
+class TestGrabTip:
+    def setup_method(self):
+        from email_worker.parsers.grab import GrabParser
+
+        self.parser = GrabParser()
+
+    def test_tip_parsed_via_parse(self):
+        # Tip receipts label the account "Tag" rather than "Profile"/"Hồ sơ" —
+        # parse() must not be gated out by the personal/family detection.
+        results = self.parser.parse("no-reply@grab.com", "Your Grab E-Receipt", _GRAB_TIP_BODY, "")
+        assert len(results) == 1
+        assert results[0].amount == 30_000
+        assert results[0].description == "Grab Car Plus Tip"
+        assert results[0].category_hint == "Di chuyển"
+        assert results[0].tx_type == "expense"
+
+    def test_tip_amount_parsed(self):
+        results = self.parser._parse_tip(_GRAB_TIP_BODY)
+        assert results[0].amount == 30_000
+
     def test_transport_description_fallback_without_html(self):
         results = self.parser._parse_transport(_GRAB_BIKE_BODY, "")
         assert len(results) == 1
@@ -315,3 +351,96 @@ class TestGrabTransportRoute:
     def test_amount_still_parsed_correctly(self):
         results = self.parser._parse_transport(_GRAB_BIKE_BODY, _GRAB_RIDE_HTML)
         assert results[0].amount == 28_000
+
+
+# ── extract_email_parts: malformed multipart/alternative (Payoo-style) ────────
+#
+# Payoo ships multipart/alternative messages where every text/plain
+# alternative is mislabeled HTML source or CSS rule soup, not real prose.
+# extract_email_parts() must skip those and derive body_text from body_html.
+
+_GOOD_HTML = (
+    "<!DOCTYPE html><html><body>"
+    "<p>Kính chào Quý khách,</p>"
+    "<p>Quý khách đã thanh toán thành công đơn hàng 1228000196261, "
+    "số tiền 39.200 VND vào lúc 08/06/2026 08:43:18.</p>"
+    "<table><tr><td>Tổng thanh toán (VND)</td><td>39.200</td></tr></table>"
+    "</body></html>"
+)
+
+_RAW_HTML_MISLABELED_AS_PLAIN = (
+    "<!DOCTYPE html><html><head><style>body{font-size:14px}</style></head>"
+    "<body><table><tr><td>Tổng thanh toán (VND)</td><td>39.200</td></tr></table></body></html>"
+)
+
+_CSS_SOUP_MISLABELED_AS_PLAIN = (
+    " auto; border: 1px solid #ECECEC; margin: 0 auto; padding: 20px}\r\n"
+    "        .footer .support .support_item {padding: 15px 11px 10px}\r\n"
+    "        .footer .support .support_icon {width: 20px; height: 20px}\r\n"
+    "        .header .logo {display: block; margin: 0 auto}\r\n"
+)
+
+
+def _build_alternative_message(plain_parts: list[str], html: str | None) -> bytes:
+    msg = MIMEMultipart("alternative")
+    for text in plain_parts:
+        msg.attach(MIMEText(text, "plain", "utf-8"))
+    if html is not None:
+        msg.attach(MIMEText(html, "html", "utf-8"))
+    return msg.as_bytes()
+
+
+class TestExtractEmailPartsMarkupSoup:
+    def test_skips_garbage_plain_parts_and_uses_html(self):
+        from email_worker.email_parser import extract_email_parts
+
+        raw = _build_alternative_message(
+            [_RAW_HTML_MISLABELED_AS_PLAIN, _CSS_SOUP_MISLABELED_AS_PLAIN],
+            _GOOD_HTML,
+        )
+        _, _, _, body_text, body_html = extract_email_parts(raw)
+
+        assert "Kính chào Quý khách" in body_text
+        assert "<table>" not in body_text
+        assert "{" not in body_text
+        assert "<table>" in body_html
+
+    def test_keeps_real_plain_text_when_present(self):
+        from email_worker.email_parser import extract_email_parts
+
+        real_plain = "Kính chào Quý khách,\nQuý khách đã thanh toán thành công đơn hàng 123, số tiền 10.000 VND."
+        raw = _build_alternative_message([real_plain], _GOOD_HTML)
+        _, _, _, body_text, _ = extract_email_parts(raw)
+
+        assert body_text == real_plain
+
+    def test_falls_back_to_first_plain_part_when_no_html(self):
+        from email_worker.email_parser import extract_email_parts
+
+        raw = _build_alternative_message([_CSS_SOUP_MISLABELED_AS_PLAIN], None)
+        _, _, _, body_text, body_html = extract_email_parts(raw)
+
+        assert body_text == _CSS_SOUP_MISLABELED_AS_PLAIN
+        assert body_html == ""
+
+
+class TestLooksLikeMarkupSoup:
+    def test_detects_html_source(self):
+        from email_worker.email_parser import _looks_like_markup_soup
+
+        assert _looks_like_markup_soup(_RAW_HTML_MISLABELED_AS_PLAIN) is True
+
+    def test_detects_css_rule_soup(self):
+        from email_worker.email_parser import _looks_like_markup_soup
+
+        assert _looks_like_markup_soup(_CSS_SOUP_MISLABELED_AS_PLAIN) is True
+
+    def test_real_prose_is_not_soup(self):
+        from email_worker.email_parser import _looks_like_markup_soup
+
+        assert _looks_like_markup_soup("Kính chào Quý khách, đơn hàng của bạn đã được thanh toán.") is False
+
+    def test_empty_text_is_soup(self):
+        from email_worker.email_parser import _looks_like_markup_soup
+
+        assert _looks_like_markup_soup("   \n  ") is True
