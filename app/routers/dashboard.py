@@ -12,7 +12,7 @@ from app.models.database import (
     TransactionType,
 )
 from app.models.schemas import DashboardSummary
-from app.services.dashboard_service import get_dashboard_data
+from app.services.dashboard_service import get_dashboard_data, get_kpi_role_category_ids
 
 router = APIRouter()
 
@@ -220,21 +220,10 @@ def get_wealth_building_trend(db: Session = Depends(get_db)):
     )
     income_map = {(int(r.year), int(r.month)): float(r.income or 0) for r in income_rows}
 
-    # Use is_wealth_building flag instead of hardcoded names
-    tiet_kiem_ids = [
-        r[0]
-        for r in db.query(Category.id)
-        .filter(Category.name == "Tiết kiệm", Category.type == TransactionType.EXPENSE)
-        .all()
-    ]
-    bds_ids = [
-        r[0]
-        for r in db.query(Category.id)
-        .filter(Category.name == "Bất động sản", Category.type == TransactionType.EXPENSE)
-        .all()
-    ]
-    tk_filter = Transaction.category_id.in_(tiet_kiem_ids) if tiet_kiem_ids else sqla_false()
-    bds_filter_wbt = Transaction.category_id.in_(bds_ids) if bds_ids else sqla_false()
+    # Resolve KPI bucket category IDs from explicit role assignments.
+    kpi_ids = get_kpi_role_category_ids(db)
+    tk_filter = Transaction.category_id.in_(kpi_ids["liquid_savings"]) if kpi_ids["liquid_savings"] else sqla_false()
+    bds_filter_wbt = Transaction.category_id.in_(kpi_ids["real_estate"]) if kpi_ids["real_estate"] else sqla_false()
 
     rows = (
         db.query(

@@ -215,7 +215,12 @@ def expense_cat(db_session):
 def tiet_kiem_cat(db_session):
     """Tiết kiệm expense category — used for savings rate calculation."""
     cat = Category(
-        name="Tiết kiệm", type=TransactionType.EXPENSE, color="#3B82F6", icon="piggy-bank", is_wealth_building=True
+        name="Tiết kiệm",
+        type=TransactionType.EXPENSE,
+        color="#3B82F6",
+        icon="piggy-bank",
+        is_wealth_building=True,
+        kpi_role="liquid_savings",
     )
     db_session.add(cat)
     db_session.commit()
@@ -227,7 +232,12 @@ def tiet_kiem_cat(db_session):
 def bds_cat(db_session):
     """Bất động sản expense category — used for savings rate and critical check."""
     cat = Category(
-        name="Bất động sản", type=TransactionType.EXPENSE, color="#8B5CF6", icon="home", is_wealth_building=True
+        name="Bất động sản",
+        type=TransactionType.EXPENSE,
+        color="#8B5CF6",
+        icon="home",
+        is_wealth_building=True,
+        kpi_role="real_estate",
     )
     db_session.add(cat)
     db_session.commit()

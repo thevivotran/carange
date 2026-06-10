@@ -159,6 +159,7 @@ class Category(Base):
     is_active = Column(Boolean, default=True)
     is_wealth_building = Column(Boolean, default=False, nullable=False, server_default="0")
     is_passive_income = Column(Boolean, default=False, nullable=False, server_default="0")
+    kpi_role = Column(String(20), nullable=True)  # "liquid_savings" | "real_estate"
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     transactions = relationship("Transaction", back_populates="category")

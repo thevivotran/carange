@@ -1,0 +1,49 @@
+<form hx-post="/settings/kpi-terms"
+      hx-target="#kpi-terms-card"
+      hx-swap="outerHTML">
+  <p class="text-xs text-muted mb-3">
+    Assign each expense category to a KPI bucket. Categories in a bucket are counted
+    toward that metric (e.g. Savings Rate) and excluded from "Living Expense".
+    A category can belong to at most one bucket.
+  </p>
+
+  {% set roles = [
+    ("", "— None (Living Expense) —"),
+    ("liquid_savings", "Liquid Savings (Tiết kiệm)"),
+    ("real_estate", "Real Estate (Bất động sản)"),
+  ] %}
+
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b text-left text-xs text-muted">
+          <th class="pb-2 pr-4 font-medium">Category</th>
+          <th class="pb-2 w-60 font-medium">KPI Role</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for cat in kpi_expense_categories %}
+        <tr class="border-b last:border-0">
+          <td class="py-2 pr-4 font-medium">{{ cat.name }}</td>
+          <td class="py-2">
+            <select name="role_{{ cat.id }}"
+                    class="border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand w-full">
+              {% for value, label in roles %}
+              <option value="{{ value }}" {% if cat.kpi_role == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="flex items-center gap-4 mt-6">
+    <button type="submit"
+            class="px-5 py-2 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-brand-hover transition">
+      Save
+    </button>
+    <span id="kpi-terms-status"></span>
+  </div>
+</form>

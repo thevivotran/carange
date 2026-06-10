@@ -151,6 +151,30 @@ def _mv_sum(
     return total
 
 
+VALID_KPI_ROLES = ("liquid_savings", "real_estate")
+
+
+def get_kpi_role_category_ids(db: Session) -> dict[str, list[int]]:
+    """Return category IDs grouped by their KPI role.
+
+    Keys are 'liquid_savings' and 'real_estate'; values are lists of expense
+    category IDs. Only expense categories with a role are returned.
+    """
+    result: dict[str, list[int]] = {"liquid_savings": [], "real_estate": []}
+    rows = (
+        db.query(Category.id, Category.kpi_role)
+        .filter(
+            Category.kpi_role.isnot(None),
+            Category.type == TransactionType.EXPENSE,
+        )
+        .all()
+    )
+    for cat_id, role in rows:
+        if role in result:
+            result[role].append(cat_id)
+    return result
+
+
 def _schedule_matview_refresh() -> None:
     """Fire-and-forget REFRESH MATERIALIZED VIEW CONCURRENTLY (PostgreSQL only).
 
@@ -270,23 +294,14 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     _, last_day = monthrange(current_year, current_month)
     month_end = date(current_year, current_month, last_day)
 
-    from sqlalchemy import false as sqla_false
+    from sqlalchemy import false as sqla_false, true as sqla_true
 
-    # Category IDs for wealth-building filters
-    tiet_kiem_ids = [
-        r[0]
-        for r in db.query(Category.id)
-        .filter(Category.name == "Tiết kiệm", Category.type == TransactionType.EXPENSE)
-        .all()
-    ]
-    bds_ids = [
-        r[0]
-        for r in db.query(Category.id)
-        .filter(Category.name == "Bất động sản", Category.type == TransactionType.EXPENSE)
-        .all()
-    ]
-    tiet_kiem_set = set(tiet_kiem_ids)
-    bds_set = set(bds_ids)
+    # Resolve KPI bucket category IDs from explicit role assignments.
+    kpi_ids = get_kpi_role_category_ids(db)
+    ls_set = set(kpi_ids["liquid_savings"])
+    re_set = set(kpi_ids["real_estate"])
+    # Bucket categories are excluded from "living expense" (ordinary spending).
+    bucket_set = ls_set | re_set
 
     # ── Aggregates ────────────────────────────────────────────────────────────
     # Fast path: read from mv_monthly_totals (pre-aggregated, refreshed async).
@@ -295,17 +310,26 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
 
     if mv_rows is not None:
         monthly_income = _mv_sum(mv_rows, month=month_start, type_val="income", savings=False)
-        monthly_expense = _mv_sum(mv_rows, month=month_start, type_val="expense", savings=False)
-        monthly_savings = _mv_sum(mv_rows, month=month_start, type_val="expense", savings=True)
-        monthly_tiet_kiem = (
-            _mv_sum(mv_rows, month=month_start, type_val="expense", cat_ids=tiet_kiem_set) if tiet_kiem_ids else 0.0
+        # All non-savings expense (incl. bucket categories) — used for net cash.
+        monthly_expense_full = _mv_sum(mv_rows, month=month_start, type_val="expense", savings=False)
+        # Living expense for display/ratios excludes the KPI bucket categories.
+        monthly_expense = (
+            monthly_expense_full
+            - _mv_sum(mv_rows, month=month_start, type_val="expense", savings=False, cat_ids=bucket_set)
+            if bucket_set
+            else monthly_expense_full
         )
-        monthly_bds = _mv_sum(mv_rows, month=month_start, type_val="expense", cat_ids=bds_set) if bds_ids else 0.0
+        monthly_savings = _mv_sum(mv_rows, month=month_start, type_val="expense", savings=True)
+        monthly_tiet_kiem = _mv_sum(mv_rows, month=month_start, type_val="expense", cat_ids=ls_set) if ls_set else 0.0
+        monthly_bds = _mv_sum(mv_rows, month=month_start, type_val="expense", cat_ids=re_set) if re_set else 0.0
         total_income_all = _mv_sum(mv_rows, type_val="income", savings=False)
         total_expense_all = _mv_sum(mv_rows, type_val="expense")
     else:
-        tk_filter = Transaction.category_id.in_(tiet_kiem_ids) if tiet_kiem_ids else sqla_false()
-        bds_filter = Transaction.category_id.in_(bds_ids) if bds_ids else sqla_false()
+        tk_filter = (
+            Transaction.category_id.in_(kpi_ids["liquid_savings"]) if kpi_ids["liquid_savings"] else sqla_false()
+        )
+        bds_filter = Transaction.category_id.in_(kpi_ids["real_estate"]) if kpi_ids["real_estate"] else sqla_false()
+        bucket_filter = ~Transaction.category_id.in_(bucket_set) if bucket_set else sqla_true()
 
         def _month_case(type_val, savings_val, extra=None):
             conds = [
@@ -328,7 +352,8 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
 
         _agg = db.query(
             _month_case(TransactionType.INCOME, False).label("monthly_income"),
-            _month_case(TransactionType.EXPENSE, False).label("monthly_expense"),
+            _month_case(TransactionType.EXPENSE, False, bucket_filter).label("monthly_expense"),
+            _month_case(TransactionType.EXPENSE, False).label("monthly_expense_full"),
             _month_case(TransactionType.EXPENSE, True).label("monthly_savings"),
             _month_case(TransactionType.EXPENSE, None, tk_filter).label("monthly_tiet_kiem"),
             _month_case(TransactionType.EXPENSE, None, bds_filter).label("monthly_bds"),
@@ -337,6 +362,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         ).first()
         monthly_income = float(_agg.monthly_income or 0)
         monthly_expense = float(_agg.monthly_expense or 0)
+        monthly_expense_full = float(_agg.monthly_expense_full or 0)
         monthly_savings = float(_agg.monthly_savings or 0)
         monthly_tiet_kiem = float(_agg.monthly_tiet_kiem or 0)
         monthly_bds = float(_agg.monthly_bds or 0)
@@ -361,17 +387,24 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
 
     if mv_rows is not None:
         _pi = _mv_sum(mv_rows, month=prev_month_start, type_val="income", savings=False)
-        _pe = _mv_sum(mv_rows, month=prev_month_start, type_val="expense", savings=False)
+        # Full non-savings expense (incl. buckets) for net cash; bucket-excluded for the ratio.
+        _pe_full = _mv_sum(mv_rows, month=prev_month_start, type_val="expense", savings=False)
+        _pe = (
+            _pe_full - _mv_sum(mv_rows, month=prev_month_start, type_val="expense", savings=False, cat_ids=bucket_set)
+            if bucket_set
+            else _pe_full
+        )
         _ps = _mv_sum(mv_rows, month=prev_month_start, type_val="expense", savings=True)
         _prev_tiet_kiem = (
-            _mv_sum(mv_rows, month=prev_month_start, type_val="expense", cat_ids=tiet_kiem_set)
-            if tiet_kiem_ids
-            else 0.0
+            _mv_sum(mv_rows, month=prev_month_start, type_val="expense", cat_ids=ls_set) if ls_set else 0.0
         )
-        _prev_bds = _mv_sum(mv_rows, month=prev_month_start, type_val="expense", cat_ids=bds_set) if bds_ids else 0.0
+        _prev_bds = _mv_sum(mv_rows, month=prev_month_start, type_val="expense", cat_ids=re_set) if re_set else 0.0
     else:
-        tk_filter = Transaction.category_id.in_(tiet_kiem_ids) if tiet_kiem_ids else sqla_false()
-        bds_filter = Transaction.category_id.in_(bds_ids) if bds_ids else sqla_false()
+        tk_filter = (
+            Transaction.category_id.in_(kpi_ids["liquid_savings"]) if kpi_ids["liquid_savings"] else sqla_false()
+        )
+        bds_filter = Transaction.category_id.in_(kpi_ids["real_estate"]) if kpi_ids["real_estate"] else sqla_false()
+        bucket_filter = ~Transaction.category_id.in_(bucket_set) if bucket_set else sqla_true()
 
         def _prev_case(type_val, savings_val, extra=None):
             conds = [
@@ -388,20 +421,22 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
 
         _prev = db.query(
             _prev_case(TransactionType.INCOME, False).label("income"),
-            _prev_case(TransactionType.EXPENSE, False).label("expense"),
+            _prev_case(TransactionType.EXPENSE, False, bucket_filter).label("expense"),
+            _prev_case(TransactionType.EXPENSE, False).label("expense_full"),
             _prev_case(TransactionType.EXPENSE, True).label("savings"),
             _prev_case(TransactionType.EXPENSE, None, tk_filter).label("tiet_kiem"),
             _prev_case(TransactionType.EXPENSE, None, bds_filter).label("bds"),
         ).first()
         _pi = float(_prev.income or 0)
         _pe = float(_prev.expense or 0)
+        _pe_full = float(_prev.expense_full or 0)
         _ps = float(_prev.savings or 0)
         _prev_tiet_kiem = float(_prev.tiet_kiem or 0)
         _prev_bds = float(_prev.bds or 0)
 
     prev_liquid_savings_rate = round(_prev_tiet_kiem / _pi * 100, 1) if _pi > 0 else 0
     prev_bds_rate = round(_prev_bds / _pi * 100, 1) if _pi > 0 else 0
-    prev_net_cash = _pi - _pe - _ps
+    prev_net_cash = _pi - _pe_full - _ps
     prev_living_expense_ratio = round(_pe / _pi * 100, 1) if _pi > 0 else 0
 
     # ── Project amounts by type ───────────────────────────────────────────────
@@ -798,7 +833,9 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         )
 
     # ── Family Safety Score checks (shared by initial render and HTMX refresh) ──
-    _net_this_month = monthly_income - monthly_expense - monthly_savings
+    # Net cash uses full non-savings expense (incl. KPI bucket categories), not the
+    # bucket-excluded living-expense figure, so bucket spend isn't double-counted away.
+    _net_this_month = monthly_income - monthly_expense_full - monthly_savings
     check_income = monthly_income > 0
     check_bds = monthly_bds > 0
     check_tk = liquid_savings_rate >= savings_target_pct

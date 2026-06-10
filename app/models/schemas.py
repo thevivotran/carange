@@ -29,6 +29,7 @@ class CategoryBase(BaseModel):
     is_active: bool = True
     is_wealth_building: bool = False
     is_passive_income: bool = False
+    kpi_role: Optional[str] = None
 
 
 class CategoryCreate(CategoryBase):
