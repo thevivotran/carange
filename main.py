@@ -23,8 +23,9 @@ from app.routers import review as review_router
 from app.routers import rules as rules_router
 from app.routers import payees as payees_router
 from app.routers import settings as settings_router
+from app.routers import profiles as profiles_router
 from app.routers.dashboard import get_dashboard_page_data
-from app.services.dashboard_layout import get_visible_sections
+from app.middleware import ProfileMiddleware
 from app.services.settings_service import get_setting
 from app.routers.fragments import transactions as frag_transactions
 from app.routers.fragments import dashboard as frag_dashboard
@@ -55,6 +56,8 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Carange - Family Finance Tracker", lifespan=lifespan)
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
+# Resolves the household profile cookie and gates non-public routes
+app.add_middleware(ProfileMiddleware)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
@@ -123,6 +126,7 @@ app.include_router(review_router.router, prefix="/api/review")
 app.include_router(rules_router.router, prefix="/api/rules")
 app.include_router(payees_router.router, prefix="/api/payees")
 app.include_router(settings_router.router, prefix="/settings")
+app.include_router(profiles_router.router, prefix="/profiles")
 
 # Fragment routers (HTML partials for HTMX)
 app.include_router(frag_transactions.router, prefix="/fragments/transactions", tags=["fragments"])
@@ -155,7 +159,7 @@ async def dashboard_page(request: Request, db: Session = Depends(get_db)):
         "dashboard.html",
         {
             "active_menu": "dashboard",
-            "visible_sections": get_visible_sections(db),
+            "visible_sections": request.state.visible_sections,
             "show_onboarding": show_onboarding,
             **data,
         },

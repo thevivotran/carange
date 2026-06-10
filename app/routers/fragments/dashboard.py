@@ -5,7 +5,6 @@ from typing import Optional
 
 from app.models.database import get_db
 from app.routers.fragments._helpers import render_fragment
-from app.services.dashboard_layout import get_visible_sections
 from app.services.dashboard_service import get_dashboard_data
 from app.services.settings_service import set_setting
 
@@ -61,7 +60,7 @@ def fragment_kpi_cards(
         "partials/dashboard/_kpi_cards.html",
         {
             "summary": s,
-            "visible_sections": get_visible_sections(db),
+            "visible_sections": request.state.visible_sections,
             "liquid_delta": s["liquid_savings_rate"] - s["prev_liquid_savings_rate"],
             "bds_delta": s["bds_rate"] - s["prev_bds_rate"],
             "net_delta": s["net_this_month"] - s["prev_net_cash"],

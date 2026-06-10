@@ -4,12 +4,28 @@ from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.models.database import Setting
+from app.models.database import Setting, UserSetting
 
 
 def get_setting(db: Session, key: str, default: Optional[str] = None) -> Optional[str]:
     row = db.query(Setting).filter(Setting.key == key).first()
     return row.value if row else default
+
+
+def get_user_setting(db: Session, user_id: int, key: str, default: Optional[str] = None) -> Optional[str]:
+    row = db.query(UserSetting).filter(UserSetting.user_id == user_id, UserSetting.key == key).first()
+    return row.value if row else default
+
+
+def set_user_setting(db: Session, user_id: int, key: str, value: str) -> None:
+    row = db.query(UserSetting).filter(UserSetting.user_id == user_id, UserSetting.key == key).first()
+    now = datetime.now(timezone.utc)
+    if row:
+        row.value = value
+        row.updated_at = now
+    else:
+        db.add(UserSetting(user_id=user_id, key=key, value=value, updated_at=now))
+    db.commit()
 
 
 def set_setting(db: Session, key: str, value: str) -> None:

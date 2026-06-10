@@ -165,29 +165,45 @@ def test_settings_ocr_post(client):
     assert "HX-Trigger" in r.headers
 
 
-def test_settings_dashboard_post(client):
+def test_settings_dashboard_preset_quick_apply(client, db_session, profile_row):
+    from app.services.dashboard_layout import get_user_sections
+
     r = client.post(
         "/settings/dashboard",
-        data={"dashboard_layout": "simple"},
+        data={"preset": "simple"},
         headers={"HX-Request": "true"},
     )
     assert r.status_code == 200
     assert "HX-Trigger" in r.headers
+    assert get_user_sections(db_session, profile_row.id) == frozenset()
 
     page = client.get("/settings")
-    assert 'value="simple" checked' in page.text or "checked" in page.text
+    assert 'name="sections"' in page.text
 
 
-def test_settings_dashboard_post_invalid_preset_ignored(client, db_session):
-    from app.services.dashboard_layout import get_dashboard_preset
+def test_settings_dashboard_post_checkbox_toggles(client, db_session, profile_row):
+    from app.services.dashboard_layout import get_user_sections
 
     r = client.post(
         "/settings/dashboard",
-        data={"dashboard_layout": "bogus"},
+        data={"sections": ["cash_flow", "stress_test"]},
         headers={"HX-Request": "true"},
     )
     assert r.status_code == 200
-    assert get_dashboard_preset(db_session) != "bogus"
+    assert "HX-Trigger" in r.headers
+    assert get_user_sections(db_session, profile_row.id) == frozenset({"cash_flow", "stress_test"})
+
+
+def test_settings_dashboard_post_invalid_preset_treated_as_toggle_save(client, db_session, profile_row):
+    from app.services.dashboard_layout import get_user_sections
+
+    r = client.post(
+        "/settings/dashboard",
+        data={"preset": "bogus", "sections": ["cash_flow"]},
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert get_user_sections(db_session, profile_row.id) == frozenset({"cash_flow"})
 
 
 def test_settings_dashboard_goals_post(client):
@@ -203,29 +219,30 @@ def test_settings_dashboard_goals_post(client):
     assert "30" in page.text
 
 
-def test_settings_navigation_post(client, db_session):
-    from app.services.dashboard_layout import get_nav_preset
+def test_settings_navigation_preset_quick_apply(client, db_session, profile_row):
+    from app.services.dashboard_layout import NAV_CORE, get_user_nav_items
 
     r = client.post(
         "/settings/navigation",
-        data={"nav_layout": "simple"},
+        data={"preset": "simple"},
         headers={"HX-Request": "true"},
     )
     assert r.status_code == 200
     assert "HX-Trigger" in r.headers
-    assert get_nav_preset(db_session) == "simple"
+    assert get_user_nav_items(db_session, profile_row.id) == NAV_CORE
 
 
-def test_settings_navigation_post_invalid_preset_ignored(client, db_session):
-    from app.services.dashboard_layout import get_nav_preset
+def test_settings_navigation_post_checkbox_toggles(client, db_session, profile_row):
+    from app.services.dashboard_layout import NAV_CORE, get_user_nav_items
 
     r = client.post(
         "/settings/navigation",
-        data={"nav_layout": "bogus"},
+        data={"nav_items": ["pulse", "notes", "bogus"]},
         headers={"HX-Request": "true"},
     )
     assert r.status_code == 200
-    assert get_nav_preset(db_session) != "bogus"
+    assert "HX-Trigger" in r.headers
+    assert get_user_nav_items(db_session, profile_row.id) == NAV_CORE | {"pulse", "notes"}
 
 
 def test_settings_thresholds_post(client):

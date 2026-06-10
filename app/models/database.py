@@ -502,6 +502,35 @@ class Setting(Base):
     )
 
 
+class User(Base):
+    """A household profile (Netflix-style picker — no password; Tailscale is the
+    security boundary). Owns per-user UI preferences via UserSetting."""
+
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(50), unique=True, nullable=False)
+    color = Column(String(20), nullable=False, default="#2563EB")  # avatar chip color
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    last_seen_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class UserSetting(Base):
+    """Per-profile K-V preferences (e.g. nav_items, dashboard_sections).
+    Mirrors Setting, which remains the household-wide default store."""
+
+    __tablename__ = "user_settings"
+
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    key = Column(String(100), primary_key=True)
+    value = Column(Text, nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
 class InsightType(str, enum.Enum):
     WEEKLY_DIGEST = "weekly_digest"
     BUDGET_ADVISOR = "budget_advisor"

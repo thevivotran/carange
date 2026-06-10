@@ -9,17 +9,27 @@ from app.routers.fragments._helpers import render_fragment
 from app.services.currency_format import CURRENCIES, DEFAULT_CURRENCY, inject_currency
 from app.services.currency_format import register as register_currency_filters
 from app.services.dashboard_layout import (
+    NAV_ITEM_DESCRIPTIONS,
+    NAV_ITEM_LABELS,
     NAV_PRESET_DESCRIPTIONS,
     NAV_PRESET_LABELS,
     NAV_PRESETS,
     PRESET_DESCRIPTIONS,
     PRESET_LABELS,
     PRESETS,
-    get_dashboard_preset,
-    get_nav_preset,
+    SECTION_DESCRIPTIONS,
+    SECTION_LABELS,
+    TOGGLEABLE_NAV_ITEMS,
+    TOGGLEABLE_SECTIONS,
+    apply_dashboard_preset,
+    apply_nav_preset,
+    get_user_nav_items,
+    get_user_sections,
     inject_nav_items,
-    set_dashboard_preset,
-    set_nav_preset,
+    match_dashboard_preset,
+    match_nav_preset,
+    set_user_nav_items,
+    set_user_sections,
 )
 from app.services.sample_data_service import has_sample_data, load_sample_data, remove_sample_data
 from app.services.settings_service import get_settings_bulk, set_setting
@@ -32,7 +42,42 @@ templates.context_processors.append(inject_currency)
 templates.context_processors.append(inject_nav_items)
 
 
-def _get_all_settings(db: Session) -> dict:
+def _layout_context(db: Session, user_id: int) -> dict:
+    """Per-profile dashboard/nav toggle state for the two layout cards."""
+    enabled_sections = get_user_sections(db, user_id)
+    enabled_nav = get_user_nav_items(db, user_id)
+    return {
+        "dashboard_preset": match_dashboard_preset(enabled_sections) or "custom",
+        "dashboard_presets": [
+            {"key": key, "label": PRESET_LABELS[key], "description": PRESET_DESCRIPTIONS[key]} for key in PRESETS
+        ],
+        "dashboard_sections": [
+            {
+                "key": key,
+                "label": SECTION_LABELS[key],
+                "description": SECTION_DESCRIPTIONS[key],
+                "enabled": key in enabled_sections,
+            }
+            for key in TOGGLEABLE_SECTIONS
+        ],
+        "nav_preset": match_nav_preset(enabled_nav) or "custom",
+        "nav_presets": [
+            {"key": key, "label": NAV_PRESET_LABELS[key], "description": NAV_PRESET_DESCRIPTIONS[key]}
+            for key in NAV_PRESETS
+        ],
+        "nav_items": [
+            {
+                "key": key,
+                "label": NAV_ITEM_LABELS[key],
+                "description": NAV_ITEM_DESCRIPTIONS[key],
+                "enabled": key in enabled_nav,
+            }
+            for key in TOGGLEABLE_NAV_ITEMS
+        ],
+    }
+
+
+def _get_all_settings(db: Session, user_id: int) -> dict:
     savings_bundles = (
         db.query(SavingsBundle.id, SavingsBundle.name)
         .filter(SavingsBundle.status == SavingsStatus.ACTIVE, SavingsBundle.deleted_at.is_(None))
@@ -49,8 +94,6 @@ def _get_all_settings(db: Session) -> dict:
             "display_currency": DEFAULT_CURRENCY,
         },
     )
-
-    nav_preset = get_nav_preset(db)
 
     email = get_settings_bulk(
         db,
@@ -98,15 +141,7 @@ def _get_all_settings(db: Session) -> dict:
         **thresholds,
         "savings_bundles": [{"id": r.id, "name": r.name} for r in savings_bundles],
         "currencies": [{"code": code, "label": cfg["label"]} for code, cfg in CURRENCIES.items()],
-        "dashboard_preset": get_dashboard_preset(db),
-        "dashboard_presets": [
-            {"key": key, "label": PRESET_LABELS[key], "description": PRESET_DESCRIPTIONS[key]} for key in PRESETS
-        ],
-        "nav_preset": nav_preset,
-        "nav_presets": [
-            {"key": key, "label": NAV_PRESET_LABELS[key], "description": NAV_PRESET_DESCRIPTIONS[key]}
-            for key in NAV_PRESETS
-        ],
+        **_layout_context(db, user_id),
         "sample_data_loaded": has_sample_data(db),
         # masks: show placeholder bullet if a secret is already set
         "imap_password_set": bool(email["imap_password"]),
@@ -119,7 +154,7 @@ def settings_page(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
         request,
         "settings/settings.html",
-        {"active_menu": "settings", **_get_all_settings(db)},
+        {"active_menu": "settings", **_get_all_settings(db, request.state.user.id)},
     )
 
 
@@ -143,20 +178,33 @@ async def save_dashboard_goals(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/dashboard")
 async def save_dashboard(request: Request, db: Session = Depends(get_db)):
+    """Per-profile dashboard sections: a preset quick-apply button submits
+    `preset=<key>`; the Save button submits the `sections` checkbox list."""
     form = await request.form()
-    preset = str(form.get("dashboard_layout", "")).strip()
+    user_id = request.state.user.id
+    preset = str(form.get("preset", "")).strip()
     if preset in PRESETS:
-        set_dashboard_preset(db, preset)
-    return render_fragment(request, "settings/_saved.html", {}, toast="Dashboard layout saved")
+        apply_dashboard_preset(db, user_id, preset)
+        toast = f"Dashboard layout set to {PRESET_LABELS[preset]}"
+    else:
+        set_user_sections(db, user_id, form.getlist("sections"))
+        toast = "Dashboard layout saved"
+    return render_fragment(request, "settings/_dashboard_layout_card.html", _layout_context(db, user_id), toast=toast)
 
 
 @router.post("/navigation")
 async def save_navigation(request: Request, db: Session = Depends(get_db)):
+    """Per-profile nav items: preset quick-apply or `nav_items` checkbox list."""
     form = await request.form()
-    preset = str(form.get("nav_layout", "")).strip()
+    user_id = request.state.user.id
+    preset = str(form.get("preset", "")).strip()
     if preset in NAV_PRESETS:
-        set_nav_preset(db, preset)
-    return render_fragment(request, "settings/_saved.html", {}, toast="Navigation menu saved")
+        apply_nav_preset(db, user_id, preset)
+        toast = f"Navigation menu set to {NAV_PRESET_LABELS[preset]}"
+    else:
+        set_user_nav_items(db, user_id, form.getlist("nav_items"))
+        toast = "Navigation menu saved"
+    return render_fragment(request, "settings/_navigation_card.html", _layout_context(db, user_id), toast=toast)
 
 
 @router.post("/sample-data/load")

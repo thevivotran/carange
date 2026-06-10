@@ -1,0 +1,35 @@
+<form hx-post="/settings/dashboard"
+      hx-target="#dashboard-layout-card"
+      hx-swap="innerHTML">
+  <div class="flex flex-wrap items-center gap-2 mb-4">
+    <span class="text-xs text-gray-400 mr-1">Quick apply:</span>
+    {% for preset in dashboard_presets %}
+    <button type="submit" name="preset" value="{{ preset.key }}" title="{{ preset.description }}"
+            class="px-3 py-1.5 rounded-full text-xs font-medium border transition {% if preset.key == dashboard_preset %}bg-indigo-50 border-indigo-300 text-indigo-700{% else %}bg-white text-gray-600 hover:bg-gray-50{% endif %}">
+      {{ preset.label }}
+    </button>
+    {% endfor %}
+    {% if dashboard_preset == 'custom' %}
+    <span class="px-3 py-1.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">Custom</span>
+    {% endif %}
+  </div>
+  <div class="space-y-2">
+    {% for s in dashboard_sections %}
+    <label class="flex items-start gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition has-[:checked]:border-indigo-300 has-[:checked]:bg-indigo-50 dark:has-[:checked]:border-indigo-400 dark:has-[:checked]:bg-indigo-500/20">
+      <input type="checkbox" name="sections" value="{{ s.key }}"
+             {% if s.enabled %}checked{% endif %}
+             class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-300">
+      <div class="min-w-0">
+        <p class="text-sm font-medium text-gray-800">{{ s.label }}</p>
+        <p class="text-xs text-gray-400 mt-0.5">{{ s.description }}</p>
+      </div>
+    </label>
+    {% endfor %}
+  </div>
+  <div class="flex items-center gap-4 mt-6">
+    <button type="submit"
+            class="px-5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition">
+      Save
+    </button>
+  </div>
+</form>

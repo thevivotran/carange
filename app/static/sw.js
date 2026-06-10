@@ -1,4 +1,4 @@
-const CACHE = 'carange-v1';
+const CACHE = 'carange-v2';
 const PRECACHE = ['/pulse', '/static/manifest.json'];
 
 self.addEventListener('install', e => {
@@ -22,8 +22,10 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
     const url = new URL(e.request.url);
 
-    // Never intercept API or fragment calls — always fresh data/HTML
-    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/fragments/')) return;
+    // Never intercept API or fragment calls — always fresh data/HTML.
+    // /profiles must also stay uncached so an offline visit can't pin the
+    // picker (or a pre-profile redirect) over a real page.
+    if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/fragments/') || url.pathname.startsWith('/profiles')) return;
 
     // Cache-first for static assets (JS/CSS/images)
     if (url.pathname.startsWith('/static/')) {
