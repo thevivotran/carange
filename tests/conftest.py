@@ -13,8 +13,21 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.models.database import Base, get_db, Category, TransactionType
+from app.models.database import Base, get_db, Category, TransactionType, User
 from main import app
+
+
+def _make_profile_ctx(*, nav_items=None, sections=None):
+    """Build a stub ProfileContext (everything visible unless narrowed)."""
+    from app.services import dashboard_layout as dl
+    from app.services.profiles import ProfileContext
+
+    stub = User(id=1, name="Test", color="#2563EB")
+    return ProfileContext(
+        user=stub,
+        visible_nav_items=nav_items if nav_items is not None else dl.NAV_CORE | frozenset(dl.TOGGLEABLE_NAV_ITEMS),
+        visible_sections=sections if sections is not None else frozenset(dl.TOGGLEABLE_SECTIONS),
+    )
 
 
 TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:")
@@ -55,6 +68,45 @@ def _no_seed(monkeypatch):
 
     monkeypatch.setattr(main, "seed_default_categories", lambda: None)
     monkeypatch.setattr(_scheduler_mod, "start_scheduler", lambda: None)
+
+
+@pytest.fixture(autouse=True)
+def _bypass_profile(monkeypatch):
+    """Run every test as a stub profile with all nav items/sections visible.
+
+    ProfileMiddleware resolves profiles via profiles.resolve_request_context
+    (a module-attribute alias), so this single patch keeps all route tests
+    working without cookies. visible_sections == PRESETS['full'] preserves
+    the pre-profile dashboard assertions. Tests that exercise the real
+    cookie flow use the profile_client fixture instead.
+    """
+    from app.services import profiles as profiles_service
+
+    ctx = _make_profile_ctx()
+    monkeypatch.setattr(profiles_service, "resolve_request_context", lambda request: ctx)
+
+
+@pytest.fixture()
+def set_profile_ctx(monkeypatch):
+    """Narrow the stub profile's visible nav items/sections for route tests."""
+
+    def _set(*, nav_items=None, sections=None):
+        from app.services import profiles as profiles_service
+
+        ctx = _make_profile_ctx(nav_items=nav_items, sections=sections)
+        monkeypatch.setattr(profiles_service, "resolve_request_context", lambda request: ctx)
+
+    return _set
+
+
+@pytest.fixture()
+def profile_row(db_session):
+    """A real users row matching the stub profile (id=1) — needed by tests
+    that write user_settings, so the FK holds on PostgreSQL test runs."""
+    user = User(id=1, name="Test", color="#2563EB")
+    db_session.add(user)
+    db_session.commit()
+    return user
 
 
 @pytest.fixture(autouse=True)
@@ -115,6 +167,25 @@ def db_session():
 @pytest.fixture()
 def client(db_session):
     """TestClient whose every request uses the isolated DB session."""
+    app.dependency_overrides[get_db] = lambda: db_session
+    with TestClient(app, raise_server_exceptions=True) as c:
+        yield c
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture()
+def profile_client(db_session, monkeypatch):
+    """TestClient with REAL profile-cookie resolution backed by the test DB.
+
+    Undoes the autouse _bypass_profile stub and points the resolver's
+    SessionLocal at the per-test session (safe: StaticPool in-memory engine).
+    """
+    from app.services import profiles as profiles_service
+
+    monkeypatch.setattr(
+        profiles_service, "resolve_request_context", profiles_service._real_resolve_request_context
+    )
+    monkeypatch.setattr(profiles_service, "SessionLocal", lambda: db_session)
     app.dependency_overrides[get_db] = lambda: db_session
     with TestClient(app, raise_server_exceptions=True) as c:
         yield c

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Apply saved theme BEFORE first paint to avoid flash -->
+    <script>
+        (function(){
+            var t=localStorage.getItem('carange-theme');
+            if(t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches)){
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
+    <title>Who's tracking? — Carange</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <link rel="icon" type="image/svg+xml" href="/static/images/favicon.svg">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { colors: { primary: '#2563EB', secondary: '#059669', danger: '#EF4444' } } }
+        }
+    </script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .dark body { background-color: #0F172A; }
+        .dark .bg-white { background-color: #1E293B !important; }
+        .dark .bg-gray-50 { background-color: #0F172A !important; }
+        .dark .text-gray-800 { color: #E2E8F0 !important; }
+        .dark .text-gray-700 { color: #CBD5E1 !important; }
+        .dark .text-gray-500, .dark .text-gray-400 { color: #94A3B8 !important; }
+        .dark .border, .dark .border-t { border-color: #334155 !important; }
+        .dark input { background-color: #0F172A !important; color: #E2E8F0 !important; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen flex items-center justify-center p-6">
+        <div class="w-full max-w-md">
+
+            <div class="text-center mb-8">
+                <i class="fas fa-wallet text-primary text-4xl"></i>
+                <h1 class="text-2xl font-bold text-gray-800 mt-3">Carange</h1>
+                <p class="text-sm text-gray-500 mt-1">Who's tracking today?</p>
+            </div>
+
+            {% if error %}
+            <div class="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">
+                <i class="fas fa-circle-exclamation mr-1"></i>{{ error }}
+            </div>
+            {% endif %}
+
+            {% if users %}
+            <div class="bg-white rounded-2xl shadow-sm border p-6 mb-4">
+                <div class="space-y-3">
+                    {% for u in users %}
+                    <div class="flex items-center gap-3">
+                        <form method="post" action="/profiles/select" class="flex-1 min-w-0">
+                            <input type="hidden" name="user_id" value="{{ u.id }}">
+                            <input type="hidden" name="next" value="{{ next_path }}">
+                            <button type="submit"
+                                    class="w-full flex items-center gap-3 p-3 border rounded-xl hover:bg-gray-50 transition text-left {% if u.id == current_user_id %}border-indigo-300{% endif %}">
+                                <span class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0"
+                                      style="background-color: {{ u.color }}">{{ u.name[0] | upper }}</span>
+                                <span class="min-w-0">
+                                    <span class="block text-sm font-medium text-gray-800 truncate">{{ u.name }}</span>
+                                    {% if u.id == current_user_id %}
+                                    <span class="block text-xs text-gray-400">Current profile</span>
+                                    {% endif %}
+                                </span>
+                            </button>
+                        </form>
+                        {% if users | length > 1 %}
+                        <form method="post" action="/profiles/{{ u.id }}/delete"
+                              onsubmit="return confirm('Delete the “{{ u.name }}” profile? Its dashboard and menu preferences will be removed. Financial data is shared and stays untouched.');">
+                            <button type="submit" title="Delete profile"
+                                    class="p-2 text-gray-400 hover:text-danger rounded-lg hover:bg-gray-100 transition">
+                                <i class="fas fa-trash-can text-sm"></i>
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="bg-white rounded-2xl shadow-sm border p-6">
+                <h2 class="text-sm font-semibold text-gray-800 mb-1">
+                    {% if users %}Add a profile{% else %}Create your first profile{% endif %}
+                </h2>
+                <p class="text-xs text-gray-400 mb-4">
+                    Each profile gets its own dashboard layout and menu. All financial data is shared.
+                </p>
+                <form method="post" action="/profiles/create">
+                    <input type="hidden" name="next" value="{{ next_path }}">
+                    <label class="block text-xs font-medium text-gray-600 mb-1" for="profile-name">Name</label>
+                    <input id="profile-name" name="name" type="text" required maxlength="50"
+                           class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                           placeholder="e.g. Vi">
+                    <div class="mt-4">
+                        <span class="block text-xs font-medium text-gray-600 mb-2">Color</span>
+                        <div class="flex items-center gap-3">
+                            {% for c in colors %}
+                            <label class="cursor-pointer">
+                                <input type="radio" name="color" value="{{ c }}" class="sr-only peer"
+                                       {% if loop.first %}checked{% endif %}>
+                                <span class="block w-8 h-8 rounded-full ring-offset-2 peer-checked:ring-2 peer-checked:ring-gray-500 transition"
+                                      style="background-color: {{ c }}"></span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <button type="submit"
+                            class="mt-5 w-full px-5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition">
+                        <i class="fas fa-plus mr-1"></i>Create profile
+                    </button>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</body>
+</html>

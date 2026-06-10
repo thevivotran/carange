@@ -493,6 +493,14 @@
             </nav>
 
             <div class="px-4 pb-2">
+                {% if current_user %}
+                <a href="/profiles"
+                   class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-100 transition" title="Switch profile">
+                    <span class="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-semibold flex-shrink-0"
+                          style="background-color: {{ current_user.color }}">{{ current_user.name[0] | upper }}</span>
+                    <span class="sidebar-label truncate">{{ current_user.name }}</span>
+                </a>
+                {% endif %}
                 <button @click="$store.theme.toggle()"
                         class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-100 transition" title="Toggle theme">
                     <i class="fas fa-moon theme-icon-dark w-4 text-center flex-shrink-0"></i>
@@ -613,6 +621,13 @@
                         <i class="fas fa-gear text-xl"></i>
                         <span class="text-xs font-medium">Settings</span>
                     </a>
+                    {% if current_user %}
+                    <a href="/profiles" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white text-gray-600 hover:bg-blue-50 active:bg-blue-100 transition">
+                        <span class="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-semibold"
+                              style="background-color: {{ current_user.color }}">{{ current_user.name[0] | upper }}</span>
+                        <span class="text-xs font-medium truncate max-w-full px-1">{{ current_user.name }}</span>
+                    </a>
+                    {% endif %}
                 </div>
                 <div class="h-3"></div>
             </div>
@@ -684,7 +699,13 @@
                 }
             } catch(_) {}
         });
-        document.addEventListener('htmx:responseError', function() {
+        document.addEventListener('htmx:responseError', function(e) {
+            // Profile cookie expired/cleared mid-session: navigate to the picker
+            // instead of toasting (the 401 also carries HX-Redirect, this is a fallback).
+            if (e.detail && e.detail.xhr && e.detail.xhr.status === 401) {
+                window.location = '/profiles';
+                return;
+            }
             Alpine.store('toasts').add('Request failed — please try again.', 'error');
         });
         document.addEventListener('htmx:beforeRequest', function() {
