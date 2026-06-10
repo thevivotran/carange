@@ -1,6 +1,6 @@
 # Email Worker
 
-Polls a Gmail IMAP inbox for forwarded bank/payment notification emails, parses them into
+Watches a Gmail IMAP inbox for forwarded bank/payment notification emails, parses them into
 transactions, and feeds them into Carange's review pipeline. Runs as a separate container
 (`ghcr.io/thevivotran/carange-email-worker`) alongside the main app.
 
@@ -8,23 +8,32 @@ transactions, and feeds them into Carange's review pipeline. Runs as a separate 
 
 ## How it works
 
-1. Logs into the configured IMAP mailbox every `POLL_INTERVAL` seconds and fetches `UNSEEN`
-   messages.
-2. Extracts MIME parts (`email_parser.py`) — plaintext, HTML, sender, subject, `Message-ID` —
-   and unwraps forwarded/replied threads to find the original sender behind `>` quoting.
-3. Routes the cleaned body through an ordered chain of source-specific parsers
+1. **UID-cursor ingestion** — new messages are discovered by UID, not by the `\Seen` flag.
+   The worker keeps a per-`(account, folder)` high-water mark in the `imap_folder_state`
+   table and searches `UID <last+1>:*` each cycle, so reading the mailbox from another
+   client can never starve the worker. The cursor resets automatically when the server
+   reports a new `UIDVALIDITY` (Message-ID dedup prevents double ingestion).
+2. **Push, not poll** — when the server supports IMAP `IDLE` (Gmail does), new mail is
+   processed within seconds of arriving. Without IDLE the worker falls back to sleeping
+   `POLL_INTERVAL` between cycles. Bodies are fetched with `BODY.PEEK[]`, which never
+   flips `\Seen` as a side effect (messages are marked seen explicitly, as a courtesy).
+3. **Raw copy stored for replay** — each new message is recorded in `EmailIngestLog`
+   (keyed by `Message-ID`) with its zlib-compressed RFC 2822 source attached. Retries and
+   manual reprocessing replay from this stored copy; the IMAP message is never needed
+   twice. Once transactions are committed the blob is cleared — failed and
+   zero-transaction rows keep it so they can be replayed after a parser fix via the
+   **Reprocess** button in Import → Email Receipts.
+4. Extracts MIME parts (`email_parser.py`) — plaintext, HTML, sender, subject,
+   `Message-ID` — and unwraps forwarded/replied threads to find the original sender
+   behind `>` quoting.
+5. Routes the cleaned body through an ordered chain of source-specific parsers
    (`route_and_parse`); the first parser that recognises the sender/subject/body wins:
 
    `VCB → UOB → Payoo → VNPay → Shopee → Grab → Timo → LearnedRegex → GenericOllama`
 
-4. Parsed transactions go through the same dedup → rules → review pipeline as OCR imports
+6. Parsed transactions go through the same dedup → rules → review pipeline as OCR imports
    (`app.services.ingest_service.commit_ingest_batch`), landing in the Review Inbox unless
    confidence is high enough to auto-approve.
-5. Marks the message `\Seen` in IMAP once processed (success or permanent failure) so it
-   isn't picked up again.
-
-Every poll is recorded in `EmailIngestLog` (keyed by `Message-ID`) — this is what drives
-retries, dedup, and the Settings → Email Ingestion status panel.
 
 ### Parsers
 
@@ -38,36 +47,46 @@ retries, dedup, and the Settings → Email Ingestion status panel.
 | `GrabParser` | Grab Bike/Car/Food/Express (extracts pickup→dropoff route from HTML) |
 | `TimoParser` | Timo debit/credit |
 | `LearnedRegexParser` | Regex patterns previously learned per sender domain (see below) |
-| `GenericOllamaParser` | LLM fallback (Ollama) for unrecognised senders |
+| `GenericOllamaParser` | LLM fallback (vLLM) for unrecognised senders |
 
 ### Learned patterns
 
 When the generic LLM fallback successfully extracts a transaction from a sender it hasn't
-seen a dedicated parser for, it can save the regex patterns it derived to
-`learned_patterns.json` (keyed by sender domain, via `learned_patterns.py`). On subsequent
-emails from the same domain, `LearnedRegexParser` tries those patterns first — skipping the
-LLM call entirely once a domain is "learned." Each successful match increments a
-`success_count` used to gauge pattern reliability.
+seen a dedicated parser for, it fires a second LLM call to derive regex patterns for that
+sender's format and saves them to the `learned_patterns` **database table** (keyed by
+sender domain) — they survive pod restarts and ride along with the regular DB backups. On
+subsequent emails from the same domain, `LearnedRegexParser` applies those patterns first,
+skipping the LLM call entirely.
+
+Pattern lifecycle: every successful match bumps `success_count` and resets the
+`failure_count` streak; after **5 consecutive misses** (sender changed their template) the
+patterns are dropped so the LLM re-learns the new format on the next email.
 
 ### Retry & failure handling
 
-- Failures during processing leave the message `UNSEEN` and schedule a retry with exponential
-  backoff (1 min, 2 min, 4 min, ... up to `MAX_EMAIL_RETRIES`), tracked via `retry_after` /
-  `retry_count` on the log row.
-- After the max retry count is exceeded, the row is marked `failed` and the message is marked
-  `\Seen` so it stops blocking the poll loop.
-- `EmailIngestLog` rows stuck in `pending` with no `retry_after` (from a crashed run) are
-  reclaimed on the next poll so the same `UNSEEN` email can be reprocessed.
-- A liveness file at `/tmp/worker_alive` is touched on every loop iteration for container
-  health checks.
+All retries are **database-driven** — they replay the stored raw copy, independent of the
+IMAP mailbox state:
+
+- Processing failures schedule a retry with exponential backoff (1 min, 2 min, 4 min, …)
+  via `retry_after` / `retry_count`; after `MAX_EMAIL_RETRIES` the row is marked `failed`
+  and its raw copy is kept for manual reprocessing.
+- **LLM unavailable is not a failure**: when no dedicated parser matches and the vLLM
+  fallback is unreachable (e.g. the GPU node is powered off), the email stays `pending`
+  and is retried every `LLM_RETRY_MIN` minutes *without* consuming retry attempts — it is
+  processed automatically once the model is back.
+- Rows stuck in `pending` with no `retry_after` (worker crashed mid-processing) are
+  reclaimed after `STUCK_TIMEOUT_MIN` and retried from the stored copy.
+- A liveness file at `/tmp/worker_alive` is touched at least every ~60 s for the
+  container health check; worker health (`last seen`, last connection error) and 7-day
+  counters are shown in **Import → Email Receipts**.
 
 ---
 
 ## Configuration
 
-Most settings can be configured either via environment variables or from **Settings → Email
-Integration** in the app (DB-stored values take precedence; `_load_config()` re-reads them
-before every poll).
+Most settings can be configured either via environment variables or from **Settings →
+Email Integration** in the app (DB-stored values take precedence and are re-read every
+cycle; host/credential/folder changes trigger a clean reconnect).
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
@@ -75,10 +94,14 @@ before every poll).
 | `IMAP_USER` | — | Full Gmail address (**required**) |
 | `IMAP_PASSWORD` | — | Gmail **App Password** — not the account password; requires 2FA (**required**) |
 | `IMAP_FOLDER` | `INBOX` | Mailbox to watch |
+| `IMAP_TIMEOUT` | `60` | Socket timeout (seconds) — a hung connection reconnects instead of stalling |
 | `DATABASE_URL` | `sqlite:///./carange.db` | Same database as the main app |
-| `POLL_INTERVAL` | `300` | Seconds between polls |
-| `STUCK_TIMEOUT_MIN` | `30` | Minutes before a crashed `pending` log row is reclaimed |
+| `POLL_INTERVAL` | `300` | Seconds between polls when IDLE is unavailable |
+| `STUCK_TIMEOUT_MIN` | `30` | Minutes before a crashed `pending` row is reclaimed |
 | `MAX_EMAIL_RETRIES` | `3` | Retry attempts (exponential backoff) before permanent failure |
+| `LLM_RETRY_MIN` | `30` | Minutes between retries while the LLM fallback is unreachable |
+| `OLLAMA_URL` | — | vLLM endpoint for the generic fallback parser (unset = emails from unknown senders wait for it) |
+| `OLLAMA_MODEL` | `Qwen3.6-35B-A3B` | Model name served by vLLM |
 
 Set up a Gmail filter that forwards bank/payment notification emails to the watched mailbox
 (or watches the inbox directly), and create an [App Password](https://myaccount.google.com/apppasswords)
@@ -100,4 +123,4 @@ IMAP_USER=you@gmail.com IMAP_PASSWORD=<app-password> python -m email_worker.work
 ```
 
 It shares the main app's database and `requirements.txt`; worker-specific dependencies
-(`beautifulsoup4`, `lxml`) live in `email_worker/requirements.txt`.
+(`beautifulsoup4`, `lxml`, `imapclient`) live in `email_worker/requirements.txt`.

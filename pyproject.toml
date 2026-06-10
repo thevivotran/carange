@@ -9,6 +9,7 @@ dependencies = [
     "alembic==1.18.4",
     "beautifulsoup4==4.13.4",
     "fastapi==0.136.1",
+    "imapclient==3.0.1",
     "jinja2==3.1.6",
     "lxml==6.1.0",
     "psycopg2-binary==2.9.10",

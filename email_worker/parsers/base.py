@@ -6,6 +6,15 @@ from datetime import date
 from typing import Optional
 
 
+class LLMUnavailableError(RuntimeError):
+    """The LLM fallback parser could not reach the model.
+
+    Distinguishes "the LLM looked and found no transactions" (done, 0 tx) from
+    "nobody could look" — the worker schedules a retry instead of permanently
+    marking the email done with zero transactions.
+    """
+
+
 @dataclass
 class ParsedEmailTransaction:
     date: date
