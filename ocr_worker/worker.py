@@ -17,6 +17,7 @@ import logging
 import os
 import pathlib
 import select
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 
@@ -39,6 +40,33 @@ STUCK_TIMEOUT_MINUTES = int(os.getenv("STUCK_TIMEOUT", "30"))
 MAX_RETRIES = int(os.getenv("MAX_RETRIES", "3"))
 
 _IS_PG = DATABASE_URL.startswith("postgresql") or DATABASE_URL.startswith("postgres")
+
+
+# ── Liveness heartbeat ────────────────────────────────────────────────────────
+#
+# A single job can legitimately block for many minutes (a cold Ollama vision
+# call has a 600 s budget), but the k8s liveness probe requires LIVENESS_FILE
+# to be fresher than 5 minutes. A heartbeat thread keeps touching the file as
+# long as the main loop has made progress within STUCK_TIMEOUT — so a hung
+# loop still fails the probe, while a slow job doesn't get the pod killed.
+
+_HEARTBEAT_INTERVAL = 30.0
+_last_progress = time.monotonic()
+
+
+def _mark_progress() -> None:
+    global _last_progress
+    _last_progress = time.monotonic()
+
+
+def _start_heartbeat() -> None:
+    def beat():
+        while True:
+            if time.monotonic() - _last_progress < STUCK_TIMEOUT_MINUTES * 60:
+                LIVENESS_FILE.touch()
+            time.sleep(_HEARTBEAT_INTERVAL)
+
+    threading.Thread(target=beat, daemon=True, name="liveness-heartbeat").start()
 
 
 def _psycopg2_dsn(url: str) -> str:
@@ -70,6 +98,20 @@ def _make_session_factory():
 # ── Job claiming ──────────────────────────────────────────────────────────────
 
 
+def _cleanup_job_file(file_path: str | None) -> None:
+    """Best-effort removal of a job's uploaded image."""
+    if not file_path:
+        return
+    from ocr_worker.processor import _resolve_file_path
+
+    full_path = _resolve_file_path(file_path)
+    if os.path.isfile(full_path):
+        try:
+            os.remove(full_path)
+        except OSError as exc:
+            log.warning("Could not delete image %s: %s", full_path, exc)
+
+
 def _claim_next_pg(db: Session) -> ImportJob | None:
     """PostgreSQL: atomic claim using SELECT FOR UPDATE SKIP LOCKED.
 
@@ -79,10 +121,29 @@ def _claim_next_pg(db: Session) -> ImportJob | None:
     now = datetime.now(timezone.utc)
     stuck_cutoff = now - timedelta(minutes=STUCK_TIMEOUT_MINUTES)
 
+    # Each stuck reclaim consumes a retry so a poison-pill job that hangs or
+    # crashes the worker can't loop forever.
+    failed = db.execute(
+        text("""
+            UPDATE import_jobs
+               SET status = 'failed', started_at = NULL, processed_at = :now,
+                   error_message = 'Permanent failure: stuck in processing after max retries'
+             WHERE status = 'processing'
+               AND started_at < :cutoff
+               AND retry_count >= :max_retries
+             RETURNING id, file_path
+        """),
+        {"now": now, "cutoff": stuck_cutoff, "max_retries": MAX_RETRIES},
+    ).fetchall()
+    for job_id, file_path in failed:
+        log.error("Job %d FAILED permanently: stuck in processing after %d retries", job_id, MAX_RETRIES)
+        _cleanup_job_file(file_path)
+
     db.execute(
         text("""
             UPDATE import_jobs
-               SET status = 'pending', started_at = NULL
+               SET status = 'pending', started_at = NULL,
+                   retry_count = COALESCE(retry_count, 0) + 1
              WHERE status = 'processing'
                AND started_at < :cutoff
         """),
@@ -119,18 +180,29 @@ def _claim_next_sqlite(db: Session) -> ImportJob | None:
     now = datetime.now(timezone.utc)
     stuck_cutoff = now - timedelta(minutes=STUCK_TIMEOUT_MINUTES)
 
-    stuck = (
+    stuck_jobs = (
         db.query(ImportJob)
         .filter(
             ImportJob.status == ImportJobStatus.PROCESSING,
             ImportJob.started_at < stuck_cutoff,
         )
-        .first()
+        .all()
     )
-    if stuck:
-        log.warning("Reclaiming stuck job %d (PROCESSING since %s)", stuck.id, stuck.started_at)
-        stuck.status = ImportJobStatus.PENDING
-        stuck.started_at = None
+    for stuck in stuck_jobs:
+        # Each stuck reclaim consumes a retry (see _claim_next_pg)
+        if (stuck.retry_count or 0) >= MAX_RETRIES:
+            log.error("Job %d FAILED permanently: stuck in processing after %d retries", stuck.id, MAX_RETRIES)
+            stuck.status = ImportJobStatus.FAILED
+            stuck.started_at = None
+            stuck.processed_at = now
+            stuck.error_message = "Permanent failure: stuck in processing after max retries"
+            _cleanup_job_file(stuck.file_path)
+        else:
+            log.warning("Reclaiming stuck job %d (PROCESSING since %s)", stuck.id, stuck.started_at)
+            stuck.status = ImportJobStatus.PENDING
+            stuck.started_at = None
+            stuck.retry_count = (stuck.retry_count or 0) + 1
+    if stuck_jobs:
         db.commit()
 
     job = (
@@ -180,6 +252,7 @@ def _handle_failure(db: Session, job: ImportJob, reason: str) -> None:
         job.error_message = f"Permanent failure after {MAX_RETRIES} retries. Last: {reason}"
         job.processed_at = datetime.now(timezone.utc)
         db.commit()
+        _cleanup_job_file(job.file_path)
         log.error("Job %d FAILED permanently after %d retries: %s", job.id, MAX_RETRIES, reason)
 
 
@@ -188,7 +261,7 @@ def _handle_failure(db: Session, job: ImportJob, reason: str) -> None:
 
 def _process_one(SessionFactory, claim_fn) -> bool:
     """Claim and process one job. Returns True if a job was processed."""
-    from ocr_worker.processor import process_job
+    from ocr_worker.processor import TransientJobError, process_job
 
     with SessionFactory() as db:
         job = claim_fn(db)
@@ -196,16 +269,25 @@ def _process_one(SessionFactory, claim_fn) -> bool:
             return False
 
         log.info("Claimed job %d (%s)", job.id, job.filename)
-        LIVENESS_FILE.touch()
+        _mark_progress()
         try:
             process_job(job, db)
+        except TransientJobError as exc:
+            log.warning("Transient error in job %d: %s", job.id, exc)
+            _retry_in_fresh_session(SessionFactory, job.id, str(exc))
         except Exception as exc:
             log.exception("Unhandled error in job %d", job.id)
-            with SessionFactory() as recovery_db:
-                failed = recovery_db.query(ImportJob).filter(ImportJob.id == job.id).first()
-                if failed:
-                    _handle_failure(recovery_db, failed, f"Internal error: {exc}")
+            _retry_in_fresh_session(SessionFactory, job.id, f"Internal error: {exc}")
+        _mark_progress()
     return True
+
+
+def _retry_in_fresh_session(SessionFactory, job_id: int, reason: str) -> None:
+    """Schedule a retry using a clean session (the job's own may be poisoned)."""
+    with SessionFactory() as recovery_db:
+        failed = recovery_db.query(ImportJob).filter(ImportJob.id == job_id).first()
+        if failed:
+            _handle_failure(recovery_db, failed, reason)
 
 
 def _drain_queue(SessionFactory, claim_fn) -> None:
@@ -231,7 +313,7 @@ def _run_postgres(SessionFactory) -> None:
     listen_conn = _make_listen_conn()
 
     while True:
-        LIVENESS_FILE.touch()
+        _mark_progress()
 
         # Drain any jobs that are already pending (handles backlog on startup
         # and jobs queued while the listen connection was being (re)established).
@@ -265,12 +347,14 @@ def _run_sqlite(SessionFactory) -> None:
     while True:
         _drain_queue(SessionFactory, _claim_next_sqlite)
         log.debug("Queue empty — sleeping %ds", POLL_INTERVAL)
-        LIVENESS_FILE.touch()
+        _mark_progress()
         time.sleep(POLL_INTERVAL)
 
 
 def run() -> None:
     log.info("OCR worker starting — %s", DATABASE_URL)
+    LIVENESS_FILE.touch()
+    _start_heartbeat()
     SessionFactory = _make_session_factory()
 
     if _IS_PG:

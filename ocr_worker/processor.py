@@ -30,6 +30,12 @@ UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
 VISION_CONFIDENCE = 0.85
 
 
+class TransientJobError(Exception):
+    """A failure worth retrying (e.g. OCR engine crash). The worker reschedules
+    the job with backoff instead of failing it permanently, and the uploaded
+    image is kept on disk so the retry has something to process."""
+
+
 def _resolve_file_path(stored: str) -> str:
     """Resolve job.file_path to an absolute path across all storage formats."""
     if os.path.isabs(stored):
@@ -46,6 +52,9 @@ def process_job(job: ImportJob, db: Session) -> None:
         return
 
     # ── Path 1: Ollama vision extraction ─────────────────────────────────────
+    # None = extraction failed (fall back to PaddleOCR); [] = the model explicitly
+    # found no transactions (trust it — the generic OCR parser would only
+    # hallucinate transactions out of stray numbers).
     if _ollama.is_enabled():
         items = _extract_via_vision(file_path)
         if items is not None:
@@ -55,14 +64,13 @@ def process_job(job: ImportJob, db: Session) -> None:
             committed = commit_ingest_batch(db, items, source_tag="ocr", import_job_id=job.id)
             _done(db, job, transaction_count=len(committed))
             return
-        log.info("Job %d: vision extraction empty or failed — falling back to PaddleOCR", job.id)
+        log.info("Job %d: vision extraction failed — falling back to PaddleOCR", job.id)
 
     # ── Path 2: PaddleOCR + source-specific parser (fallback) ────────────────
     try:
         blocks = _ocr_mod.extract_blocks(file_path)
     except Exception as exc:
-        _fail(db, job, f"OCR failed: {exc}")
-        return
+        raise TransientJobError(f"OCR failed: {exc}") from exc
 
     effective_source = job.source_hint or detect_source(blocks)
     if effective_source != job.detected_source:
@@ -93,7 +101,59 @@ def process_job(job: ImportJob, db: Session) -> None:
 # ── Vision extraction ─────────────────────────────────────────────────────────
 
 
+_FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.MULTILINE)
+
+# VND-formatted string amount: dots/commas are thousands separators ("45.000")
+_VN_GROUPED_AMOUNT_RE = re.compile(r"-?\d{1,3}(?:[.,]\d{3})+")
+
+
+def _parse_json_array(raw: str) -> Optional[list]:
+    """Extract a JSON array from a model response, tolerating markdown fences,
+    surrounding prose, and `]` characters inside string values."""
+    text = _FENCE_RE.sub("", raw.strip()).strip()
+
+    candidates = []
+    if text.startswith("["):
+        candidates.append(text)
+    start, end = text.find("["), text.rfind("]")
+    if start != -1 and end > start:
+        candidates.append(text[start : end + 1])
+    m = re.search(r"\[.*?\]", text, re.DOTALL)
+    if m:
+        candidates.append(m.group())
+
+    for cand in candidates:
+        try:
+            parsed = json.loads(cand)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, list):
+            return parsed
+    return None
+
+
+def _coerce_amount(value) -> float:
+    """Accept numeric amounts and VND-formatted strings ('45.000đ' → 45000).
+    float('45.000') would silently give 45.0 — a 1000× error."""
+    if isinstance(value, bool):
+        raise ValueError(f"bad amount {value!r}")
+    if isinstance(value, (int, float)):
+        amount = float(value)
+    else:
+        cleaned = re.sub(r"[^\d.,\-]", "", str(value))
+        if _VN_GROUPED_AMOUNT_RE.fullmatch(cleaned):
+            cleaned = cleaned.replace(".", "").replace(",", "")
+        else:
+            cleaned = cleaned.replace(",", "")
+        amount = float(cleaned)
+    if amount <= 0:
+        raise ValueError(f"non-positive amount {value!r}")
+    return amount
+
+
 def _extract_via_vision(file_path: str) -> Optional[List[IngestItem]]:
+    """Returns the extracted items, [] when the model explicitly reported no
+    transactions, or None when extraction failed (caller falls back to OCR)."""
     today_str = date.today().strftime("%Y-%m-%d")
     prompt = (
         f"Today's date: {today_str}\n\n"
@@ -119,25 +179,22 @@ def _extract_via_vision(file_path: str) -> Optional[List[IngestItem]]:
     if not raw:
         return None
 
-    match = re.search(r"\[.*?\]", raw, re.DOTALL)
-    if not match:
-        log.debug("Vision response contained no JSON array: %s", raw[:200])
-        return None
-
-    try:
-        raw_items = json.loads(match.group())
-    except json.JSONDecodeError as exc:
-        log.debug("Vision JSON parse error: %s", exc)
+    raw_items = _parse_json_array(raw)
+    if raw_items is None:
+        log.debug("Vision response contained no parseable JSON array: %s", raw[:200])
         return None
 
     result: List[IngestItem] = []
     for item in raw_items:
         try:
+            tx_type = str(item["type"]).strip().lower()
+            if tx_type not in ("expense", "income"):
+                raise ValueError(f"unknown type {tx_type!r}")
             result.append(
                 IngestItem(
                     date=date.fromisoformat(item["date"]),
-                    amount=float(item["amount"]),
-                    tx_type=str(item["type"]).lower(),
+                    amount=_coerce_amount(item["amount"]),
+                    tx_type=tx_type,
                     description=str(item.get("description", "")),
                     confidence=VISION_CONFIDENCE,
                     category_hint=item.get("category_hint"),
@@ -146,7 +203,11 @@ def _extract_via_vision(file_path: str) -> Optional[List[IngestItem]]:
         except (KeyError, ValueError, TypeError) as exc:
             log.debug("Skipping malformed vision item %s: %s", item, exc)
 
-    return result if result else None
+    # Every item malformed → extraction failed; a genuinely empty array is a
+    # valid "no transactions in this screenshot" answer.
+    if raw_items and not result:
+        return None
+    return result
 
 
 def _parsed_to_ingest_items(parsed: List[ParsedTransaction], source: Optional[ImportSource]) -> List[IngestItem]:

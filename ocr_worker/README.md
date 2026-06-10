@@ -15,9 +15,13 @@ order:
 1. **Ollama vision** (`Qwen3.5-9B`, self-hosted) — if `OLLAMA_URL` is configured, the image
    is sent straight to the vision model with a prompt asking for a JSON array of
    `{date, amount, type, description, category_hint}`. Handles any screenshot layout without
-   a dedicated parser. Confidence is fixed at `VISION_CONFIDENCE = 0.85`.
+   a dedicated parser. Confidence is fixed at `VISION_CONFIDENCE = 0.85`. Responses are
+   validated item-by-item (type must be `expense`/`income`, amounts must be positive;
+   VND-formatted string amounts like `"45.000đ"` are coerced correctly). An explicit empty
+   array is trusted as "no transactions" and finishes the job — only a *failed* extraction
+   falls through to path 2.
 2. **PaddleOCR + source-specific parser** (`ocr.py` + `parsers/`) — fallback when Ollama is
-   offline or returns nothing usable:
+   offline or returns nothing parseable:
    - `ocr.extract_blocks` runs PaddleOCR (Vietnamese model, GPU auto-detected) and returns a
      flat list of `TextBlock`s with text, confidence, and bounding box.
    - `source_detector.detect_source` keyword-matches the extracted text against weighted
@@ -44,14 +48,23 @@ The worker supports two database backends with different claiming strategies:
   `POLL_INTERVAL` seconds with a select-then-update claim (safe for a single worker only).
 
 In both modes, jobs stuck in `PROCESSING` past `STUCK_TIMEOUT` minutes (e.g. from a crashed
-run) are reclaimed back to `PENDING`.
+run) are reclaimed back to `PENDING`. Each reclaim consumes a retry, so a poison-pill job
+that hangs or crashes the worker is permanently failed after `MAX_RETRIES` instead of
+looping forever.
 
 ### Retry & failure handling
 
-Failures retry with exponential backoff (1 min, 2 min, 4 min, ... up to `MAX_RETRIES`),
-tracked via `retry_after` / `retry_count` on the `ImportJob` row; after the limit the job is
-marked permanently `FAILED`. A liveness file at `/tmp/worker_alive` is touched on every loop
-iteration for container health checks.
+Transient failures (OCR engine errors, unexpected exceptions) retry with exponential
+backoff (1 min, 2 min, 4 min, ... up to `MAX_RETRIES`), tracked via `retry_after` /
+`retry_count` on the `ImportJob` row; after the limit the job is marked permanently
+`FAILED`. Permanent failures (missing image, parser bugs) fail immediately. The uploaded
+image is kept on disk while retries remain and deleted once the job reaches a terminal
+state (`DONE` or `FAILED`).
+
+A liveness file at `/tmp/worker_alive` is touched every 30 s by a heartbeat thread as long
+as the main loop has made progress within `STUCK_TIMEOUT` — so a single long job (a cold
+vision call can block for up to 10 min) doesn't trip the container health check, while a
+genuinely hung loop still does.
 
 ---
 
