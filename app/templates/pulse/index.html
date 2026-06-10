@@ -97,8 +97,8 @@
         Day {{ today.day }} / {{ last_day }}
       </span>
     </div>
-    <div class="w-full bg-gray-200 rounded-full h-2 mb-1.5">
-      <div class="h-2 rounded-full bg-primary transition-all" style="width: {{ day_pct }}%"></div>
+    <div class="w-full rounded-full h-2 mb-1.5" style="background: var(--surface-sunken)">
+      <div class="h-2 rounded-full transition-all" style="width: {{ day_pct }}%; background: var(--brand)"></div>
     </div>
     <p class="text-xs text-gray-500">
       {% if days_remaining == 0 %}
@@ -194,9 +194,9 @@
     <div class="space-y-3">
       {% for tx in recent_transactions[:5] %}
       <div class="flex items-center gap-3">
-        <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0"
-             style="background-color: {{ tx.category.color }}22">
-          <i class="fas fa-{{ tx.category.icon or 'circle-dot' }} text-xs" style="color: {{ tx.category.color }}"></i>
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0
+          {{ 'bg-income-subtle' if tx.type.value == 'income' else 'bg-surface-sunken' }}">
+          <i class="fas text-xs {{ 'fa-arrow-down text-income' if tx.type.value == 'income' else 'fa-arrow-up text-expense' }}"></i>
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-sm text-gray-700 truncate">
@@ -205,7 +205,7 @@
           <p class="text-xs text-gray-400">{{ tx.date.strftime('%-d %b') }} · {{ tx.category.name }}</p>
         </div>
         <span class="text-sm font-semibold flex-shrink-0
-          {{ 'text-green-600' if tx.type.value == 'income' else 'text-gray-700' }}">
+          {{ 'text-income' if tx.type.value == 'income' else 'text-expense' }}">
           {% if tx.type.value == 'income' %}+{% else %}-{% endif %}{{ currency_symbol() }}{{ "{:,.0f}".format(tx.amount / 1000) }}K
         </span>
       </div>
