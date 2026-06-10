@@ -8,7 +8,7 @@ preferences, it does not protect data.
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
-from fastapi import HTTPException, Request
+from fastapi import Request
 
 from app.models.database import SessionLocal, User
 from app.services.dashboard_layout import get_user_nav_items, get_user_sections
@@ -57,14 +57,6 @@ resolve_request_context = _real_resolve_request_context
 def touch_last_seen(db, user: User) -> None:
     user.last_seen_at = datetime.now(timezone.utc)
     db.commit()
-
-
-def get_current_user(request: Request) -> User:
-    """Dependency for handlers that need the resolved profile object."""
-    user = getattr(request.state, "user", None)
-    if user is None:
-        raise HTTPException(status_code=401, detail="No profile selected")
-    return user
 
 
 def safe_next_path(raw: str | None) -> str:

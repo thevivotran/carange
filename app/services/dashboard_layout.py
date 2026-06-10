@@ -2,7 +2,7 @@ import json
 
 from sqlalchemy.orm import Session
 
-from app.services.settings_service import get_setting, get_user_setting, set_setting, set_user_setting
+from app.services.settings_service import get_setting, get_user_setting, set_user_setting
 
 DEFAULT_PRESET = "full"
 DEFAULT_NAV_PRESET = "full"
@@ -83,12 +83,6 @@ def get_visible_sections(db: Session) -> frozenset[str]:
     return PRESETS[get_dashboard_preset(db)]
 
 
-def set_dashboard_preset(db: Session, preset: str) -> None:
-    if preset not in PRESETS:
-        raise ValueError(f"Unknown dashboard preset: {preset}")
-    set_setting(db, "dashboard_layout", preset)
-
-
 # Sidebar/bottom-nav items every user needs regardless of preset — the
 # day-to-day core of logging spend and checking the budget.
 NAV_CORE = frozenset({"dashboard", "transactions", "budget", "savings", "settings"})
@@ -146,12 +140,6 @@ NAV_ITEM_DESCRIPTIONS = {
 def get_nav_preset(db: Session) -> str:
     value = get_setting(db, "nav_layout", DEFAULT_NAV_PRESET)
     return value if value in NAV_PRESETS else DEFAULT_NAV_PRESET
-
-
-def set_nav_preset(db: Session, preset: str) -> None:
-    if preset not in NAV_PRESETS:
-        raise ValueError(f"Unknown nav preset: {preset}")
-    set_setting(db, "nav_layout", preset)
 
 
 def get_visible_nav_items(db: Session) -> frozenset[str]:

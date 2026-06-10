@@ -182,9 +182,7 @@ def profile_client(db_session, monkeypatch):
     """
     from app.services import profiles as profiles_service
 
-    monkeypatch.setattr(
-        profiles_service, "resolve_request_context", profiles_service._real_resolve_request_context
-    )
+    monkeypatch.setattr(profiles_service, "resolve_request_context", profiles_service._real_resolve_request_context)
     monkeypatch.setattr(profiles_service, "SessionLocal", lambda: db_session)
     app.dependency_overrides[get_db] = lambda: db_session
     with TestClient(app, raise_server_exceptions=True) as c:

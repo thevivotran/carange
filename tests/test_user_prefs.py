@@ -43,6 +43,25 @@ def test_nav_items_fall_back_to_household_default_when_unset(db_session, profile
     assert get_user_nav_items(db_session, profile_row.id) == NAV_CORE
 
 
+def test_corrupt_stored_toggles_fall_back_to_core(db_session, profile_row):
+    from app.services.settings_service import set_user_setting
+
+    set_user_setting(db_session, profile_row.id, "nav_items", "not json {")
+    assert get_user_nav_items(db_session, profile_row.id) == NAV_CORE
+
+    set_user_setting(db_session, profile_row.id, "nav_items", '{"a": 1}')  # JSON but not a list
+    assert get_user_nav_items(db_session, profile_row.id) == NAV_CORE
+
+
+def test_apply_nav_preset_rejects_unknown(db_session, profile_row):
+    import pytest
+
+    from app.services.dashboard_layout import apply_nav_preset
+
+    with pytest.raises(ValueError):
+        apply_nav_preset(db_session, profile_row.id, "ultra")
+
+
 def test_match_nav_preset():
     assert match_nav_preset(NAV_CORE) == "simple"
     assert match_nav_preset(NAV_CORE | NAV_PRESETS["standard"]) == "standard"

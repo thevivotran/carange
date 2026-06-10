@@ -59,9 +59,7 @@ def test_create_first_profile_sets_cookie_and_seeds_prefs(profile_client, db_ses
         get_user_sections,
     )
 
-    r = profile_client.post(
-        "/profiles/create", data={"name": "Vi", "color": "#2563EB"}, follow_redirects=False
-    )
+    r = profile_client.post("/profiles/create", data={"name": "Vi", "color": "#2563EB"}, follow_redirects=False)
     assert r.status_code == 303
     assert r.headers["location"] == "/"
     assert "carange_profile=" in r.headers.get("set-cookie", "")
@@ -110,6 +108,22 @@ def test_duplicate_name_shows_error(profile_client, db_session):
     assert db_session.query(User).count() == 1
 
 
+def test_create_with_empty_name_shows_error(profile_client, db_session):
+    r = profile_client.post("/profiles/create", data={"name": "   "})
+    assert r.status_code == 200
+    assert "Please enter a name" in r.text
+    assert db_session.query(User).count() == 0
+
+
+def test_create_with_unknown_color_falls_back_to_default(profile_client, db_session):
+    from app.services.profiles import DEFAULT_PROFILE_COLOR
+
+    r = profile_client.post("/profiles/create", data={"name": "Vi", "color": "#BADBAD"}, follow_redirects=False)
+    assert r.status_code == 303
+    user = db_session.query(User).filter(User.name == "Vi").first()
+    assert user.color == DEFAULT_PROFILE_COLOR
+
+
 def test_next_path_is_validated_against_open_redirects(profile_client, db_session):
     user = _create_user(db_session)
     r = profile_client.post(
@@ -130,6 +144,26 @@ def test_cannot_delete_last_profile(profile_client, db_session):
     assert r.status_code == 200
     assert "Cannot delete the last profile" in r.text
     assert db_session.query(User).count() == 1
+
+
+def test_delete_unknown_profile_shows_error(profile_client, db_session):
+    _create_user(db_session)
+    r = profile_client.post("/profiles/999/delete")
+    assert r.status_code == 200
+    assert "no longer exists" in r.text
+
+
+def test_delete_current_profile_clears_cookie(profile_client, db_session):
+    _create_user(db_session, name="Vi")
+    other = _create_user(db_session, name="Wife", color="#059669")
+
+    profile_client.post("/profiles/select", data={"user_id": str(other.id)}, follow_redirects=False)
+    r = profile_client.post(f"/profiles/{other.id}/delete", follow_redirects=False)
+    assert r.status_code == 303
+    # Cookie cleared → back to the picker on the next page visit
+    page = profile_client.get("/", headers={"accept": "text/html"}, follow_redirects=False)
+    assert page.status_code == 302
+    assert page.headers["location"].startswith("/profiles")
 
 
 def test_delete_profile_removes_its_settings(profile_client, db_session):
