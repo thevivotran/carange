@@ -6,30 +6,32 @@
 
   <!-- Summary Cards -->
   <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-    <div class="bg-white rounded-lg shadow p-4">
-      <p class="text-sm text-gray-500">Active Bundles</p>
-      <p class="text-2xl font-bold text-primary">{{ active_count }}</p>
+    <div class="cg-card rounded-xl p-4 text-center">
+      <p class="text-sm text-muted mb-1">Active Bundles</p>
+      <p class="text-2xl font-bold text-accent amount tabular-nums">{{ active_count }}</p>
     </div>
-    <div class="bg-white rounded-lg shadow p-4">
-      <p class="text-sm text-gray-500">Total Deposited</p>
-      <p class="text-2xl font-bold text-blue-600">{{ total_initial | currency }}</p>
+    <div class="cg-card rounded-xl p-4 text-center">
+      <p class="text-sm text-muted mb-1">Total Deposited</p>
+      <p class="text-2xl font-bold text-accent amount tabular-nums">{{ total_initial | currency }}</p>
     </div>
-    <div class="bg-white rounded-lg shadow p-4">
-      <p class="text-sm text-gray-500">Future Amount</p>
-      <p class="text-2xl font-bold text-green-600">{{ total_future | currency }}</p>
+    <div class="cg-card rounded-xl p-4 text-center">
+      <p class="text-sm text-muted mb-1">Future Amount</p>
+      <p class="text-2xl font-bold text-success amount tabular-nums">{{ total_future | currency }}</p>
     </div>
-    <div class="bg-white rounded-lg shadow p-4">
-      <p class="text-sm text-gray-500">Total Interest</p>
-      <p class="text-2xl font-bold text-purple-600">{{ total_interest | currency }}</p>
+    <div class="cg-card rounded-xl p-4 text-center">
+      <p class="text-sm text-muted mb-1">Total Interest</p>
+      <p class="text-2xl font-bold text-brand amount tabular-nums">{{ total_interest | currency }}</p>
     </div>
   </div>
 
   {% if not bundles %}
   <div class="col-span-full flex flex-col items-center justify-center py-20 text-center">
-    <i class="fas fa-piggy-bank text-6xl mb-4 text-gray-200"></i>
-    <p class="text-xl font-medium text-gray-500 mb-2">No savings bundles yet</p>
-    <p class="text-sm text-gray-400 mb-6">Track fixed deposits and savings goals — create your first bundle to see projected growth.</p>
-    <button onclick="openAddModal()" class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition flex items-center gap-2 text-sm mx-auto">
+    <div class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style="background: var(--surface-sunken)">
+      <i class="fas fa-piggy-bank text-5xl text-muted"></i>
+    </div>
+    <p class="text-xl font-medium mb-2">No savings bundles yet</p>
+    <p class="text-sm text-muted mb-6">Track fixed deposits and savings goals — create your first bundle to see projected growth.</p>
+    <button onclick="openAddModal()" class="bg-brand text-white px-6 py-3 rounded-lg hover:bg-brand-hover transition flex items-center gap-2 text-sm mx-auto">
       <i class="fas fa-plus"></i> Add savings bundle
     </button>
   </div>
@@ -39,50 +41,50 @@
     {% set interest = bundle.future_amount - bundle.initial_deposit %}
     {% set interest_pct = "%.2f"|format(interest / bundle.initial_deposit * 100) if bundle.initial_deposit > 0 else "0.00" %}
 
-    <div id="bundle-card-{{ bundle.id }}" class="bg-white rounded-xl shadow-md p-6">
+    <div id="bundle-card-{{ bundle.id }}" class="cg-card rounded-xl p-6 hover:shadow-md transition-shadow">
 
       <!-- Header -->
       <div class="flex justify-between items-start mb-4">
         <div>
-          <h3 class="text-lg font-semibold text-gray-800">{{ bundle.name }}</h3>
-          <p class="text-sm text-gray-500">{{ bundle.bank_name }}</p>
-          <p class="text-xs text-gray-400 capitalize">{{ (bundle.type.value if bundle.type else 'fixed_deposit').replace('_', ' ') }}</p>
+          <h3 class="text-lg font-semibold">{{ bundle.name }}</h3>
+          <p class="text-sm text-muted">{{ bundle.bank_name }}</p>
+          <p class="text-xs text-muted capitalize mt-0.5">{{ (bundle.type.value if bundle.type else 'fixed_deposit').replace('_', ' ') }}</p>
         </div>
-        <span class="px-2 py-1 text-xs font-medium rounded-full
-          {{ 'bg-green-100 text-green-800' if bundle.status.value == 'active' else
-             'bg-blue-100 text-blue-800' if bundle.status.value == 'completed' else
-             'bg-gray-100 text-gray-800' }}">
+        <span class="cg-badge
+          {{ 'cg-badge--success' if bundle.status.value == 'active' else
+             'cg-badge--accent' if bundle.status.value == 'completed' else
+             'cg-badge--warning' }}">
           {{ bundle.status.value }}
         </span>
       </div>
 
       <!-- Amounts -->
       <div class="space-y-3 mb-4">
-        <div class="flex justify-between items-center p-3 bg-blue-50 rounded-lg">
+        <div class="flex justify-between items-center p-3 rounded-lg" style="background: var(--accent-subtle)">
           <div>
-            <p class="text-xs text-gray-500">Initial Deposit</p>
-            <p class="font-semibold text-blue-700">{{ bundle.initial_deposit | currency }}</p>
+            <p class="text-xs text-muted">Initial Deposit</p>
+            <p class="font-semibold text-accent amount tabular-nums">{{ bundle.initial_deposit | currency }}</p>
           </div>
-          <i class="fas fa-arrow-right text-gray-400"></i>
+          <i class="fas fa-arrow-right text-muted"></i>
           <div class="text-right">
-            <p class="text-xs text-gray-500">Future Amount</p>
-            <p class="font-semibold text-green-700">{{ bundle.future_amount | currency }}</p>
+            <p class="text-xs text-muted">Future Amount</p>
+            <p class="font-semibold text-success amount tabular-nums">{{ bundle.future_amount | currency }}</p>
           </div>
         </div>
         {% if bundle.current_amount is not none and bundle.current_amount != bundle.initial_deposit %}
         <div class="flex justify-between text-sm">
-          <span class="text-gray-500">Current Amount:</span>
-          <span class="font-semibold text-blue-600">{{ bundle.current_amount | currency }}</span>
+          <span class="text-muted">Current Amount:</span>
+          <span class="font-semibold text-accent amount tabular-nums">{{ bundle.current_amount | currency }}</span>
         </div>
         {% endif %}
         <div class="flex justify-between text-sm">
-          <span class="text-gray-500">Interest Earned:</span>
-          <span class="font-semibold text-purple-600">{{ interest | currency(signed=true) }} ({{ interest_pct }}%)</span>
+          <span class="text-muted">Interest Earned:</span>
+          <span class="font-semibold text-brand amount tabular-nums">{{ interest | currency(signed=true) }} ({{ interest_pct }}%)</span>
         </div>
         {% if bundle.interest_rate %}
         <div class="flex justify-between text-sm">
-          <span class="text-gray-500">Interest Rate:</span>
-          <span class="font-medium text-gray-800">{{ bundle.interest_rate }}% / year</span>
+          <span class="text-muted">Interest Rate:</span>
+          <span class="font-medium">{{ bundle.interest_rate }}% / year</span>
         </div>
         {% endif %}
       </div>
@@ -90,19 +92,19 @@
       <!-- Progress bar (active bundles with maturity date only) -->
       {% if bundle.status.value == 'active' and bundle.maturity_date %}
       <div class="mb-4" x-data="bundleProgress('{{ bundle.start_date }}', '{{ bundle.maturity_date }}')">
-        <div class="flex justify-between text-xs text-gray-500 mb-1">
+        <div class="flex justify-between text-xs text-muted mb-1">
           <span>Term Progress</span>
           <span x-text="pct + '%'"></span>
         </div>
-        <div class="w-full bg-gray-200 rounded-full h-2">
-          <div class="h-2 rounded-full bg-blue-500 transition-all duration-300" :style="'width:' + pct + '%'"></div>
+        <div class="w-full rounded-full h-2" style="background: var(--surface-sunken)">
+          <div class="h-2 rounded-full bg-accent transition-all duration-300" :style="'width:' + pct + '%'"></div>
         </div>
-        <p class="text-xs mt-1" :class="daysLeft <= 7 ? 'text-red-600 font-semibold' : 'text-gray-500'" x-text="daysLabel"></p>
+        <p class="text-xs mt-1" :class="daysLeft <= 7 ? 'text-danger font-semibold' : 'text-muted'" x-text="daysLabel"></p>
       </div>
       {% endif %}
 
       <!-- Dates -->
-      <div class="text-sm text-gray-500 mb-4 space-y-1">
+      <div class="text-sm text-muted mb-4 space-y-1">
         <div><i class="fas fa-calendar-alt mr-2 w-4"></i>Start: {{ bundle.start_date or '—' }}</div>
         {% if bundle.maturity_date %}
         <div><i class="fas fa-flag-checkered mr-2 w-4"></i>Matures: {{ bundle.maturity_date }}</div>
@@ -113,7 +115,7 @@
       {% if bundle.linked_transaction_count > 0 %}
       <div x-data="{open: false, loaded: false}" class="mb-4">
         <button @click="open = !open; if (open && !loaded) { loaded = true; htmx.trigger(document.getElementById('bundle-txs-{{ bundle.id }}'), 'load-txs') }"
-                class="flex items-center justify-between w-full text-sm text-indigo-600 hover:text-indigo-800 font-medium py-1">
+                class="flex items-center justify-between w-full text-sm text-accent hover:text-accent-hover font-medium py-1">
           <span><i class="fas fa-receipt mr-2"></i>{{ bundle.linked_transaction_count }} linked transaction{{ '' if bundle.linked_transaction_count == 1 else 's' }}</span>
           <i class="fas fa-chevron-down text-xs transition-transform duration-200" :class="open ? 'rotate-180' : ''"></i>
         </button>
@@ -123,37 +125,37 @@
              hx-trigger="load-txs"
              hx-swap="innerHTML"
              class="mt-2 space-y-1">
-          <p class="text-xs text-gray-400 py-1">Loading…</p>
+          <p class="text-xs text-muted py-1">Loading…</p>
         </div>
       </div>
       {% endif %}
 
       <!-- Notes -->
       {% if bundle.notes %}
-      <p class="text-sm text-gray-600 mb-4 italic">"{{ bundle.notes }}"</p>
+      <p class="text-sm mb-4 italic" style="color: var(--text-secondary)">"{{ bundle.notes }}"</p>
       {% endif %}
 
       <!-- Actions -->
-      <div class="flex gap-2 pt-4 border-t">
+      <div class="flex gap-2 pt-4 border-t" style="border-color: var(--border-subtle)">
         {% if bundle.status.value == 'active' %}
         <button onclick="markCompleted({{ bundle.id }})"
-                class="flex-1 bg-green-100 text-green-700 py-2 rounded-lg hover:bg-green-200 transition text-sm">
+                class="flex-1 py-2 rounded-lg hover:bg-success-subtle transition text-sm font-medium" style="background: var(--success-subtle); color: var(--success-text)">
           <i class="fas fa-check mr-1"></i>Mark Completed
         </button>
         <button onclick="rolloverSavings({{ bundle.id }})"
-                class="px-3 py-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition text-sm"
-                title="Rollover to new bundle">
+                class="px-3 py-2 hover:bg-accent-subtle rounded-lg transition text-sm"
+                title="Rollover to new bundle" style="color: var(--accent-text)">
           <i class="fas fa-redo"></i>
         </button>
         {% endif %}
         <button onclick="editSavings({{ bundle.id }})"
-                class="px-3 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
-                title="Edit" aria-label="Edit savings bundle">
+                class="px-3 py-2 hover:bg-accent-subtle rounded-lg transition"
+                title="Edit" aria-label="Edit savings bundle" style="color: var(--accent-text)">
           <i class="fas fa-edit"></i>
         </button>
         <button onclick="deleteSavingsBundle({{ bundle.id }}, '{{ bundle.name | e }}', {{ bundle.linked_transaction_count }})"
-                class="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition"
-                title="Delete" aria-label="Delete savings bundle">
+                class="px-3 py-2 hover:bg-danger-subtle rounded-lg transition"
+                title="Delete" aria-label="Delete savings bundle" style="color: var(--danger-text)">
           <i class="fas fa-trash"></i>
         </button>
       </div>

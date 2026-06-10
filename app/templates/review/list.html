@@ -1,25 +1,31 @@
 {% if count == 0 %}
 <!-- ── Empty state — same pattern as other empty pages ───────────────── -->
-<div class="bg-white rounded-2xl border border-dashed border-gray-200 p-14 text-center">
-  <div class="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mx-auto mb-4">
-    <i class="fas fa-check-circle text-2xl text-green-500"></i>
+<div class="cg-card rounded-2xl border-dashed p-14 text-center">
+  <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style="background: var(--success-subtle)">
+    <i class="fas fa-circle-check text-2xl" style="color: var(--success)"></i>
   </div>
-  <h3 class="text-lg font-semibold text-gray-700 mb-1">All clear</h3>
-  <p class="text-sm text-gray-500">No transactions need review right now.</p>
+  <h3 class="text-lg font-semibold mb-1">All clear</h3>
+  <p class="text-sm text-muted">No transactions need review right now.</p>
 </div>
 
 {% else %}
 
+<!-- ── Banner ─────────────────────────────────────────────────────────── -->
+<div class="rounded-xl p-4 mb-5 flex items-start gap-3" style="background: var(--accent-subtle); border: 1px solid var(--accent)">
+  <i class="fas fa-wand-magic-sparkles text-accent mt-0.5"></i>
+  <p class="text-sm" style="color: var(--accent-text)">We parsed these from your screenshots and bank emails. Confirm the ones that look right — low-confidence reads are flagged.</p>
+</div>
+
 <!-- ── Toolbar: count pill + approve-all button ──────────────────────── -->
 <div class="flex items-center justify-between gap-3 mb-5">
   <span id="review-pending-pill" data-count="{{ count }}"
-        class="inline-flex items-center gap-2 bg-orange-50 border border-orange-200 text-orange-700 text-sm font-semibold px-3.5 py-1.5 rounded-full">
+        class="inline-flex items-center gap-2 cg-badge cg-badge--brand">
     <i class="fas fa-inbox text-xs"></i>
     <span data-count-label>{{ count }} transaction{{ '' if count == 1 else 's' }} pending</span>
   </span>
   {% if count > 1 %}
   <button id="review-approve-all-btn" onclick="approveAll()"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-medium rounded-lg transition">
+          class="inline-flex items-center gap-2 px-4 py-2 bg-success hover:bg-success/90 text-white text-sm font-medium rounded-lg transition">
     <i class="fas fa-check-double text-xs"></i> Approve all
   </button>
   {% endif %}
@@ -34,8 +40,8 @@
   {% if tx.date != ns.last_date %}
   {% set ns.last_date = tx.date %}
   {% if not loop.first %}<div class="pt-2"></div>{% endif %}
-  <div class="bg-gray-50 border-y border-gray-100 px-3 py-1.5 -mx-0 rounded-lg mb-1">
-    <span class="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+  <div class="px-3 py-1.5 rounded-lg mb-1" style="background: var(--surface-sunken)">
+    <span class="eyebrow">
       {{ tx.date.strftime('%d %b %Y') }}
     </span>
   </div>
@@ -43,27 +49,27 @@
 
   {# ── Card — left border signals income (green) vs expense (red) ── #}
   <div id="review-row-{{ tx.id }}"
-       class="bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow
-              {% if tx.type.value == 'income' %}border-l-4 border-l-green-400{% else %}border-l-4 border-l-red-400{% endif %}">
+       class="cg-card rounded-xl hover:shadow-md transition-shadow
+              {% if tx.type.value == 'income' %}border-l-4 border-success{% else %}border-l-4 border-danger{% endif %}">
 
     <!-- TOP ROW: icon · description · amount -->
     <div class="flex items-start gap-3 px-4 pt-4 pb-3">
 
       <!-- Type icon circle — identical pattern to transaction list -->
-      <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center mt-0.5
-                  {% if tx.type.value == 'income' %}bg-green-100{% else %}bg-red-100{% endif %}">
+      <div class="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center mt-0.5
+                  {{ 'bg-income-subtle' if tx.type.value == 'income' else 'bg-surface-sunken' }}">
         <i class="fas text-xs
-                  {% if tx.type.value == 'income' %}fa-arrow-down text-green-600{% else %}fa-arrow-up text-red-500{% endif %}"></i>
+                  {{ 'fa-arrow-down text-income' if tx.type.value == 'income' else 'fa-arrow-up text-expense' }}"></i>
       </div>
 
       <!-- Description — editable inline input, styled to feel like a field -->
       <div class="flex-1 min-w-0">
         <input type="text"
-               class="desc-input w-full text-sm font-medium text-gray-800 bg-transparent
+               class="desc-input w-full text-sm font-medium bg-transparent
                       border border-transparent rounded-lg px-2 py-1 -ml-2
-                      hover:border-gray-200 hover:bg-gray-50
-                      focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/20 focus:outline-none
-                      transition placeholder:text-gray-400"
+                      hover:border-default hover:bg-surface-sunken
+                      focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/20 focus:outline-none
+                      transition placeholder:text-muted"
                value="{{ tx.description or '' }}"
                data-original="{{ tx.description or '' }}"
                placeholder="Add description…">
@@ -71,8 +77,8 @@
 
       <!-- Amount — consistent with transaction list (+/- prefix, ₫ suffix) -->
       <div class="flex-shrink-0 text-right">
-        <span class="text-sm font-bold whitespace-nowrap
-                     {% if tx.type.value == 'income' %}text-green-600{% else %}text-red-600{% endif %}">
+        <span class="text-sm font-bold whitespace-nowrap amount tabular-nums
+                     {{ 'text-income' if tx.type.value == 'income' else 'text-expense' }}">
           {{ '+' if tx.type.value == 'income' else '-' }}{{ tx.amount | currency }}
         </span>
       </div>
@@ -83,16 +89,16 @@
 
       <!-- Source badge -->
       {% if tx.source == 'email' %}
-      <span class="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-600 border border-blue-100 px-2 py-0.5 rounded-full font-medium">
+      <span class="cg-badge cg-badge--accent">
         <i class="fas fa-envelope text-[10px]"></i> Email
       </span>
       {% elif tx.source in ['timo', 'uob', 'liobank', 'shopee', 'grab', 'ocr'] %}
-      <span class="inline-flex items-center gap-1 text-xs bg-purple-50 text-purple-600 border border-purple-100 px-2 py-0.5 rounded-full font-medium">
+      <span class="cg-badge cg-badge--brand">
         <i class="fas fa-camera text-[10px]"></i> OCR
         {% if tx.source != 'ocr' %}&middot; {{ tx.source | title }}{% endif %}
       </span>
       {% else %}
-      <span class="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full font-medium">
+      <span class="cg-badge cg-badge--warning">
         {{ tx.source or 'Manual' }}
       </span>
       {% endif %}
@@ -100,12 +106,12 @@
       <!-- Confidence bar — visual instead of raw % text -->
       {% if tx.confidence_score is not none %}
       {% set conf = (tx.confidence_score * 100) | int %}
-      {% set conf_color = 'bg-green-400' if conf >= 80 else ('bg-amber-400' if conf >= 50 else 'bg-red-400') %}
+      {% set conf_tone = 'success' if conf >= 80 else ('warning' if conf >= 50 else 'danger') %}
       <div class="flex items-center gap-1.5" title="{{ conf }}% confidence">
-        <div class="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-          <div class="h-full rounded-full {{ conf_color }}" style="width: {{ conf }}%"></div>
+        <div class="w-16 h-1.5 rounded-full" style="background: var(--surface-sunken)">
+          <div class="h-full rounded-full" style="width: {{ conf }}%; background: var(--{{ conf_tone }})"></div>
         </div>
-        <span class="text-xs text-gray-400">{{ conf }}%</span>
+        <span class="text-xs text-muted">{{ conf }}%</span>
       </div>
       {% endif %}
 
@@ -113,10 +119,10 @@
       <div class="flex-1"></div>
 
       <!-- Category selector — styled as a compact select -->
-      <select class="cat-select text-xs border border-gray-200 rounded-lg px-2.5 py-1.5
-                     bg-white text-gray-700 font-medium
-                     focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none
-                     hover:border-gray-300 transition cursor-pointer">
+      <select class="cat-select text-xs border rounded-lg px-2.5 py-1.5
+                     bg-white font-medium
+                     focus:ring-2 focus:ring-accent focus:border-accent focus:outline-none
+                     hover:border-default transition cursor-pointer">
         {% for cat in categories %}
         {% if cat.type == tx.type %}
         <option value="{{ cat.id }}" {% if cat.id == tx.category_id %}selected{% endif %}>
@@ -127,40 +133,42 @@
       </select>
     </div>
 
-    <!-- ACTION ROW — full-width divider + 3 buttons, style matches drawer footer -->
-    <div class="border-t border-gray-100 flex items-center">
+    <!-- ACTION ROW — full-width divider + 3 buttons -->
+    <div class="border-t flex items-center" style="border-color: var(--border-subtle)">
 
       <!-- Approve — primary action, leftmost, widest -->
       <button onclick="approveRow({{ tx.id }})"
               class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5
-                     text-sm font-semibold text-green-700 bg-white
-                     hover:bg-green-50 active:bg-green-100
-                     rounded-bl-xl transition">
+                     text-sm font-semibold rounded-bl-xl transition"
+              style="color: var(--success-text); background: var(--success-subtle)"
+              onmouseover="this.style.background='var(--success)'" onmouseout="this.style.background='var(--success-subtle)'">
         <i class="fas fa-check text-xs"></i> Confirm
       </button>
 
-      <div class="w-px h-8 bg-gray-100"></div>
+      <div class="w-px h-8" style="background: var(--border-subtle)"></div>
 
       <!-- Rule — secondary -->
       <button onclick="rememberAsRule({{ tx.id }})"
               title="Save pattern as auto-rule"
               class="flex items-center justify-center gap-2 px-4 py-2.5
-                     text-sm font-medium text-blue-600 bg-white
-                     hover:bg-blue-50 active:bg-blue-100
-                     transition">
+                     text-sm font-medium bg-white
+                     hover:bg-surface-sunken
+                     transition"
+              style="color: var(--accent-text)">
         <i class="fas fa-magic text-xs"></i>
         <span class="hidden sm:inline">Rule</span>
       </button>
 
-      <div class="w-px h-8 bg-gray-100"></div>
+      <div class="w-px h-8" style="background: var(--border-subtle)"></div>
 
       <!-- Reject — danger, rightmost -->
       <button onclick="rejectRow({{ tx.id }})"
               title="Skip this transaction"
               class="flex items-center justify-center gap-2 px-4 py-2.5
-                     text-sm font-medium text-red-500 bg-white
-                     hover:bg-red-50 active:bg-red-100
-                     rounded-br-xl transition">
+                     text-sm font-medium bg-white
+                     hover:bg-danger-subtle
+                     rounded-br-xl transition"
+              style="color: var(--danger-text)">
         <i class="fas fa-times text-xs"></i>
         <span class="hidden sm:inline">Skip</span>
       </button>

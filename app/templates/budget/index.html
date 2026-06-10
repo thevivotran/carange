@@ -8,29 +8,29 @@
   <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
     <div>
       <h2 class="text-3xl font-bold text-gray-800">Budget</h2>
-      <p class="text-gray-600 mt-1">Monthly budget allocations and spending</p>
+      <p class="text-muted mt-1">Monthly budget allocations and spending</p>
     </div>
     <!-- Controls: month pill + actions all on one line -->
     <div class="flex items-center gap-2 flex-wrap">
-      <div class="flex items-center gap-1 bg-white rounded-xl shadow-sm border px-2 py-1">
+      <div class="flex items-center gap-1 cg-card px-2 py-1">
         <button onclick="prevMonth()"
-                class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 transition select-none">&#8249;</button>
-        <span id="month-label" class="px-3 py-1 text-sm font-semibold text-gray-700 min-w-[110px] text-center select-none"></span>
+                class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none">&#8249;</button>
+        <span id="month-label" class="px-3 py-1 text-sm font-semibold min-w-[110px] text-center select-none"></span>
         <button onclick="nextMonth()"
-                class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 transition select-none">&#8250;</button>
+                class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none">&#8250;</button>
         <button id="budget-exit-btn" onclick="exitBudgetMonthTracking()" title="Exit month tracking — reset to current month"
-                class="hidden w-7 h-7 flex items-center justify-center rounded-lg text-base text-gray-400 hover:text-red-500 hover:bg-red-50 transition select-none">&#215;</button>
+                class="hidden w-7 h-7 flex items-center justify-center rounded-lg text-base text-muted hover:text-danger hover:bg-danger-subtle transition select-none">&#215;</button>
       </div>
       <button onclick="openHistoryModal()" title="Budget History" aria-label="Budget History"
-              class="hidden md:flex items-center justify-center w-10 h-10 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition flex-shrink-0">
+              class="hidden md:flex items-center justify-center w-10 h-10 cg-card border text-secondary rounded-lg hover:bg-surface-sunken transition flex-shrink-0">
         <i class="fas fa-history"></i>
       </button>
       <button onclick="openAddModal()" title="Add Category" aria-label="Add Category"
-              class="flex items-center justify-center gap-2 w-10 h-10 md:w-auto md:h-auto md:px-4 md:py-3 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition flex-shrink-0">
+              class="flex items-center justify-center gap-2 w-10 h-10 md:w-auto md:h-auto md:px-4 md:py-3 cg-card border text-secondary rounded-lg hover:bg-surface-sunken transition flex-shrink-0">
         <i class="fas fa-plus"></i>
         <span class="hidden md:inline">Add Category</span>
       </button>
-      <button onclick="openEditModal()" class="flex items-center gap-2 px-6 py-3 bg-primary text-white rounded-lg hover:bg-blue-600 transition">
+      <button onclick="openEditModal()" class="flex items-center gap-2 px-6 py-3 bg-accent text-white rounded-lg hover:bg-accent-hover transition">
         <i class="fas fa-sliders-h"></i> Edit Budgets
       </button>
     </div>
@@ -47,8 +47,8 @@
 </div>
 
 <!-- ── Edit budgets modal ── -->
-<div id="edit-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
-  <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[85dvh] flex flex-col">
+<div id="edit-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
+  <div class="cg-card rounded-xl shadow-xl w-full max-w-lg max-h-[85dvh] flex flex-col">
     <div class="p-6 border-b flex items-center justify-between">
       <h3 class="font-bold text-gray-800">Edit Budgets</h3>
       <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600" aria-label="Close"><i class="fas fa-times"></i></button>
@@ -57,16 +57,16 @@
       <p class="text-xs text-gray-500 py-2">Each row has its own effective-from month. Only rows you change will be saved.</p>
     </div>
     <div id="edit-form" class="flex-1 overflow-y-auto overscroll-contain px-6 py-4 space-y-3"></div>
-    <div class="px-6 py-4 border-t flex gap-3">
-      <button onclick="closeEditModal()" class="flex-1 px-4 py-2.5 border rounded-lg hover:bg-gray-50 transition text-sm font-medium">Cancel</button>
-      <button onclick="saveEdits()" class="flex-1 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">Save</button>
+    <div class="px-6 py-4 border-t flex gap-3" style="border-color: var(--border-subtle)">
+      <button onclick="closeEditModal()" class="flex-1 px-4 py-2.5 border rounded-lg hover:bg-surface-sunken transition text-sm font-medium">Cancel</button>
+      <button onclick="saveEdits()" class="flex-1 px-4 py-2.5 bg-accent text-white rounded-lg hover:bg-accent-hover transition text-sm font-medium">Save</button>
     </div>
   </div>
 </div>
 
 <!-- ── Add category modal ── -->
-<div id="add-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
-  <div class="bg-white rounded-xl shadow-xl w-full max-w-sm">
+<div id="add-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
+  <div class="cg-card rounded-xl shadow-xl w-full max-w-sm">
     <div class="p-6 border-b flex items-center justify-between">
       <h3 class="font-bold text-gray-800">Add Category to Budget</h3>
       <button onclick="closeAddModal()" class="text-gray-400 hover:text-gray-600" aria-label="Close"><i class="fas fa-times"></i></button>
@@ -84,16 +84,16 @@
           class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
       </div>
     </div>
-    <div class="px-6 py-4 border-t flex gap-3">
-      <button onclick="closeAddModal()" class="flex-1 px-4 py-2.5 border rounded-lg hover:bg-gray-50 transition text-sm font-medium">Cancel</button>
-      <button onclick="confirmAdd()" class="flex-1 px-4 py-2.5 bg-primary text-white rounded-lg hover:bg-blue-700 transition text-sm font-medium">Add</button>
+    <div class="px-6 py-4 border-t flex gap-3" style="border-color: var(--border-subtle)">
+      <button onclick="closeAddModal()" class="flex-1 px-4 py-2.5 border rounded-lg hover:bg-surface-sunken transition text-sm font-medium">Cancel</button>
+      <button onclick="confirmAdd()" class="flex-1 px-4 py-2.5 bg-accent text-white rounded-lg hover:bg-accent-hover transition text-sm font-medium">Add</button>
     </div>
   </div>
 </div>
 
 <!-- ── History modal ── -->
-<div id="history-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
-  <div class="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[90dvh] flex flex-col">
+<div id="history-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
+  <div class="cg-card rounded-xl shadow-xl w-full max-w-5xl max-h-[90dvh] flex flex-col">
     <div class="p-6 border-b flex items-center justify-between">
       <h3 class="font-bold text-gray-800">Budget History — Last 6 Months</h3>
       <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-gray-600" aria-label="Close"><i class="fas fa-times"></i></button>
@@ -106,9 +106,9 @@
 </div>
 
 <style>
-.cat-card { background: white; border-radius: 0.75rem; border: 1px solid #e5e7eb; padding: 1rem 1.25rem; transition: box-shadow 0.15s; }
-.cat-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
-.progress-bg { background: #f3f4f6; border-radius: 999px; height: 8px; }
+.cat-card { background: var(--surface-card); border: 1px solid var(--border-default); border-radius: var(--radius-lg); padding: 1rem 1.25rem; transition: box-shadow 0.15s; }
+.cat-card:hover { box-shadow: var(--shadow-md); }
+.progress-bg { background: var(--surface-sunken); border-radius: 999px; height: 8px; }
 .progress-bar { height: 8px; border-radius: 999px; transition: width 0.5s; }
 </style>
 

@@ -1,21 +1,21 @@
-<div id="sample-data-card" class="bg-white rounded-2xl shadow-sm border p-6">
+<div id="sample-data-card" class="cg-card rounded-2xl p-6">
   <div class="flex items-center gap-3 mb-1">
-    <div class="w-9 h-9 rounded-xl bg-purple-50 flex items-center justify-center flex-shrink-0">
-      <i class="fas fa-flask text-purple-500 text-sm"></i>
+    <div class="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style="background: var(--accent-subtle)">
+      <i class="fas fa-flask text-accent text-sm"></i>
     </div>
-    <h4 class="font-semibold text-gray-800 text-sm">Sample Data</h4>
+    <h4 class="font-semibold text-sm">Sample Data</h4>
   </div>
-  <p class="text-xs text-gray-400 mb-4">
+  <p class="text-xs text-muted mb-4">
     Curious what a populated dashboard looks like? Load ~2 months of synthetic transactions and a sample
     savings goal — clearly tagged, fully reversible, and easy to remove once you're ready to enter your own numbers.
   </p>
   {% if sample_data_loaded %}
   <div class="flex items-center gap-3 flex-wrap">
-    <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 text-xs font-medium border border-amber-200">
+    <span class="cg-badge cg-badge--warning">
       <i class="fas fa-flask text-xs"></i> Sample data is loaded
     </span>
     <button type="button" onclick="confirmRemoveSampleData()"
-            class="px-4 py-2 rounded-xl border border-red-200 text-red-600 text-sm font-medium hover:bg-red-50 transition">
+            class="px-4 py-2 rounded-xl border text-sm font-medium hover:bg-danger-subtle transition" style="border-color: var(--danger); color: var(--danger-text)">
       Remove sample data
     </button>
   </div>
@@ -23,7 +23,7 @@
   <button type="button"
           hx-post="/settings/sample-data/load"
           hx-target="#sample-data-card" hx-swap="outerHTML"
-          class="px-5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition">
+          class="px-5 py-2 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-brand-hover transition">
     Load sample data
   </button>
   {% endif %}

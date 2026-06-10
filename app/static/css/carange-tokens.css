@@ -1,0 +1,437 @@
+/* ============================================================
+   CARANGE · DESIGN TOKENS
+   Consolidated from carange-design skill tokens/
+   ============================================================ */
+
+/* ── Fonts ──────────────────────────────────────────────────── */
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,500&display=swap");
+
+/* ── CSS Variables Root ──────────────────────────────────────── */
+:root {
+  /* ── Brand · Orange (primary action) ─────────────────────── */
+  --orange-50:  #FFF5ED;
+  --orange-100: #FFE7D4;
+  --orange-200: #FFC9A4;
+  --orange-300: #FFA66E;
+  --orange-400: #FB8334;
+  --orange-500: #F97316; /* brand base */
+  --orange-600: #EA5A0B;
+  --orange-700: #C2440A;
+  --orange-800: #99370F;
+  --orange-900: #7C2F10;
+
+  /* ── Accent · Blue (trust / data) ────────────────────────── */
+  --blue-50:  #EFF5FF;
+  --blue-100: #DBE7FE;
+  --blue-200: #BFD3FE;
+  --blue-300: #93B4FD;
+  --blue-400: #6090FA;
+  --blue-500: #3B72F6;
+  --blue-600: #2563EB; /* accent base */
+  --blue-700: #1D4FD0;
+  --blue-800: #1E40AA;
+  --blue-900: #1E3A86;
+
+  /* ── Neutral · Slate ─────────────────────────────────────── */
+  --slate-50:  #F8FAFC;
+  --slate-100: #F1F5F9;
+  --slate-200: #E2E8F0;
+  --slate-300: #CBD5E1;
+  --slate-400: #94A3B8;
+  --slate-500: #64748B;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1E293B;
+  --slate-900: #0F172A;
+  --slate-950: #020617;
+
+  /* ── Income / Success (green) ─────────────────────────────── */
+  --green-50:  #ECFDF5;
+  --green-100: #D1FAE5;
+  --green-500: #10B981;
+  --green-600: #059669;
+  --green-700: #047857;
+
+  /* ── Expense / Danger (red) ───────────────────────────────── */
+  --red-50:  #FEF2F2;
+  --red-100: #FEE2E2;
+  --red-500: #EF4444;
+  --red-600: #DC2626;
+  --red-700: #B91C1C;
+
+  /* ── Warning (amber) ──────────────────────────────────────── */
+  --amber-50:  #FFFBEB;
+  --amber-100: #FEF3C7;
+  --amber-500: #F59E0B;
+  --amber-600: #D97706;
+  --amber-700: #B45309;
+
+  /* ── Semantic Aliases — Light Theme ─────────────────────── */
+
+  /* Surfaces */
+  --bg-app:          var(--slate-50);
+  --surface-card:    #FFFFFF;
+  --surface-sunken:  var(--slate-100);
+  --surface-raised:   #FFFFFF;
+  --surface-inverse:  var(--slate-900);
+
+  /* Borders & Dividers */
+  --border-subtle:   var(--slate-100);
+  --border-default:  var(--slate-200);
+  --border-strong:   var(--slate-300);
+
+  /* Text */
+  --text-primary:    var(--slate-800);
+  --text-secondary:  var(--slate-600);
+  --text-muted:      var(--slate-400);
+  --text-inverse:    #FFFFFF;
+  --text-on-brand:   #FFFFFF;
+
+  /* Brand (orange) */
+  --brand:           var(--orange-500);
+  --brand-hover:     var(--orange-600);
+  --brand-press:     var(--orange-700);
+  --brand-subtle:    var(--orange-50);
+  --brand-subtle-2:  var(--orange-100);
+  --brand-text:      var(--orange-600);
+  --on-brand:        #FFFFFF;
+
+  /* Accent (blue) */
+  --accent:          var(--blue-600);
+  --accent-hover:    var(--blue-700);
+  --accent-press:    var(--blue-800);
+  --accent-subtle:   var(--blue-50);
+  --accent-subtle-2: var(--blue-100);
+  --accent-text:     var(--blue-600);
+
+  /* Finance Semantics */
+  --income:          var(--green-600);
+  --income-subtle:   var(--green-50);
+  --expense:         var(--red-600);
+  --expense-subtle:  var(--red-50);
+
+  /* Status */
+  --success:         var(--green-600);
+  --success-subtle:  var(--green-50);
+  --success-text:    var(--green-700);
+  --warning:         var(--amber-600);
+  --warning-subtle:  var(--amber-50);
+  --warning-text:    var(--amber-700);
+  --danger:          var(--red-600);
+  --danger-subtle:   var(--red-50);
+  --danger-text:     var(--red-700);
+  --info:            var(--blue-600);
+  --info-subtle:     var(--blue-50);
+  --info-text:       var(--blue-700);
+
+  /* Focus Ring */
+  --focus-ring:      rgba(249, 115, 22, 0.40);
+  --focus-ring-accent: rgba(37, 99, 235, 0.35);
+
+  /* Hero Gradients */
+  --hero-gradient:   linear-gradient(135deg, #FB8334 0%, #F97316 38%, #2563EB 130%);
+  --hero-gradient-soft: linear-gradient(135deg, #2563EB 0%, #1E40AA 100%);
+
+  /* ── Typography ──────────────────────────────────────────── */
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system,
+               "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-numeric: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Menlo", "Consolas", monospace;
+
+  /* Type Scale */
+  --text-2xs: 0.6875rem; /* 11px */
+  --text-xs:  0.75rem;   /* 12px */
+  --text-sm:  0.875rem;  /* 14px */
+  --text-base: 1rem;     /* 16px */
+  --text-lg:  1.125rem;  /* 18px */
+  --text-xl:  1.25rem;   /* 20px */
+  --text-2xl: 1.5rem;    /* 24px */
+  --text-3xl: 1.875rem;  /* 30px */
+  --text-4xl: 2.25rem;   /* 36px */
+  --text-5xl: 3rem;      /* 48px */
+
+  /* Weights */
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+  --weight-extra:    800;
+
+  /* Line Heights */
+  --leading-tight:   1.15;
+  --leading-snug:    1.3;
+  --leading-normal:  1.5;
+  --leading-relaxed: 1.65;
+
+  /* Letter Spacing */
+  --tracking-tight:  -0.02em;
+  --tracking-normal: 0;
+  --tracking-wide:   0.04em;
+  --tracking-widest: 0.12em;
+
+  /* Eyebrow */
+  --eyebrow-size:    var(--text-xs);
+  --eyebrow-weight:  var(--weight-semibold);
+  --eyebrow-tracking: var(--tracking-widest);
+
+  /* ── Spacing ──────────────────────────────────────────────── */
+  --space-0:   0;
+  --space-1:   0.25rem;  /* 4px */
+  --space-1-5: 0.375rem; /* 6px */
+  --space-2:   0.5rem;   /* 8px */
+  --space-2-5: 0.625rem; /* 10px */
+  --space-3:   0.75rem;  /* 12px */
+  --space-4:   1rem;     /* 16px */
+  --space-5:   1.25rem;  /* 20px */
+  --space-6:   1.5rem;   /* 24px */
+  --space-8:   2rem;     /* 32px */
+  --space-10:  2.5rem;   /* 40px */
+  --space-12:  3rem;     /* 48px */
+  --space-16:  4rem;     /* 64px */
+
+  /* Layout */
+  --sidebar-width:           16rem;   /* 256px */
+  --sidebar-width-collapsed: 4rem;    /* 64px */
+  --bottom-nav-height:       3.5rem;  /* 56px */
+  --content-max:             80rem;   /* 1280px */
+  --gap-cards:              var(--space-4);
+
+  /* ── Radius ───────────────────────────────────────────────── */
+  --radius-xs:   0.375rem; /* 6px */
+  --radius-sm:   0.5rem;   /* 8px */
+  --radius-md:   0.75rem;  /* 12px */
+  --radius-lg:   1rem;     /* 16px */
+  --radius-xl:   1.25rem;  /* 20px */
+  --radius-2xl:  1.5rem;  /* 24px */
+  --radius-full: 9999px;
+
+  /* ── Shadows ──────────────────────────────────────────────── */
+  --shadow-xs:  0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-sm:  0 1px 3px rgba(15, 23, 42, 0.07), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-md:  0 4px 12px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --shadow-lg:  0 12px 28px rgba(15, 23, 42, 0.12), 0 4px 8px rgba(15, 23, 42, 0.05);
+  --shadow-xl:  0 24px 48px rgba(15, 23, 42, 0.16);
+
+  /* Brand Glow */
+  --shadow-brand:  0 8px 20px rgba(249, 115, 22, 0.28);
+  --shadow-accent: 0 8px 20px rgba(37, 99, 235, 0.24);
+
+  /* ── Motion ───────────────────────────────────────────────── */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out:      cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring:   cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  --dur-instant: 80ms;
+  --dur-fast:    150ms;
+  --dur-base:    220ms;
+  --dur-slow:    400ms;
+
+  --press-scale: 0.97;
+
+  /* Focus Ring Width */
+  --ring-width: 3px;
+}
+
+/* ── Dark Theme ──────────────────────────────────────────────── */
+.dark,
+[data-theme="dark"] {
+  /* Surfaces */
+  --bg-app:          var(--slate-900);
+  --surface-card:    var(--slate-800);
+  --surface-sunken:  var(--slate-900);
+  --surface-raised:   #243044;
+  --surface-inverse:  var(--slate-100);
+
+  /* Borders */
+  --border-subtle:   var(--slate-700);
+  --border-default:  var(--slate-700);
+  --border-strong:   var(--slate-600);
+
+  /* Text */
+  --text-primary:    var(--slate-100);
+  --text-secondary:  var(--slate-300);
+  --text-muted:      var(--slate-400);
+  --text-inverse:    var(--slate-900);
+
+  /* Brand (lifts for dark contrast) */
+  --brand:           var(--orange-500);
+  --brand-hover:     var(--orange-400);
+  --brand-press:     var(--orange-300);
+  --brand-subtle:    rgba(249, 115, 22, 0.16);
+  --brand-subtle-2:  rgba(249, 115, 22, 0.26);
+  --brand-text:      var(--orange-400);
+
+  /* Accent */
+  --accent:          var(--blue-500);
+  --accent-hover:    var(--blue-400);
+  --accent-press:    var(--blue-300);
+  --accent-subtle:   rgba(37, 99, 235, 0.20);
+  --accent-subtle-2: rgba(37, 99, 235, 0.30);
+  --accent-text:     #60A5FA;
+
+  /* Finance */
+  --income:          #34D399;
+  --income-subtle:   rgba(16, 185, 129, 0.18);
+  --expense:         #F87171;
+  --expense-subtle:  rgba(239, 68, 68, 0.18);
+
+  /* Status */
+  --success:         #34D399;
+  --success-subtle:  rgba(16, 185, 129, 0.18);
+  --success-text:    #6EE7B7;
+  --warning:         #FBBF24;
+  --warning-subtle:  rgba(245, 158, 11, 0.18);
+  --warning-text:    #FCD34D;
+  --danger:          #F87171;
+  --danger-subtle:   rgba(239, 68, 68, 0.18);
+  --danger-text:     #FCA5A5;
+  --info:            #60A5FA;
+  --info-subtle:     rgba(37, 99, 235, 0.20);
+  --info-text:       #93C5FD;
+
+  /* Focus Ring */
+  --focus-ring:      rgba(251, 131, 52, 0.50);
+  --focus-ring-accent: rgba(96, 144, 250, 0.45);
+
+  /* Hero Gradients (desaturated) */
+  --hero-gradient:   linear-gradient(135deg, #C2440A 0%, #EA5A0B 40%, #1D4FD0 130%);
+  --hero-gradient-soft: linear-gradient(135deg, #1D4FD0 0%, #1E3A86 100%);
+
+  /* Shadows */
+  --shadow-xs:  0 1px 2px rgba(0, 0, 0, 0.40);
+  --shadow-sm:  0 1px 3px rgba(0, 0, 0, 0.50);
+  --shadow-md:  0 4px 12px rgba(0, 0, 0, 0.55);
+  --shadow-lg:  0 12px 28px rgba(0, 0, 0, 0.60);
+  --shadow-xl:  0 24px 48px rgba(0, 0, 0, 0.70);
+  --shadow-brand:  0 8px 20px rgba(249, 115, 22, 0.40);
+  --shadow-accent: 0 8px 20px rgba(37, 99, 235, 0.38);
+}
+
+/* ── Base Element Defaults ───────────────────────────────────── */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--text-primary);
+  background-color: var(--bg-app);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv11" 1;
+}
+
+h1, h2, h3, h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  color: var(--text-primary);
+}
+
+p { margin: 0; }
+
+a { color: var(--accent-text); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Utility Classes ─────────────────────────────────────────── */
+
+/* Eyebrow label — uppercase with wide tracking */
+.eyebrow {
+  font-size: var(--eyebrow-size);
+  font-weight: var(--eyebrow-weight);
+  letter-spacing: var(--eyebrow-tracking);
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* Tabular figures for money */
+.tabular-nums,
+.amount {
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+}
+
+/* Card — primary container */
+.cg-card {
+  background: var(--surface-card);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Status badges */
+.cg-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+
+.cg-badge--success {
+  background: var(--success-subtle);
+  color: var(--success-text);
+}
+
+.cg-badge--warning {
+  background: var(--warning-subtle);
+  color: var(--warning-text);
+}
+
+.cg-badge--danger {
+  background: var(--danger-subtle);
+  color: var(--danger-text);
+}
+
+.cg-badge--brand {
+  background: var(--brand-subtle);
+  color: var(--brand-text);
+}
+
+.cg-badge--accent {
+  background: var(--accent-subtle);
+  color: var(--accent-text);
+}
+
+.cg-badge--income {
+  background: var(--income-subtle);
+  color: var(--income);
+}
+
+.cg-badge--expense {
+  background: var(--expense-subtle);
+  color: var(--expense);
+}
+
+/* Focus visible */
+:focus-visible {
+  outline: var(--ring-width) solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Selection */
+::selection { background: var(--brand-subtle-2); color: var(--brand-press); }
+
+/* ── Reduced Motion ───────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-instant: 0ms;
+    --dur-fast: 0ms;
+    --dur-base: 0ms;
+    --dur-slow: 0ms;
+    --press-scale: 1;
+  }
+}

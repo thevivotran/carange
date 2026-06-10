@@ -6,26 +6,26 @@
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
             <h2 class="text-3xl font-bold text-gray-800">Transactions</h2>
-            <p class="text-gray-600 mt-1">Manage your daily income and expenses</p>
+            <p class="text-muted mt-1">Manage your daily income and expenses</p>
         </div>
         <div class="flex items-center gap-3 flex-wrap">
             <!-- Month pill — same style as Dashboard -->
-            <div class="flex items-center gap-1 bg-white rounded-xl shadow-sm border px-2 py-1">
+            <div class="flex items-center gap-1 cg-card px-2 py-1">
                 <button onclick="shiftTxMonth(-1)"
-                        class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 transition select-none">&#8249;</button>
-                <span id="tx-month-display" class="px-3 py-1 text-sm font-semibold text-gray-700 min-w-[120px] text-center select-none"></span>
+                        class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none">&#8249;</button>
+                <span id="tx-month-display" class="px-3 py-1 text-sm font-semibold min-w-[120px] text-center select-none"></span>
                 <button onclick="shiftTxMonth(1)"
-                        class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 transition select-none">&#8250;</button>
+                        class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none">&#8250;</button>
                 <button id="tx-exit-btn" onclick="exitTxMonthTracking()" title="Exit month filter — show all transactions"
-                        class="hidden w-7 h-7 flex items-center justify-center rounded-lg text-base text-gray-400 hover:text-red-500 hover:bg-red-50 transition select-none">&#215;</button>
+                        class="hidden w-7 h-7 flex items-center justify-center rounded-lg text-base text-muted hover:text-danger hover:bg-danger-subtle transition select-none">&#215;</button>
             </div>
             <button id="toggle-filters-btn" onclick="toggleFiltersPanel()"
-                    class="flex items-center gap-2 bg-white border rounded-lg px-3 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition flex-shrink-0">
-                <i class="fas fa-sliders-h text-gray-500"></i>
+                    class="flex items-center gap-2 cg-card border px-3 py-2.5 text-sm text-secondary hover:bg-surface-sunken transition flex-shrink-0">
+                <i class="fas fa-sliders-h text-muted"></i>
                 <span class="hidden sm:inline">Filters</span>
-                <span id="active-filter-count" class="hidden bg-primary text-white text-xs rounded-full w-5 h-5 items-center justify-center font-semibold">0</span>
+                <span id="active-filter-count" class="hidden bg-accent text-white text-xs rounded-full w-5 h-5 items-center justify-center font-semibold">0</span>
             </button>
-            <button onclick="openAddModal()" class="hidden md:flex bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition items-center">
+            <button onclick="openAddModal()" class="hidden md:flex bg-accent text-white px-6 py-3 rounded-lg hover:bg-accent-hover transition items-center">
                 <i class="fas fa-plus mr-2"></i>Add Transaction
             </button>
         </div>
@@ -42,7 +42,7 @@
     </div>
 
     <!-- Filters panel (collapsible) -->
-    <div id="filters-panel" class="hidden bg-white rounded-xl shadow-md p-4 mb-6">
+    <div id="filters-panel" class="hidden cg-card rounded-xl p-4 mb-6">
         <!-- Search + quick actions row -->
         <div class="flex flex-wrap gap-3 items-center mb-3">
             <div class="flex-1 min-w-[180px] relative">
@@ -132,8 +132,8 @@
          hx-trigger="monthly-reload from:body, load"
          hx-target="this"
          hx-swap="innerHTML"
-         class="bg-white rounded-xl shadow-sm border px-5 py-2.5 mb-4 text-sm">
-        <span class="text-gray-400 text-sm animate-pulse">Loading…</span>
+         class="cg-card rounded-xl px-5 py-2.5 mb-4 text-sm">
+        <span class="text-muted text-sm animate-pulse">Loading…</span>
     </div>
     
     <!-- Trash mode banner -->
@@ -144,7 +144,7 @@
     </div>
 
     <!-- Transactions List — HTMX-powered -->
-    <div class="bg-white rounded-xl shadow-md overflow-hidden">
+    <div class="cg-card rounded-xl overflow-hidden">
         <div id="tx-list-wrapper"
              hx-get="/fragments/transactions/list"
              hx-trigger="tx-reload from:body, load"
@@ -155,8 +155,8 @@
 </div>
 
 <!-- Add/Edit Transaction Modal -->
-<div id="transaction-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90dvh] flex flex-col">
+<div id="transaction-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
+    <div class="cg-card rounded-xl shadow-xl max-w-md w-full max-h-[90dvh] flex flex-col">
         <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
             <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Transaction</h3>
             <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close">
@@ -1669,8 +1669,8 @@
 </script>
 
 <!-- History Modal -->
-<div id="history-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[80dvh] flex flex-col">
+<div id="history-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
+    <div class="cg-card rounded-xl shadow-xl max-w-md w-full max-h-[80dvh] flex flex-col">
         <div class="p-4 border-b flex justify-between items-center flex-shrink-0">
             <h3 class="text-base font-bold text-gray-800 flex items-center gap-2">
                 <i class="fas fa-history text-purple-500"></i>
@@ -1685,8 +1685,8 @@
 </div>
 <!-- Transaction Detail Drawer -->
 <div id="tx-drawer" class="hidden fixed inset-0 z-[95] flex items-end md:items-center justify-center">
-    <div class="absolute inset-0 bg-gray-900 bg-opacity-50" onclick="closeTxDrawer()"></div>
-    <div class="relative bg-white w-full md:max-w-md md:rounded-xl shadow-xl max-h-[85dvh] md:max-h-[80dvh] flex flex-col rounded-t-2xl">
+    <div class="absolute inset-0" onclick="closeTxDrawer()" style="background: rgba(15,23,42,.5)"></div>
+    <div class="relative w-full md:max-w-md md:rounded-xl shadow-xl max-h-[85dvh] md:max-h-[80dvh] flex flex-col rounded-t-2xl cg-card">
         <div id="tx-drawer-banner" class="hidden rounded-t-2xl md:rounded-t-xl"></div>
         <div class="px-4 py-3 border-b flex justify-between items-center flex-shrink-0">
             <h3 class="text-base font-bold text-gray-800">Transaction Details</h3>
@@ -1699,8 +1699,8 @@
     </div>
 </div>
 <!-- Duplicate Warning Modal -->
-<div id="duplicate-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
+<div id="duplicate-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
+    <div class="cg-card rounded-xl shadow-xl max-w-md w-full">
         <div class="p-5 border-b flex items-start gap-3">
             <div class="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
                 <i class="fas fa-exclamation-triangle text-amber-600 text-sm"></i>
@@ -1727,8 +1727,8 @@
     </div>
 </div>
 <!-- Cascade Warning Modal -->
-<div id="cascade-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
+<div id="cascade-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
+    <div class="cg-card rounded-xl shadow-xl max-w-md w-full">
         <div class="p-5 border-b flex items-start gap-3">
             <div class="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
                 <i class="fas fa-exclamation-triangle text-red-600 text-sm"></i>

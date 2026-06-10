@@ -7,19 +7,19 @@
   <!-- Header -->
   <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
     <div>
-      <h2 class="text-2xl font-bold text-gray-800">Financial Health</h2>
-      <p class="text-sm text-gray-400">as of {{ today.strftime('%d %B %Y') }}</p>
+      <h2 class="text-2xl font-bold">Financial Health</h2>
+      <p class="text-sm text-muted">as of {{ today.strftime('%d %B %Y') }}</p>
     </div>
     <div class="flex items-center gap-2">
-      <div class="flex items-center gap-1 bg-white rounded-xl shadow-sm border px-2 py-1">
+      <div class="flex items-center gap-1 cg-card px-2 py-1">
         <button onclick="shiftMonth(-1)"
-                class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 transition select-none">&#8249;</button>
-        <span id="month-year-display" class="px-3 py-1 text-sm font-semibold text-gray-700 min-w-[120px] text-center select-none"></span>
+                class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none">&#8249;</button>
+        <span id="month-year-display" class="px-3 py-1 text-sm font-semibold min-w-[120px] text-center select-none"></span>
         <button onclick="shiftMonth(1)"
-                class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 transition select-none">&#8250;</button>
+                class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none">&#8250;</button>
       </div>
       <a href="/settings"
-         class="w-10 h-10 flex items-center justify-center rounded-xl bg-white border shadow-sm text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition"
+         class="w-10 h-10 flex items-center justify-center rounded-xl cg-card text-muted hover:text-secondary hover:bg-surface-sunken transition"
          title="Settings">
         <i class="fas fa-gear text-sm"></i>
       </a>
@@ -48,21 +48,23 @@
   <!-- ── BDS Progress ───────────────────────────────────────────────── -->
   {% if bds_project %}
   {% set bds_pct = (bds_project.current_amount / bds_project.target_amount * 100) if bds_project.target_amount > 0 else 0 %}
-  <div class="bg-white rounded-2xl shadow-sm border p-5 mb-6">
+  <div class="cg-card p-5 mb-6">
     <div class="flex justify-between items-start mb-3">
       <div class="min-w-0">
-        <p class="text-xs text-gray-500 uppercase tracking-widest">Apartment Progress</p>
-        <p class="font-semibold text-gray-800 mt-0.5 truncate">{{ bds_project.name }}</p>
+        <p class="eyebrow">Apartment Progress</p>
+        <p class="font-semibold mt-0.5 truncate">{{ bds_project.name }}</p>
       </div>
-      <span class="flex-shrink-0 ml-3 text-sm font-bold {{ 'text-green-600' if bds_pct >= 75 else ('text-blue-600' if bds_pct >= 40 else 'text-gray-500') }}">
+      <span class="flex-shrink-0 ml-3 text-sm font-bold
+        {{ 'text-success' if bds_pct >= 75 else ('text-accent' if bds_pct >= 40 else 'text-muted') }}">
         {{ bds_pct | int }}% paid
       </span>
     </div>
-    <div class="w-full bg-gray-100 rounded-full h-3 mb-1">
-      <div class="h-3 rounded-full transition-all duration-700 {{ 'bg-green-500' if bds_pct >= 75 else ('bg-blue-500' if bds_pct >= 40 else 'bg-indigo-400') }}"
+    <div class="w-full rounded-full h-3 mb-1" style="background: var(--surface-sunken)">
+      <div class="h-3 rounded-full transition-all duration-700
+        {{ 'bg-success' if bds_pct >= 75 else ('bg-accent' if bds_pct >= 40 else 'bg-info') }}"
         style="width:{{ [bds_pct, 100]|min | int }}%"></div>
     </div>
-    <p class="text-xs text-gray-500 mb-4">
+    <p class="text-xs text-muted mb-4">
       {% set paid_v = bds_project.current_amount %}{% set total_v = bds_project.target_amount %}
       {{ paid_v | currency_abbrev }} paid of
       {{ total_v | currency_abbrev }} total
@@ -72,49 +74,52 @@
       <!-- Next Payment -->
       {% if bds_next_payment %}
       {% set urgency = 'overdue' if bds_days_until_next is not none and bds_days_until_next < 0 else ('hot' if bds_days_until_next is not none and bds_days_until_next <= 15 else ('warn' if bds_days_until_next is not none and bds_days_until_next <= 30 else 'ok')) %}
-      <div class="rounded-xl p-3 border {{ 'bg-red-50 border-red-200' if urgency in ['overdue','hot'] else ('bg-amber-50 border-amber-200' if urgency == 'warn' else 'bg-gray-50 border-gray-100') }}">
-        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Next Payment</p>
-        <p class="text-lg font-bold text-gray-800 mt-1">{{ bds_next_payment.amount | currency }}</p>
-        <p class="text-xs mt-0.5 {{ 'text-red-600 font-semibold' if urgency in ['overdue','hot'] else ('text-amber-600' if urgency == 'warn' else 'text-gray-500') }}">
+      <div class="rounded-xl p-3 border cg-card
+        {{ 'border-danger' if urgency in ['overdue','hot'] else ('border-warning' if urgency == 'warn' else 'border-default') }}">
+        <p class="eyebrow">Next Payment</p>
+        <p class="text-lg font-bold mt-1">{{ bds_next_payment.amount | currency }}</p>
+        <p class="text-xs mt-0.5
+          {{ 'text-danger font-semibold' if urgency in ['overdue','hot'] else ('text-warning' if urgency == 'warn' else 'text-muted') }}">
           {% if bds_days_until_next is not none %}
-            {% if bds_days_until_next < 0 %}Overdue {{ bds_days_until_next|abs }}d ❗
-            {% elif bds_days_until_next == 0 %}Due today 🔴
-            {% elif bds_days_until_next <= 15 %}Due in {{ bds_days_until_next }}d 🔴
-            {% elif bds_days_until_next <= 30 %}Due in {{ bds_days_until_next }}d ⚠️
+            {% if bds_days_until_next < 0 %}Overdue {{ bds_days_until_next|abs }}d
+            {% elif bds_days_until_next == 0 %}Due today
+            {% elif bds_days_until_next <= 15 %}Due in {{ bds_days_until_next }}d
+            {% elif bds_days_until_next <= 30 %}Due in {{ bds_days_until_next }}d
             {% else %}{{ bds_next_payment.due_date.strftime('%d/%m/%Y') }}{% endif %}
           {% endif %}
         </p>
       </div>
       {% else %}
-      <div class="rounded-xl p-3 bg-green-50 border border-green-100">
-        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Next Payment</p>
-        <p class="text-lg font-bold text-green-700 mt-1">All paid ✅</p>
-        <p class="text-xs text-gray-500 mt-0.5">No pending payments</p>
+      <div class="rounded-xl p-3 border cg-card">
+        <p class="eyebrow">Next Payment</p>
+        <p class="text-lg font-bold text-success mt-1">All paid</p>
+        <p class="text-xs text-muted mt-0.5">No pending payments</p>
       </div>
       {% endif %}
 
       <!-- YTD Progress -->
       {% set ytd_pct = (bds_ytd_paid / bds_ytd_planned * 100) if bds_ytd_planned > 0 else 0 %}
-      <div class="rounded-xl p-3 bg-gray-50 border border-gray-100">
-        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">{{ today.year }} Progress</p>
-        <p class="text-lg font-bold text-gray-800 mt-1">{{ bds_ytd_paid | currency_abbrev }}</p>
-        <div class="mt-1.5 w-full bg-gray-200 rounded-full h-1.5">
-          <div class="h-1.5 rounded-full {{ 'bg-green-500' if ytd_pct >= 100 else ('bg-blue-400' if ytd_pct >= 50 else 'bg-gray-400') }}"
+      <div class="rounded-xl p-3 border cg-card">
+        <p class="eyebrow">{{ today.year }} Progress</p>
+        <p class="text-lg font-bold mt-1">{{ bds_ytd_paid | currency_abbrev }}</p>
+        <div class="mt-1.5 w-full rounded-full h-1.5" style="background: var(--surface-sunken)">
+          <div class="h-1.5 rounded-full
+            {{ 'bg-success' if ytd_pct >= 100 else 'bg-accent' }}"
                style="width:{{ [ytd_pct, 100]|min | int }}%"></div>
         </div>
-        <p class="text-xs text-gray-500 mt-1">{{ ytd_pct | int }}% of {{ bds_ytd_planned | currency_abbrev }} planned</p>
+        <p class="text-xs text-muted mt-1">{{ ytd_pct | int }}% of {{ bds_ytd_planned | currency_abbrev }} planned</p>
       </div>
 
       <!-- Est. Completion -->
-      <div class="rounded-xl p-3 bg-gray-50 border border-gray-100">
-        <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Est. Completion</p>
+      <div class="rounded-xl p-3 border cg-card">
+        <p class="eyebrow">Est. Completion</p>
         {% if bds_completion_date %}
           {% set months_rem = ((bds_completion_date - today).days // 30) %}
-          <p class="text-lg font-bold text-gray-800 mt-1">{{ bds_completion_date.strftime('%b %Y') }}</p>
-          <p class="text-xs text-gray-500 mt-0.5">~{{ months_rem }} months left</p>
+          <p class="text-lg font-bold mt-1">{{ bds_completion_date.strftime('%b %Y') }}</p>
+          <p class="text-xs text-muted mt-0.5">~{{ months_rem }} months left</p>
         {% else %}
-          <p class="text-lg font-bold text-gray-400 mt-1">TBD</p>
-          <a href="/projects" class="text-xs text-primary hover:underline mt-1 block">Add schedule →</a>
+          <p class="text-lg font-bold text-muted mt-1">TBD</p>
+          <a href="/projects" class="text-xs text-accent hover:underline mt-1 block">Add schedule →</a>
         {% endif %}
       </div>
 
@@ -128,10 +133,10 @@
 
     {% if 'cash_flow' in visible_sections %}
     <!-- Cash Flow Chart -->
-    <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border p-6">
+    <div class="lg:col-span-2 cg-card p-6">
       <div class="flex justify-between items-center mb-4">
-        <h3 class="font-semibold text-gray-800">Cash Flow — Last 6 Months</h3>
-        <span class="text-xs text-gray-500">― 50M target</span>
+        <h3 class="font-semibold">Cash Flow — Last 6 Months</h3>
+        <span class="text-xs text-muted">― 50M target</span>
       </div>
       <div style="height: 260px; position: relative;">
         <canvas id="cashFlowChart"></canvas>
@@ -141,10 +146,10 @@
 
     {% if 'budget_snapshot' in visible_sections %}
     <!-- Budget Snapshot -->
-    <div class="bg-white rounded-2xl shadow-sm border p-6">
+    <div class="cg-card p-6">
       <div class="flex justify-between items-center mb-4">
-        <h3 class="font-semibold text-gray-800">Budget Snapshot</h3>
-        <a href="/budget" class="text-xs text-primary hover:underline">View all</a>
+        <h3 class="font-semibold">Budget Snapshot</h3>
+        <a href="/budget" class="text-xs text-accent hover:underline">View all</a>
       </div>
       {% if budget_top_cats %}
       <div class="space-y-3">
@@ -153,22 +158,20 @@
           <div class="flex justify-between items-center mb-0.5 text-xs">
             <a href="/transactions?category_id={{ cat.category_id }}&month={{ today.strftime('%Y-%m') }}" class="flex items-center gap-1.5 min-w-0 hover:opacity-75 transition">
               <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:{{ cat.category_color }}"></span>
-              <span class="text-gray-700 font-medium truncate underline decoration-dotted">{{ cat.category_name }}</span>
+              <span class="font-medium truncate underline decoration-dotted" style="color: var(--text-primary)">{{ cat.category_name }}</span>
             </a>
             <span class="ml-2 flex-shrink-0
-              {% if cat.available_balance < 0 %}text-red-500 font-semibold
-              {% elif cat.cumulative_pct >= 75 %}text-amber-600
-              {% else %}text-gray-500{% endif %}">
+              {{ 'text-danger font-semibold' if cat.available_balance < 0 else ('text-warning' if cat.cumulative_pct >= 75 else 'text-muted') }}">
               {{ cat.cumulative_pct | int }}%
             </span>
           </div>
-          <div class="w-full bg-gray-100 rounded-full h-2">
+          <div class="w-full rounded-full h-2" style="background: var(--surface-sunken)">
             <div class="h-2 rounded-full transition-all duration-500"
               style="width: {{ [cat.cumulative_pct, 100]|min }}%;
-                     background: {% if cat.available_balance < 0 %}#DC2626{% elif cat.cumulative_pct >= 75 %}#D97706{% else %}#059669{% endif %}">
+                     background: {{ 'var(--danger)' if cat.available_balance < 0 else ('var(--warning)' if cat.cumulative_pct >= 75 else 'var(--success)') }}">
             </div>
           </div>
-          <div class="text-xs text-gray-400 mt-0.5 text-right">
+          <div class="text-xs text-muted mt-0.5 text-right">
             {{ "{:,.0f}".format(cat.this_month_spent) }} / {{ (cat.available_balance + cat.this_month_spent) | currency }}
           </div>
         </div>
@@ -188,7 +191,7 @@
   {% if 'wealth_building' in visible_sections %}
   <!-- ── Wealth Building Toggle ───────────────────────────────────── -->
   <button id="wealth-toggle-btn" onclick="toggleWealthSection()"
-          class="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-widest hover:text-gray-600 transition w-full mb-3 px-1">
+          class="flex items-center gap-2 text-xs font-semibold text-muted uppercase tracking-widest hover:text-secondary transition w-full mb-3 px-1">
     <i id="wealth-toggle-icon" class="fas fa-chevron-right text-xs"></i>
     <span>Wealth Building Analysis</span>
   </button>
@@ -199,11 +202,11 @@
   <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
     <!-- Wealth Building Trend -->
-    <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border p-6">
+    <div class="lg:col-span-2 cg-card p-6">
       <div class="flex justify-between items-center mb-4">
         <div>
-          <h3 class="font-semibold text-gray-800">Wealth Building — Last 6 Months</h3>
-          <p class="text-xs text-gray-500 mt-0.5">Savings + Real Estate monthly deposits</p>
+          <h3 class="font-semibold">Wealth Building — Last 6 Months</h3>
+          <p class="text-xs text-muted mt-0.5">Savings + Real Estate monthly deposits</p>
         </div>
       </div>
       <div style="height: 230px; position: relative;">
@@ -212,11 +215,11 @@
     </div>
 
     <!-- Wealth Allocation Donut -->
-    <div class="bg-white rounded-2xl shadow-sm border p-6">
+    <div class="cg-card p-6">
       <div class="flex justify-between items-center mb-4">
         <div>
-          <h3 class="font-semibold text-gray-800">Wealth Allocation</h3>
-          <p class="text-xs text-gray-500 mt-0.5">Current distribution of assets</p>
+          <h3 class="font-semibold">Wealth Allocation</h3>
+          <p class="text-xs text-muted mt-0.5">Current distribution of assets</p>
         </div>
       </div>
       <div style="height: 180px; position: relative;" class="mx-auto">
@@ -233,49 +236,52 @@
   {% if 'stress_test' in visible_sections %}
   <!-- ── One-Income Stress Test ────────────────────────────────────── -->
   <button id="stress-toggle-btn" onclick="toggleStressSection()"
-          class="flex items-center gap-2 text-xs font-semibold text-gray-500 uppercase tracking-widest hover:text-gray-600 transition w-full mb-3 px-1">
+          class="flex items-center gap-2 text-xs font-semibold text-muted uppercase tracking-widest hover:text-secondary transition w-full mb-3 px-1">
     <i id="stress-toggle-icon" class="fas fa-chevron-right text-xs"></i>
     <span>One-Income Stress Test</span>
   </button>
 
   <div id="stress-section" class="hidden mb-6">
     {% set cushion_ok = summary.stress_test_cushion > 0 %}
-    <div class="rounded-2xl border p-5 {{ 'bg-green-50 border-green-200' if cushion_ok else 'bg-red-50 border-red-200' }}">
+    <div class="rounded-2xl border p-5 cg-card
+      {{ 'border-success' if cushion_ok else 'border-danger' }}">
       <div class="flex items-center gap-3 mb-4">
-        <span class="text-xl">{{ '✅' if cushion_ok else '❌' }}</span>
+        <span class="w-9 h-9 rounded-lg flex items-center justify-center {{ 'bg-success-subtle' if cushion_ok else 'bg-danger-subtle' }}">
+          <i class="fas {{ 'fa-check' if cushion_ok else 'fa-xmark' }} text-sm {{ 'text-success' if cushion_ok else 'text-danger' }}"></i>
+        </span>
         <div>
-          <p class="font-semibold text-sm {{ 'text-green-800' if cushion_ok else 'text-red-800' }}">
+          <p class="font-semibold text-sm {{ 'text-success' if cushion_ok else 'text-danger' }}">
             {% if cushion_ok %}Household survives on a single income
             {% else %}Single income is not enough to cover all obligations{% endif %}
           </p>
-          <p class="text-xs {{ 'text-green-600' if cushion_ok else 'text-red-600' }} mt-0.5">
+          <p class="text-xs {{ 'text-success-text' if cushion_ok else 'text-danger-text' }} mt-0.5">
             Monthly cushion: {{ summary.stress_test_cushion | currency(signed=true) }}
           </p>
         </div>
       </div>
       <div class="space-y-2">
-        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Required monthly minimum</div>
+        <div class="eyebrow mb-1">Required monthly minimum</div>
         <div class="flex justify-between text-sm">
-          <span class="text-gray-600">Avg living expense (3-mo)</span>
-          <span class="font-medium text-gray-800">{{ summary.avg_monthly_expense | currency }}</span>
+          <span class="text-secondary">Avg living expense (3-mo)</span>
+          <span class="font-medium">{{ summary.avg_monthly_expense | currency }}</span>
         </div>
         <div class="flex justify-between text-sm">
-          <span class="text-gray-600">Min. savings deposit</span>
-          <span class="font-medium text-gray-800">{{ 20000000 | currency }}</span>
+          <span class="text-secondary">Min. savings deposit</span>
+          <span class="font-medium">{{ 20000000 | currency }}</span>
         </div>
         <div class="flex justify-between text-sm">
-          <span class="text-gray-600">Real Estate instalment</span>
-          <span class="font-medium text-gray-800">{{ (summary.stress_test_required - summary.avg_monthly_expense - 20000000) | currency }}</span>
+          <span class="text-secondary">Real Estate instalment</span>
+          <span class="font-medium">{{ (summary.stress_test_required - summary.avg_monthly_expense - 20000000) | currency }}</span>
         </div>
-        <div class="border-t border-gray-200 pt-2 mt-2 flex justify-between text-sm font-semibold">
-          <span class="text-gray-700">Total required</span>
-          <span class="text-gray-900">{{ summary.stress_test_required | currency }}</span>
+        <div class="border-t pt-2 mt-2 flex justify-between text-sm font-semibold" style="border-color: var(--border-subtle)">
+          <span>Total required</span>
+          <span>{{ summary.stress_test_required | currency }}</span>
         </div>
         <div class="flex justify-between text-sm font-semibold pt-1">
-          <span class="text-gray-700">This month's income</span>
-          <span class="text-gray-900">{{ summary.total_income | currency }}</span>
+          <span>This month's income</span>
+          <span>{{ summary.total_income | currency }}</span>
         </div>
-        <div class="flex justify-between text-sm font-bold pt-1 {{ 'text-green-700' if cushion_ok else 'text-red-700' }}">
+        <div class="flex justify-between text-sm font-bold pt-1 {{ 'text-success' if cushion_ok else 'text-danger' }}">
           <span>Monthly cushion</span>
           <span>{{ summary.stress_test_cushion | currency(signed=true) }}</span>
         </div>
@@ -287,60 +293,60 @@
   <!-- ── Row 4: Alerts ──────────────────────────────────────────────── -->
   {% if alert_maturities or alert_over_budget or unsettled_advance_count > 0 %}
   <div class="mb-6">
-    <p class="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3">Alerts</p>
+    <p class="eyebrow mb-3">Alerts</p>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
 
       {% if unsettled_advance_count > 0 %}
-      <div class="bg-orange-50 border border-orange-200 rounded-2xl p-4">
+      <div class="rounded-2xl p-4 border cg-card" style="background: var(--brand-subtle); border-color: var(--brand)">
         <div class="flex items-center gap-2 mb-3">
-          <i class="fas fa-hand-holding-usd text-orange-500"></i>
-          <span class="font-semibold text-orange-800 text-sm">Open Advances</span>
-          <span class="ml-auto bg-orange-100 text-orange-700 text-xs font-semibold px-2 py-0.5 rounded-full">{{ unsettled_advance_count }}</span>
+          <i class="fas fa-hand-holding-usd" style="color: var(--brand)"></i>
+          <span class="font-semibold text-sm" style="color: var(--brand-text)">Open Advances</span>
+          <span class="cg-badge cg-badge--brand ml-auto">{{ unsettled_advance_count }}</span>
         </div>
-        <p class="text-xs text-orange-700 mb-3">
-          <span class="font-semibold text-orange-800">{{ unsettled_advance_total | currency }}</span> pending repayment
+        <p class="text-xs mb-3" style="color: var(--brand-text)">
+          <span class="font-semibold">{{ unsettled_advance_total | currency }}</span> pending repayment
         </p>
-        <a href="/transactions?advance=unsettled" class="block text-xs text-orange-600 font-medium hover:underline">View advances →</a>
+        <a href="/transactions?advance=unsettled" class="block text-xs font-medium" style="color: var(--brand-text)">View advances →</a>
       </div>
       {% endif %}
 
       {% if alert_maturities %}
-      <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4">
+      <div class="rounded-2xl p-4 border cg-card" style="background: var(--warning-subtle); border-color: var(--warning)">
         <div class="flex items-center gap-2 mb-3">
-          <i class="fas fa-clock text-amber-500"></i>
-          <span class="font-semibold text-amber-800 text-sm">Maturing within 30 days</span>
+          <i class="fas fa-clock" style="color: var(--warning)"></i>
+          <span class="font-semibold text-sm" style="color: var(--warning-text)">Maturing within 30 days</span>
         </div>
         <div class="space-y-2">
           {% for b in alert_maturities %}
           {% set days = (b.maturity_date - today).days %}
           <div class="flex justify-between items-center text-xs">
-            <span class="text-amber-800 font-medium truncate pr-2">{{ b.name }}</span>
+            <span class="font-medium truncate pr-2" style="color: var(--warning-text)">{{ b.name }}</span>
             <div class="text-right flex-shrink-0">
-              <span class="text-amber-700">{{ b.maturity_date.strftime('%d/%m') }}</span>
-              <span class="ml-1 text-amber-500">({{ days }}d)</span>
+              <span style="color: var(--warning-text)">{{ b.maturity_date.strftime('%d/%m') }}</span>
+              <span class="ml-1" style="color: var(--warning)">({{ days }}d)</span>
             </div>
           </div>
           {% endfor %}
         </div>
-        <a href="/savings" class="mt-3 block text-xs text-amber-600 font-medium hover:underline">View savings →</a>
+        <a href="/savings" class="mt-3 block text-xs font-medium" style="color: var(--warning-text)">View savings →</a>
       </div>
       {% endif %}
 
       {% if alert_over_budget %}
-      <div class="bg-red-50 border border-red-200 rounded-2xl p-4">
+      <div class="rounded-2xl p-4 border cg-card" style="background: var(--danger-subtle); border-color: var(--danger)">
         <div class="flex items-center gap-2 mb-3">
-          <i class="fas fa-exclamation-circle text-red-500"></i>
-          <span class="font-semibold text-red-800 text-sm">Over Budget</span>
+          <i class="fas fa-exclamation-circle" style="color: var(--danger)"></i>
+          <span class="font-semibold text-sm" style="color: var(--danger-text)">Over Budget</span>
         </div>
         <div class="space-y-2">
           {% for cat in alert_over_budget %}
           <a href="/transactions?category_id={{ cat.category_id }}&month={{ today.strftime('%Y-%m') }}" class="flex justify-between items-center text-xs hover:opacity-75 transition">
-            <span class="text-red-800 font-medium underline decoration-dotted">{{ cat.category_name }}</span>
-            <span class="text-red-600">{{ (cat.available_balance | abs) | currency }} over</span>
+            <span class="font-medium underline decoration-dotted" style="color: var(--danger-text)">{{ cat.category_name }}</span>
+            <span style="color: var(--danger)">{{ (cat.available_balance | abs) | currency }} over</span>
           </a>
           {% endfor %}
         </div>
-        <a href="/budget" class="mt-3 block text-xs text-red-600 font-medium hover:underline">Adjust budget →</a>
+        <a href="/budget" class="mt-3 block text-xs font-medium" style="color: var(--danger-text)">Adjust budget →</a>
       </div>
       {% endif %}
 
@@ -354,10 +360,10 @@
 
     {% if 'active_projects' in visible_sections %}
     <!-- Active Projects -->
-    <div class="bg-white rounded-2xl shadow-sm border p-6">
+    <div class="cg-card p-6">
       <div class="flex justify-between items-center mb-4">
-        <h3 class="font-semibold text-gray-800">Active Projects</h3>
-        <a href="/projects" class="text-xs text-primary hover:underline">View all</a>
+        <h3 class="font-semibold">Active Projects</h3>
+        <a href="/projects" class="text-xs text-accent hover:underline">View all</a>
       </div>
       {% if active_projects_list %}
       <div class="space-y-4">
@@ -368,23 +374,23 @@
           <div class="flex justify-between items-start mb-1">
             <div class="flex items-center gap-1.5 min-w-0">
               {% if is_risk %}
-              <span class="w-2 h-2 rounded-full bg-red-400 flex-shrink-0 mt-0.5"></span>
+              <span class="w-2 h-2 rounded-full bg-danger flex-shrink-0 mt-0.5"></span>
               {% else %}
-              <span class="w-2 h-2 rounded-full bg-gray-300 flex-shrink-0 mt-0.5"></span>
+              <span class="w-2 h-2 rounded-full bg-muted flex-shrink-0 mt-0.5"></span>
               {% endif %}
-              <span class="text-sm font-medium text-gray-800 truncate">{{ p.name }}</span>
+              <span class="text-sm font-medium truncate">{{ p.name }}</span>
             </div>
             <span class="text-xs font-semibold ml-2 flex-shrink-0
-              {% if is_risk %}text-red-500{% elif pct >= 75 %}text-green-600{% else %}text-blue-500{% endif %}">
+              {{ 'text-danger' if is_risk else ('text-success' if pct >= 75 else 'text-accent') }}">
               {{ pct | int }}%
             </span>
           </div>
-          <div class="w-full bg-gray-100 rounded-full h-2">
+          <div class="w-full rounded-full h-2" style="background: var(--surface-sunken)">
             <div class="h-2 rounded-full transition-all duration-500
-              {% if is_risk %}bg-red-400{% elif pct >= 75 %}bg-green-500{% else %}bg-blue-400{% endif %}"
+              {{ 'bg-danger' if is_risk else ('bg-success' if pct >= 75 else 'bg-accent') }}"
               style="width: {{ [pct, 100]|min }}%"></div>
           </div>
-          <div class="flex justify-between text-xs text-gray-400 mt-0.5">
+          <div class="flex justify-between text-xs text-muted mt-0.5">
             <span>
               {% if p.deadline %}Due {{ p.deadline.strftime('%d/%m/%Y') }}{% else %}No deadline{% endif %}
             </span>
@@ -394,36 +400,38 @@
         {% endfor %}
       </div>
       {% else %}
-      <p class="text-sm text-gray-500 text-center py-8">No active projects</p>
+      <p class="text-sm text-muted text-center py-8">No active projects</p>
       {% endif %}
     </div>
     {% endif %}
 
     {% if 'savings_goals' in visible_sections %}
     <!-- Upcoming Maturities -->
-    <div class="bg-white rounded-2xl shadow-sm border p-6">
+    <div class="cg-card p-6">
       <div class="flex justify-between items-center mb-4">
-        <h3 class="font-semibold text-gray-800">Savings Goals</h3>
-        <a href="/savings" class="text-xs text-primary hover:underline">View all</a>
+        <h3 class="font-semibold">Savings Goals</h3>
+        <a href="/savings" class="text-xs text-accent hover:underline">View all</a>
       </div>
       {% if baby_fund_bundle %}
       {% set bf = baby_fund_bundle %}
       {% set bf_pct = (bf.current_amount / bf.future_amount * 100) if bf.future_amount > 0 else 0 %}
-      <div class="mb-4 p-3 rounded-xl bg-pink-50 border border-pink-100">
+      <div class="mb-4 p-3 rounded-xl border cg-card" style="background: var(--brand-subtle); border-color: var(--brand)">
         <div class="flex items-center justify-between mb-2">
           <div class="flex items-center gap-2">
-            <span class="text-base">👶</span>
+            <span class="w-8 h-8 rounded-md flex items-center justify-center" style="background: var(--brand-subtle-2); color: var(--brand-text)">
+              <i class="fas fa-baby text-sm"></i>
+            </span>
             <div>
-              <p class="text-sm font-semibold text-pink-800">Baby Fund</p>
-              <p class="text-xs text-pink-500">{{ bf.name }}</p>
+              <p class="text-sm font-semibold" style="color: var(--brand-text)">Baby Fund</p>
+              <p class="text-xs" style="color: var(--brand-text); opacity: 0.7">{{ bf.name }}</p>
             </div>
           </div>
-          <span class="text-xs font-bold text-pink-700">{{ bf_pct | int }}%</span>
+          <span class="cg-badge cg-badge--brand">{{ bf_pct | int }}%</span>
         </div>
-        <div class="w-full bg-pink-100 rounded-full h-2 mb-1">
-          <div class="h-2 rounded-full bg-pink-400 transition-all duration-500" style="width:{{ [bf_pct, 100]|min | int }}%"></div>
+        <div class="w-full rounded-full h-2 mb-1" style="background: var(--brand-subtle-2)">
+          <div class="h-2 rounded-full transition-all duration-500" style="width:{{ [bf_pct, 100]|min | int }}%; background: var(--brand)"></div>
         </div>
-        <p class="text-xs text-pink-500">
+        <p class="text-xs" style="color: var(--brand-text); opacity: 0.7">
           {{ bf.current_amount | currency_abbrev }} saved
           of {{ bf.future_amount | currency_abbrev }} target
         </p>
@@ -433,26 +441,26 @@
       <div class="space-y-3">
         {% for s in upcoming_maturities %}
         {% set days = (s.maturity_date - today).days if s.maturity_date else None %}
-        <div class="flex items-center justify-between p-3 rounded-xl
-          {% if days is not none and days <= 30 %}bg-amber-50 border border-amber-100{% else %}bg-gray-50{% endif %}">
+        <div class="flex items-center justify-between p-3 rounded-xl border cg-card
+          {{ 'border-warning' if days is not none and days <= 30 else 'border-default' }}">
           <div class="min-w-0 pr-2">
-            <p class="text-sm font-medium text-gray-800 truncate">{{ s.name }}</p>
-            <p class="text-xs text-gray-500">
+            <p class="text-sm font-medium truncate">{{ s.name }}</p>
+            <p class="text-xs text-muted">
               {{ s.bank_name }}
               {% if s.maturity_date %}· {{ s.maturity_date.strftime('%d/%m/%Y') }}{% endif %}
               {% if days is not none %}
-              <span class="{% if days <= 30 %}text-amber-600 font-semibold{% else %}text-gray-400{% endif %}">
+              <span class="{{ 'text-warning font-semibold' if days <= 30 else 'text-muted' }}">
                 ({{ days }}d)
               </span>
               {% endif %}
             </p>
           </div>
-          <span class="text-sm font-bold text-indigo-600 flex-shrink-0">{{ s.future_amount | currency }}</span>
+          <span class="text-sm font-bold text-accent flex-shrink-0">{{ s.future_amount | currency }}</span>
         </div>
         {% endfor %}
       </div>
       {% else %}
-      <p class="text-sm text-gray-500 text-center py-8">No upcoming maturities</p>
+      <p class="text-sm text-muted text-center py-8">No upcoming maturities</p>
       {% endif %}
     </div>
     {% endif %}
@@ -461,27 +469,29 @@
   {% endif %}
 
   <!-- ── Row 5: Recent Transactions ─────────────────────────────────── -->
-  <div class="bg-white rounded-2xl shadow-sm border p-6">
+  <div class="cg-card p-6">
     <div class="flex justify-between items-center mb-4">
-      <h3 class="font-semibold text-gray-800">Recent Transactions</h3>
-      <a href="/transactions" class="text-xs text-primary hover:underline">View all</a>
+      <h3 class="font-semibold">Recent Transactions</h3>
+      <a href="/transactions" class="text-xs text-accent hover:underline">View all</a>
     </div>
     {% if recent_transactions %}
-    <div class="divide-y divide-gray-50">
+    <div>
       {% for t in recent_transactions %}
-      <div class="flex items-center justify-between py-2.5 {% if loop.index > 5 %}recent-txn-extra hidden{% endif %}">
+      <div class="flex items-center justify-between py-2.5
+        {{ 'border-t border-subtle' if not loop.first else '' }}
+        {{ 'recent-txn-extra hidden' if loop.index > 5 else '' }}">
         <div class="flex items-center gap-3 min-w-0">
-          <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0
-            {{ 'bg-green-100' if t.type.value == 'income' else 'bg-red-100' }}">
-            <i class="fas text-xs {{ 'fa-arrow-down text-green-600' if t.type.value == 'income' else 'fa-arrow-up text-red-500' }}"></i>
+          <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0
+            {{ 'bg-income-subtle' if t.type.value == 'income' else 'bg-surface-sunken' }}">
+            <i class="fas text-xs {{ 'fa-arrow-down text-income' if t.type.value == 'income' else 'fa-arrow-up text-expense' }}"></i>
           </div>
           <div class="min-w-0">
-            <p class="text-sm font-medium text-gray-800 truncate">{{ t.description or t.category.name }}</p>
-            <p class="text-xs text-gray-500">{{ t.date.strftime('%d/%m/%Y') }} · {{ t.category.name }}</p>
+            <p class="text-sm font-medium truncate">{{ t.description or t.category.name }}</p>
+            <p class="text-xs text-muted">{{ t.date.strftime('%d/%m/%Y') }} · {{ t.category.name }}</p>
           </div>
         </div>
-        <span class="text-sm font-semibold ml-4 flex-shrink-0
-          {{ 'text-green-600' if t.type.value == 'income' else 'text-red-500' }}">
+        <span class="text-sm font-semibold amount tabular-nums ml-4 flex-shrink-0
+          {{ 'text-income' if t.type.value == 'income' else 'text-expense' }}">
           {{ '+' if t.type.value == 'income' else '-' }}{{ t.amount | currency }}
         </span>
       </div>
@@ -489,20 +499,20 @@
     </div>
     {% if recent_transactions|length > 5 %}
     <button id="recent-txns-toggle" onclick="toggleRecentTransactions()"
-            class="w-full mt-2 py-2 text-xs text-gray-400 hover:text-gray-600 transition text-center">
+            class="w-full mt-2 py-2 text-xs text-muted hover:text-secondary transition text-center">
       Show {{ recent_transactions|length - 5 }} more
       <i id="recent-txns-arrow" class="fas fa-chevron-down ml-1"></i>
     </button>
     {% endif %}
     {% else %}
     <div class="text-center py-8">
-      <div class="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mx-auto mb-4">
-        <i class="fas fa-receipt text-2xl text-gray-400 dark:text-gray-500"></i>
+      <div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style="background: var(--surface-sunken)">
+        <i class="fas fa-receipt text-2xl text-muted"></i>
       </div>
-      <p class="text-sm font-semibold text-gray-600 dark:text-gray-300 mb-1">No transactions yet</p>
-      <p class="text-xs text-gray-400 dark:text-gray-500 max-w-xs mx-auto">Log your first income or expense to start seeing your activity here.</p>
+      <p class="text-sm font-semibold mb-1">No transactions yet</p>
+      <p class="text-xs text-muted max-w-xs mx-auto">Log your first income or expense to start seeing your activity here.</p>
       <button onclick="openGlobalAddModal()"
-              class="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors">
+              class="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-white text-xs font-medium transition-colors" style="background: var(--accent)">
         Add a transaction
       </button>
     </div>
@@ -1129,7 +1139,7 @@ function toggleRecentTransactions() {
 </script>
 
 <!-- KPI info popover -->
-<div id="kpi-popover" class="hidden fixed z-[300] w-72 bg-white rounded-xl shadow-xl border border-gray-100 p-4" style="top:0;left:0"></div>
+<div id="kpi-popover" class="hidden fixed z-[300] w-72 cg-card rounded-xl shadow-lg p-4" style="top:0;left:0"></div>
 
 
 {% endblock %}

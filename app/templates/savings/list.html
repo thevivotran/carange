@@ -6,15 +6,15 @@
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
             <h2 class="text-3xl font-bold text-gray-800">Savings Bundles</h2>
-            <p class="text-gray-600 mt-1">Track your family's fixed deposits and savings goals</p>
+            <p class="text-muted mt-1">Track your family's fixed deposits and savings goals</p>
         </div>
-        <button onclick="openAddModal()" class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition flex items-center">
+        <button onclick="openAddModal()" class="bg-brand text-white px-6 py-3 rounded-lg hover:bg-brand-hover transition flex items-center">
             <i class="fas fa-plus mr-2"></i>Add Savings Bundle
         </button>
     </div>
 
     <!-- Filters -->
-    <div class="bg-white rounded-xl shadow-md p-4 mb-6">
+    <div class="cg-card rounded-xl p-4 mb-6">
         <div class="flex flex-wrap gap-4">
             <select id="filter-status" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
                     onchange="document.body.dispatchEvent(new CustomEvent('savings-updated'))">
@@ -35,8 +35,8 @@
 </div>
 
 <!-- Add/Edit Savings Modal -->
-<div id="savings-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
-    <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90dvh] flex flex-col">
+<div id="savings-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
+    <div class="cg-card rounded-xl shadow-xl max-w-lg w-full max-h-[90dvh] flex flex-col">
         <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
             <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Savings Bundle</h3>
             <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close">
