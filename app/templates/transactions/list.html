@@ -1629,16 +1629,9 @@
     
     async function exportCSV() {
         try {
-            const params = new URLSearchParams({ limit: 10000 });
-            const type = document.getElementById('filter-type').value;
-            const categoryId = document.getElementById('filter-category').value;
-            const startDate = document.getElementById('filter-start-date').value;
-            const endDate = document.getElementById('filter-end-date').value;
-            if (type) params.append('type', type);
-            if (categoryId) params.append('category_id', categoryId);
-            if (startDate) params.append('start_date', startDate);
-            if (endDate) params.append('end_date', endDate);
-            
+            // Mirror the visible list: reuse the same filter params, unpaginated
+            const params = new URLSearchParams({ ..._buildTxParams(), skip: 0, limit: 10000 });
+
             const response = await fetch(`/api/transactions/?${params}`);
             const transactions = await response.json();
             
