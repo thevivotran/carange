@@ -51,6 +51,7 @@ services:
   #     - IMAP_HOST=imap.gmail.com
   #     - IMAP_USER=
   #     - IMAP_PASSWORD=   # Gmail App Password (requires 2FA enabled)
+  #     - OLLAMA_URL=      # vLLM endpoint for the LLM fallback parser (optional)
   #   restart: unless-stopped
 
 volumes:

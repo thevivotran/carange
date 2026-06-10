@@ -1,4 +1,8 @@
-"""Process one email from the ingest log: parse, commit transactions, notify."""
+"""Process one email from the ingest log: parse, commit transactions, notify.
+
+LLMUnavailableError raised by the generic fallback parser propagates to the
+caller — the worker schedules a retry instead of marking the email done.
+"""
 
 import logging
 from datetime import datetime, timezone
@@ -30,6 +34,7 @@ def process_email(log_row: EmailIngestLog, raw_message: bytes, db: Session) -> N
         db.flush()
 
     parsed, parser_name = route_and_parse(sender, subject, body_text, body_html)
+    log_row.parser_name = parser_name
 
     if not parsed:
         log.info("Email %s: no transactions found (parser=%s)", log_row.message_id, parser_name)
@@ -57,6 +62,11 @@ def _done(db: Session, row: EmailIngestLog, count: int) -> None:
     row.status = "done"
     row.transaction_count = count
     row.processed_at = datetime.now(timezone.utc)
+    if count > 0:
+        # Transactions committed — the raw copy has served its purpose.
+        # Zero-transaction rows keep it so they can be replayed after a parser fix.
+        row.raw_email = None
+        row.raw_size = None
     db.commit()
     log.info("Email %s → done (%d tx)", row.message_id, count)
 

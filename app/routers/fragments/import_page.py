@@ -1,13 +1,14 @@
 from collections import OrderedDict
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.models.database import EmailIngestLog, ImportJob, ImportJobStatus, ImportSource, Transaction, get_db
 from app.routers.fragments._helpers import render_fragment
+from app.services.settings_service import get_setting
 
 router = APIRouter()
 
@@ -120,12 +121,45 @@ def fragment_job_transactions(
     )
 
 
-@router.get("/email-logs")
-def fragment_email_logs(
+def _email_worker_stats(db: Session) -> dict:
+    """Worker health + 7-day ingest counters for the Email Receipts panel."""
+    week_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    counts = dict(
+        db.query(EmailIngestLog.status, func.count(EmailIngestLog.id))
+        .filter(EmailIngestLog.created_at >= week_ago)
+        .group_by(EmailIngestLog.status)
+        .all()
+    )
+
+    last_ok_raw = get_setting(db, "email_worker_last_ok")
+    last_error = get_setting(db, "email_worker_last_error") or ""
+    last_ok = None
+    online = False
+    if last_ok_raw:
+        try:
+            last_ok = datetime.fromisoformat(last_ok_raw)
+            if last_ok.tzinfo is None:
+                last_ok = last_ok.replace(tzinfo=timezone.utc)
+            online = datetime.now(timezone.utc) - last_ok < timedelta(minutes=10)
+        except ValueError:
+            pass
+
+    return {
+        "done": counts.get("done", 0),
+        "pending": counts.get("pending", 0),
+        "failed": counts.get("failed", 0),
+        "last_ok": last_ok,
+        "last_error": last_error,
+        "online": online,
+    }
+
+
+def _render_email_logs(
     request: Request,
-    status: Optional[str] = None,
-    search: Optional[str] = None,
-    db: Session = Depends(get_db),
+    db: Session,
+    status: Optional[str],
+    search: Optional[str],
+    toast: Optional[str] = None,
 ):
     query = db.query(EmailIngestLog).order_by(EmailIngestLog.created_at.desc())
     if status and status != "all":
@@ -146,5 +180,45 @@ def fragment_email_logs(
             "grouped_logs": _group_by_date(logs, "created_at"),
             "status_filter": status or "all",
             "search": search or "",
+            "worker_stats": _email_worker_stats(db),
         },
+        toast=toast,
     )
+
+
+@router.get("/email-logs")
+def fragment_email_logs(
+    request: Request,
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    return _render_email_logs(request, db, status, search)
+
+
+@router.post("/email-logs/{log_id}/reprocess")
+def reprocess_email_log(
+    request: Request,
+    log_id: int,
+    status: Optional[str] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    """Queue a failed / zero-transaction email for reprocessing from its stored raw copy."""
+    row = db.get(EmailIngestLog, log_id)
+    toast = "Email not found"
+    if row is not None:
+        replayable = row.status == "failed" or (row.status == "done" and not row.transaction_count)
+        if not replayable:
+            toast = "Only failed or zero-transaction emails can be reprocessed"
+        elif not row.raw_size:
+            toast = "No stored copy of this email to reprocess"
+        else:
+            row.status = "pending"
+            row.retry_count = 0
+            row.retry_after = datetime.now(timezone.utc)
+            row.error_message = None
+            row.processed_at = None
+            db.commit()
+            toast = "Email queued — the worker will reprocess it within a minute"
+    return _render_email_logs(request, db, status, search, toast=toast)

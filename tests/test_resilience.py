@@ -126,16 +126,30 @@ def test_schedule_matview_refresh_noop_on_sqlite():
     _schedule_matview_refresh()
 
 
-# ── email worker: _check_email_status ────────────────────────────────────────
+# ── email worker: log row creation + raw storage ─────────────────────────────
+
+_RAW_EMAIL = (
+    b"From: Timo <support@timo.vn>\r\n"
+    b"To: me@example.com\r\n"
+    b"Subject: Debit Transaction Notice\r\n"
+    b"Date: Tue, 09 Jun 2026 08:39:00 +0700\r\n"
+    b"Message-ID: <abc123@timo.vn>\r\n"
+    b"\r\n"
+    b"Your Spend Account has been debited 37,000 VND on 09/06/2026 08:39.\r\n"
+)
 
 
-def _make_email_log(db, message_id, status, retry_count=0, retry_after=None):
+def _make_email_log(db, message_id, status, retry_count=0, retry_after=None, raw=None, created_at=None):
+    from email_worker.worker import _compress
+
     row = EmailIngestLog(
         message_id=message_id,
         status=status,
         retry_count=retry_count,
         retry_after=retry_after,
-        created_at=datetime.now(timezone.utc),
+        created_at=created_at or datetime.now(timezone.utc),
+        raw_email=_compress(raw) if raw else None,
+        raw_size=len(_compress(raw)) if raw else None,
     )
     db.add(row)
     db.commit()
@@ -143,115 +157,189 @@ def _make_email_log(db, message_id, status, retry_count=0, retry_after=None):
     return row
 
 
-def test_check_email_status_absent(db_session):
-    from email_worker.worker import _check_email_status
+def test_create_log_row_stores_metadata_and_compressed_raw(db_session):
+    from email_worker.worker import _create_log_row, _decompress
 
-    skip, mark_seen = _check_email_status(db_session, "msg-not-exist")
-    assert not skip
-    assert not mark_seen
-
-
-def test_check_email_status_done(db_session):
-    from email_worker.worker import _check_email_status
-
-    _make_email_log(db_session, "msg-done", "done")
-    skip, mark_seen = _check_email_status(db_session, "msg-done")
-    assert skip
-    assert mark_seen
+    row = _create_log_row(db_session, "<abc123@timo.vn>", _RAW_EMAIL)
+    assert row.status == "pending"
+    assert "timo.vn" in row.sender
+    assert row.subject == "Debit Transaction Notice"
+    assert row.received_at is not None
+    assert row.raw_size and row.raw_size > 0
+    assert _decompress(row.raw_email) == _RAW_EMAIL
 
 
-def test_check_email_status_failed_at_max_retries(db_session):
-    from email_worker.worker import MAX_EMAIL_RETRIES, _check_email_status
+def test_compress_roundtrip_and_uncompressed_fallback():
+    from email_worker.worker import _compress, _decompress
 
-    _make_email_log(db_session, "msg-perm-fail", "failed", retry_count=MAX_EMAIL_RETRIES)
-    skip, mark_seen = _check_email_status(db_session, "msg-perm-fail")
-    assert skip
-    assert mark_seen
+    assert _decompress(_compress(b"hello")) == b"hello"
+    assert _decompress(b"not compressed") == b"not compressed"  # defensive path
 
 
-def test_check_email_status_pending_retry_not_due(db_session):
-    from email_worker.worker import _check_email_status
+# ── email worker: _process_row retry semantics ────────────────────────────────
 
+
+def test_process_row_success_runs_pipeline(db_session, monkeypatch):
+    import email_worker.processor as proc
+    from email_worker.worker import _process_row
+
+    def _ok(row, raw, db):
+        row.status = "done"
+        row.transaction_count = 1
+        db.commit()
+
+    monkeypatch.setattr(proc, "process_email", _ok)
+    row = _make_email_log(db_session, "ok-msg", "pending", raw=_RAW_EMAIL)
+    _process_row(db_session, row, _RAW_EMAIL)
+    assert row.status == "done"
+
+
+def test_process_row_schedules_backoff_on_error(db_session, monkeypatch):
+    import email_worker.processor as proc
+    from email_worker.worker import _process_row
+
+    def _boom(row, raw, db):
+        raise ValueError("parse exploded")
+
+    monkeypatch.setattr(proc, "process_email", _boom)
+    row = _make_email_log(db_session, "retry-msg", "pending", raw=_RAW_EMAIL)
+    _process_row(db_session, row, _RAW_EMAIL)
+
+    assert row.status == "pending"
+    assert row.retry_count == 1
+    assert row.retry_after is not None
+    assert "Retry 1/" in row.error_message
+
+
+def test_process_row_marks_failed_after_max_retries(db_session, monkeypatch):
+    import email_worker.processor as proc
+    import email_worker.worker as ew
+
+    def _boom(row, raw, db):
+        raise ValueError("still broken")
+
+    monkeypatch.setattr(proc, "process_email", _boom)
+    row = _make_email_log(db_session, "maxed-msg", "pending", retry_count=ew.MAX_EMAIL_RETRIES, raw=_RAW_EMAIL)
+    ew._process_row(db_session, row, _RAW_EMAIL)
+
+    assert row.status == "failed"
+    assert "Max retries exceeded" in row.error_message
+    assert row.raw_size  # raw copy kept for manual reprocessing
+
+
+def test_process_row_llm_unavailable_does_not_consume_retries(db_session, monkeypatch):
+    import email_worker.processor as proc
+    from email_worker.parsers.base import LLMUnavailableError
+    from email_worker.worker import _process_row
+
+    def _llm_down(row, raw, db):
+        raise LLMUnavailableError("vLLM unreachable")
+
+    monkeypatch.setattr(proc, "process_email", _llm_down)
+    row = _make_email_log(db_session, "llm-down-msg", "pending", raw=_RAW_EMAIL)
+    _process_row(db_session, row, _RAW_EMAIL)
+
+    assert row.status == "pending"
+    assert row.retry_count == 0  # GPU node off ≠ a failed attempt
+    assert row.retry_after is not None
+    assert "LLM unavailable" in row.error_message
+
+
+# ── email worker: _process_due_retries ────────────────────────────────────────
+
+
+def test_due_retry_is_reprocessed_from_stored_raw(db_session, monkeypatch):
+    import email_worker.processor as proc
+    from email_worker.worker import _process_due_retries
+
+    seen_raw = []
+
+    def _ok(row, raw, db):
+        seen_raw.append(raw)
+        row.status = "done"
+        db.commit()
+
+    monkeypatch.setattr(proc, "process_email", _ok)
+    past = datetime.now(timezone.utc) - timedelta(minutes=5)
+    _make_email_log(db_session, "due-msg", "pending", retry_after=past, raw=_RAW_EMAIL)
+
+    count = _process_due_retries(db_session)
+    assert count == 1
+    assert seen_raw == [_RAW_EMAIL]  # decompressed back to the original bytes
+
+
+def test_future_retry_is_not_touched(db_session, monkeypatch):
+    import email_worker.processor as proc
+    from email_worker.worker import _process_due_retries
+
+    monkeypatch.setattr(proc, "process_email", lambda *a: (_ for _ in ()).throw(AssertionError("must not run")))
     future = datetime.now(timezone.utc) + timedelta(hours=1)
-    _make_email_log(db_session, "msg-retry-wait", "pending", retry_count=1, retry_after=future)
-    skip, mark_seen = _check_email_status(db_session, "msg-retry-wait")
-    assert skip
-    assert not mark_seen  # keep UNSEEN in IMAP
+    row = _make_email_log(db_session, "future-msg", "pending", retry_after=future, raw=_RAW_EMAIL)
 
-
-def test_check_email_status_pending_retry_due(db_session):
-    from email_worker.worker import _check_email_status
-
-    past = datetime.now(timezone.utc) - timedelta(minutes=10)
-    _make_email_log(db_session, "msg-retry-due", "pending", retry_count=1, retry_after=past)
-    skip, mark_seen = _check_email_status(db_session, "msg-retry-due")
-    assert not skip  # due for reprocessing
-
-
-# ── email worker: _get_or_create_log_row ─────────────────────────────────────
-
-
-def test_get_or_create_creates_new_row(db_session):
-    from email_worker.worker import _get_or_create_log_row
-
-    row = _get_or_create_log_row(db_session, "new-msg-id")
-    assert row.id is not None
+    assert _process_due_retries(db_session) == 0
     assert row.status == "pending"
 
 
-def test_get_or_create_reuses_existing_and_clears_retry_after(db_session):
-    from email_worker.worker import _get_or_create_log_row
+def test_due_retry_without_raw_marked_failed(db_session):
+    from email_worker.worker import _process_due_retries
 
-    future = datetime.now(timezone.utc) + timedelta(hours=1)
-    existing = _make_email_log(db_session, "retry-msg-id", "pending", retry_count=1, retry_after=future)
+    past = datetime.now(timezone.utc) - timedelta(minutes=5)
+    row = _make_email_log(db_session, "no-raw-msg", "pending", retry_after=past, raw=None)
 
-    row = _get_or_create_log_row(db_session, "retry-msg-id")
-    assert row.id == existing.id
-    assert row.retry_after is None  # cleared so it's treated as in-progress
-
-
-# ── email worker: _reclaim_stuck_pending ─────────────────────────────────────
+    _process_due_retries(db_session)
+    assert row.status == "failed"
+    assert "No stored raw copy" in row.error_message
 
 
-def test_reclaim_stuck_pending_deletes_crashrecovery_rows(db_session):
-    from email_worker.worker import _reclaim_stuck_pending
+def test_stuck_row_with_raw_is_rescheduled_and_retried(db_session, monkeypatch):
+    import email_worker.processor as proc
+    from email_worker.worker import _process_due_retries
 
-    # Crash-recovery row: pending + no retry_after + old created_at
+    def _ok(row, raw, db):
+        row.status = "done"
+        db.commit()
+
+    monkeypatch.setattr(proc, "process_email", _ok)
     old = datetime.now(timezone.utc) - timedelta(hours=2)
-    row = EmailIngestLog(
-        message_id="stuck-crash",
-        status="pending",
-        retry_after=None,
-        created_at=old,
-    )
-    db_session.add(row)
-    db_session.commit()
+    row = _make_email_log(db_session, "stuck-with-raw", "pending", raw=_RAW_EMAIL, created_at=old)
 
-    _reclaim_stuck_pending(db_session)
-
-    remaining = db_session.query(EmailIngestLog).filter_by(message_id="stuck-crash").first()
-    assert remaining is None
+    _process_due_retries(db_session)
+    assert row.status == "done"
 
 
-def test_reclaim_stuck_pending_ignores_retry_rows(db_session):
-    from email_worker.worker import _reclaim_stuck_pending
+def test_stuck_row_without_raw_marked_failed(db_session):
+    from email_worker.worker import _process_due_retries
 
     old = datetime.now(timezone.utc) - timedelta(hours=2)
-    future = datetime.now(timezone.utc) + timedelta(hours=1)
-    row = EmailIngestLog(
-        message_id="scheduled-retry",
-        status="pending",
-        retry_after=future,
-        created_at=old,
-    )
-    db_session.add(row)
+    row = _make_email_log(db_session, "stuck-no-raw", "pending", raw=None, created_at=old)
+
+    _process_due_retries(db_session)
+    assert row.status == "failed"
+    assert "no raw copy" in row.error_message
+
+
+# ── email worker: UID folder cursor ───────────────────────────────────────────
+
+
+def test_get_folder_state_creates_and_reuses(db_session):
+    from email_worker.worker import _get_folder_state
+
+    state = _get_folder_state(db_session, "me@example.com", "INBOX")
+    assert state.last_uid == 0
+    state.last_uid = 42
     db_session.commit()
 
-    _reclaim_stuck_pending(db_session)
+    again = _get_folder_state(db_session, "me@example.com", "INBOX")
+    assert again.id == state.id
+    assert again.last_uid == 42
 
-    # Scheduled retry rows must NOT be deleted
-    remaining = db_session.query(EmailIngestLog).filter_by(message_id="scheduled-retry").first()
-    assert remaining is not None
+
+def test_header_message_id_extraction():
+    from email_worker.worker import _header_message_id
+
+    item = {b"BODY[HEADER.FIELDS (MESSAGE-ID)]": b"Message-ID: <xyz@host>\r\n\r\n", b"SEQ": 1}
+    assert _header_message_id(item) == "<xyz@host>"
+    assert _header_message_id({b"SEQ": 1}) == ""
 
 
 def test_touch_liveness(tmp_path, monkeypatch):
@@ -261,6 +349,60 @@ def test_touch_liveness(tmp_path, monkeypatch):
     monkeypatch.setattr(ew, "LIVENESS_FILE", liveness_path)
     ew._touch_liveness()
     assert (tmp_path / "liveness").exists()
+
+
+# ── learned patterns: DB-backed store ─────────────────────────────────────────
+
+
+@pytest.fixture()
+def patched_lp_session(db_session, monkeypatch):
+    """Point the learned_patterns store at the test database."""
+    import email_worker.learned_patterns as lp
+
+    class _Factory:
+        def __call__(self):
+            return self
+
+        def __enter__(self):
+            return db_session
+
+        def __exit__(self, *exc):
+            return False
+
+    monkeypatch.setattr(lp, "SessionLocal", _Factory())
+    return lp
+
+
+_PATTERNS = {"amount_patterns": [{"pattern": r"debited ([\d,]+) VND", "group": 1, "tx_type": "expense"}]}
+
+
+def test_learned_patterns_save_and_get(patched_lp_session):
+    lp = patched_lp_session
+    lp.save_patterns("noreply@newbank.vn", _PATTERNS)
+    got = lp.get_patterns("alerts@newbank.vn")  # same domain, different local part
+    assert got["amount_patterns"][0]["tx_type"] == "expense"
+    assert lp.get_patterns("other@unknown.com") is None
+
+
+def test_learned_patterns_success_resets_failure_streak(patched_lp_session, db_session):
+    from app.models.database import LearnedPattern
+
+    lp = patched_lp_session
+    lp.save_patterns("noreply@newbank.vn", _PATTERNS)
+    lp.record_failure("noreply@newbank.vn")
+    lp.record_success("noreply@newbank.vn")
+
+    row = db_session.query(LearnedPattern).filter_by(domain="newbank.vn").one()
+    assert row.success_count == 1
+    assert row.failure_count == 0
+
+
+def test_learned_patterns_dropped_after_consecutive_failures(patched_lp_session):
+    lp = patched_lp_session
+    lp.save_patterns("noreply@newbank.vn", _PATTERNS)
+    for _ in range(lp.MAX_CONSECUTIVE_FAILURES):
+        lp.record_failure("noreply@newbank.vn")
+    assert lp.get_patterns("noreply@newbank.vn") is None  # re-learn from scratch
 
 
 # ── OCR worker: _process_one and _drain_queue ─────────────────────────────────

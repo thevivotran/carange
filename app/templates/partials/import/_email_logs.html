@@ -1,3 +1,26 @@
+{% if worker_stats %}
+<div class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs">
+    <span class="flex items-center gap-1.5">
+        <span class="w-2 h-2 rounded-full {{ 'bg-green-500' if worker_stats.online else 'bg-red-400' }}"></span>
+        <span class="font-medium {{ 'text-green-700' if worker_stats.online else 'text-red-600' }}">
+            Worker {{ 'online' if worker_stats.online else 'offline' }}
+        </span>
+        {% if worker_stats.last_ok %}
+        <span class="text-gray-400">last seen {{ worker_stats.last_ok | format_vn_dt }}</span>
+        {% endif %}
+    </span>
+    <span class="text-gray-400 tabular-nums">7 days:
+        <span class="text-green-600 font-medium">{{ worker_stats.done }} done</span>
+        {% if worker_stats.pending %} · <span class="text-amber-600 font-medium">{{ worker_stats.pending }} pending</span>{% endif %}
+        {% if worker_stats.failed %} · <span class="text-red-500 font-medium">{{ worker_stats.failed }} failed</span>{% endif %}
+    </span>
+    {% if worker_stats.last_error %}
+    <span class="text-red-500 truncate max-w-full" title="{{ worker_stats.last_error }}">
+        <i class="fas fa-triangle-exclamation mr-1"></i>{{ worker_stats.last_error | truncate(90) }}
+    </span>
+    {% endif %}
+</div>
+{% endif %}
 {% if not logs %}
 <div class="py-12 text-center text-gray-400">
     <i class="fas fa-{{ 'search' if (search or status_filter != 'all') else 'envelope-open' }} text-3xl mb-3 block"></i>
@@ -43,6 +66,15 @@
 
     {% if log.transaction_count > 0 %}
     <span class="hidden sm:inline text-xs text-green-600 font-medium flex-shrink-0 tabular-nums">{{ log.transaction_count }} tx</span>
+    {% endif %}
+
+    {% if log.raw_size and (is_failed or (is_done and not log.transaction_count)) %}
+    <button hx-post="/fragments/import/email-logs/{{ log.id }}/reprocess?status={{ status_filter }}"
+            hx-target="#email-log-region" hx-swap="innerHTML" hx-include="#email-search"
+            class="text-xs text-gray-400 hover:text-primary transition flex-shrink-0"
+            title="Reprocess this email from its stored copy">
+        <i class="fas fa-rotate-right"></i>
+    </button>
     {% endif %}
 
     <span class="hidden md:inline text-xs text-gray-400 tabular-nums flex-shrink-0">

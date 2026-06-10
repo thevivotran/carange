@@ -23,50 +23,58 @@ class LearnedRegexParser(BaseEmailParser):
         return get_patterns(sender) is not None
 
     def parse(self, sender: str, subject: str, body_text: str, body_html: str) -> list[ParsedEmailTransaction]:
-        from email_worker.learned_patterns import get_patterns, increment_hit
+        from email_worker.learned_patterns import get_patterns, record_failure, record_success
 
         patterns = get_patterns(sender)
         if not patterns:
             return []
 
         results = []
+        seen = set()  # dedup digests where multiple patterns hit the same amount
         for ap in patterns.get("amount_patterns", []):
             try:
-                m = re.search(ap["pattern"], body_text, re.IGNORECASE)
-                if not m:
-                    continue
-                raw_amount = m.group(ap.get("group", 1))
-                amount = self._clean_amount(raw_amount)
-                if not amount:
-                    continue
+                for m in re.finditer(ap["pattern"], body_text, re.IGNORECASE):
+                    raw_amount = m.group(ap.get("group", 1))
+                    amount = self._clean_amount(raw_amount)
+                    if not amount:
+                        continue
 
-                tx_type = ap.get("tx_type", "expense")
-                if tx_type == "detect":
-                    tx_type = _detect_type(body_text, patterns.get("type_detect", {}))
+                    tx_type = ap.get("tx_type", "expense")
+                    if tx_type == "detect":
+                        tx_type = _detect_type(body_text, patterns.get("type_detect", {}))
 
-                tx_date = _extract_date(body_text, patterns.get("date_pattern"))
-                desc = _extract_desc(body_text, patterns.get("desc_pattern")) or subject
+                    tx_date = _extract_date(body_text, patterns.get("date_pattern"))
+                    desc = _extract_desc(body_text, patterns.get("desc_pattern")) or subject
 
-                results.append(
-                    ParsedEmailTransaction(
-                        date=tx_date,
-                        amount=amount,
-                        tx_type=tx_type,
-                        description=desc,
-                        confidence=0.82,
-                        category_hint="Others",
+                    key = (amount, tx_type, tx_date, desc)
+                    if key in seen:
+                        continue
+                    seen.add(key)
+
+                    results.append(
+                        ParsedEmailTransaction(
+                            date=tx_date,
+                            amount=amount,
+                            tx_type=tx_type,
+                            description=desc,
+                            confidence=0.82,
+                            category_hint="Others",
+                        )
                     )
-                )
             except Exception as exc:
                 log.debug("Learned pattern failed for %s: %s", ap, exc)
 
         if results:
-            increment_hit(sender)
+            record_success(sender)
             log.info(
                 "LearnedRegexParser: %d transaction(s) from sender domain %s",
                 len(results),
                 sender,
             )
+        else:
+            # Patterns exist but matched nothing — likely the sender changed
+            # their template. Enough consecutive misses drops the patterns.
+            record_failure(sender)
         return results
 
 

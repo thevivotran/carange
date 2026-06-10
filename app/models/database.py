@@ -1,8 +1,10 @@
 from sqlalchemy import (
     JSON,
     create_engine,
+    BigInteger,
     Column,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Float,
@@ -14,7 +16,7 @@ from sqlalchemy import (
     Index,
     UniqueConstraint,
 )
-from sqlalchemy.orm import declarative_base, sessionmaker, relationship
+from sqlalchemy.orm import declarative_base, deferred, sessionmaker, relationship
 from sqlalchemy import types as sa_types
 from datetime import datetime, timezone
 import enum
@@ -418,8 +420,59 @@ class EmailIngestLog(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     retry_count = Column(Integer, default=0, nullable=False, server_default="0")
     retry_after = Column(DateTime(timezone=True), nullable=True)
+    # zlib-compressed RFC 2822 source; cleared once transactions are committed,
+    # kept on failed / zero-transaction rows so they can be reprocessed.
+    raw_email = deferred(Column(LargeBinary, nullable=True))
+    raw_size = Column(Integer, nullable=True)  # compressed size; lets the UI test availability without loading the blob
+    parser_name = Column(String(100), nullable=True)
 
     transactions = relationship("Transaction", back_populates="email_ingest_log")
+
+
+class ImapFolderState(Base):
+    """UID-based ingestion cursor per (account, folder).
+
+    The worker processes messages strictly by ascending UID and persists the
+    high-water mark here, so mailbox flags (\\Seen) never affect what gets
+    ingested. last_uid resets when the server reports a new UIDVALIDITY.
+    """
+
+    __tablename__ = "imap_folder_state"
+
+    id = Column(Integer, primary_key=True, index=True)
+    account = Column(String(200), nullable=False)
+    folder = Column(String(200), nullable=False)
+    uidvalidity = Column(BigInteger, default=0, nullable=False)
+    last_uid = Column(BigInteger, default=0, nullable=False, server_default="0")
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    __table_args__ = (UniqueConstraint("account", "folder", name="uq_imap_folder_state_account_folder"),)
+
+
+class LearnedPattern(Base):
+    """LLM-generated regex patterns for parsing a sender domain's emails.
+
+    failure_count tracks consecutive misses; the row is dropped once it crosses
+    the threshold so the LLM fallback re-learns the (changed) format.
+    """
+
+    __tablename__ = "learned_patterns"
+
+    id = Column(Integer, primary_key=True, index=True)
+    domain = Column(String(200), nullable=False, unique=True, index=True)
+    patterns = Column(Text, nullable=False)  # JSON: amount_patterns / date_pattern / desc_pattern / type_detect
+    success_count = Column(Integer, default=0, nullable=False, server_default="0")
+    failure_count = Column(Integer, default=0, nullable=False, server_default="0")
+    generated_at = Column(DateTime(timezone=True), nullable=True)
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
 
 
 class Note(Base):

@@ -13,7 +13,7 @@ import threading
 from datetime import date, datetime
 
 from app.services import ollama as _ollama
-from email_worker.parsers.base import BaseEmailParser, ParsedEmailTransaction
+from email_worker.parsers.base import BaseEmailParser, LLMUnavailableError, ParsedEmailTransaction
 
 log = logging.getLogger("email_worker.parsers.generic")
 
@@ -27,8 +27,7 @@ class GenericOllamaParser(BaseEmailParser):
 
     def parse(self, sender: str, subject: str, body_text: str, body_html: str) -> list[ParsedEmailTransaction]:
         if not _ollama.is_enabled():
-            log.debug("Ollama disabled — generic parser skipped")
-            return []
+            raise LLMUnavailableError("LLM fallback disabled (OLLAMA_URL not set)")
 
         today = datetime.now().date().isoformat()
         truncated = body_text[:_MAX_BODY_CHARS]
@@ -49,8 +48,10 @@ class GenericOllamaParser(BaseEmailParser):
                 "Return only valid JSON. Never add text outside the array."
             ),
         )
-        if not raw:
-            return []
+        if raw is None:
+            # generate_sync returns None only when vLLM is unreachable/errored —
+            # an answered prompt with no transactions yields "[]" instead.
+            raise LLMUnavailableError(f"vLLM at {_ollama.OLLAMA_URL} returned no response")
 
         m = re.search(r"\[.*?\]", raw, re.DOTALL)
         if not m:

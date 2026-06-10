@@ -572,6 +572,72 @@ def test_fragment_import_email_logs_search(client, db_session):
     assert "Shopee order #999" not in r2.text
 
 
+def test_reprocess_email_log_queues_failed_row(client, db_session):
+    from app.models.database import EmailIngestLog
+
+    log = EmailIngestLog(
+        message_id="<replay-01@example.com>",
+        sender="noreply@bank.vn",
+        subject="Failed receipt",
+        status="failed",
+        retry_count=3,
+        error_message="Max retries exceeded",
+        raw_email=b"x",
+        raw_size=1,
+    )
+    db_session.add(log)
+    db_session.commit()
+
+    r = client.post(f"/fragments/import/email-logs/{log.id}/reprocess", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    db_session.refresh(log)
+    assert log.status == "pending"
+    assert log.retry_count == 0
+    assert log.retry_after is not None
+    assert log.error_message is None
+
+
+def test_reprocess_email_log_rejected_without_raw(client, db_session):
+    from app.models.database import EmailIngestLog
+
+    log = EmailIngestLog(
+        message_id="<replay-02@example.com>",
+        sender="noreply@bank.vn",
+        subject="Old failed receipt",
+        status="failed",
+    )
+    db_session.add(log)
+    db_session.commit()
+
+    r = client.post(f"/fragments/import/email-logs/{log.id}/reprocess", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    db_session.refresh(log)
+    assert log.status == "failed"  # unchanged — nothing stored to replay
+
+
+def test_reprocess_email_log_rejected_for_committed_row(client, db_session):
+    from datetime import datetime, timezone
+    from app.models.database import EmailIngestLog
+
+    log = EmailIngestLog(
+        message_id="<replay-03@example.com>",
+        sender="noreply@bank.vn",
+        subject="Committed receipt",
+        status="done",
+        transaction_count=2,
+        processed_at=datetime.now(timezone.utc),
+        raw_email=b"x",
+        raw_size=1,
+    )
+    db_session.add(log)
+    db_session.commit()
+
+    r = client.post(f"/fragments/import/email-logs/{log.id}/reprocess", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    db_session.refresh(log)
+    assert log.status == "done"  # would duplicate transactions — refused
+
+
 # ── Templates has_cadence filter ─────────────────────────────────────────────
 
 
