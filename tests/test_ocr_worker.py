@@ -184,3 +184,105 @@ def test_worker_claim_skips_retry_after_in_future(session_factory, image_file):
     with session_factory() as db:
         result = _claim_next(db)
         assert result is None
+
+
+def test_ocr_exception_schedules_retry_and_keeps_image(session_factory, image_file, monkeypatch):
+    """A transient OCR failure must go back to PENDING with backoff, and the
+    image must stay on disk so the retry has something to process."""
+    monkeypatch.setenv("UPLOAD_DIR", os.path.dirname(image_file))
+
+    def _boom(_path):
+        raise RuntimeError("paddle exploded")
+
+    monkeypatch.setattr("ocr_worker.ocr.extract_blocks", _boom)
+    from ocr_worker.worker import _claim_next_sqlite, _process_one
+
+    with session_factory() as db:
+        job = _make_job(db, image_file)
+        job_id = job.id
+
+    assert _process_one(session_factory, _claim_next_sqlite) is True
+
+    with session_factory() as db:
+        job = db.query(ImportJob).filter(ImportJob.id == job_id).first()
+        assert job.status == ImportJobStatus.PENDING
+        assert job.retry_count == 1
+        assert job.retry_after is not None
+        assert "paddle exploded" in job.error_message
+    assert os.path.isfile(image_file)
+
+
+def test_handle_failure_permanent_deletes_image(session_factory, image_file, monkeypatch):
+    monkeypatch.setenv("UPLOAD_DIR", os.path.dirname(image_file))
+    from ocr_worker.worker import _handle_failure, MAX_RETRIES
+
+    with session_factory() as db:
+        job = _make_job(db, image_file)
+        job.status = ImportJobStatus.PROCESSING
+        job.retry_count = MAX_RETRIES
+        db.commit()
+        _handle_failure(db, job, "still broken")
+        db.refresh(job)
+        assert job.status == ImportJobStatus.FAILED
+    assert not os.path.isfile(image_file)
+
+
+def test_stuck_reclaim_increments_retry_count(session_factory, image_file):
+    from datetime import datetime, timedelta, timezone
+    from ocr_worker.worker import _claim_next_sqlite as _claim_next
+
+    with session_factory() as db:
+        job = _make_job(db, image_file)
+        job.status = ImportJobStatus.PROCESSING
+        job.started_at = datetime.now(timezone.utc) - timedelta(hours=2)
+        db.commit()
+
+    with session_factory() as db:
+        reclaimed = _claim_next(db)
+        assert reclaimed is not None
+        assert reclaimed.status == ImportJobStatus.PROCESSING
+        assert reclaimed.retry_count == 1
+
+
+def test_stuck_reclaim_fails_permanently_after_max_retries(session_factory, image_file, monkeypatch):
+    monkeypatch.setenv("UPLOAD_DIR", os.path.dirname(image_file))
+    from datetime import datetime, timedelta, timezone
+    from ocr_worker.worker import _claim_next_sqlite as _claim_next, MAX_RETRIES
+
+    with session_factory() as db:
+        job = _make_job(db, image_file)
+        job.status = ImportJobStatus.PROCESSING
+        job.started_at = datetime.now(timezone.utc) - timedelta(hours=2)
+        job.retry_count = MAX_RETRIES
+        db.commit()
+        job_id = job.id
+
+    with session_factory() as db:
+        assert _claim_next(db) is None
+        job = db.query(ImportJob).filter(ImportJob.id == job_id).first()
+        assert job.status == ImportJobStatus.FAILED
+        assert job.processed_at is not None
+        assert "stuck" in job.error_message.lower()
+    assert not os.path.isfile(image_file)
+
+
+def test_vision_empty_array_marks_done_without_ocr_fallback(session_factory, image_file, monkeypatch):
+    """When the vision model explicitly reports no transactions, the job is
+    done — PaddleOCR + GenericParser must NOT run (it would hallucinate)."""
+    monkeypatch.setenv("UPLOAD_DIR", os.path.dirname(image_file))
+
+    def _no_fallback(_path):
+        raise AssertionError("PaddleOCR fallback must not run")
+
+    monkeypatch.setattr("ocr_worker.ocr.extract_blocks", _no_fallback)
+    monkeypatch.setattr("app.services.ollama.is_enabled", lambda: True)
+    monkeypatch.setattr("app.services.ollama.vision_sync", lambda *a, **kw: "[]")
+    from ocr_worker.processor import process_job
+
+    with session_factory() as db:
+        job = _make_job(db, image_file)
+        process_job(job, db)
+        db.refresh(job)
+
+        assert job.status == ImportJobStatus.DONE
+        assert job.transaction_count == 0

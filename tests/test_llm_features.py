@@ -116,14 +116,84 @@ def test_extract_via_vision_returns_none_on_empty_response(image_file):
         assert _extract_via_vision(image_file) is None
 
 
-def test_extract_via_vision_returns_none_on_empty_array(image_file):
+def test_extract_via_vision_returns_empty_list_on_empty_array(image_file):
+    """An explicit [] means "no transactions" — distinct from None (failure),
+    so the processor marks the job done instead of falling back to OCR."""
     with (
         patch("app.services.ollama.is_enabled", return_value=True),
         patch("app.services.ollama.vision_sync", return_value="[]"),
     ):
         from ocr_worker.processor import _extract_via_vision
 
+        assert _extract_via_vision(image_file) == []
+
+
+def test_extract_via_vision_returns_none_when_all_items_malformed(image_file):
+    with (
+        patch("app.services.ollama.is_enabled", return_value=True),
+        patch("app.services.ollama.vision_sync", return_value='[{"bad": "item"}]'),
+    ):
+        from ocr_worker.processor import _extract_via_vision
+
         assert _extract_via_vision(image_file) is None
+
+
+def test_extract_via_vision_coerces_string_amounts(image_file):
+    """VND-formatted string amounts ('45.000đ') must not parse as 45.0."""
+    vision_json = (
+        '[{"date": "2026-05-01", "amount": "45.000\\u0111", "type": "expense", "description": "Bún chả"},'
+        '{"date": "2026-05-02", "amount": "1,200,000", "type": "income", "description": "Refund"}]'
+    )
+    with (
+        patch("app.services.ollama.is_enabled", return_value=True),
+        patch("app.services.ollama.vision_sync", return_value=vision_json),
+    ):
+        from ocr_worker.processor import _extract_via_vision
+
+        result = _extract_via_vision(image_file)
+
+    assert result is not None
+    assert [r.amount for r in result] == [45000, 1200000]
+
+
+def test_extract_via_vision_rejects_bad_type_and_amount(image_file):
+    """Unknown tx types and non-positive amounts are skipped, not committed."""
+    vision_json = (
+        '[{"date": "2026-05-01", "amount": 50000, "type": "debit", "description": "Bad type"},'
+        '{"date": "2026-05-01", "amount": -50000, "type": "expense", "description": "Negative"},'
+        '{"date": "2026-05-01", "amount": 50000, "type": "Expense", "description": "Good"}]'
+    )
+    with (
+        patch("app.services.ollama.is_enabled", return_value=True),
+        patch("app.services.ollama.vision_sync", return_value=vision_json),
+    ):
+        from ocr_worker.processor import _extract_via_vision
+
+        result = _extract_via_vision(image_file)
+
+    assert result is not None
+    assert len(result) == 1
+    assert result[0].description == "Good"
+    assert result[0].tx_type == "expense"
+
+
+def test_extract_via_vision_handles_bracket_in_description(image_file):
+    """A ']' inside a string value must not truncate the JSON array."""
+    vision_json = (
+        '[{"date": "2026-05-01", "amount": 30000, "type": "expense", "description": "Taxi [airport]"},'
+        '{"date": "2026-05-02", "amount": 60000, "type": "expense", "description": "Dinner"}]'
+    )
+    with (
+        patch("app.services.ollama.is_enabled", return_value=True),
+        patch("app.services.ollama.vision_sync", return_value=vision_json),
+    ):
+        from ocr_worker.processor import _extract_via_vision
+
+        result = _extract_via_vision(image_file)
+
+    assert result is not None
+    assert len(result) == 2
+    assert result[0].description == "Taxi [airport]"
 
 
 def test_extract_via_vision_handles_markdown_wrapper(image_file):
