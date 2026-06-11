@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import func, extract, case, and_, false as sqla_false
+from sqlalchemy import func
 from datetime import date
 from typing import Optional
 
@@ -12,7 +12,12 @@ from app.models.database import (
 )
 from app.models.schemas import DashboardSummary
 from app.services.dashboard_service import get_dashboard_data, get_kpi_role_category_ids
-from app.services.fiscal_period import current_period_ym, fiscal_window_ym, get_month_start_day
+from app.services.fiscal_period import (
+    current_period_ym,
+    fiscal_window_ym,
+    get_month_start_day,
+    shift_period_ym,
+)
 
 router = APIRouter()
 
@@ -70,72 +75,51 @@ def get_dashboard_summary(year: Optional[int] = None, month: Optional[int] = Non
 
 @router.get("/dashboard/monthly-trend")
 def get_monthly_trend(db: Session = Depends(get_db)):
+    day = get_month_start_day(db)
     today = date.today()
-    months = []
-    for i in range(11, -1, -1):
-        total_months = today.month - 1 - i
-        year_num = today.year + total_months // 12
-        month_num = total_months % 12 + 1
-        months.append((year_num, month_num))
+    cur_year, cur_month = current_period_ym(today, day)
+    periods = [shift_period_ym(cur_year, cur_month, -i) for i in range(11, -1, -1)]
 
-    start_date = date(months[0][0], months[0][1], 1)
+    overall_start, _ = fiscal_window_ym(periods[0][0], periods[0][1], day)
+    _, overall_end = fiscal_window_ym(periods[-1][0], periods[-1][1], day)
 
     rows = (
         db.query(
-            extract("year", Transaction.date).label("year"),
-            extract("month", Transaction.date).label("month"),
-            func.sum(
-                case(
-                    (
-                        and_(
-                            Transaction.type == TransactionType.INCOME,
-                            Transaction.is_savings_related == False,
-                        ),
-                        Transaction.amount,
-                    ),
-                    else_=0,
-                )
-            ).label("income"),
-            func.sum(
-                case(
-                    (
-                        and_(Transaction.type == TransactionType.EXPENSE, Transaction.is_savings_related == False),
-                        Transaction.amount,
-                    ),
-                    else_=0,
-                )
-            ).label("expense"),
-            func.sum(
-                case(
-                    (
-                        and_(Transaction.type == TransactionType.EXPENSE, Transaction.is_savings_related == True),
-                        Transaction.amount,
-                    ),
-                    else_=0,
-                )
-            ).label("savings"),
+            Transaction.date,
+            Transaction.amount,
+            Transaction.type,
+            Transaction.is_savings_related,
         )
-        .filter(Transaction.date >= start_date, Transaction.deleted_at.is_(None))
-        .group_by(
-            extract("year", Transaction.date),
-            extract("month", Transaction.date),
+        .filter(
+            Transaction.date >= overall_start,
+            Transaction.date <= overall_end,
+            Transaction.deleted_at.is_(None),
         )
         .all()
     )
 
-    data_map = {(int(r.year), int(r.month)): r for r in rows}
-
     results = []
-    for year_num, month_num in months:
-        r = data_map.get((year_num, month_num))
-        income = float(r.income) if r else 0
-        expense = float(r.expense) if r else 0
+    for year_num, month_num in periods:
+        start, end = fiscal_window_ym(year_num, month_num, day)
+        income = 0.0
+        expense = 0.0
+        savings = 0.0
+        for r in rows:
+            if not (start <= r.date <= end):
+                continue
+            amt = float(r.amount)
+            if r.type == TransactionType.INCOME and not r.is_savings_related:
+                income += amt
+            elif r.type == TransactionType.EXPENSE and not r.is_savings_related:
+                expense += amt
+            elif r.type == TransactionType.EXPENSE and r.is_savings_related:
+                savings += amt
         results.append(
             {
                 "month": date(year_num, month_num, 1).strftime("%b %Y"),
                 "income": income,
                 "expense": expense,
-                "savings": float(r.savings) if r else 0,
+                "savings": savings,
                 "net": income - expense,
                 "savings_rate": round((income - expense) / income * 100, 1) if income > 0 else 0,
             }
@@ -199,69 +183,59 @@ def get_expense_by_category(year: Optional[int] = None, month: Optional[int] = N
 
 @router.get("/dashboard/wealth-building-trend")
 def get_wealth_building_trend(db: Session = Depends(get_db)):
+    day = get_month_start_day(db)
     today = date.today()
-    months = []
-    for i in range(5, -1, -1):
-        total_months = today.month - 1 - i
-        year_num = today.year + total_months // 12
-        month_num = total_months % 12 + 1
-        months.append((year_num, month_num))
+    cur_year, cur_month = current_period_ym(today, day)
+    periods = [shift_period_ym(cur_year, cur_month, -i) for i in range(5, -1, -1)]
 
-    start_date = date(months[0][0], months[0][1], 1)
-
-    income_rows = (
-        db.query(
-            extract("year", Transaction.date).label("year"),
-            extract("month", Transaction.date).label("month"),
-            func.sum(case((Transaction.type == TransactionType.INCOME, Transaction.amount), else_=0)).label("income"),
-        )
-        .filter(Transaction.date >= start_date, Transaction.deleted_at.is_(None))
-        .group_by(extract("year", Transaction.date), extract("month", Transaction.date))
-        .all()
-    )
-    income_map = {(int(r.year), int(r.month)): float(r.income or 0) for r in income_rows}
-
-    # Resolve KPI bucket category IDs from explicit role assignments.
-    kpi_ids = get_kpi_role_category_ids(db)
-    tk_filter = Transaction.category_id.in_(kpi_ids["liquid_savings"]) if kpi_ids["liquid_savings"] else sqla_false()
-    bds_filter_wbt = Transaction.category_id.in_(kpi_ids["real_estate"]) if kpi_ids["real_estate"] else sqla_false()
+    overall_start, _ = fiscal_window_ym(periods[0][0], periods[0][1], day)
+    _, overall_end = fiscal_window_ym(periods[-1][0], periods[-1][1], day)
 
     rows = (
         db.query(
-            extract("year", Transaction.date).label("year"),
-            extract("month", Transaction.date).label("month"),
-            func.sum(case((tk_filter, Transaction.amount), else_=0)).label("tiet_kiem"),
-            func.sum(case((bds_filter_wbt, Transaction.amount), else_=0)).label("bds"),
+            Transaction.date,
+            Transaction.amount,
+            Transaction.type,
+            Transaction.category_id,
         )
         .filter(
-            Transaction.date >= start_date,
-            Transaction.type == TransactionType.EXPENSE,
+            Transaction.date >= overall_start,
+            Transaction.date <= overall_end,
             Transaction.deleted_at.is_(None),
-        )
-        .group_by(
-            extract("year", Transaction.date),
-            extract("month", Transaction.date),
         )
         .all()
     )
 
-    data_map = {(int(r.year), int(r.month)): r for r in rows}
+    kpi_ids = get_kpi_role_category_ids(db)
+    tk_set = set(kpi_ids["liquid_savings"])
+    bds_set = set(kpi_ids["real_estate"])
 
     results = []
-    for year_num, month_num in months:
-        r = data_map.get((year_num, month_num))
-        tk = float(r.tiet_kiem) if r else 0
-        bds = float(r.bds) if r else 0
-        inc = income_map.get((year_num, month_num), 0)
-        total = tk + bds
+    for year_num, month_num in periods:
+        start, end = fiscal_window_ym(year_num, month_num, day)
+        income = 0.0
+        tiet_kiem = 0.0
+        bds = 0.0
+        for r in rows:
+            if not (start <= r.date <= end):
+                continue
+            amt = float(r.amount)
+            if r.type == TransactionType.INCOME:
+                income += amt
+            elif r.type == TransactionType.EXPENSE:
+                if r.category_id in tk_set:
+                    tiet_kiem += amt
+                if r.category_id in bds_set:
+                    bds += amt
+        total = tiet_kiem + bds
         results.append(
             {
                 "month": date(year_num, month_num, 1).strftime("%b %Y"),
-                "tiet_kiem": tk,
+                "tiet_kiem": tiet_kiem,
                 "bds": bds,
                 "total": total,
-                "income": inc,
-                "savings_rate": round(total / inc * 100, 1) if inc > 0 else 0,
+                "income": income,
+                "savings_rate": round(total / income * 100, 1) if income > 0 else 0,
             }
         )
 

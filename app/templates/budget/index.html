@@ -15,7 +15,10 @@
       <div class="flex items-center gap-1 cg-card px-2 py-1">
         <button onclick="prevMonth()"
                 class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none">&#8249;</button>
-        <span id="month-label" class="px-3 py-1 text-sm font-semibold min-w-[110px] text-center select-none"></span>
+        <div class="flex flex-col items-center justify-center px-3 py-1 min-w-[110px]">
+          <span id="month-label" class="text-sm font-semibold text-center select-none"></span>
+          <span id="budget-month-range-display" class="block text-[10px] leading-tight text-muted text-center whitespace-nowrap select-none"></span>
+        </div>
         <button onclick="nextMonth()"
                 class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none">&#8250;</button>
         <button id="budget-exit-btn" onclick="exitBudgetMonthTracking()" title="Exit month tracking — reset to current month"
@@ -114,8 +117,44 @@
 
 <script>
 const BASELINE = "2026-05";
+const CARANGE_MONTH_START_DAY = {{ month_start_day | default(1) }};
 let currentYM = getCurrentYM();
 let rows = [];
+
+function _isoLocalDate(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+// Inclusive [start, end] dates for a "YYYY-MM" fiscal period, honoring the
+// configurable pay-cycle start day. Mirrors fiscal_period.fiscal_window_ym.
+function _fiscalWindow(ym) {
+    const day = CARANGE_MONTH_START_DAY || 1;
+    const [y, m] = ym.split('-').map(Number);  // m is 1-based
+    const dimThis = new Date(y, m, 0).getDate();
+    const start = new Date(y, m - 1, Math.min(day, dimThis));
+    const dimNext = new Date(y, m + 1, 0).getDate();
+    const end = new Date(y, m, Math.min(day, dimNext));  // first day of next period
+    end.setDate(end.getDate() - 1);
+    return [_isoLocalDate(start), _isoLocalDate(end)];
+}
+
+function _fmtRange(startIso, endIso) {
+    const opts = { month: 'short', day: 'numeric' };
+    const s = new Date(startIso + 'T00:00:00');
+    const e = new Date(endIso + 'T00:00:00');
+    return s.toLocaleDateString('en-US', opts) + ' – ' + e.toLocaleDateString('en-US', opts);
+}
+
+function _updateMonthRangeDisplay(ym, elementId) {
+    const el = document.getElementById(elementId);
+    if (!el) return;
+    if ((CARANGE_MONTH_START_DAY || 1) === 1) {
+        el.textContent = '';
+        return;
+    }
+    const [start, end] = _fiscalWindow(ym);
+    el.textContent = _fmtRange(start, end);
+}
 
 function getCurrentYM() {
     const urlParam = new URLSearchParams(window.location.search).get('month');
@@ -166,6 +205,7 @@ function prevMonth() {
     history.replaceState(null, '', '?month=' + currentYM);
     _updateBudgetExitBtn();
     document.getElementById('month-label').textContent = fmtMonth(currentYM);
+    _updateMonthRangeDisplay(currentYM, 'budget-month-range-display');
     document.body.dispatchEvent(new CustomEvent('budget-month-changed'));
 }
 function nextMonth() {
@@ -174,6 +214,7 @@ function nextMonth() {
     history.replaceState(null, '', '?month=' + currentYM);
     _updateBudgetExitBtn();
     document.getElementById('month-label').textContent = fmtMonth(currentYM);
+    _updateMonthRangeDisplay(currentYM, 'budget-month-range-display');
     document.body.dispatchEvent(new CustomEvent('budget-month-changed'));
 }
 function exitBudgetMonthTracking() {
@@ -182,6 +223,7 @@ function exitBudgetMonthTracking() {
     history.replaceState(null, '', '?month=' + currentYM);
     _updateBudgetExitBtn();
     document.getElementById('month-label').textContent = fmtMonth(currentYM);
+    _updateMonthRangeDisplay(currentYM, 'budget-month-range-display');
     document.body.dispatchEvent(new CustomEvent('budget-month-changed'));
 }
 
@@ -468,5 +510,6 @@ async function openHistoryModal() {
 
 _updateBudgetExitBtn();
 document.getElementById('month-label').textContent = fmtMonth(currentYM);
+_updateMonthRangeDisplay(currentYM, 'budget-month-range-display');
 </script>
 {% endblock %}

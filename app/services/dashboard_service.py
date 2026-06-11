@@ -311,7 +311,12 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     # ── Aggregates ────────────────────────────────────────────────────────────
     # Fast path: read from mv_monthly_totals (pre-aggregated, refreshed async).
     # The matview groups by *calendar* month, so it's only valid when day == 1;
-    # for custom fiscal windows (day != 1) we fall through to live ORM queries.
+    # for custom fiscal windows (day != 1) we fall through to live ORM queries
+    # over `transactions`, covered by ix_transactions_date_type_savings_category.
+    # This is a deliberate perf trade-off: fiscal-cycle households pay a live
+    # aggregation cost on every dashboard load instead of reading the
+    # pre-aggregated matview. Acceptable at typical household transaction
+    # volumes (low thousands of rows); revisit if this becomes measurably slow.
     # Fallback: inline ORM queries when the MATVIEW is unavailable (SQLite dev).
     use_matview = _USE_MATVIEW and day == 1
     mv_rows = _fetch_matview_rows(db) if use_matview else None

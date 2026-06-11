@@ -23,6 +23,7 @@ from app.models.database import (
     TransactionType,
 )
 from app.models.schemas import SavingsBundleCreate, TransactionCreate
+from app.services.fiscal_period import fiscal_window_ym, get_month_start_day
 from app.services.rules_service import apply_rules, normalize_description
 
 log = logging.getLogger("app.transaction_service")
@@ -283,6 +284,7 @@ def parse_csv_vietnamese(content: bytes, db: Session) -> dict:
         raise ValueError(f"Missing required columns: {', '.join(missing)}")
 
     stats: dict = {"income": 0, "expense": 0, "skipped": 0, "errors": []}
+    month_start_day = get_month_start_day(db)
 
     for row_num, row in enumerate(reader, start=2):
         try:
@@ -312,7 +314,7 @@ def parse_csv_vietnamese(content: bytes, db: Session) -> dict:
                 stats["skipped"] += 1
                 continue
 
-            transaction_date = date(year, month, 1)
+            transaction_date, _ = fiscal_window_ym(year, month, month_start_day)
 
             if thu > 0:
                 cat = get_or_create_category(db, category_name, TransactionType.INCOME)

@@ -13,7 +13,10 @@
             <div class="flex items-center gap-1 cg-card px-2 py-1">
                 <button onclick="shiftTxMonth(-1)"
                         class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none">&#8249;</button>
-                <span id="tx-month-display" class="px-3 py-1 text-sm font-semibold min-w-[120px] text-center select-none"></span>
+                <div class="flex flex-col items-center justify-center px-3 py-1 min-w-[120px]">
+                    <span id="tx-month-display" class="text-sm font-semibold text-center select-none"></span>
+                    <span id="tx-month-range-display" class="block text-[10px] leading-tight text-muted text-center whitespace-nowrap select-none"></span>
+                </div>
                 <button onclick="shiftTxMonth(1)"
                         class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none">&#8250;</button>
                 <button id="tx-exit-btn" onclick="exitTxMonthTracking()" title="Exit month filter — show all transactions"
@@ -640,9 +643,28 @@
         history.replaceState(null, '', '?month=' + ym);
     }
 
+    function _fmtRange(startIso, endIso) {
+        const opts = { month: 'short', day: 'numeric' };
+        const s = new Date(startIso + 'T00:00:00');
+        const e = new Date(endIso + 'T00:00:00');
+        return s.toLocaleDateString('en-US', opts) + ' – ' + e.toLocaleDateString('en-US', opts);
+    }
+
+    function _updateMonthRangeDisplay(ym, elementId) {
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        if ((CARANGE_MONTH_START_DAY || 1) === 1) {
+            el.textContent = '';
+            return;
+        }
+        const [start, end] = _fiscalWindow(ym);
+        el.textContent = _fmtRange(start, end);
+    }
+
     function _updateTxPill() {
         const ym = _txCurrentYM();
         document.getElementById('tx-month-display').textContent = _fmtTxMonth(ym);
+        _updateMonthRangeDisplay(ym, 'tx-month-range-display');
         // Show × only when a date filter is active (tracking mode)
         const hasFilter = !!document.getElementById('filter-start-date').value;
         document.getElementById('tx-exit-btn').classList.toggle('hidden', !hasFilter);

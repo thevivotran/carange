@@ -1,0 +1,7 @@
+<span class="text-green-600 text-sm font-medium">
+  Saved
+  {% if changed %}
+    — periods now run the {{ day }}{{ day_suffix }} to the {{ prev_day }}{{ prev_day_suffix }} of next month.
+    Current period: {{ window_start }} – {{ window_end }}. Past months have been re-grouped.
+  {% endif %}
+</span>
