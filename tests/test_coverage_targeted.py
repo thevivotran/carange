@@ -741,3 +741,31 @@ def test_savings_bundle_update_maturity_date_validator_valid_date(client):
     )
     assert r.status_code == 200
     assert r.json()["maturity_date"] == "2027-06-01"
+
+
+# ── transaction_service: parse_csv_vietnamese fiscal-period attribution ──────
+
+
+def test_csv_import_day1_regression(db_session):
+    """With the default month_start_day=1, imported rows still land on the 1st."""
+    csv_bytes = _vn_csv_bytes("2026,6,Salary,1000000,0,\n")
+    transaction_service.parse_csv_vietnamese(csv_bytes, db_session)
+
+    txn = db_session.query(Transaction).filter(Transaction.type == TransactionType.INCOME).first()
+    assert txn is not None
+    assert txn.date == date(2026, 6, 1)
+
+
+def test_csv_import_respects_fiscal_start_day(db_session):
+    """With month_start_day=19, imported rows land on the fiscal period start."""
+    from app.services.fiscal_period import SETTING_KEY, fiscal_window_ym
+    from app.services.settings_service import set_setting
+
+    set_setting(db_session, SETTING_KEY, "19")
+
+    csv_bytes = _vn_csv_bytes("2026,6,Salary,1000000,0,\n")
+    transaction_service.parse_csv_vietnamese(csv_bytes, db_session)
+
+    txn = db_session.query(Transaction).filter(Transaction.type == TransactionType.INCOME).first()
+    assert txn is not None
+    assert txn.date == fiscal_window_ym(2026, 6, 19)[0]

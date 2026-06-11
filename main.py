@@ -152,8 +152,12 @@ async def health():
 # Main routes for HTML pages
 @app.get("/", response_class=HTMLResponse)
 async def dashboard_page(request: Request, db: Session = Depends(get_db)):
+    from app.routers.settings import _ordinal_suffix
+    from app.services.fiscal_period import get_month_start_day
+
     data = get_dashboard_page_data(db)
     show_onboarding = get_setting(db, "onboarding_complete", "false") != "true"
+    month_start_day = get_month_start_day(db)
     return templates.TemplateResponse(
         request,
         "dashboard.html",
@@ -161,6 +165,8 @@ async def dashboard_page(request: Request, db: Session = Depends(get_db)):
             "active_menu": "dashboard",
             "visible_sections": request.state.visible_sections,
             "show_onboarding": show_onboarding,
+            "month_start_day": month_start_day,
+            "month_start_day_label": f"{month_start_day}{_ordinal_suffix(month_start_day)}",
             **data,
         },
     )
@@ -208,8 +214,14 @@ async def notes_page(request: Request):
 
 
 @app.get("/budget", response_class=HTMLResponse)
-async def budget_page(request: Request):
-    return templates.TemplateResponse(request, "budget/index.html", {"active_menu": "budget"})
+async def budget_page(request: Request, db: Session = Depends(get_db)):
+    from app.services.fiscal_period import get_month_start_day
+
+    return templates.TemplateResponse(
+        request,
+        "budget/index.html",
+        {"active_menu": "budget", "month_start_day": get_month_start_day(db)},
+    )
 
 
 @app.get("/import", response_class=HTMLResponse)

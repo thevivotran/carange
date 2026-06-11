@@ -100,8 +100,8 @@
     <form hx-post="/settings/pay-cycle" hx-target="#pay-cycle-status" hx-swap="innerHTML">
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Salary day / pay-cycle start</label>
-        <p class="text-xs text-gray-400 mb-2">Day of month (1–28). 1 = calendar month.</p>
-        <input name="month_start_day" type="number" min="1" max="28" step="1"
+        <p class="text-xs text-gray-400 mb-2">Day of month (1–31). 1 = calendar month. 29–31 act as "last day of month" in shorter months.</p>
+        <input name="month_start_day" type="number" min="1" max="31" step="1"
                value="{{ month_start_day }}"
                class="w-24 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
       </div>
@@ -110,6 +110,15 @@
         <span id="pay-cycle-status"></span>
       </div>
     </form>
+    {% if suggested_day %}
+    <div class="mt-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 text-xs text-muted">
+      <span>We noticed a recurring income on the {{ suggested_day_label }} — use this as your pay-cycle day?</span>
+      <form hx-post="/settings/pay-cycle" hx-target="#pay-cycle-status" hx-swap="innerHTML" class="flex-shrink-0">
+        <input type="hidden" name="month_start_day" value="{{ suggested_day }}">
+        <button type="submit" class="px-3 py-1 rounded-lg border text-xs font-medium hover:bg-surface-sunken transition">Use {{ suggested_day_label }}</button>
+      </form>
+    </div>
+    {% endif %}
   </div>
 
   <!-- ── Dashboard Layout (per profile) ───────────────────────── -->

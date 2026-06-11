@@ -1,4 +1,6 @@
 import os
+from datetime import date
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
@@ -160,11 +162,20 @@ def _get_all_settings(db: Session, user_id: int) -> dict:
 
 @router.get("", response_class=HTMLResponse)
 def settings_page(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(
-        request,
-        "settings/settings.html",
-        {"active_menu": "settings", **_get_all_settings(db, request.state.user.id)},
-    )
+    from app.services.fiscal_period import get_month_start_day, suggest_salary_day
+
+    context = {"active_menu": "settings", **_get_all_settings(db, request.state.user.id)}
+
+    month_start_day = get_month_start_day(db)
+    suggested_day = suggest_salary_day(db)
+    if suggested_day == month_start_day:
+        suggested_day = None
+    context["month_start_day"] = month_start_day
+    context["suggested_day"] = suggested_day
+    if suggested_day:
+        context["suggested_day_label"] = f"{suggested_day}{_ordinal_suffix(suggested_day)}"
+
+    return templates.TemplateResponse(request, "settings/settings.html", context)
 
 
 @router.post("/general")
@@ -185,10 +196,31 @@ async def save_dashboard_goals(request: Request, db: Session = Depends(get_db)):
     return render_fragment(request, "settings/_saved.html", {}, toast="Dashboard goals saved")
 
 
+def _ordinal_suffix(n: int) -> str:
+    if 11 <= (n % 100) <= 13:
+        return "th"
+    return {1: "st", 2: "nd", 3: "rd"}.get(n % 10, "th")
+
+
+def _last_day_of_prev_month(today: date) -> int:
+    import calendar
+
+    y, m = (today.year, today.month - 1) if today.month > 1 else (today.year - 1, 12)
+    return calendar.monthrange(y, m)[1]
+
+
 @router.post("/pay-cycle")
 async def save_pay_cycle(request: Request, db: Session = Depends(get_db)):
     from app.services.dashboard_service import invalidate_dashboard_cache
-    from app.services.fiscal_period import MIN_DAY, MAX_DAY
+    from app.services.fiscal_period import (
+        MAX_DAY,
+        MIN_DAY,
+        current_period_label,
+        fiscal_window,
+        get_month_start_day,
+    )
+
+    old_day = get_month_start_day(db)
 
     form = await request.form()
     try:
@@ -198,7 +230,29 @@ async def save_pay_cycle(request: Request, db: Session = Depends(get_db)):
     day = max(MIN_DAY, min(MAX_DAY, day))
     set_setting(db, "month_start_day", str(day))
     invalidate_dashboard_cache(db)
-    return render_fragment(request, "settings/_saved.html", {}, toast="Pay cycle saved")
+
+    changed = day != old_day
+    context = {"changed": changed}
+    if changed:
+        today = date.today()
+        label = current_period_label(today, day)
+        start, end = fiscal_window(label, day)
+        prev_day = day - 1 if day > 1 else _last_day_of_prev_month(today)
+        context.update(
+            day=day,
+            day_suffix=_ordinal_suffix(day),
+            prev_day=prev_day,
+            prev_day_suffix=_ordinal_suffix(prev_day),
+            window_start=start.strftime("%b %d"),
+            window_end=end.strftime("%b %d, %Y"),
+        )
+
+    return render_fragment(
+        request,
+        "settings/_pay_cycle_saved.html",
+        context,
+        toast="Pay cycle saved",
+    )
 
 
 @router.post("/dashboard")

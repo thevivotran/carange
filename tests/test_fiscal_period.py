@@ -125,9 +125,40 @@ def test_get_month_start_day_clamps_zero_to_min(db_session):
 
 def test_get_month_start_day_clamps_forty_to_max(db_session):
     set_setting(db_session, fp.SETTING_KEY, "40")
-    assert fp.get_month_start_day(db_session) == 28
+    assert fp.get_month_start_day(db_session) == 31
 
 
 def test_get_month_start_day_non_numeric_falls_back(db_session):
     set_setting(db_session, fp.SETTING_KEY, "x")
     assert fp.get_month_start_day(db_session) == 1
+
+
+def test_fiscal_window_day31_clamps_in_short_months():
+    assert fp.fiscal_window_ym(2026, 2, 31) == (date(2026, 2, 28), date(2026, 3, 30))
+
+
+def test_get_month_start_day_clamps_to_31_not_28(db_session):
+    set_setting(db_session, fp.SETTING_KEY, "30")
+    assert fp.get_month_start_day(db_session) == 30
+
+
+def test_suggest_salary_day_none_without_templates(db_session):
+    assert fp.suggest_salary_day(db_session) is None
+
+
+def test_suggest_salary_day_from_monthly_income_template(db_session, income_cat):
+    from app.models.database import TransactionTemplate, TransactionType
+
+    tmpl = TransactionTemplate(
+        name="Salary",
+        amount=20_000_000,
+        type=TransactionType.INCOME,
+        category_id=income_cat.id,
+        is_active=True,
+        cadence="monthly",
+        next_run_at=date(2026, 7, 19),
+    )
+    db_session.add(tmpl)
+    db_session.commit()
+
+    assert fp.suggest_salary_day(db_session) == 19

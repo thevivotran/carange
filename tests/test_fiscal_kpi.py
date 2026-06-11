@@ -25,6 +25,7 @@ from app.services.dashboard_service import (
 )
 from app.services.fiscal_period import (
     SETTING_KEY,
+    current_period_ym,
     fiscal_window_ym,
     get_month_start_day,
 )
@@ -222,6 +223,48 @@ def test_dashboard_matview_gate_on_sqlite(db_session, income_cat, expense_cat):
     assert data["summary"]["total_expense"] == pytest.approx(2_000_000)
 
 
+def test_dashboard_orm_fallback_correct_with_index(db_session, income_cat, expense_cat):
+    """day=19 forces the live ORM fallback (matview only valid for day==1);
+    the new covering index doesn't change the totals it returns."""
+    set_setting(db_session, SETTING_KEY, "19")
+
+    make_transaction(
+        db_session,
+        date_val=date(2026, 6, 1),
+        amount=30_000_000,
+        type_=TransactionType.INCOME,
+        category_id=income_cat.id,
+    )
+    make_transaction(
+        db_session,
+        date_val=date(2026, 6, 19),
+        amount=15_000_000,
+        type_=TransactionType.INCOME,
+        category_id=income_cat.id,
+    )
+    make_transaction(
+        db_session,
+        date_val=date(2026, 6, 17),
+        amount=1_000_000,
+        type_=TransactionType.EXPENSE,
+        category_id=expense_cat.id,
+    )
+    make_transaction(
+        db_session,
+        date_val=date(2026, 6, 20),
+        amount=2_000_000,
+        type_=TransactionType.EXPENSE,
+        category_id=expense_cat.id,
+    )
+
+    invalidate_dashboard_cache(db_session)
+    data = get_dashboard_data(db_session, year=2026, month=6)
+    s = data["summary"]
+    # 06-19..07-18 window: only the 06-19 income and the 06-20 expense are inside.
+    assert s["total_income"] == pytest.approx(15_000_000)
+    assert s["total_expense"] == pytest.approx(2_000_000)
+
+
 # ── Settings round-trip: POST /settings/pay-cycle → dashboard reflects it ────
 
 
@@ -340,3 +383,97 @@ def test_dashboard_budget_snapshot_shows_remaining_and_period_link(client, db_se
     # Remaining money (5M - 2M = 3M) is shown as "... left", not "2,000,000 / ..."
     assert "left" in r.text
     assert "2,000,000 / " not in r.text
+
+
+# ── Monthly-trend chart fiscal window integration ────────────────────────────
+
+
+def test_monthly_trend_day1_regression(client, db_session, income_cat, expense_cat):
+    """day=1: transactions on the 17th and 20th of the current calendar month
+    both fall in the same fiscal period and are included in its totals."""
+    today = date.today()
+    cur_year, cur_month = current_period_ym(today, 1)
+    label = date(cur_year, cur_month, 1).strftime("%b %Y")
+
+    make_transaction(
+        db_session,
+        date_val=date(cur_year, cur_month, 17),
+        amount=1_000_000,
+        type_=TransactionType.EXPENSE,
+        category_id=expense_cat.id,
+    )
+    make_transaction(
+        db_session,
+        date_val=date(cur_year, cur_month, 20),
+        amount=2_000_000,
+        type_=TransactionType.EXPENSE,
+        category_id=expense_cat.id,
+    )
+
+    r = client.get("/api/dashboard/monthly-trend")
+    assert r.status_code == 200
+    entry = next(e for e in r.json() if e["month"] == label)
+    assert entry["expense"] == pytest.approx(3_000_000)
+
+
+def test_monthly_trend_day19_shifts_window(client, db_session, income_cat, expense_cat):
+    """day=19: the 17th of the period's start month falls before the window
+    boundary (excluded), while the 20th falls inside the window (included)."""
+    set_setting(db_session, SETTING_KEY, "19")
+    assert get_month_start_day(db_session) == 19
+
+    today = date.today()
+    cur_year, cur_month = current_period_ym(today, 19)
+    start, _end = fiscal_window_ym(cur_year, cur_month, 19)
+    label = date(cur_year, cur_month, 1).strftime("%b %Y")
+
+    # 17th of the period's start month is before the window start (day 19).
+    make_transaction(
+        db_session,
+        date_val=date(cur_year, cur_month, 17),
+        amount=1_000_000,
+        type_=TransactionType.EXPENSE,
+        category_id=expense_cat.id,
+    )
+    # 20th of the period's start month is inside the window.
+    make_transaction(
+        db_session,
+        date_val=date(cur_year, cur_month, 20),
+        amount=2_000_000,
+        type_=TransactionType.EXPENSE,
+        category_id=expense_cat.id,
+    )
+
+    r = client.get("/api/dashboard/monthly-trend")
+    assert r.status_code == 200
+    entry = next(e for e in r.json() if e["month"] == label)
+    # Only the 20th is inside the fiscal window; the 17th belongs to the
+    # previous period and must not appear in this entry's totals.
+    assert entry["expense"] == pytest.approx(2_000_000)
+
+
+def test_dashboard_page_injects_month_start_day(client, db_session):
+    set_setting(db_session, SETTING_KEY, "19")
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "CARANGE_MONTH_START_DAY = 19" in r.text
+
+
+def test_budget_page_injects_month_start_day(client, db_session):
+    set_setting(db_session, SETTING_KEY, "19")
+    r = client.get("/budget")
+    assert r.status_code == 200
+    assert "CARANGE_MONTH_START_DAY = 19" in r.text
+
+
+def test_dashboard_shows_pay_cycle_badge_when_not_default(client, db_session):
+    set_setting(db_session, SETTING_KEY, "19")
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "Pay cycle: 19th" in r.text
+
+
+def test_dashboard_hides_pay_cycle_badge_when_default(client, db_session):
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "Pay cycle:" not in r.text

@@ -11,7 +11,7 @@ from datetime import date, timedelta
 
 SETTING_KEY = "month_start_day"
 MIN_DAY = 1
-MAX_DAY = 28
+MAX_DAY = 31
 
 
 def _clamp_day(day: int, year: int, month: int) -> int:
@@ -97,3 +97,31 @@ def day_index_in_period(today: date, day: int) -> int:
     label = f"{y:04d}-{m:02d}"
     start, _ = fiscal_window(label, day)
     return (today - start).days + 1
+
+
+def suggest_salary_day(db) -> int | None:
+    """Best-guess pay-cycle day from active monthly INCOME templates.
+
+    Returns the day-of-month of the most recently scheduled active,
+    monthly-cadence income template's `next_run_at` (or `last_run_at` if
+    `next_run_at` is unset), clamped to [MIN_DAY, MAX_DAY]. Returns None if
+    no such template exists.
+    """
+    from app.models.database import TransactionTemplate, TransactionType
+
+    tmpl = (
+        db.query(TransactionTemplate)
+        .filter(
+            TransactionTemplate.type == TransactionType.INCOME,
+            TransactionTemplate.is_active.is_(True),
+            TransactionTemplate.cadence == "monthly",
+        )
+        .order_by(TransactionTemplate.id.desc())
+        .first()
+    )
+    if not tmpl:
+        return None
+    ref_date = tmpl.next_run_at or tmpl.last_run_at
+    if not ref_date:
+        return None
+    return max(MIN_DAY, min(MAX_DAY, ref_date.day))
