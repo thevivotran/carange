@@ -4,7 +4,8 @@ from sqlalchemy import func
 
 from app.models.database import get_db, Transaction, TransactionType
 from app.routers.fragments._helpers import render_fragment
-from app.services.budget_service import compute_budget_rows, end_of_month
+from app.services.budget_service import compute_budget_rows
+from app.services.fiscal_period import fiscal_window, current_period_label, get_month_start_day
 
 router = APIRouter()
 
@@ -17,14 +18,14 @@ def fragment_budget_rows(
 ):
     from datetime import date as _date
 
+    day = get_month_start_day(db)
+
     if not year_month or not year_month.strip():
-        today = _date.today()
-        year_month = f"{today.year}-{today.month:02d}"
+        year_month = current_period_label(_date.today(), day)
 
-    rows = compute_budget_rows(db, year_month)
+    rows = compute_budget_rows(db, year_month, day)
 
-    month_start = f"{year_month}-01"
-    month_end = end_of_month(year_month)
+    month_start, month_end = fiscal_window(year_month, day)
     income = float(
         db.query(func.sum(Transaction.amount))
         .filter(

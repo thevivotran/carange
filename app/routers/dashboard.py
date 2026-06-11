@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract, case, and_, false as sqla_false
 from datetime import date
-from calendar import monthrange
 from typing import Optional
 
 from app.models.database import (
@@ -13,6 +12,7 @@ from app.models.database import (
 )
 from app.models.schemas import DashboardSummary
 from app.services.dashboard_service import get_dashboard_data, get_kpi_role_category_ids
+from app.services.fiscal_period import current_period_ym, fiscal_window_ym, get_month_start_day
 
 router = APIRouter()
 
@@ -147,11 +147,12 @@ def get_monthly_trend(db: Session = Depends(get_db)):
 @router.get("/dashboard/expense-by-category")
 def get_expense_by_category(year: Optional[int] = None, month: Optional[int] = None, db: Session = Depends(get_db)):
     today = date.today()
-    current_month = month or today.month
-    current_year = year or today.year
-    month_start = date(current_year, current_month, 1)
-    _, last_day = monthrange(current_year, current_month)
-    month_end = date(current_year, current_month, last_day)
+    day = get_month_start_day(db)
+    if year is not None and month is not None:
+        current_year, current_month = year, month
+    else:
+        current_year, current_month = current_period_ym(today, day)
+    month_start, month_end = fiscal_window_ym(current_year, current_month, day)
 
     total_expense = (
         db.query(func.sum(Transaction.amount))

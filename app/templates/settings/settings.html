@@ -93,6 +93,25 @@
     </form>
   </div>
 
+  <!-- ── Pay cycle ────────────────────────────────────────────── -->
+  <div class="cg-card rounded-2xl p-6 mb-4">
+    <h3 class="font-semibold mb-1">Pay cycle</h3>
+    <p class="text-xs text-muted mb-5">When your salary lands. Monthly KPIs run from this day to the day before it next month.</p>
+    <form hx-post="/settings/pay-cycle" hx-target="#pay-cycle-status" hx-swap="innerHTML">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Salary day / pay-cycle start</label>
+        <p class="text-xs text-gray-400 mb-2">Day of month (1–28). 1 = calendar month.</p>
+        <input name="month_start_day" type="number" min="1" max="28" step="1"
+               value="{{ month_start_day }}"
+               class="w-24 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+      </div>
+      <div class="flex items-center gap-4 mt-6">
+        <button type="submit" class="px-5 py-2 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-brand-hover transition">Save</button>
+        <span id="pay-cycle-status"></span>
+      </div>
+    </form>
+  </div>
+
   <!-- ── Dashboard Layout (per profile) ───────────────────────── -->
   <div class="cg-card rounded-2xl p-6 mb-4">
     <h3 class="font-semibold mb-1">Dashboard Layout</h3>

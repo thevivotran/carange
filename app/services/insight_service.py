@@ -12,7 +12,6 @@ The pulse page reads pre-computed rows from ai_insights — zero LLM wait on loa
 """
 
 import logging
-from calendar import monthrange
 from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
@@ -29,6 +28,13 @@ from app.models.database import (
 )
 from app.services import ollama as _ollama
 from app.services.budget_service import compute_budget_rows
+from app.services.fiscal_period import (
+    current_period_label,
+    day_index_in_period,
+    days_in_period,
+    fiscal_window,
+    get_month_start_day,
+)
 
 log = logging.getLogger("carange.insight")
 
@@ -272,18 +278,19 @@ def generate_weekly_digest_sync() -> None:
 
 def _build_budget_advisor_prompt(db: Session) -> Optional[str]:
     today = date.today()
-    year_month = f"{today.year:04d}-{today.month:02d}"
-    _, days_in_month = monthrange(today.year, today.month)
-    days_elapsed = today.day
-    days_remaining = days_in_month - today.day
+    day = get_month_start_day(db)
+    year_month = current_period_label(today, day)
+    days_in_month = days_in_period(year_month, day)
+    days_elapsed = day_index_in_period(today, day)
+    days_remaining = days_in_month - days_elapsed
     day_pct = round(days_elapsed / days_in_month * 100)
 
-    rows = compute_budget_rows(db, year_month)
+    rows = compute_budget_rows(db, year_month, day)
     if not rows:
         return None
 
     # ── Month-to-date income & expense ────────────────────────────────────────
-    month_start = date(today.year, today.month, 1)
+    month_start = fiscal_window(year_month, day)[0]
 
     mtd_income = (
         db.query(func.sum(Transaction.amount))

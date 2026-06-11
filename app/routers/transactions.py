@@ -4,7 +4,6 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, case, and_
 from typing import List, Optional
 from datetime import date, datetime, timezone
-from calendar import monthrange
 
 from app.models.database import (
     get_db,
@@ -26,6 +25,7 @@ from app.models.schemas import (
 )
 from app.services import transaction_service
 from app.services.dashboard_service import invalidate_dashboard_cache
+from app.services.fiscal_period import current_period_ym, fiscal_window_ym, get_month_start_day
 from app.notify.telegram import send_personal_advance_ping
 
 _AUDIT_FIELDS = list(AuditField)
@@ -298,14 +298,12 @@ def delete_transaction(transaction_id: int, db: Session = Depends(get_db)):
 
 @router.get("/stats/monthly-summary")
 def get_monthly_summary(year: Optional[int] = None, month: Optional[int] = None, db: Session = Depends(get_db)):
-    if not year:
-        year = date.today().year
-    if not month:
-        month = date.today().month
+    day = get_month_start_day(db)
+    _cur_year, _cur_month = current_period_ym(date.today(), day)
+    year = year or _cur_year
+    month = month or _cur_month
 
-    month_start = date(year, month, 1)
-    _, last_day = monthrange(year, month)
-    month_end = date(year, month, last_day)
+    month_start, month_end = fiscal_window_ym(year, month, day)
 
     # Single query: all five aggregates via CASE expressions
     row = db.query(
@@ -394,14 +392,12 @@ def get_monthly_summary(year: Optional[int] = None, month: Optional[int] = None,
 def get_transactions_by_category(
     type: str, year: Optional[int] = None, month: Optional[int] = None, db: Session = Depends(get_db)
 ):
-    if not year:
-        year = date.today().year
-    if not month:
-        month = date.today().month
+    day = get_month_start_day(db)
+    _cur_year, _cur_month = current_period_ym(date.today(), day)
+    year = year or _cur_year
+    month = month or _cur_month
 
-    month_start = date(year, month, 1)
-    _, last_day = monthrange(year, month)
-    month_end = date(year, month, last_day)
+    month_start, month_end = fiscal_window_ym(year, month, day)
 
     results = (
         db.query(Category.name, Category.color, func.sum(Transaction.amount).label("total"))
