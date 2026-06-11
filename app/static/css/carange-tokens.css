@@ -342,7 +342,10 @@ h1, h2, h3, h4 {
 p { margin: 0; }
 
 a { color: var(--accent-text); text-decoration: none; }
-a:hover { text-decoration: underline; }
+/* Underline only genuine inline text links on hover-capable pointers (desktop),
+   and never the many button/nav/card links styled via utility classes — on touch
+   devices the sticky :hover state would otherwise underline tapped buttons.
+   Opt in to underlines with the `underline` utility class where wanted. */
 
 /* ── Utility Classes ─────────────────────────────────────────── */
 
