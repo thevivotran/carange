@@ -894,6 +894,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         "active_projects_list": [_project_ns(p) for p in active_projects_list],
         "at_risk_ids": at_risk_ids,
         "today": today,
+        "period_label": f"{current_year:04d}-{current_month:02d}",
         "unsettled_advance_count": unsettled_advance_count,
         "unsettled_advance_total": unsettled_advance_total,
         "recent_transactions": [_txn_ns(t) for t in recent_transactions],

@@ -343,6 +343,9 @@
 </div>
 
 <script>
+    // Pay-cycle start day (1-28) — a "month" filter runs from this day to the
+    // day before it in the next month, matching the server-side fiscal window.
+    const CARANGE_MONTH_START_DAY = {{ month_start_day | default(1) }};
     let currentPage = 0;
     const pageSize = 20;
     let totalTransactions = 0;
@@ -612,11 +615,27 @@
         return _TX_MONTH_NAMES[m - 1] + ' ' + y;
     }
 
+    function _isoLocalDate(d) {
+        return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+
+    // Inclusive [start, end] dates for a "YYYY-MM" fiscal period, honoring the
+    // configurable pay-cycle start day. Mirrors fiscal_period.fiscal_window_ym.
+    function _fiscalWindow(ym) {
+        const day = CARANGE_MONTH_START_DAY || 1;
+        const [y, m] = ym.split('-').map(Number);  // m is 1-based
+        const dimThis = new Date(y, m, 0).getDate();
+        const start = new Date(y, m - 1, Math.min(day, dimThis));
+        const dimNext = new Date(y, m + 1, 0).getDate();
+        const end = new Date(y, m, Math.min(day, dimNext));  // first day of next period
+        end.setDate(end.getDate() - 1);
+        return [_isoLocalDate(start), _isoLocalDate(end)];
+    }
+
     function _applyTxMonthFilter(ym) {
-        const [y, m] = ym.split('-').map(Number);
-        const lastDay = new Date(y, m, 0).getDate();
-        document.getElementById('filter-start-date').value = ym + '-01';
-        document.getElementById('filter-end-date').value   = ym + '-' + String(lastDay).padStart(2, '0');
+        const [startDate, endDate] = _fiscalWindow(ym);
+        document.getElementById('filter-start-date').value = startDate;
+        document.getElementById('filter-end-date').value   = endDate;
         localStorage.setItem('carange-active-month', ym);
         history.replaceState(null, '', '?month=' + ym);
     }
@@ -1551,10 +1570,9 @@
         if (!startEl.value && !endEl.value) {
             const ym = localStorage.getItem('carange-active-month');
             if (ym && /^\d{4}-\d{2}$/.test(ym)) {
-                const [y, m] = ym.split('-').map(Number);
-                const lastDay = new Date(y, m, 0).getDate();
-                startEl.value = ym + '-01';
-                endEl.value   = ym + '-' + String(lastDay).padStart(2, '0');
+                const [startDate, endDate] = _fiscalWindow(ym);
+                startEl.value = startDate;
+                endEl.value   = endDate;
             }
         }
 
