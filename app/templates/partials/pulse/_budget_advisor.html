@@ -24,7 +24,16 @@
     <span class="{% if not over_count and not at_risk_count %}ml-auto{% endif %} text-xs text-gray-300">{{ generated_at | format_vn_dt }}</span>
     {% endif %}
   </div>
-  {% if advisor_text %}
+  {% if advisor_sentences %}
+  <div class="space-y-2">
+    {% for sentence in advisor_sentences %}
+    <div class="flex items-start gap-2.5 rounded-xl bg-gray-50 p-3">
+      <i class="fas fa-circle text-[5px] mt-1.5 text-gray-300 flex-shrink-0"></i>
+      <p class="text-sm text-gray-700 leading-relaxed">{{ sentence }}</p>
+    </div>
+    {% endfor %}
+  </div>
+  {% elif advisor_text %}
   <p class="text-sm text-gray-700 leading-relaxed">{{ advisor_text }}</p>
   {% else %}
   <p class="text-sm text-gray-400 italic animate-pulse">Generating analysis...</p>

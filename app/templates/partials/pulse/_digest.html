@@ -15,7 +15,22 @@
     <span class="ml-auto text-xs text-gray-300">{{ generated_at | format_vn_dt }}</span>
     {% endif %}
   </div>
-  {% if digest_text %}
+  {% if digest_sections %}
+  <div class="space-y-2">
+    {% for s in digest_sections %}
+    {% set tone_bg = 'bg-blue-50' if s.tone == 'blue' else ('bg-amber-50' if s.tone == 'amber' else 'bg-green-50') %}
+    {% set tone_icon = 'text-blue-500' if s.tone == 'blue' else ('text-amber-500' if s.tone == 'amber' else 'text-green-600') %}
+    {% set tone_label = 'text-blue-700' if s.tone == 'blue' else ('text-amber-700' if s.tone == 'amber' else 'text-green-700') %}
+    <div class="rounded-xl {{ tone_bg }} p-3">
+      <div class="flex items-center gap-2 mb-1">
+        <i class="fas {{ s.icon }} text-xs {{ tone_icon }}"></i>
+        <span class="text-xs font-semibold uppercase tracking-wide {{ tone_label }}">{{ s.label }}</span>
+      </div>
+      <p class="text-sm text-gray-700 leading-relaxed">{{ s.text }}</p>
+    </div>
+    {% endfor %}
+  </div>
+  {% elif digest_text %}
   <p class="text-sm text-gray-700 leading-relaxed whitespace-pre-line">{{ digest_text }}</p>
   {% else %}
   <p class="text-sm text-gray-400 italic animate-pulse">Generating analysis...</p>

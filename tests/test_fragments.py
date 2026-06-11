@@ -690,3 +690,49 @@ def test_fragment_templates_rows_cadence_filters_correctly(client, db_session):
     r_recur = client.get("/fragments/templates/rows?has_cadence=yes", headers={"HX-Request": "true"})
     assert "Monthly Sub" in r_recur.text
     assert "Quick Only" not in r_recur.text
+
+
+# ── Pulse AI insight parsing helpers ──────────────────────────────────────────
+
+
+def test_parse_digest_splits_labelled_sections():
+    from app.routers.fragments.pulse import _parse_digest
+
+    text = (
+        "SUMMARY: Spending fell to 4,478,950 VND this week.\n"
+        "NOTABLE: Food dominated at 2,131,310 VND.\n"
+        "RECOMMENDATION: Track all 25 transactions next week."
+    )
+    sections = _parse_digest(text)
+    assert [s["label"] for s in sections] == ["Summary", "Notable", "Recommendation"]
+    assert sections[0]["tone"] == "blue"
+    assert "4,478,950" in sections[0]["text"]
+
+
+def test_parse_digest_joins_wrapped_continuation_lines():
+    from app.routers.fragments.pulse import _parse_digest
+
+    text = "SUMMARY: Line one\ncontinues here.\nRECOMMENDATION: Do the thing."
+    sections = _parse_digest(text)
+    assert sections[0]["text"] == "Line one continues here."
+    assert len(sections) == 2
+
+
+def test_parse_digest_returns_empty_for_unstructured_or_missing():
+    from app.routers.fragments.pulse import _parse_digest
+
+    assert _parse_digest(None) == []
+    assert _parse_digest("just a wall of prose with no headers") == []
+
+
+def test_split_sentences_breaks_prose():
+    from app.routers.fragments.pulse import _split_sentences
+
+    text = "You spent 60% of budget. Quich is over by 476,400 VND. Cap it now."
+    assert _split_sentences(text) == [
+        "You spent 60% of budget.",
+        "Quich is over by 476,400 VND.",
+        "Cap it now.",
+    ]
+    assert _split_sentences(None) == []
+    assert _split_sentences("   ") == []
