@@ -293,3 +293,50 @@ def test_dashboard_budget_adherence_follows_requested_period(db_session, expense
     # Under the old code this read the real `today` month and would be 0 on any
     # day outside June 2026; now it tracks the requested period.
     assert data["summary"]["budget_total"] == 1
+
+
+def test_transactions_page_injects_default_month_start_day(client):
+    """The transactions page exposes the pay-cycle day to its JS so the
+    category-budget audit filter spans the same fiscal window as the server."""
+    import re
+
+    r = client.get("/transactions")
+    assert r.status_code == 200
+    m = re.search(r"CARANGE_MONTH_START_DAY = (\d+)", r.text)
+    assert m and m.group(1) == "1"
+    assert "_fiscalWindow" in r.text
+
+
+def test_transactions_page_injects_configured_month_start_day(client, db_session):
+    set_setting(db_session, SETTING_KEY, "19")
+    r = client.get("/transactions")
+    assert r.status_code == 200
+    import re
+
+    m = re.search(r"CARANGE_MONTH_START_DAY = (\d+)", r.text)
+    assert m and m.group(1) == "19"
+
+
+def test_dashboard_budget_snapshot_shows_remaining_and_period_link(client, db_session, expense_cat):
+    """The Budget Snapshot link targets the fiscal-period label (not raw
+    calendar today), and the text shows remaining money, not spent/total."""
+    today = date.today()
+    label = f"{today.year:04d}-{today.month:02d}"  # default day=1 → calendar month
+    _add_budget_alloc(db_session, expense_cat.id, label, 5_000_000)
+    make_transaction(
+        db_session,
+        date_val=today,
+        amount=2_000_000,
+        type_=TransactionType.EXPENSE,
+        category_id=expense_cat.id,
+    )
+    invalidate_dashboard_cache(db_session)
+
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "today.strftime" not in r.text
+    # Link carries the fiscal-period label
+    assert f"/transactions?category_id={expense_cat.id}&month={label}" in r.text
+    # Remaining money (5M - 2M = 3M) is shown as "... left", not "2,000,000 / ..."
+    assert "left" in r.text
+    assert "2,000,000 / " not in r.text

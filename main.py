@@ -168,7 +168,13 @@ async def dashboard_page(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/transactions", response_class=HTMLResponse)
 async def transactions_page(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request, "transactions/list.html", {"active_menu": "transactions"})
+    from app.services.fiscal_period import get_month_start_day
+
+    return templates.TemplateResponse(
+        request,
+        "transactions/list.html",
+        {"active_menu": "transactions", "month_start_day": get_month_start_day(db)},
+    )
 
 
 @app.get("/categories", response_class=HTMLResponse)

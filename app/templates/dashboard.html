@@ -159,7 +159,7 @@
         {% set label_color = 'text-danger font-semibold' if (cat.available_balance < 0 or cat.cumulative_pct >= 95) else ('text-warning' if cat.cumulative_pct >= 75 else 'text-muted') %}
         <div>
           <div class="flex justify-between items-center mb-0.5 text-xs">
-            <a href="/transactions?category_id={{ cat.category_id }}&month={{ today.strftime('%Y-%m') }}" class="flex items-center gap-1.5 min-w-0 hover:opacity-75 transition">
+            <a href="/transactions?category_id={{ cat.category_id }}&month={{ period_label }}" class="flex items-center gap-1.5 min-w-0 hover:opacity-75 transition">
               <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:{{ cat.category_color }}"></span>
               <span class="font-medium truncate underline decoration-dotted" style="color: var(--text-primary)">{{ cat.category_name }}</span>
             </a>
@@ -172,8 +172,8 @@
               style="width: {{ remaining_pct | int }}%; background: {{ bar_color }}">
             </div>
           </div>
-          <div class="text-xs text-muted mt-0.5 text-right">
-            {{ "{:,.0f}".format(cat.this_month_spent) }} / {{ (cat.available_balance + cat.this_month_spent) | currency }}
+          <div class="text-xs mt-0.5 text-right {{ label_color }}">
+            {{ '−' if cat.available_balance < 0 else '' }}{{ cat.available_balance | abs | currency }} left
           </div>
         </div>
         {% endfor %}
@@ -341,7 +341,7 @@
         </div>
         <div class="space-y-2">
           {% for cat in alert_over_budget %}
-          <a href="/transactions?category_id={{ cat.category_id }}&month={{ today.strftime('%Y-%m') }}" class="flex justify-between items-center text-xs hover:opacity-75 transition">
+          <a href="/transactions?category_id={{ cat.category_id }}&month={{ period_label }}" class="flex justify-between items-center text-xs hover:opacity-75 transition">
             <span class="font-medium underline decoration-dotted" style="color: var(--danger-text)">{{ cat.category_name }}</span>
             <span style="color: var(--danger)">{{ (cat.available_balance | abs) | currency }} over</span>
           </a>
