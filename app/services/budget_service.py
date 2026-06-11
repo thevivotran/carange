@@ -1,6 +1,5 @@
 """Budget domain business logic with SQL-based cumulative computation."""
 
-import calendar
 from collections import defaultdict
 from datetime import date as _date
 
@@ -36,19 +35,21 @@ def months_range(from_ym: str, to_ym: str) -> list[str]:
     return result
 
 
-def end_of_month(year_month: str) -> str:
-    y, m = int(year_month[:4]), int(year_month[5:])
-    last = calendar.monthrange(y, m)[1]
-    return f"{year_month}-{last:02d}"
-
-
-def compute_budget_rows(db: Session, year_month: str) -> list[dict]:
+def compute_budget_rows(db: Session, year_month: str, day: int | None = None) -> list[dict]:
     """Compute budget tracking rows for a given month.
 
     The step-function allocation carry-forward is resolved via a correlated SQL
     subquery per (category, month), avoiding a Python month-by-month loop.
     Spending queries use ORM to avoid raw SQL type-storage assumptions.
+
+    ``day`` is the fiscal month-start day; callers that already loaded it can
+    pass it to avoid a redundant settings query.
     """
+    from app.services.fiscal_period import fiscal_window, get_month_start_day
+
+    if day is None:
+        day = get_month_start_day(db)
+
     baseline = get_baseline_month(db)
     if year_month < baseline:
         return []
@@ -72,24 +73,22 @@ def compute_budget_rows(db: Session, year_month: str) -> list[dict]:
 
     cats = {c.id: c for c in db.query(Category).filter(Category.id.in_(active_cat_ids)).all()}
 
-    end_date_str = end_of_month(year_month)
-    month_start_str = f"{year_month}-01"
-    month_end_str = end_of_month(year_month)
+    month_start, month_end = fiscal_window(year_month, day)
 
     # Per-category first-allocation date: spending before a category's own budget
     # window must not count as rollover, even when the global baseline is earlier.
     # alloc_by_cat entries are in year_month order (ORDER BY in the records query).
-    cat_first_alloc_start = {cat_id: f"{allocs[0][0]}-01" for cat_id, allocs in alloc_by_cat.items()}
+    cat_first_alloc_start = {cat_id: fiscal_window(allocs[0][0], day)[0] for cat_id, allocs in alloc_by_cat.items()}
 
     # ── SQL: cumulative spending using per-category start dates ───────────────
     # UNION ALL instead of VALUES (...) so the CTE is portable across SQLite and PostgreSQL.
     # Pass start dates as Python date objects so SQLAlchemy binds them correctly on both
     # dialects (no manual CAST needed — sqlite3 uses isoformat text, psycopg2 uses DATE).
-    params: dict = {"end_date": end_date_str}
+    params: dict = {"end_date": month_end}
     union_rows: list[str] = []
     for i, (cat_id, start) in enumerate(cat_first_alloc_start.items()):
         params[f"cid_{i}"] = cat_id
-        params[f"sd_{i}"] = _date.fromisoformat(start)
+        params[f"sd_{i}"] = start
         union_rows.append(f"SELECT :cid_{i}, :sd_{i}")
     cat_starts_sql = " UNION ALL ".join(union_rows)
     cumulative_spent_rows = db.execute(
@@ -114,8 +113,8 @@ def compute_budget_rows(db: Session, year_month: str) -> list[dict]:
         .filter(
             Transaction.type == TransactionType.EXPENSE,
             Transaction.category_id.in_(active_cat_ids),
-            Transaction.date >= month_start_str,
-            Transaction.date <= month_end_str,
+            Transaction.date >= month_start,
+            Transaction.date <= month_end,
             Transaction.deleted_at.is_(None),
         )
         .group_by(Transaction.category_id)

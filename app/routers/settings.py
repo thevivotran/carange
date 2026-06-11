@@ -92,6 +92,7 @@ def _get_all_settings(db: Session, user_id: int) -> dict:
             "fi_target_vnd": "",
             "baby_fund_bundle_id": "",
             "display_currency": DEFAULT_CURRENCY,
+            "month_start_day": "1",
         },
     )
 
@@ -182,6 +183,22 @@ async def save_dashboard_goals(request: Request, db: Session = Depends(get_db)):
         if key in form:
             set_setting(db, key, str(form[key]).strip())
     return render_fragment(request, "settings/_saved.html", {}, toast="Dashboard goals saved")
+
+
+@router.post("/pay-cycle")
+async def save_pay_cycle(request: Request, db: Session = Depends(get_db)):
+    from app.services.dashboard_service import invalidate_dashboard_cache
+    from app.services.fiscal_period import MIN_DAY, MAX_DAY
+
+    form = await request.form()
+    try:
+        day = int(str(form.get("month_start_day", "1")).strip())
+    except ValueError:
+        day = MIN_DAY
+    day = max(MIN_DAY, min(MAX_DAY, day))
+    set_setting(db, "month_start_day", str(day))
+    invalidate_dashboard_cache(db)
+    return render_fragment(request, "settings/_saved.html", {}, toast="Pay cycle saved")
 
 
 @router.post("/dashboard")

@@ -10,8 +10,9 @@ from app.models.schemas import (
     BudgetAllocationUpdate,
     BudgetAllocationRecord,
 )
-from app.services.budget_service import compute_budget_rows, end_of_month
+from app.services.budget_service import compute_budget_rows
 from app.services.dashboard_service import invalidate_dashboard_cache
+from app.services.fiscal_period import fiscal_window, get_month_start_day
 
 _compute_rows = compute_budget_rows
 
@@ -89,8 +90,7 @@ def update_allocation(allocation_id: int, data: BudgetAllocationUpdate, db: Sess
 @router.get("/{year_month}/monthly-income")
 def get_monthly_income(year_month: str, db: Session = Depends(get_db)):
     """Return total income recorded for year_month."""
-    month_start = f"{year_month}-01"
-    month_end = end_of_month(year_month)
+    month_start, month_end = fiscal_window(year_month, get_month_start_day(db))
     total = (
         db.query(func.sum(Transaction.amount))
         .filter(

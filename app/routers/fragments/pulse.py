@@ -1,5 +1,4 @@
 import re
-from calendar import monthrange
 from datetime import date
 
 from fastapi import APIRouter, Depends, Request
@@ -9,6 +8,7 @@ from app.models.database import InsightType, get_db
 from app.routers.fragments._helpers import render_fragment
 from app.services import ollama as _ollama
 from app.services.budget_service import compute_budget_rows
+from app.services.fiscal_period import current_period_label, get_month_start_day
 from app.services.insight_service import get_insight
 
 router = APIRouter()
@@ -74,10 +74,10 @@ async def fragment_pulse_digest(request: Request, db: Session = Depends(get_db))
 @router.get("/budget-advisor")
 async def fragment_pulse_budget_advisor(request: Request, db: Session = Depends(get_db)):
     today = date.today()
-    year_month = f"{today.year:04d}-{today.month:02d}"
-    _, days_in_month = monthrange(today.year, today.month)
+    day = get_month_start_day(db)
+    year_month = current_period_label(today, day)
 
-    rows = compute_budget_rows(db, year_month)
+    rows = compute_budget_rows(db, year_month, day)
     insight = get_insight(db, InsightType.BUDGET_ADVISOR)
 
     return render_fragment(

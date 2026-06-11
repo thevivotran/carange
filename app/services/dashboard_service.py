@@ -4,7 +4,6 @@ import logging
 import time
 import threading
 from datetime import date, datetime, timedelta, timezone
-from calendar import monthrange
 from types import SimpleNamespace
 from typing import Any
 
@@ -28,6 +27,12 @@ from app.models.database import (
     TransactionType,
 )
 from app.services.budget_service import compute_budget_rows
+from app.services.fiscal_period import (
+    current_period_ym,
+    fiscal_window_ym,
+    get_month_start_day,
+    shift_period_ym,
+)
 from app.services.settings_service import get_setting
 
 _USE_MATVIEW = DATABASE_URL.startswith("postgresql") or DATABASE_URL.startswith("postgres")
@@ -283,16 +288,16 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     Call invalidate_dashboard_cache() after any write that mutates dashboard data.
     """
     today = date.today()
-    current_month = month or today.month
-    current_year = year or today.year
+    day = get_month_start_day(db)
+    _cur_year, _cur_month = current_period_ym(today, day)
+    current_year = year if year is not None else _cur_year
+    current_month = month if month is not None else _cur_month
 
     _cache_key = (current_year, current_month)
     cached = _cache_get(_cache_key, db)
     if cached is not None:
         return cached
-    month_start = date(current_year, current_month, 1)
-    _, last_day = monthrange(current_year, current_month)
-    month_end = date(current_year, current_month, last_day)
+    month_start, month_end = fiscal_window_ym(current_year, current_month, day)
 
     from sqlalchemy import false as sqla_false, true as sqla_true
 
@@ -305,8 +310,11 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
 
     # ── Aggregates ────────────────────────────────────────────────────────────
     # Fast path: read from mv_monthly_totals (pre-aggregated, refreshed async).
+    # The matview groups by *calendar* month, so it's only valid when day == 1;
+    # for custom fiscal windows (day != 1) we fall through to live ORM queries.
     # Fallback: inline ORM queries when the MATVIEW is unavailable (SQLite dev).
-    mv_rows = _fetch_matview_rows(db) if _USE_MATVIEW else None
+    use_matview = _USE_MATVIEW and day == 1
+    mv_rows = _fetch_matview_rows(db) if use_matview else None
 
     if mv_rows is not None:
         monthly_income = _mv_sum(mv_rows, month=month_start, type_val="income", savings=False)
@@ -377,13 +385,8 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     living_expense_ratio = round(monthly_expense / monthly_income * 100, 1) if monthly_income > 0 else 0
 
     # ── Prev-month aggregates (delta arrows) ─────────────────────────────────
-    if current_month == 1:
-        prev_year_num, prev_month_num = current_year - 1, 12
-    else:
-        prev_year_num, prev_month_num = current_year, current_month - 1
-    prev_month_start = date(prev_year_num, prev_month_num, 1)
-    _, _prev_last = monthrange(prev_year_num, prev_month_num)
-    prev_month_end = date(prev_year_num, prev_month_num, _prev_last)
+    prev_year_num, prev_month_num = shift_period_ym(current_year, current_month, -1)
+    prev_month_start, prev_month_end = fiscal_window_ym(prev_year_num, prev_month_num, day)
 
     if mv_rows is not None:
         _pi = _mv_sum(mv_rows, month=prev_month_start, type_val="income", savings=False)
@@ -473,14 +476,9 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     total_savings_initial = float(savings_data[1] or 0) if savings_data else 0
 
     # ── Emergency fund coverage ───────────────────────────────────────────────
-    # Avg living expense over last 3 completed months (not counting current month)
-    _ef_m, _ef_y = prev_month_num, prev_year_num
-    _ef_sm = _ef_m - 2
-    _ef_sy = _ef_y
-    if _ef_sm <= 0:
-        _ef_sm += 12
-        _ef_sy -= 1
-    _ef_start = date(_ef_sy, _ef_sm, 1)
+    # Avg living expense over last 3 completed periods (not counting current)
+    _ef_year, _ef_month = shift_period_ym(prev_year_num, prev_month_num, -2)
+    _ef_start, _ = fiscal_window_ym(_ef_year, _ef_month, day)
     _ef_end = prev_month_end
     if mv_rows is not None:
         _ef_total = _mv_sum(
@@ -538,9 +536,11 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     net_worth = cash_on_hand + total_savings + total_assets_current + total_projects_paid
 
     # ── Budget adherence ──────────────────────────────────────────────────────
-    today_ym = f"{today.year:04d}-{today.month:02d}"
+    # Use the resolved fiscal period (not the raw calendar month) so these counts
+    # match the income/expense KPIs above and the Budget page when day != 1.
+    today_ym = f"{current_year:04d}-{current_month:02d}"
     try:
-        budget_rows = compute_budget_rows(db, today_ym)
+        budget_rows = compute_budget_rows(db, today_ym, day)
     except Exception:
         log.exception("compute_budget_rows failed for %s — rolling back and continuing", today_ym)
         db.rollback()
