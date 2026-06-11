@@ -154,21 +154,22 @@
       {% if budget_top_cats %}
       <div class="space-y-3">
         {% for cat in budget_top_cats %}
+        {% set remaining_pct = [[100 - cat.cumulative_pct, 100]|min, 0]|max %}
+        {% set bar_color = 'var(--danger)' if (cat.available_balance < 0 or cat.cumulative_pct >= 95) else ('var(--warning)' if cat.cumulative_pct >= 75 else 'var(--success)') %}
+        {% set label_color = 'text-danger font-semibold' if (cat.available_balance < 0 or cat.cumulative_pct >= 95) else ('text-warning' if cat.cumulative_pct >= 75 else 'text-muted') %}
         <div>
           <div class="flex justify-between items-center mb-0.5 text-xs">
             <a href="/transactions?category_id={{ cat.category_id }}&month={{ today.strftime('%Y-%m') }}" class="flex items-center gap-1.5 min-w-0 hover:opacity-75 transition">
               <span class="w-2 h-2 rounded-full flex-shrink-0" style="background:{{ cat.category_color }}"></span>
               <span class="font-medium truncate underline decoration-dotted" style="color: var(--text-primary)">{{ cat.category_name }}</span>
             </a>
-            <span class="ml-2 flex-shrink-0
-              {{ 'text-danger font-semibold' if cat.available_balance < 0 else ('text-warning' if cat.cumulative_pct >= 75 else 'text-muted') }}">
-              {{ cat.cumulative_pct | int }}%
+            <span class="ml-2 flex-shrink-0 {{ label_color }}">
+              {{ remaining_pct | int }}% left
             </span>
           </div>
           <div class="w-full rounded-full h-2" style="background: var(--surface-sunken)">
             <div class="h-2 rounded-full transition-all duration-500"
-              style="width: {{ [cat.cumulative_pct, 100]|min }}%;
-                     background: {{ 'var(--danger)' if cat.available_balance < 0 else ('var(--warning)' if cat.cumulative_pct >= 75 else 'var(--success)') }}">
+              style="width: {{ remaining_pct | int }}%; background: {{ bar_color }}">
             </div>
           </div>
           <div class="text-xs text-muted mt-0.5 text-right">
