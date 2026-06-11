@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <!-- Apply saved theme BEFORE first paint to avoid flash -->
     <script>
         (function(){
@@ -71,6 +71,9 @@
             theme: {
                 extend: {
                     colors: {
+                        /* Legacy alias — kept so existing `bg-primary` / `text-primary` /
+                           `ring-primary` utilities resolve (pre-design-refactor value). */
+                        primary: '#2563EB',
                         /* Brand · Orange (primary action) */
                         brand: {
                             DEFAULT: '#F97316',

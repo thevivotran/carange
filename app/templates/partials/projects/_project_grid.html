@@ -74,7 +74,7 @@
           <span class="font-medium">{{ project.progress_pct }}%</span>
         </div>
         <div class="w-full bg-gray-200 rounded-full h-2">
-          <div class="bg-primary h-2 rounded-full transition-all duration-500" style="width:{{ [project.progress_pct, 100] | min }}%"></div>
+          <div class="h-2 rounded-full transition-all duration-500" style="width:{{ [project.progress_pct, 100] | min }}%; background: var(--brand)"></div>
         </div>
       </div>
 
