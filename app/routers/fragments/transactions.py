@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 from datetime import date
 
@@ -33,10 +33,12 @@ def _build_tx_query(
     trash: bool = False,
 ):
     if trash:
-        query = db.query(Transaction).filter(Transaction.deleted_at.isnot(None))
+        query = (
+            db.query(Transaction).options(joinedload(Transaction.category)).filter(Transaction.deleted_at.isnot(None))
+        )
         return query.order_by(Transaction.deleted_at.desc()).offset(skip).limit(limit).all()
 
-    query = db.query(Transaction).filter(Transaction.deleted_at.is_(None))
+    query = db.query(Transaction).options(joinedload(Transaction.category)).filter(Transaction.deleted_at.is_(None))
     if type:
         query = query.filter(Transaction.type == type)
     if category_id:

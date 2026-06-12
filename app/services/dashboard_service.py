@@ -732,7 +732,6 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
 
     # ── Expense by category ───────────────────────────────────────────────────
     if mv_rows is not None:
-        all_cats_dict = {c.id: c for c in db.query(Category).all()}
         cat_totals: dict[int, float] = {}
         for r in mv_rows:
             if (
@@ -743,6 +742,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
             ):
                 cid = r["category_id"]
                 cat_totals[cid] = cat_totals.get(cid, 0.0) + float(r["total"] or 0)
+        all_cats_dict = {c.id: c for c in db.query(Category).filter(Category.id.in_(cat_totals.keys())).all()}
         cat_rows_sorted = sorted(cat_totals.items(), key=lambda x: -x[1])
         expense_by_category = [
             {

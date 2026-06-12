@@ -10,8 +10,10 @@ router = APIRouter()
 
 
 @router.get("/", response_model=List[NoteSchema])
-def get_notes(db: Session = Depends(get_db)):
-    return db.query(Note).order_by(func.coalesce(Note.updated_at, Note.created_at).desc()).all()
+def get_notes(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
+    return (
+        db.query(Note).order_by(func.coalesce(Note.updated_at, Note.created_at).desc()).offset(skip).limit(limit).all()
+    )
 
 
 @router.post("/", response_model=NoteSchema)

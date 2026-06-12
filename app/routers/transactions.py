@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from fastapi.responses import JSONResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, case, and_
 from typing import List, Optional
 from datetime import date, datetime, timezone
@@ -56,7 +56,7 @@ def get_transactions(
     if start_date and end_date and start_date > end_date:
         raise HTTPException(status_code=400, detail="Start date cannot be after end date")
 
-    query = db.query(Transaction).filter(Transaction.deleted_at.is_(None))
+    query = db.query(Transaction).options(joinedload(Transaction.category)).filter(Transaction.deleted_at.is_(None))
 
     if type:
         query = query.filter(Transaction.type == type)
@@ -92,6 +92,7 @@ def get_trashed_transactions(
 ):
     return (
         db.query(Transaction)
+        .options(joinedload(Transaction.category))
         .filter(Transaction.deleted_at.isnot(None))
         .order_by(Transaction.deleted_at.desc())
         .offset(skip)
@@ -169,6 +170,7 @@ def settle_payment(transaction_id: int, payment_id: int, db: Session = Depends(g
 def get_transaction(transaction_id: int, db: Session = Depends(get_db)):
     transaction = (
         db.query(Transaction)
+        .options(joinedload(Transaction.category))
         .filter(
             Transaction.id == transaction_id,
             Transaction.deleted_at.is_(None),
