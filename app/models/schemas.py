@@ -304,6 +304,15 @@ class OtherAsset(OtherAssetBase):
     model_config = ConfigDict(from_attributes=True)
 
 
+_VALID_CADENCES = {"daily", "weekly", "monthly", "yearly"}
+
+
+def _validate_cadence(v):
+    if v is not None and v != "" and v not in _VALID_CADENCES:
+        raise ValueError(f"cadence must be one of {sorted(_VALID_CADENCES)}")
+    return v or None
+
+
 # Transaction Template Schemas
 class TransactionTemplateBase(BaseModel):
     name: str
@@ -313,6 +322,9 @@ class TransactionTemplateBase(BaseModel):
     description: Optional[str] = None
     payment_method: str = "cash"
     is_active: bool = True
+    cadence: Optional[str] = None
+    next_run_at: Optional[date] = None
+    auto_approve: bool = False
 
     @field_validator("amount")
     @classmethod
@@ -320,6 +332,11 @@ class TransactionTemplateBase(BaseModel):
         if v <= 0:
             raise ValueError("Amount must be greater than 0")
         return v
+
+    @field_validator("cadence")
+    @classmethod
+    def validate_cadence(cls, v):
+        return _validate_cadence(v)
 
 
 class TransactionTemplateCreate(TransactionTemplateBase):
@@ -334,10 +351,19 @@ class TransactionTemplateUpdate(BaseModel):
     description: Optional[str] = None
     payment_method: Optional[str] = None
     is_active: Optional[bool] = None
+    cadence: Optional[str] = None
+    next_run_at: Optional[date] = None
+    auto_approve: Optional[bool] = None
+
+    @field_validator("cadence")
+    @classmethod
+    def validate_cadence(cls, v):
+        return _validate_cadence(v)
 
 
 class TransactionTemplate(TransactionTemplateBase):
     id: int
+    last_run_at: Optional[date] = None
     created_at: datetime
     updated_at: datetime
     category: Category

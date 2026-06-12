@@ -6,33 +6,15 @@
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
             <h2 class="text-3xl font-bold text-gray-800">Templates</h2>
-            <p class="text-gray-600 mt-1">Quick-entry shortcuts for common transactions. <strong>Quick Entry</strong> templates fill the Add form in one tap. <strong>Recurring</strong> templates run on a schedule automatically.</p>
+            <p class="text-gray-600 mt-1">Quick-entry shortcuts for common transactions. Tap <i class="fas fa-clock text-indigo-500"></i> on any template to make it run automatically on a schedule.</p>
         </div>
-        <button onclick="openAddModal()" class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition flex items-center">
-            <i class="fas fa-plus mr-2"></i>Add Template
+        <button onclick="openAddModal()" class="bg-primary text-white px-5 py-2.5 rounded-lg hover:bg-blue-600 transition flex items-center gap-2">
+            <i class="fas fa-plus"></i> Add Template
         </button>
-    </div>
-
-    <!-- Mode tabs -->
-    <div class="flex gap-1 mb-4 bg-white rounded-xl shadow-md p-1 max-w-xs">
-        <button id="tab-quick" onclick="_setTab('quick')"
-                class="flex-1 text-sm py-2 px-4 rounded-lg font-medium transition bg-primary text-white">
-            <i class="fas fa-copy mr-1.5"></i>Quick Entry
-        </button>
-        <button id="tab-recurring" onclick="_setTab('recurring')"
-                class="flex-1 text-sm py-2 px-4 rounded-lg font-medium transition text-gray-600 hover:bg-gray-50">
-            <i class="fas fa-rotate mr-1.5"></i>Recurring
-        </button>
-    </div>
-
-    <!-- Context tip -->
-    <div id="tab-tip" class="mb-4 px-4 py-2.5 rounded-lg bg-blue-50 border border-blue-100 text-xs text-blue-700">
-        <i class="fas fa-info-circle mr-1.5"></i>
-        <span id="tab-tip-text">Quick Entry templates pre-fill the Add Transaction form in one tap. Perfect for frequent, one-off expenses.</span>
     </div>
 
     <!-- Filters -->
-    <div class="bg-white rounded-xl shadow-md p-4 mb-6">
+    <div class="bg-white rounded-2xl shadow-sm border p-4 mb-6">
         <div class="flex flex-wrap gap-4">
             <select id="filter-type" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
                     onchange="_reloadTemplates()">
@@ -52,27 +34,25 @@
                 <option value="true" selected>Active</option>
                 <option value="false">Inactive</option>
             </select>
+
+            <select id="filter-schedule" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
+                    onchange="_reloadTemplates()">
+                <option value="">All Schedules</option>
+                <option value="yes">Recurring only</option>
+                <option value="no">One-time only</option>
+            </select>
         </div>
     </div>
 
-    <!-- Templates Table -->
-    <div class="bg-white rounded-xl shadow-md overflow-hidden">
-        <div class="overflow-x-auto">
-            <table class="w-full">
-                <thead class="bg-gray-50 border-b">
-                    <tr>
-                        <th class="text-left py-4 px-6 text-sm font-semibold text-gray-700">Name</th>
-                        <th class="text-left py-4 px-6 text-sm font-semibold text-gray-700">Category</th>
-                        <th class="text-right py-4 px-6 text-sm font-semibold text-gray-700">Amount</th>
-                        <th class="py-4 px-4"></th>
-                    </tr>
-                </thead>
-                <tbody id="templates-table-body"
-                       hx-get="/fragments/templates/rows"
-                       hx-trigger="load, templates-updated from:body"
-                       hx-swap="innerHTML">
-                </tbody>
-            </table>
+    <!-- Templates List -->
+    <div class="bg-white rounded-2xl shadow-sm border overflow-hidden">
+        <div id="templates-table-body"
+             hx-get="/fragments/templates/rows"
+             hx-trigger="load, templates-updated from:body"
+             hx-swap="innerHTML">
+            <div class="flex justify-center py-12 text-gray-400">
+                <i class="fas fa-spinner fa-spin text-2xl"></i>
+            </div>
         </div>
 
         <!-- Pagination -->
@@ -193,35 +173,65 @@
     </div>
 </div>
 
-<!-- Row Action Bar (injected below selected row) -->
-<div id="tpl-action-bar" class="hidden"></div>
+<!-- Recurring Schedule Modal -->
+<div id="recurring-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
+    <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90dvh] flex flex-col">
+        <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
+            <h3 class="text-xl font-bold text-gray-800">Recurring Schedule</h3>
+            <button onclick="closeRecurringModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+
+        <form id="recurring-form" class="flex-1 flex flex-col min-h-0">
+        <div class="flex-1 overflow-y-auto overscroll-contain p-6 space-y-4">
+            <input type="hidden" id="recurring-template-id">
+
+            <p class="text-sm text-gray-600">Make <span id="recurring-template-name" class="font-medium text-gray-800"></span> run automatically and create transactions on a schedule.</p>
+
+            <!-- Cadence -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Frequency</label>
+                <select id="recurring-cadence"
+                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <option value="">Not recurring (Quick Entry)</option>
+                    <option value="daily">Daily</option>
+                    <option value="weekly">Weekly</option>
+                    <option value="monthly">Monthly</option>
+                    <option value="yearly">Yearly</option>
+                </select>
+            </div>
+
+            <!-- Next run date -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Next Run Date</label>
+                <input type="date" id="recurring-next-run"
+                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+
+            <!-- Auto-approve -->
+            <div class="flex items-center">
+                <input type="checkbox" id="recurring-auto-approve" class="w-5 h-5 text-primary border-gray-300 rounded focus:ring-primary">
+                <label for="recurring-auto-approve" class="ml-3 text-sm font-medium text-gray-700">Auto-approve generated transactions (skip review)</label>
+            </div>
+        </div>
+        <div class="p-6 border-t flex gap-4 flex-shrink-0">
+            <button type="button" onclick="closeRecurringModal()"
+                    class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition">
+                Cancel
+            </button>
+            <button type="submit"
+                    class="flex-1 px-4 py-3 bg-primary text-white rounded-lg hover:bg-blue-600 transition">
+                Save Schedule
+            </button>
+        </div>
+        </form>
+    </div>
+</div>
 
 <script>
     let currentPage = 0;
     const pageSize = 20;
-    let _activeTplId = null;
-    let _activeTplActionTr = null;
-    let _currentTab = 'quick';
-
-    const _tabTips = {
-        quick:     'Quick Entry templates pre-fill the Add Transaction form in one tap. Perfect for frequent, one-off expenses.',
-        recurring: 'Recurring templates run on a schedule (daily, weekly, monthly) and create transactions automatically.',
-    };
-
-    function _setTab(tab) {
-        _currentTab = tab;
-        currentPage = 0;
-        ['quick', 'recurring'].forEach(function(t) {
-            const btn = document.getElementById('tab-' + t);
-            if (t === tab) {
-                btn.className = btn.className.replace('text-gray-600 hover:bg-gray-50', 'bg-primary text-white');
-            } else {
-                btn.className = btn.className.replace('bg-primary text-white', 'text-gray-600 hover:bg-gray-50');
-            }
-        });
-        document.getElementById('tab-tip-text').textContent = _tabTips[tab];
-        _reloadTemplates();
-    }
 
     // Inject filter params into HTMX templates request
     document.addEventListener('htmx:configRequest', function(evt) {
@@ -229,7 +239,7 @@
             evt.detail.parameters.type = document.getElementById('filter-type').value;
             evt.detail.parameters.category_id = document.getElementById('filter-category').value;
             evt.detail.parameters.is_active = document.getElementById('filter-status').value;
-            evt.detail.parameters.has_cadence = _currentTab === 'recurring' ? 'yes' : 'no';
+            evt.detail.parameters.has_cadence = document.getElementById('filter-schedule').value;
             evt.detail.parameters.skip = currentPage * pageSize;
             evt.detail.parameters.limit = pageSize;
         }
@@ -256,72 +266,6 @@
         currentPage++;
         _reloadTemplates();
     }
-
-    // ── Row action bar ────────────────────────────────────────────────────────
-    function toggleTemplateActions(id, name, type, amount, categoryId) {
-        if (_activeTplId === id) { _collapseActions(); return; }
-        _collapseActions();
-        _activeTplId = id;
-
-        const row = document.getElementById('tpl-row-' + id);
-        if (!row) return;
-        row.classList.add('bg-blue-50', 'ring-1', 'ring-inset', 'ring-blue-200');
-        row.classList.remove('hover:bg-gray-50');
-
-        const actionTr = document.createElement('tr');
-        const actionTd = document.createElement('td');
-        actionTd.colSpan = 4;
-        actionTd.className = 'bg-blue-50 border-b border-blue-100 px-6 py-2';
-        actionTd.addEventListener('click', function(e) { e.stopPropagation(); });
-
-        const bar = document.createElement('div');
-        bar.className = 'flex flex-wrap items-center gap-2';
-
-        function mkBtn(iconCls, label, extraCls) {
-            const btn = document.createElement('button');
-            btn.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border transition active:scale-95 ' + extraCls;
-            const ico = document.createElement('i');
-            ico.className = 'fas ' + iconCls;
-            btn.appendChild(ico);
-            btn.appendChild(document.createTextNode(' ' + label));
-            return btn;
-        }
-
-        const editBtn = mkBtn('fa-edit', 'Edit', 'text-blue-700 bg-white border-blue-200 hover:bg-blue-50');
-        editBtn.addEventListener('click', function(e) { e.stopPropagation(); _collapseActions(); editTemplate(id); });
-        bar.appendChild(editBtn);
-
-        const delBtn = mkBtn('fa-trash', 'Delete', 'text-red-700 bg-white border-red-200 hover:bg-red-50');
-        delBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            _collapseActions();
-            deleteWithUndo(row, '/api/templates/' + id, _reloadTemplates, name);
-        });
-        bar.appendChild(delBtn);
-
-        const hint = document.createElement('span');
-        hint.className = 'ml-auto text-xs text-gray-400 hidden sm:block';
-        hint.textContent = 'Click row to close';
-        bar.appendChild(hint);
-
-        actionTd.appendChild(bar);
-        actionTr.appendChild(actionTd);
-        row.after(actionTr);
-        _activeTplActionTr = actionTr;
-    }
-
-    function _collapseActions() {
-        if (_activeTplActionTr) { _activeTplActionTr.remove(); _activeTplActionTr = null; }
-        if (_activeTplId !== null) {
-            const row = document.getElementById('tpl-row-' + _activeTplId);
-            if (row) {
-                row.classList.remove('bg-blue-50', 'ring-1', 'ring-inset', 'ring-blue-200');
-                row.classList.add('hover:bg-gray-50');
-            }
-            _activeTplId = null;
-        }
-    }
-    // ─────────────────────────────────────────────────────────────────────────
 
     async function loadModalCategories(selectedId) {
         const type = document.querySelector('input[name="type"]:checked').value;
@@ -418,6 +362,61 @@
             showToast('Failed to load template', 'error');
         }
     }
+
+    async function openRecurringModal(id) {
+        try {
+            const res = await fetch('/api/templates/' + id);
+            const t = await res.json();
+            document.getElementById('recurring-template-id').value = t.id;
+            document.getElementById('recurring-template-name').textContent = t.name;
+            document.getElementById('recurring-cadence').value = t.cadence || '';
+            document.getElementById('recurring-next-run').value = t.next_run_at || '';
+            document.getElementById('recurring-auto-approve').checked = !!t.auto_approve;
+            document.getElementById('recurring-modal').classList.remove('hidden');
+        } catch(e) {
+            showToast('Failed to load template', 'error');
+        }
+    }
+
+    function closeRecurringModal() {
+        document.getElementById('recurring-modal').classList.add('hidden');
+    }
+
+    document.getElementById('recurring-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const templateId = document.getElementById('recurring-template-id').value;
+        const cadence = document.getElementById('recurring-cadence').value;
+        const nextRun = document.getElementById('recurring-next-run').value;
+
+        if (cadence && !nextRun) {
+            showToast('Please pick a next run date', 'error');
+            return;
+        }
+
+        const data = {
+            cadence: cadence || null,
+            next_run_at: cadence ? nextRun : null,
+            auto_approve: document.getElementById('recurring-auto-approve').checked,
+        };
+        try {
+            const res = await fetch('/api/templates/' + templateId, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data),
+            });
+            if (res.ok) {
+                closeRecurringModal();
+                _reloadTemplates();
+                showToast('Recurring schedule saved', 'success');
+            } else {
+                const err = await res.json();
+                const msg = typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail;
+                showToast('Error: ' + msg, 'error');
+            }
+        } catch(e) {
+            showToast('Failed to save schedule', 'error');
+        }
+    });
 
     async function useTemplate(id) {
         try {
