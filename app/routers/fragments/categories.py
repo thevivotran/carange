@@ -39,5 +39,5 @@ def fragment_categories_rows(
     return render_fragment(
         request,
         "partials/categories/_table_body.html",
-        {"categories": categories},
+        {"categories": categories, "sort_col": sort_col, "sort_dir": sort_dir},
     )
