@@ -195,34 +195,6 @@ def test_dashboard_day19_shifts_window(db_session, income_cat, expense_cat):
     assert s["total_expense"] == pytest.approx(2_000_000)
 
 
-def test_dashboard_matview_gate_on_sqlite(db_session, income_cat, expense_cat):
-    """Explicit gate assertion: _USE_MATVIEW is False on SQLite, so the ORM
-    path runs for any day value. The day=19 window still computes correctly
-    via the ORM fallback.
-    """
-    from app.services.dashboard_service import _USE_MATVIEW
-    import os
-
-    is_pg = os.getenv("TEST_DATABASE_URL", "").startswith("postgresql")
-    if is_pg:
-        pytest.skip("matview-gate assertion is SQLite-specific")
-
-    assert _USE_MATVIEW is False
-
-    set_setting(db_session, SETTING_KEY, "19")
-    make_transaction(
-        db_session,
-        date_val=date(2026, 6, 20),
-        amount=2_000_000,
-        type_=TransactionType.EXPENSE,
-        category_id=expense_cat.id,
-    )
-    invalidate_dashboard_cache(db_session)
-    data = get_dashboard_data(db_session, year=2026, month=6)
-    # ORM path runs (no matview) — still returns the correct window totals.
-    assert data["summary"]["total_expense"] == pytest.approx(2_000_000)
-
-
 def test_dashboard_orm_fallback_correct_with_index(db_session, income_cat, expense_cat):
     """day=19 forces the live ORM fallback (matview only valid for day==1);
     the new covering index doesn't change the totals it returns."""

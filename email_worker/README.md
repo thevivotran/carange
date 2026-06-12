@@ -111,9 +111,8 @@ for `IMAP_PASSWORD`.
 
 ## Running
 
-Enabled by uncommenting the `email_worker` service in `docker-compose.yml` /
-`docker-compose.pg.yml` and setting the `IMAP_*` variables — see the **Self-Hosting** section
-of the [main README](../README.md).
+Enabled by uncommenting the `email_worker` service in `docker-compose.yml` and setting
+the `IMAP_*` variables — see the **Self-Hosting** section of the [main README](../README.md).
 
 Locally:
 

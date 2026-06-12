@@ -1,22 +1,18 @@
 """
 Integration tests for the OCR worker skeleton.
-Spins up an in-memory SQLite DB, creates jobs, runs the processor directly.
+Runs against the shared PostgreSQL test database (see tests/conftest.py).
 """
 
 import os
 import pytest
-from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.models.database import Base, ImportJob, ImportJobStatus, ImportSource
+from app.models.database import ImportJob, ImportJobStatus, ImportSource
 
 
 @pytest.fixture()
-def session_factory(tmp_path):
-    db_path = str(tmp_path / "test.db")
-    engine = create_engine(f"sqlite:///{db_path}", connect_args={"check_same_thread": False})
-    Base.metadata.create_all(bind=engine)
-    yield sessionmaker(bind=engine, autocommit=False, autoflush=False)
+def session_factory(db_session):
+    return sessionmaker(bind=db_session.get_bind(), autocommit=False, autoflush=False)
 
 
 @pytest.fixture()
@@ -92,7 +88,7 @@ def test_processor_copies_source_hint_to_detected(session_factory, image_file, m
 
 
 def test_worker_claim_sets_processing(session_factory, image_file):
-    from ocr_worker.worker import _claim_next_sqlite as _claim_next
+    from ocr_worker.worker import _claim_next_pg as _claim_next
 
     with session_factory() as db:
         _make_job(db, image_file)
@@ -104,7 +100,7 @@ def test_worker_claim_sets_processing(session_factory, image_file):
 
 
 def test_worker_claim_returns_none_when_empty(session_factory):
-    from ocr_worker.worker import _claim_next_sqlite as _claim_next
+    from ocr_worker.worker import _claim_next_pg as _claim_next
 
     with session_factory() as db:
         result = _claim_next(db)
@@ -113,7 +109,7 @@ def test_worker_claim_returns_none_when_empty(session_factory):
 
 def test_worker_claim_skips_non_pending(session_factory, image_file):
     """Processing and done jobs should not be re-claimed."""
-    from ocr_worker.worker import _claim_next_sqlite as _claim_next
+    from ocr_worker.worker import _claim_next_pg as _claim_next
 
     with session_factory() as db:
         job = _make_job(db, image_file)
@@ -126,7 +122,7 @@ def test_worker_claim_skips_non_pending(session_factory, image_file):
 
 
 def test_worker_claim_sets_started_at(session_factory, image_file):
-    from ocr_worker.worker import _claim_next_sqlite as _claim_next
+    from ocr_worker.worker import _claim_next_pg as _claim_next
 
     with session_factory() as db:
         _make_job(db, image_file)
@@ -174,7 +170,7 @@ def test_psycopg2_dsn_strips_driver_prefix():
 
 def test_worker_claim_skips_retry_after_in_future(session_factory, image_file):
     from datetime import datetime, timedelta, timezone
-    from ocr_worker.worker import _claim_next_sqlite as _claim_next
+    from ocr_worker.worker import _claim_next_pg as _claim_next
 
     with session_factory() as db:
         job = _make_job(db, image_file)
@@ -195,13 +191,13 @@ def test_ocr_exception_schedules_retry_and_keeps_image(session_factory, image_fi
         raise RuntimeError("paddle exploded")
 
     monkeypatch.setattr("ocr_worker.ocr.extract_blocks", _boom)
-    from ocr_worker.worker import _claim_next_sqlite, _process_one
+    from ocr_worker.worker import _claim_next_pg, _process_one
 
     with session_factory() as db:
         job = _make_job(db, image_file)
         job_id = job.id
 
-    assert _process_one(session_factory, _claim_next_sqlite) is True
+    assert _process_one(session_factory, _claim_next_pg) is True
 
     with session_factory() as db:
         job = db.query(ImportJob).filter(ImportJob.id == job_id).first()
@@ -229,7 +225,7 @@ def test_handle_failure_permanent_deletes_image(session_factory, image_file, mon
 
 def test_stuck_reclaim_increments_retry_count(session_factory, image_file):
     from datetime import datetime, timedelta, timezone
-    from ocr_worker.worker import _claim_next_sqlite as _claim_next
+    from ocr_worker.worker import _claim_next_pg as _claim_next
 
     with session_factory() as db:
         job = _make_job(db, image_file)
@@ -247,7 +243,7 @@ def test_stuck_reclaim_increments_retry_count(session_factory, image_file):
 def test_stuck_reclaim_fails_permanently_after_max_retries(session_factory, image_file, monkeypatch):
     monkeypatch.setenv("UPLOAD_DIR", os.path.dirname(image_file))
     from datetime import datetime, timedelta, timezone
-    from ocr_worker.worker import _claim_next_sqlite as _claim_next, MAX_RETRIES
+    from ocr_worker.worker import _claim_next_pg as _claim_next, MAX_RETRIES
 
     with session_factory() as db:
         job = _make_job(db, image_file)

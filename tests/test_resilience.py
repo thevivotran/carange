@@ -9,31 +9,17 @@ Covers the new code from the Phase 1/2 resilience work:
 
 Covers:
   - _mv_sum helper (pure function, no DB required)
-  - _fetch_matview_rows graceful fallback on SQLite
-  - _schedule_matview_refresh no-op on SQLite
   - email worker: _check_email_status, _get_or_create_log_row
   - email worker retry column presence on EmailIngestLog
+  - Dashboard MATVIEW aggregation path via monkeypatching
 """
 
 from datetime import date, datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-from app.models.database import Base, EmailIngestLog
-
-
-@pytest.fixture()
-def db_session(tmp_path):
-    engine = create_engine(
-        f"sqlite:///{tmp_path}/test.db",
-        connect_args={"check_same_thread": False},
-    )
-    Base.metadata.create_all(bind=engine)
-    Session = sessionmaker(bind=engine, autocommit=False, autoflush=False)
-    with Session() as db:
-        yield db
+from app.models.database import EmailIngestLog
 
 
 # ── _mv_sum (pure function) ───────────────────────────────────────────────────
@@ -103,27 +89,6 @@ def test_mv_sum_empty_rows():
     from app.services.dashboard_service import _mv_sum
 
     assert _mv_sum([], type_val="income") == 0.0
-
-
-# ── _fetch_matview_rows graceful fallback on SQLite ───────────────────────────
-
-
-def test_fetch_matview_rows_returns_none_on_sqlite(db_session):
-    from app.services.dashboard_service import _fetch_matview_rows
-
-    # mv_monthly_totals doesn't exist on SQLite — should return None, not raise
-    result = _fetch_matview_rows(db_session)
-    assert result is None
-
-
-# ── _schedule_matview_refresh is a no-op on SQLite ───────────────────────────
-
-
-def test_schedule_matview_refresh_noop_on_sqlite():
-    from app.services.dashboard_service import _schedule_matview_refresh
-
-    # Should not raise; _USE_MATVIEW is False for SQLite so this exits immediately
-    _schedule_matview_refresh()
 
 
 # ── email worker: log row creation + raw storage ─────────────────────────────
@@ -409,31 +374,23 @@ def test_learned_patterns_dropped_after_consecutive_failures(patched_lp_session)
 
 
 @pytest.fixture()
-def ocr_session_factory(tmp_path):
+def ocr_session_factory(db_session, tmp_path):
     from app.models.database import ImportJob, ImportJobStatus
 
-    engine = create_engine(
-        f"sqlite:///{tmp_path}/ocr_test.db",
-        connect_args={"check_same_thread": False},
+    job = ImportJob(
+        filename="test.png",
+        file_path=str(tmp_path / "test.png"),
+        image_hash="testhash",
+        status=ImportJobStatus.PENDING,
     )
-    Base.metadata.create_all(bind=engine)
-    Session = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    db_session.add(job)
+    db_session.commit()
 
-    with Session() as db:
-        job = ImportJob(
-            filename="test.png",
-            file_path=str(tmp_path / "test.png"),
-            image_hash="testhash",
-            status=ImportJobStatus.PENDING,
-        )
-        db.add(job)
-        db.commit()
-
-    yield Session
+    yield sessionmaker(bind=db_session.get_bind(), autocommit=False, autoflush=False)
 
 
 def test_process_one_claims_and_processes(ocr_session_factory, monkeypatch):
-    from ocr_worker.worker import _claim_next_sqlite, _process_one
+    from ocr_worker.worker import _claim_next_pg, _process_one
     from app.models.database import ImportJobStatus
 
     def _fake_process(job, db):
@@ -443,16 +400,16 @@ def test_process_one_claims_and_processes(ocr_session_factory, monkeypatch):
 
     monkeypatch.setattr("ocr_worker.processor.process_job", _fake_process)
 
-    result = _process_one(ocr_session_factory, _claim_next_sqlite)
+    result = _process_one(ocr_session_factory, _claim_next_pg)
     assert result is True
 
     # Queue is now empty
-    result2 = _process_one(ocr_session_factory, _claim_next_sqlite)
+    result2 = _process_one(ocr_session_factory, _claim_next_pg)
     assert result2 is False
 
 
 def test_drain_queue_processes_all(ocr_session_factory, monkeypatch):
-    from ocr_worker.worker import _claim_next_sqlite, _drain_queue
+    from ocr_worker.worker import _claim_next_pg, _drain_queue
     from app.models.database import ImportJob, ImportJobStatus
 
     # Add a second job
@@ -476,49 +433,42 @@ def test_drain_queue_processes_all(ocr_session_factory, monkeypatch):
 
     monkeypatch.setattr("ocr_worker.processor.process_job", _fake_process)
 
-    _drain_queue(ocr_session_factory, _claim_next_sqlite)
+    _drain_queue(ocr_session_factory, _claim_next_pg)
     assert len(processed) == 2
 
 
 # ── Dashboard: MATVIEW aggregation path via monkeypatching ────────────────────
 
 
-def test_get_dashboard_data_uses_matview_when_available(monkeypatch):
+def test_get_dashboard_data_uses_matview_when_available(db_session, monkeypatch):
     """Verify that get_dashboard_data reads from mv_rows when _USE_MATVIEW=True."""
     import app.services.dashboard_service as ds
-    from sqlalchemy import create_engine
-    from sqlalchemy.orm import sessionmaker
-    from app.models.database import Base, Category, TransactionType
+    from app.models.database import Category, TransactionType
 
-    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
-    Base.metadata.create_all(bind=engine)
-    Session = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    cat = Category(name="Khác", type=TransactionType.EXPENSE, color="#aaa", is_active=True)
+    db_session.add(cat)
+    db_session.commit()
 
-    with Session() as db:
-        cat = Category(name="Khác", type=TransactionType.EXPENSE, color="#aaa", is_active=True)
-        db.add(cat)
-        db.commit()
+    monkeypatch.setattr(ds, "_USE_MATVIEW", True)
+    sample_mv = [
+        {
+            "month": date(2026, 6, 1),
+            "type": "income",
+            "is_savings_related": False,
+            "category_id": cat.id,
+            "total": 5_000_000,
+        },
+        {
+            "month": date(2026, 6, 1),
+            "type": "expense",
+            "is_savings_related": False,
+            "category_id": cat.id,
+            "total": 2_000_000,
+        },
+    ]
+    monkeypatch.setattr(ds, "_fetch_matview_rows", lambda _db: sample_mv)
 
-        monkeypatch.setattr(ds, "_USE_MATVIEW", True)
-        sample_mv = [
-            {
-                "month": date(2026, 6, 1),
-                "type": "income",
-                "is_savings_related": False,
-                "category_id": cat.id,
-                "total": 5_000_000,
-            },
-            {
-                "month": date(2026, 6, 1),
-                "type": "expense",
-                "is_savings_related": False,
-                "category_id": cat.id,
-                "total": 2_000_000,
-            },
-        ]
-        monkeypatch.setattr(ds, "_fetch_matview_rows", lambda _db: sample_mv)
-
-        result = ds.get_dashboard_data(db, year=2026, month=6)
+    result = ds.get_dashboard_data(db_session, year=2026, month=6)
 
     assert result["summary"]["total_income"] == 5_000_000
     assert result["summary"]["total_expense"] == 2_000_000

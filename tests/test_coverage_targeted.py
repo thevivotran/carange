@@ -7,13 +7,14 @@ Covers:
 - routers/projects.py lines 202-203, 227-228 (500 error paths)
 - routers/savings.py line 87 (current_amount default)
 - routers/transactions.py lines 233-235 (commit exception in PUT)
-- services/budget_service.py line 144 (deleted-category skip)
 - services/savings_service.py line 26 (_get_or_create_interest_category early return)
 - services/transaction_service.py lines 156-158, 163-169, 389-391
 
 Not coverable (dead code shadowed by Field constraints or logically unreachable):
 - models/schemas.py lines 72, 79, 152, 319 (raise in validators guarded by Field(gt/ge=0))
 - services/budget_service.py line 138 (else branch: all_months always non-empty)
+- services/budget_service.py line 144 (deleted-category skip: PostgreSQL FK enforcement
+  prevents an orphaned allocation row from existing)
 - services/transaction_service.py lines 222-223, 302-303 (utf-8-sig always succeeds for valid UTF-8)
 - services/project_service.py line 45 + all except/rollback branches
 - services/savings_service.py line 26 + all except/rollback branches
@@ -24,10 +25,8 @@ from datetime import date, datetime, timezone
 from unittest.mock import patch
 
 import pytest
-import sqlalchemy
 
 from app.models.database import (
-    BudgetAllocation,
     Category,
     FinancialProject,
     PaymentStatus,
@@ -42,7 +41,7 @@ from app.models.database import (
 )
 from app.models.schemas import SavingsBundleCreate, TransactionCreate, TransactionTemplateCreate
 from app.routers.import_jobs import _resolve_path
-from app.services import budget_service, project_service, savings_service, transaction_service
+from app.services import project_service, savings_service, transaction_service
 from app.services.transaction_service import get_or_create_category
 
 
@@ -466,31 +465,6 @@ def test_hard_delete_bundle_rollback_on_error(db_session):
     with patch.object(db_session, "commit", side_effect=Exception("commit fail")):
         with pytest.raises(Exception, match="commit fail"):
             savings_service.hard_delete_bundle(db_session, bundle.id)
-
-
-# ── budget_service: skip category missing from DB (line 144) ─────────────────
-
-
-@pytest.mark.skipif(
-    __import__("os").getenv("TEST_DATABASE_URL", "").startswith("postgresql"),
-    reason="PostgreSQL FK enforcement prevents orphaned allocations; defensive code path is SQLite-only",
-)
-def test_compute_budget_rows_skips_orphaned_allocation(db_session):
-    """Covers line 144: 'continue' when category_id in allocation has no matching Category row."""
-    cat = Category(name="Temp Cat", type=TransactionType.EXPENSE, color="#000", icon="circle")
-    db_session.add(cat)
-    db_session.commit()
-    db_session.refresh(cat)
-
-    alloc = BudgetAllocation(category_id=cat.id, year_month="2026-05", amount=500_000)
-    db_session.add(alloc)
-    db_session.commit()
-
-    db_session.execute(sqlalchemy.text(f"DELETE FROM categories WHERE id = {cat.id}"))
-    db_session.commit()
-
-    result = budget_service.compute_budget_rows(db_session, "2026-05")
-    assert result == []
 
 
 # ── routers/projects.py: 500 on create_payment (lines 202-203) ───────────────

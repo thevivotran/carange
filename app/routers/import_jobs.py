@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
-from app.models.database import DATABASE_URL, ImportJob, ImportJobStatus, ImportSource, Transaction, get_db
+from app.models.database import ImportJob, ImportJobStatus, ImportSource, Transaction, get_db
 from app.models.schemas import ImportJob as ImportJobSchema
 from app.models.schemas import ImportJobUpdate
 
@@ -48,7 +48,6 @@ async def create_import_jobs(
     hint = _safe_source(source_hint)
     results: List[ImportJob] = []
     new_jobs: List[ImportJob] = []  # newly created (not deduplicated) jobs
-    _is_pg = DATABASE_URL.startswith("postgresql") or DATABASE_URL.startswith("postgres")
 
     for upload in files:
         if upload.content_type and upload.content_type not in ALLOWED_MIME_TYPES:
@@ -92,7 +91,7 @@ async def create_import_jobs(
 
     # Notify OCR worker inside the same transaction so the notify is only
     # delivered if the INSERT commits (transactional outbox pattern).
-    if _is_pg and new_jobs:
+    if new_jobs:
         for job in new_jobs:
             db.execute(text("SELECT pg_notify('ocr_jobs', :jid)"), {"jid": str(job.id)})
 

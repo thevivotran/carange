@@ -1,14 +1,12 @@
 """
 OCR worker — processes import_jobs one at a time.
 
-On PostgreSQL (production): uses LISTEN/NOTIFY for instant wake-up when a new
-job is uploaded, plus SELECT FOR UPDATE SKIP LOCKED for safe concurrent claiming.
-On SQLite (development): falls back to polling every POLL_INTERVAL seconds.
+Uses LISTEN/NOTIFY for instant wake-up when a new job is uploaded, plus
+SELECT FOR UPDATE SKIP LOCKED for safe concurrent claiming (PostgreSQL only).
 
 Environment variables:
-  DATABASE_URL    connection string      default: sqlite:///./carange.db
+  DATABASE_URL    connection string      default: postgresql://carange:carange@localhost:5432/carange
   UPLOAD_DIR      where images live      default: uploads
-  POLL_INTERVAL   seconds between polls  default: 10  (SQLite only)
   STUCK_TIMEOUT   minutes before a PROCESSING job is reclaimed  default: 30
   MAX_RETRIES     attempts before permanent failure              default: 3
 """
@@ -23,7 +21,7 @@ from datetime import datetime, timedelta, timezone
 
 LIVENESS_FILE = pathlib.Path("/tmp/worker_alive")
 
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 
 from app.models.database import ImportJob, ImportJobStatus
@@ -34,12 +32,9 @@ logging.basicConfig(
 )
 log = logging.getLogger("ocr_worker")
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./carange.db")
-POLL_INTERVAL = int(os.getenv("POLL_INTERVAL", "10"))
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://carange:carange@localhost:5432/carange")
 STUCK_TIMEOUT_MINUTES = int(os.getenv("STUCK_TIMEOUT", "30"))
 MAX_RETRIES = int(os.getenv("MAX_RETRIES", "3"))
-
-_IS_PG = DATABASE_URL.startswith("postgresql") or DATABASE_URL.startswith("postgres")
 
 
 # ── Liveness heartbeat ────────────────────────────────────────────────────────
@@ -75,23 +70,7 @@ def _psycopg2_dsn(url: str) -> str:
 
 
 def _make_session_factory():
-    _is_sqlite = DATABASE_URL.startswith("sqlite")
-    engine = create_engine(
-        DATABASE_URL,
-        connect_args={"check_same_thread": False} if _is_sqlite else {},
-        pool_pre_ping=not _is_sqlite,
-    )
-
-    if _is_sqlite:
-
-        @event.listens_for(engine, "connect")
-        def set_sqlite_pragma(dbapi_conn, _):
-            cursor = dbapi_conn.cursor()
-            cursor.execute("PRAGMA journal_mode=WAL")
-            cursor.execute("PRAGMA busy_timeout=5000")
-            cursor.execute("PRAGMA synchronous=NORMAL")
-            cursor.close()
-
+    engine = create_engine(DATABASE_URL, pool_pre_ping=True)
     return sessionmaker(bind=engine, autocommit=False, autoflush=False)
 
 
@@ -173,55 +152,6 @@ def _claim_next_pg(db: Session) -> ImportJob | None:
         return None
 
     return db.query(ImportJob).filter(ImportJob.id == row[0]).first()
-
-
-def _claim_next_sqlite(db: Session) -> ImportJob | None:
-    """SQLite: two-step select-then-update (safe for single-worker deployment)."""
-    now = datetime.now(timezone.utc)
-    stuck_cutoff = now - timedelta(minutes=STUCK_TIMEOUT_MINUTES)
-
-    stuck_jobs = (
-        db.query(ImportJob)
-        .filter(
-            ImportJob.status == ImportJobStatus.PROCESSING,
-            ImportJob.started_at < stuck_cutoff,
-        )
-        .all()
-    )
-    for stuck in stuck_jobs:
-        # Each stuck reclaim consumes a retry (see _claim_next_pg)
-        if (stuck.retry_count or 0) >= MAX_RETRIES:
-            log.error("Job %d FAILED permanently: stuck in processing after %d retries", stuck.id, MAX_RETRIES)
-            stuck.status = ImportJobStatus.FAILED
-            stuck.started_at = None
-            stuck.processed_at = now
-            stuck.error_message = "Permanent failure: stuck in processing after max retries"
-            _cleanup_job_file(stuck.file_path)
-        else:
-            log.warning("Reclaiming stuck job %d (PROCESSING since %s)", stuck.id, stuck.started_at)
-            stuck.status = ImportJobStatus.PENDING
-            stuck.started_at = None
-            stuck.retry_count = (stuck.retry_count or 0) + 1
-    if stuck_jobs:
-        db.commit()
-
-    job = (
-        db.query(ImportJob)
-        .filter(
-            ImportJob.status == ImportJobStatus.PENDING,
-            (ImportJob.retry_after == None) | (ImportJob.retry_after <= now),  # noqa: E711
-        )
-        .order_by(ImportJob.created_at)
-        .first()
-    )
-    if not job:
-        return None
-
-    job.status = ImportJobStatus.PROCESSING
-    job.started_at = now
-    db.commit()
-    db.refresh(job)
-    return job
 
 
 # ── Failure handling with exponential backoff ─────────────────────────────────
@@ -341,26 +271,12 @@ def _run_postgres(SessionFactory) -> None:
                 log.error("Reconnect failed: %s — will retry next loop", reconnect_exc)
 
 
-def _run_sqlite(SessionFactory) -> None:
-    """SQLite mode: poll every POLL_INTERVAL seconds (development only)."""
-    log.info("OCR worker: polling mode (SQLite, interval=%ds)", POLL_INTERVAL)
-    while True:
-        _drain_queue(SessionFactory, _claim_next_sqlite)
-        log.debug("Queue empty — sleeping %ds", POLL_INTERVAL)
-        _mark_progress()
-        time.sleep(POLL_INTERVAL)
-
-
 def run() -> None:
     log.info("OCR worker starting — %s", DATABASE_URL)
     LIVENESS_FILE.touch()
     _start_heartbeat()
     SessionFactory = _make_session_factory()
-
-    if _IS_PG:
-        _run_postgres(SessionFactory)
-    else:
-        _run_sqlite(SessionFactory)
+    _run_postgres(SessionFactory)
 
 
 if __name__ == "__main__":

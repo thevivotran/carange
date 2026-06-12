@@ -83,9 +83,8 @@ genuinely hung loop still does.
 
 ## Running
 
-Enabled by uncommenting the `ocr_worker` service in `docker-compose.yml` /
-`docker-compose.pg.yml` — see the **Self-Hosting** section of the
-[main README](../README.md).
+Enabled by uncommenting the `ocr_worker` service in `docker-compose.yml` — see the
+**Self-Hosting** section of the [main README](../README.md).
 
 Locally:
 

@@ -22,7 +22,6 @@ def upgrade() -> None:
         "transactions",
         ["date", "type", "is_savings_related"],
         postgresql_where=sa.text("deleted_at IS NULL"),
-        sqlite_where=sa.text("deleted_at IS NULL"),
     )
 
     # Unique composite index: fixes the full-scan correlated subquery in

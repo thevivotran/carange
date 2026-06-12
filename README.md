@@ -61,12 +61,9 @@ Tailwind CSS · Chart.js · Font Awesome · PaddleOCR · Ollama · Telegram Bot 
 
 ## Self-Hosting
 
-Want to run Carange for your own family? Two Docker Compose setups are provided —
-pick the one that matches how much you want to run.
+Want to run Carange for your own family?
 
-### Quick Start — SQLite (recommended default, ~5 minutes)
-
-No extra services, single container, single data volume.
+### Quick Start (~5 minutes)
 
 ```bash
 git clone git@github.com:thevivotran/carange.git
@@ -75,24 +72,14 @@ docker compose up -d
 # → http://localhost:6868
 ```
 
-This builds the app image from source (`docker-compose.yml`) and stores everything —
-database and uploads — in a `carange_data` volume.
-
-### PostgreSQL path (advanced — worker queues, MATVIEW dashboard, multi-replica)
-
-```bash
-docker compose -f docker-compose.pg.yml up -d
-# → http://localhost:6868
-```
-
-Adds a `postgres:16-alpine` service. Choose this if you plan to run the OCR/email
-worker queues, want the materialized-view dashboard, or intend to scale to multiple
-app replicas. On first run against an empty database the app creates all tables and
-seeds 16 default categories — no manual migration step required.
+This builds the app image from source and runs it alongside a `postgres:16-alpine`
+service (`docker-compose.yml`), storing the database and uploads in named volumes. On
+first run against an empty database, the app creates all tables and seeds 16 default
+categories — no manual migration step required.
 
 ### Optional features
 
-Both compose files ship with the extras commented out — uncomment what you need:
+The compose file ships with the extras commented out — uncomment what you need:
 
 | Feature | What to configure |
 |---------|-------------------|
