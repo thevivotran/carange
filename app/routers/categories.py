@@ -5,8 +5,14 @@ from typing import List
 
 from app.models.database import get_db, Category, Transaction
 from app.models.schemas import Category as CategorySchema, CategoryCreate, CategoryUpdate
+from app.services.dashboard_service import VALID_KPI_ROLES, invalidate_dashboard_cache
 
 router = APIRouter()
+
+
+def _validate_kpi_role(kpi_role) -> None:
+    if kpi_role is not None and kpi_role not in VALID_KPI_ROLES:
+        raise HTTPException(status_code=400, detail=f"kpi_role must be one of {sorted(VALID_KPI_ROLES)} or null")
 
 
 @router.get("/", response_model=List[CategorySchema])
@@ -57,10 +63,14 @@ def create_category(category: CategoryCreate, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(status_code=400, detail="Category with this name and type already exists")
 
+    _validate_kpi_role(category.kpi_role)
+
     db_category = Category(**category.model_dump())
     db.add(db_category)
     db.commit()
     db.refresh(db_category)
+    if db_category.kpi_role:
+        invalidate_dashboard_cache(db)
     return db_category
 
 
@@ -81,11 +91,19 @@ def update_category(category_id: int, category: CategoryUpdate, db: Session = De
         if existing:
             raise HTTPException(status_code=400, detail="Category with this name already exists")
 
-    for key, value in category.model_dump(exclude_unset=True).items():
+    update_data = category.model_dump(exclude_unset=True)
+    if "kpi_role" in update_data:
+        _validate_kpi_role(update_data["kpi_role"])
+
+    kpi_role_changed = "kpi_role" in update_data and update_data["kpi_role"] != db_category.kpi_role
+
+    for key, value in update_data.items():
         setattr(db_category, key, value)
 
     db.commit()
     db.refresh(db_category)
+    if kpi_role_changed:
+        invalidate_dashboard_cache(db)
     return db_category
 
 

@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from app.models.database import get_db, SavingsBundle, SavingsStatus, Category, TransactionType
+from app.models.database import get_db, SavingsBundle, SavingsStatus
 from app.routers.fragments._helpers import render_fragment
 from app.services.currency_format import CURRENCIES, DEFAULT_CURRENCY, inject_currency
 from app.services.currency_format import register as register_currency_filters
@@ -150,14 +150,6 @@ def _get_all_settings(db: Session, user_id: int) -> dict:
         # masks: show placeholder bullet if a secret is already set
         "imap_password_set": bool(email["imap_password"]),
         "telegram_bot_token_set": bool(telegram["telegram_bot_token"]),
-        # KPI category assignments
-        "kpi_expense_categories": [
-            {"id": c.id, "name": c.name, "kpi_role": c.kpi_role or ""}
-            for c in db.query(Category)
-            .filter(Category.type == TransactionType.EXPENSE, Category.is_active.isnot(False))
-            .order_by(Category.name)
-            .all()
-        ],
     }
 
 
@@ -307,33 +299,6 @@ async def save_navigation(request: Request, db: Session = Depends(get_db)):
         set_user_nav_items(db, user_id, form.getlist("nav_items"))
         toast = "Navigation menu saved"
     return render_fragment(request, "settings/_navigation_card.html", _layout_context(db, user_id), toast=toast)
-
-
-@router.post("/kpi-terms")
-async def save_kpi_terms(request: Request, db: Session = Depends(get_db)):
-    """Household-wide: assign KPI role to expense categories."""
-    from app.services.dashboard_service import invalidate_dashboard_cache, VALID_KPI_ROLES
-
-    form = await request.form()
-    categories = (
-        db.query(Category)
-        .filter(Category.type == TransactionType.EXPENSE, Category.is_active.isnot(False))
-        .order_by(Category.name)
-        .all()
-    )
-    for cat in categories:
-        raw = form.get(f"role_{cat.id}", "").strip()
-        cat.kpi_role = raw if raw in VALID_KPI_ROLES else None
-    db.commit()
-    invalidate_dashboard_cache(db)
-    return render_fragment(
-        request,
-        "settings/_kpi_terms_card.html",
-        {
-            "kpi_expense_categories": [{"id": c.id, "name": c.name, "kpi_role": c.kpi_role or ""} for c in categories],
-        },
-        toast="KPI categories updated",
-    )
 
 
 @router.post("/sample-data/load")

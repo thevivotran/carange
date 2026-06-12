@@ -6,15 +6,15 @@
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div>
             <h2 class="text-3xl font-bold text-gray-800">Categories</h2>
-            <p class="text-gray-600 mt-1">Manage income and expense categories</p>
+            <p class="text-gray-600 mt-1">Manage income and expense categories. Assign a <strong>KPI Role</strong> to expense categories to count them toward Savings Rate or Real Estate metrics.</p>
         </div>
-        <button onclick="openAddModal()" class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition flex items-center">
-            <i class="fas fa-plus mr-2"></i>Add Category
+        <button onclick="openAddModal()" class="bg-primary text-white px-5 py-2.5 rounded-lg hover:bg-blue-600 transition flex items-center gap-2">
+            <i class="fas fa-plus"></i> Add Category
         </button>
     </div>
 
     <!-- Tabs -->
-    <div class="bg-white rounded-xl shadow-md mb-4">
+    <div class="bg-white rounded-2xl shadow-sm border mb-4">
         <div class="flex border-b">
             <button onclick="switchTab('expense')" id="tab-expense"
                     class="flex-1 py-4 px-6 text-center font-medium text-primary border-b-2 border-primary bg-blue-50">
@@ -27,39 +27,16 @@
         </div>
     </div>
 
-    <!-- Sortable Table -->
-    <div class="bg-white rounded-xl shadow-md overflow-hidden">
-        <table class="w-full">
-            <thead class="bg-gray-50 border-b">
-                <tr>
-                    <th class="text-left py-3 px-4 w-8"></th>
-                    <th class="text-left py-3 px-4">
-                        <button onclick="setSort('name')" class="flex items-center gap-1 text-sm font-semibold text-gray-700 hover:text-primary transition group">
-                            Category
-                            <i id="sort-icon-name" class="fas fa-sort-up text-primary text-xs"></i>
-                        </button>
-                    </th>
-                    <th class="text-left py-3 px-4 hidden sm:table-cell">
-                        <button onclick="setSort('count')" class="flex items-center gap-1 text-sm font-semibold text-gray-700 hover:text-primary transition group">
-                            Transactions
-                            <i id="sort-icon-count" class="fas fa-sort text-gray-300 group-hover:text-primary text-xs"></i>
-                        </button>
-                    </th>
-                    <th class="text-left py-3 px-4 hidden md:table-cell">
-                        <button onclick="setSort('status')" class="flex items-center gap-1 text-sm font-semibold text-gray-700 hover:text-primary transition group">
-                            Status
-                            <i id="sort-icon-status" class="fas fa-sort text-gray-300 group-hover:text-primary text-xs"></i>
-                        </button>
-                    </th>
-                    <th class="py-3 px-4 text-right text-sm font-semibold text-gray-700">Actions</th>
-                </tr>
-            </thead>
-            <tbody id="categories-tbody"
-                   hx-get="/fragments/categories/rows"
-                   hx-trigger="load, categories-updated from:body"
-                   hx-swap="innerHTML">
-            </tbody>
-        </table>
+    <!-- Categories List -->
+    <div class="bg-white rounded-2xl shadow-sm border overflow-hidden">
+        <div id="categories-tbody"
+             hx-get="/fragments/categories/rows"
+             hx-trigger="load, categories-updated from:body"
+             hx-swap="innerHTML">
+            <div class="flex justify-center py-12 text-gray-400">
+                <i class="fas fa-spinner fa-spin text-2xl"></i>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -173,6 +150,17 @@
                 </label>
             </div>
 
+            <!-- KPI Role (expense categories only) -->
+            <div id="kpi-role-row" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">KPI Role</label>
+                <select id="kpi-role" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <option value="">None (Living Expense)</option>
+                    <option value="liquid_savings">Liquid Savings (Tiết kiệm)</option>
+                    <option value="real_estate">Real Estate (Bất động sản)</option>
+                </select>
+                <p class="text-xs text-gray-400 mt-1">Spending in this category counts toward the chosen metric instead of Living Expense.</p>
+            </div>
+
             <!-- Submit -->
             <div class="flex gap-4 pt-4">
                 <button type="button" onclick="closeModal()"
@@ -206,18 +194,6 @@
         document.body.dispatchEvent(new CustomEvent('categories-updated'));
     }
 
-    function updateSortIcons() {
-        ['name', 'count', 'status'].forEach(function(col) {
-            const ico = document.getElementById('sort-icon-' + col);
-            if (!ico) return;
-            if (sortCol === col) {
-                ico.className = 'fas fa-sort-' + (sortDir === 'asc' ? 'up' : 'down') + ' text-primary text-xs';
-            } else {
-                ico.className = 'fas fa-sort text-gray-300 group-hover:text-primary text-xs';
-            }
-        });
-    }
-
     function setSort(col) {
         if (sortCol === col) {
             sortDir = sortDir === 'asc' ? 'desc' : 'asc';
@@ -225,7 +201,6 @@
             sortCol = col;
             sortDir = col === 'count' ? 'desc' : 'asc';
         }
-        updateSortIcons();
         _reloadCategories();
     }
 
@@ -249,12 +224,15 @@
         document.getElementById('category-type').value = currentTab;
         document.getElementById('type-select').value = currentTab;
         document.getElementById('passive-income-row').classList.toggle('hidden', currentTab !== 'income');
+        document.getElementById('kpi-role-row').classList.toggle('hidden', currentTab !== 'expense');
+        document.getElementById('kpi-role').value = '';
         document.getElementById('category-modal').classList.remove('hidden');
         setTimeout(function() { document.getElementById('name').focus(); }, 50);
     }
 
     document.getElementById('type-select').addEventListener('change', function() {
         document.getElementById('passive-income-row').classList.toggle('hidden', this.value !== 'income');
+        document.getElementById('kpi-role-row').classList.toggle('hidden', this.value !== 'expense');
     });
 
     function closeModal() {
@@ -272,6 +250,7 @@
             icon: document.getElementById('icon').value,
             is_active: true,
             is_passive_income: catType === 'income' && document.getElementById('is-passive-income').checked,
+            kpi_role: catType === 'expense' ? (document.getElementById('kpi-role').value || null) : null,
         };
         try {
             const url = categoryId ? '/api/categories/' + categoryId : '/api/categories/';
@@ -307,6 +286,8 @@
             document.getElementById('icon').value = cat.icon;
             document.getElementById('is-passive-income').checked = !!cat.is_passive_income;
             document.getElementById('passive-income-row').classList.toggle('hidden', cat.type !== 'income');
+            document.getElementById('kpi-role-row').classList.toggle('hidden', cat.type !== 'expense');
+            document.getElementById('kpi-role').value = cat.kpi_role || '';
             document.getElementById('category-modal').classList.remove('hidden');
         } catch(e) {
             showToast('Failed to load category', 'error');

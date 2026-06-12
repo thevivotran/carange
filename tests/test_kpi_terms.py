@@ -232,16 +232,19 @@ class TestKpiComputation:
         assert s["total_expense"] == pytest.approx(50_000_000)
 
 
-# ── Settings endpoint tests ──────────────────────────────────────────────────
+# ── Categories endpoint tests ────────────────────────────────────────────────
 
 
-class TestSaveKpiTerms:
+class TestCategoryKpiRole:
     def test_assign_liquid_savings_role(self, client, db_session):
         cat = Category(name="Savings", type=TransactionType.EXPENSE)
         db_session.add(cat)
         db_session.commit()
 
-        r = client.post("/settings/kpi-terms", data={f"role_{cat.id}": "liquid_savings"})
+        r = client.put(
+            f"/api/categories/{cat.id}",
+            json={"name": "Savings", "type": "expense", "kpi_role": "liquid_savings"},
+        )
         assert r.status_code == 200
 
         db_session.refresh(cat)
@@ -252,7 +255,10 @@ class TestSaveKpiTerms:
         db_session.add(cat)
         db_session.commit()
 
-        r = client.post("/settings/kpi-terms", data={f"role_{cat.id}": "real_estate"})
+        r = client.put(
+            f"/api/categories/{cat.id}",
+            json={"name": "Property", "type": "expense", "kpi_role": "real_estate"},
+        )
         assert r.status_code == 200
 
         db_session.refresh(cat)
@@ -263,36 +269,41 @@ class TestSaveKpiTerms:
         db_session.add(cat)
         db_session.commit()
 
-        r = client.post("/settings/kpi-terms", data={f"role_{cat.id}": ""})
+        r = client.put(
+            f"/api/categories/{cat.id}",
+            json={"name": "Property", "type": "expense", "kpi_role": None},
+        )
         assert r.status_code == 200
 
         db_session.refresh(cat)
         assert cat.kpi_role is None
 
-    def test_invalid_role_value_is_cleared(self, client, db_session):
+    def test_invalid_role_value_is_rejected(self, client, db_session):
         cat = Category(name="Savings", type=TransactionType.EXPENSE, kpi_role="liquid_savings")
         db_session.add(cat)
         db_session.commit()
 
-        r = client.post("/settings/kpi-terms", data={f"role_{cat.id}": "bogus_role"})
-        assert r.status_code == 200
+        r = client.put(
+            f"/api/categories/{cat.id}",
+            json={"name": "Savings", "type": "expense", "kpi_role": "bogus_role"},
+        )
+        assert r.status_code == 400
 
         db_session.refresh(cat)
-        assert cat.kpi_role is None
+        assert cat.kpi_role == "liquid_savings"
 
-    def test_settings_page_shows_kpi_categories(self, client, db_session):
+    def test_categories_page_shows_kpi_role(self, client, db_session):
         db_session.add(Category(name="Food", type=TransactionType.EXPENSE))
         db_session.add(Category(name="Savings", type=TransactionType.EXPENSE, kpi_role="liquid_savings"))
         db_session.commit()
 
-        r = client.get("/settings")
+        r = client.get("/fragments/categories/rows?type=expense")
         assert r.status_code == 200
-        assert b"KPI Categories" in r.content
         assert b"Savings" in r.content
-        assert b"liquid_savings" in r.content
+        assert b"Liquid Savings" in r.content
 
     def test_updates_affect_dashboard_kpis(self, client, db_session):
-        """Assign role via settings endpoint, then verify dashboard picks it up."""
+        """Assign role via categories endpoint, then verify dashboard picks it up."""
         inc = Category(name="Salary", type=TransactionType.INCOME)
         cat = Category(name="Savings", type=TransactionType.EXPENSE)
         db_session.add_all([inc, cat])
@@ -319,7 +330,10 @@ class TestSaveKpiTerms:
         )
 
         # Assign role
-        r = client.post("/settings/kpi-terms", data={f"role_{cat.id}": "liquid_savings"})
+        r = client.put(
+            f"/api/categories/{cat.id}",
+            json={"name": "Savings", "type": "expense", "kpi_role": "liquid_savings"},
+        )
         assert r.status_code == 200
 
         # Dashboard should now show savings rate = 25%
