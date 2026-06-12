@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+{% block title %}Forecast — Carange{% endblock %}
+
+{% block content %}
+<div class="p-6 pb-28 max-w-7xl mx-auto">
+
+  <!-- Header -->
+  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
+    <div>
+      <h2 class="text-2xl font-bold">Cash-Flow Forecast</h2>
+      <p class="text-sm text-muted">Projected running balance</p>
+    </div>
+    <div class="flex items-center gap-1 cg-card px-2 py-1">
+      <button data-horizon="30" class="forecast-horizon-btn px-3 py-1.5 rounded-lg text-sm font-medium transition">30d</button>
+      <button data-horizon="60" class="forecast-horizon-btn px-3 py-1.5 rounded-lg text-sm font-medium transition">60d</button>
+      <button data-horizon="90" class="forecast-horizon-btn px-3 py-1.5 rounded-lg text-sm font-medium transition">90d</button>
+    </div>
+  </div>
+
+  <!-- Shortfall warning banner -->
+  <div id="shortfall-banner" class="hidden mb-6 rounded-2xl p-4 border cg-card" style="background: var(--danger-subtle); border-color: var(--danger)">
+    <div class="flex items-center gap-2">
+      <i class="fas fa-triangle-exclamation" style="color: var(--danger)"></i>
+      <span id="shortfall-text" class="text-sm font-semibold" style="color: var(--danger-text)"></span>
+    </div>
+  </div>
+
+  <!-- Summary cards -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+    <div class="cg-card p-4">
+      <p class="eyebrow">Starting Balance</p>
+      <p id="forecast-starting-balance" class="text-xl font-bold mt-1">—</p>
+    </div>
+    <div class="cg-card p-4">
+      <p class="eyebrow">Horizon Net</p>
+      <p id="forecast-horizon-net" class="text-xl font-bold mt-1">—</p>
+    </div>
+    <div class="cg-card p-4">
+      <p class="eyebrow">Projected Low Point</p>
+      <p id="forecast-low-point" class="text-xl font-bold mt-1">—</p>
+      <p id="forecast-low-point-date" class="text-xs text-muted mt-0.5"></p>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="cg-card p-6 mb-6">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="font-semibold">Running Balance</h3>
+      <span class="text-xs text-muted">― Buffer line</span>
+    </div>
+    <div style="height: 280px; position: relative;">
+      <canvas id="forecastChart"></canvas>
+    </div>
+  </div>
+
+  <!-- Event list -->
+  <div class="cg-card p-6">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="font-semibold">Upcoming Events</h3>
+    </div>
+    <div id="forecast-events"></div>
+    <p id="forecast-events-empty" class="hidden text-sm text-muted text-center py-8">No upcoming events</p>
+  </div>
+
+</div>
+
+<script>
+// ── Dark mode helpers ─────────────────────────────────────────────────────
+const _isDark = () => document.documentElement.classList.contains('dark');
+const _gridColor = () => _isDark() ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.04)';
+const _tickColor = () => _isDark() ? '#94A3B8' : '#6B7280';
+const _legendColor = () => _isDark() ? '#CBD5E1' : '#374151';
+const _balanceLineColor = () => _isDark() ? '#60A5FA' : '#2563EB';
+const _balanceAreaColor = () => _isDark() ? 'rgba(37,99,235,0.15)' : 'rgba(37,99,235,0.08)';
+const _bufferLineColor = () => '#F59E0B';
+const _lowPointColor = () => '#EF4444';
+
+const SOURCE_LABELS = {
+    template: 'Template',
+    project_payment: 'Project Payment',
+    savings_maturity: 'Savings Maturity',
+};
+
+let _forecastChart = null;
+let _currentHorizon = 90;
+
+function _fmtCurrency(amount, currencyCode) {
+    try {
+        return new Intl.NumberFormat(undefined, {
+            style: 'currency', currency: currencyCode, minimumFractionDigits: 0, maximumFractionDigits: 0
+        }).format(amount);
+    } catch (e) {
+        return amount.toLocaleString() + ' ' + currencyCode;
+    }
+}
+
+function _fmtSigned(amount, currencyCode) {
+    const formatted = _fmtCurrency(Math.abs(amount), currencyCode);
+    return (amount >= 0 ? '+' : '−') + formatted;
+}
+
+function _fmtDate(isoDate) {
+    const d = new Date(isoDate + 'T00:00:00');
+    return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function _applyChartTheme(chart) {
+    if (!chart) return;
+    chart.options.scales && Object.values(chart.options.scales).forEach(function(scale) {
+        if (scale.grid) scale.grid.color = _gridColor();
+        if (scale.ticks) scale.ticks.color = _tickColor();
+    });
+    if (chart.options.plugins && chart.options.plugins.legend && chart.options.plugins.legend.labels) {
+        chart.options.plugins.legend.labels.color = _legendColor();
+    }
+    chart.update('none');
+}
+
+function _refreshChartColors() {
+    if (_forecastChart) {
+        _forecastChart.data.datasets[0].borderColor = _balanceLineColor();
+        _forecastChart.data.datasets[0].backgroundColor = _balanceAreaColor();
+        _applyChartTheme(_forecastChart);
+    }
+}
+
+new MutationObserver(_refreshChartColors).observe(
+    document.documentElement, { attributeFilter: ['class'] }
+);
+
+function _renderSummary(data) {
+    const cur = data.currency;
+    document.getElementById('forecast-starting-balance').textContent = _fmtCurrency(data.starting_balance, cur);
+    const netEl = document.getElementById('forecast-horizon-net');
+    netEl.textContent = _fmtSigned(data.horizon_net, cur);
+    netEl.className = 'text-xl font-bold mt-1 ' + (data.horizon_net >= 0 ? 'text-success' : 'text-danger');
+
+    const lowEl = document.getElementById('forecast-low-point');
+    const lowDateEl = document.getElementById('forecast-low-point-date');
+    if (data.low_point) {
+        lowEl.textContent = _fmtCurrency(data.low_point.balance, cur);
+        lowDateEl.textContent = _fmtDate(data.low_point.date);
+    } else {
+        lowEl.textContent = '—';
+        lowDateEl.textContent = '';
+    }
+
+    const banner = document.getElementById('shortfall-banner');
+    const bannerText = document.getElementById('shortfall-text');
+    if (data.shortfall && data.shortfall.breached) {
+        banner.classList.remove('hidden');
+        bannerText.textContent = 'Balance is projected to go negative on '
+            + _fmtDate(data.shortfall.date)
+            + ' (' + _fmtCurrency(data.shortfall.balance, cur) + ')';
+    } else {
+        banner.classList.add('hidden');
+    }
+}
+
+function _renderChart(data) {
+    const cur = data.currency;
+    const labels = data.series.map(p => _fmtDate(p.date));
+    const balances = data.series.map(p => p.balance);
+    const bufferLine = data.series.map(() => data.buffer);
+
+    let lowPointIndex = -1;
+    if (data.low_point) {
+        lowPointIndex = data.series.findIndex(p => p.date === data.low_point.date);
+    }
+
+    const pointRadii = data.series.map((_, i) => i === lowPointIndex ? 6 : 0);
+    const pointColors = data.series.map((_, i) => i === lowPointIndex ? _lowPointColor() : _balanceLineColor());
+
+    const ctx = document.getElementById('forecastChart').getContext('2d');
+    if (_forecastChart) { _forecastChart.destroy(); }
+    _forecastChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Balance',
+                    data: balances,
+                    borderColor: _balanceLineColor(),
+                    backgroundColor: _balanceAreaColor(),
+                    borderWidth: 2,
+                    tension: 0.25,
+                    pointRadius: pointRadii,
+                    pointBackgroundColor: pointColors,
+                    fill: true,
+                },
+                {
+                    label: 'Buffer',
+                    data: bufferLine,
+                    borderColor: _bufferLineColor(),
+                    borderDash: [6, 4],
+                    borderWidth: 1.5,
+                    pointRadius: 0,
+                    fill: false,
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            scales: {
+                y: {
+                    grid: { color: _gridColor() },
+                    ticks: {
+                        callback: v => _fmtCurrency(v, cur),
+                        font: { size: 11 },
+                        color: _tickColor(),
+                    },
+                },
+                x: { grid: { display: false }, ticks: { font: { size: 11 }, color: _tickColor(), maxTicksLimit: 12 } },
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { boxWidth: 12, font: { size: 11 }, padding: 16, color: _legendColor() },
+                },
+                tooltip: {
+                    callbacks: {
+                        label: ctx => ' ' + ctx.dataset.label + ': ' + _fmtCurrency(ctx.raw, cur),
+                    },
+                },
+            },
+        },
+    });
+}
+
+function _renderEvents(data) {
+    const cur = data.currency;
+    const container = document.getElementById('forecast-events');
+    const emptyMsg = document.getElementById('forecast-events-empty');
+    container.replaceChildren();
+
+    if (!data.events || data.events.length === 0) {
+        emptyMsg.classList.remove('hidden');
+        return;
+    }
+    emptyMsg.classList.add('hidden');
+
+    data.events.forEach((ev, idx) => {
+        const row = document.createElement('div');
+        row.className = 'flex items-center justify-between py-2.5 gap-3'
+            + (idx > 0 ? ' border-t border-subtle' : '')
+            + (ev.estimated ? ' opacity-60 border-dashed' : '');
+
+        const left = document.createElement('div');
+        left.className = 'min-w-0';
+
+        const labelEl = document.createElement('p');
+        labelEl.className = 'text-sm font-medium truncate';
+        labelEl.textContent = ev.label;
+
+        const metaEl = document.createElement('p');
+        metaEl.className = 'text-xs text-muted flex items-center gap-2 mt-0.5';
+
+        const dateSpan = document.createElement('span');
+        dateSpan.textContent = _fmtDate(ev.date);
+        metaEl.appendChild(dateSpan);
+
+        const chip = document.createElement('span');
+        chip.className = 'cg-badge';
+        chip.textContent = SOURCE_LABELS[ev.source] || ev.source;
+        metaEl.appendChild(chip);
+
+        if (ev.estimated) {
+            const estChip = document.createElement('span');
+            estChip.className = 'cg-badge';
+            estChip.textContent = 'Estimated';
+            metaEl.appendChild(estChip);
+        }
+
+        left.appendChild(labelEl);
+        left.appendChild(metaEl);
+
+        const amountEl = document.createElement('span');
+        amountEl.className = 'text-sm font-semibold amount tabular-nums flex-shrink-0 '
+            + (ev.signed >= 0 ? 'text-income' : 'text-expense');
+        amountEl.textContent = _fmtSigned(ev.signed, cur);
+
+        row.appendChild(left);
+        row.appendChild(amountEl);
+        container.appendChild(row);
+    });
+}
+
+function _setActiveHorizonButton(horizon) {
+    document.querySelectorAll('.forecast-horizon-btn').forEach(function(btn) {
+        const isActive = Number(btn.dataset.horizon) === horizon;
+        btn.classList.toggle('cg-badge--brand', isActive);
+        btn.classList.toggle('font-bold', isActive);
+        btn.classList.toggle('text-muted', !isActive);
+        btn.style.background = isActive ? 'var(--brand-subtle)' : '';
+    });
+}
+
+function loadForecast(horizon) {
+    _currentHorizon = horizon;
+    _setActiveHorizonButton(horizon);
+    fetch('/api/forecast/data?horizon=' + horizon)
+        .then(r => r.json())
+        .then(data => {
+            _renderSummary(data);
+            _renderChart(data);
+            _renderEvents(data);
+        })
+        .catch(() => {
+            if (window.showToast) showToast('Failed to load forecast data', 'error');
+        });
+}
+
+document.querySelectorAll('.forecast-horizon-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        loadForecast(Number(btn.dataset.horizon));
+    });
+});
+
+loadForecast(_currentHorizon);
+</script>
+{% endblock %}

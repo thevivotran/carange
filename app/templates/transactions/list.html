@@ -1424,6 +1424,10 @@
                 footer.appendChild(mkBtn('fa-check', 'Approve', 'text-orange-700 bg-white border-orange-200 hover:bg-orange-50',
                     function() { closeTxDrawer(); approveTransaction(t.id); }));
             }
+            if (t.project_id) {
+                footer.appendChild(mkBtn('fa-bullseye', 'Settle milestone', 'text-indigo-700 bg-white border-indigo-200 hover:bg-indigo-50',
+                    function() { closeTxDrawer(); settleMilestone(t); }));
+            }
             const isOCR = !!(t.import_job_id) && t.needs_review;
             footer.appendChild(mkBtn('fa-trash', isOCR ? 'Reject' : 'Delete', 'text-red-700 bg-white border-red-200 hover:bg-red-50',
                 function() { closeTxDrawer(); deleteTransactionSafe(t, null); }));
@@ -1475,6 +1479,25 @@
         });
         if (res.ok) { showToast('Marked as settled', 'success'); loadTransactions(); }
         else showToast('Failed to settle advance', 'error');
+    }
+
+    async function settleMilestone(t) {
+        const params = new URLSearchParams({ amount: Math.abs(t.amount), date: t.date });
+        const res = await fetch('/api/projects/' + t.project_id + '/payments/match?' + params.toString());
+        if (!res.ok) { showToast('Failed to look up milestones', 'error'); return; }
+        const payment = await res.json();
+        if (!payment) { showToast('No matching pending milestone found', 'info'); return; }
+
+        showConfirm(
+            'Mark this milestone (due ' + (payment.due_date || 'n/a') + ', ' + payment.amount.toLocaleString() + ') as paid using this transaction?',
+            async function() {
+                const settleRes = await fetch('/api/transactions/' + t.id + '/settle-payment/' + payment.id, { method: 'POST' });
+                if (settleRes.ok) { showToast('Milestone settled', 'success'); loadTransactions(); }
+                else showToast('Failed to settle milestone', 'error');
+            },
+            'Settle',
+            'bg-indigo-600 hover:bg-indigo-700'
+        );
     }
 
     function prevPage() {

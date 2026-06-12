@@ -558,6 +558,12 @@
                     <span class="sidebar-label">Projects</span>
                 </a>
                 {% endif %}
+                {% if 'forecast' in visible_nav_items %}
+                <a href="/forecast" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'forecast' %}active font-semibold{% endif %}" title="Forecast">
+                    <i class="fas fa-chart-line w-6 flex-shrink-0"></i>
+                    <span class="sidebar-label">Forecast</span>
+                </a>
+                {% endif %}
 
                 <!-- Settings -->
                 <div class="px-6 pt-5 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest sidebar-section-label">Settings</div>
@@ -693,6 +699,12 @@
                     <a href="/projects" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'projects' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
                         <i class="fas fa-bullseye text-xl"></i>
                         <span class="text-xs font-medium">Projects</span>
+                    </a>
+                    {% endif %}
+                    {% if 'forecast' in visible_nav_items %}
+                    <a href="/forecast" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'forecast' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
+                        <i class="fas fa-chart-line text-xl"></i>
+                        <span class="text-xs font-medium">Forecast</span>
                     </a>
                     {% endif %}
                 </div>

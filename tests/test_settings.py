@@ -96,3 +96,28 @@ class TestSalaryDaySuggestion:
         r = client.get("/settings")
         assert r.status_code == 200
         assert "Use 19th" not in r.text
+
+
+class TestSaveForecastBuffer:
+    def test_saves_valid_value(self, client, db_session):
+        r = client.post("/settings/forecast-buffer", data={"forecast_buffer": "500000"})
+        assert r.status_code == 200
+        assert get_setting(db_session, "forecast_buffer") == "500000"
+
+    def test_rejects_negative_value(self, client, db_session):
+        set_setting(db_session, "forecast_buffer", "100")
+        r = client.post("/settings/forecast-buffer", data={"forecast_buffer": "-1"})
+        assert r.status_code == 400
+        assert get_setting(db_session, "forecast_buffer") == "100"
+
+    def test_rejects_non_numeric_value(self, client, db_session):
+        set_setting(db_session, "forecast_buffer", "100")
+        r = client.post("/settings/forecast-buffer", data={"forecast_buffer": "abc"})
+        assert r.status_code == 400
+        assert get_setting(db_session, "forecast_buffer") == "100"
+
+    def test_settings_page_renders_buffer_card(self, client, db_session):
+        r = client.get("/settings")
+        assert r.status_code == 200
+        assert b"Cash buffer" in r.content
+        assert b"forecast_buffer" in r.content

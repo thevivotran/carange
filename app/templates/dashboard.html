@@ -365,6 +365,36 @@
   </div>
   {% endif %}
 
+  {% if 'cash_outlook' in visible_sections %}
+  <!-- ── Cash Outlook ────────────────────────────────────────────────── -->
+  <div class="cg-card p-6 mb-6">
+    <div class="flex justify-between items-center mb-4">
+      <div>
+        <h3 class="font-semibold">Cash Outlook</h3>
+        <p class="text-xs text-muted mt-0.5">Next 30 days</p>
+      </div>
+      <a href="/forecast" class="text-xs text-accent hover:underline">View forecast →</a>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <p class="text-xs text-muted">30-day net</p>
+        <p class="text-lg font-bold mt-1 {{ 'text-success' if outlook.horizon_net >= 0 else 'text-danger' }}">
+          {{ outlook.horizon_net | currency(signed=true) }}
+        </p>
+      </div>
+      <div>
+        <p class="text-xs text-muted">Projected low point</p>
+        {% if outlook and outlook.low_point %}
+        <p class="text-lg font-bold mt-1">{{ outlook.low_point.balance | currency }}</p>
+        <p class="text-xs text-muted mt-0.5">{{ outlook.low_point.date.strftime('%b %d') }}</p>
+        {% else %}
+        <p class="text-lg font-bold mt-1 text-muted">—</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   {% if 'active_projects' in visible_sections or 'savings_goals' in visible_sections %}
   <!-- ── Row 4: Projects + Savings ───────────────────────────────────── -->
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">

@@ -1,7 +1,7 @@
 import os
 from datetime import date
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -95,6 +95,7 @@ def _get_all_settings(db: Session, user_id: int) -> dict:
             "baby_fund_bundle_id": "",
             "display_currency": DEFAULT_CURRENCY,
             "month_start_day": "1",
+            "forecast_buffer": "0",
         },
     )
 
@@ -185,6 +186,28 @@ async def save_general(request: Request, db: Session = Depends(get_db)):
     if currency in CURRENCIES:
         set_setting(db, "display_currency", currency)
     return render_fragment(request, "settings/_saved.html", {}, toast="General settings saved")
+
+
+@router.post("/forecast-buffer")
+async def save_forecast_buffer(request: Request, db: Session = Depends(get_db)):
+    from app.services.dashboard_service import invalidate_dashboard_cache
+
+    form = await request.form()
+    try:
+        value = float(str(form.get("forecast_buffer", "")).strip())
+    except ValueError:
+        raise HTTPException(400, "forecast_buffer must be a number")
+    if value < 0:
+        raise HTTPException(400, "forecast_buffer must be non-negative")
+
+    if value == int(value):
+        value_str = str(int(value))
+    else:
+        value_str = str(value)
+
+    set_setting(db, "forecast_buffer", value_str)
+    invalidate_dashboard_cache(db)
+    return render_fragment(request, "settings/_saved.html", {}, toast="Cash buffer saved")
 
 
 @router.post("/dashboard-goals")

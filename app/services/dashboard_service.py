@@ -281,6 +281,43 @@ def _txn_ns(t) -> SimpleNamespace:
     return ns
 
 
+def get_cash_on_hand(db: Session) -> float:
+    """All-time non-savings income minus all-time expense (soft-deleted excluded).
+
+    The single figure the cash-flow forecast needs as its starting balance,
+    computed with one aggregate query instead of the full dashboard pass. Mirrors
+    the `total_income_all - total_expense_all` definition used in get_dashboard_data.
+    """
+    row = db.query(
+        func.sum(
+            case(
+                (
+                    and_(
+                        Transaction.type == TransactionType.INCOME,
+                        Transaction.is_savings_related == False,  # noqa: E712
+                        Transaction.deleted_at.is_(None),
+                    ),
+                    Transaction.amount,
+                ),
+                else_=0,
+            )
+        ).label("inc"),
+        func.sum(
+            case(
+                (
+                    and_(
+                        Transaction.type == TransactionType.EXPENSE,
+                        Transaction.deleted_at.is_(None),
+                    ),
+                    Transaction.amount,
+                ),
+                else_=0,
+            )
+        ).label("exp"),
+    ).first()
+    return float(row.inc or 0) - float(row.exp or 0)
+
+
 def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict:
     """Compute all dashboard metrics for the given year/month (defaults to today).
 
@@ -847,7 +884,13 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     check_net = _net_this_month > 0
     ss_score = sum([check_income, check_bds, check_tk, check_net])
 
+    from app.services.forecast_service import build_forecast
+
+    _f = build_forecast(db, horizon_days=30)
+    outlook = {"low_point": _f["low_point"], "horizon_net": _f["horizon_net"], "shortfall": _f["shortfall"]}
+
     result = {
+        "outlook": outlook,
         "check_income": check_income,
         "check_bds": check_bds,
         "check_tk": check_tk,

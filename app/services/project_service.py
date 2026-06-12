@@ -93,6 +93,22 @@ def mark_payment_paid(
         raise
 
 
+def settle_payment_from_transaction(db, project, payment, tx):
+    """Link an existing transaction to a PENDING payment and mark it PAID."""
+    try:
+        payment.transaction_id = tx.id
+        payment.status = PaymentStatus.PAID
+        if tx.project_id is None:
+            tx.project_id = project.id
+        recompute_project_totals(db, project)
+        db.commit()
+        db.refresh(payment)
+        return payment
+    except Exception:
+        db.rollback()
+        raise
+
+
 def update_payment(db: Session, project: FinancialProject, payment: ProjectPayment, payment_update) -> ProjectPayment:
     """Apply payment update; auto-create transaction when marking PAID."""
     try:
