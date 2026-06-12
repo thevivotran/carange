@@ -159,9 +159,18 @@ function _renderSummary(data) {
 
 function _renderChart(data) {
     const cur = data.currency;
-    const labels = data.series.map(p => _fmtDate(p.date));
-    const balances = data.series.map(p => p.balance);
-    const bufferLine = data.series.map(() => data.buffer);
+    const startDate = new Date(data.series[0].date + 'T00:00:00');
+    const dayMs = 86400000;
+    const toDay = isoDate => Math.round((new Date(isoDate + 'T00:00:00') - startDate) / dayMs);
+    const fromDay = day => {
+        const d = new Date(startDate);
+        d.setDate(d.getDate() + day);
+        return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+    };
+
+    const balances = data.series.map(p => ({ x: toDay(p.date), y: p.balance }));
+    const bufferLine = data.series.map(p => ({ x: toDay(p.date), y: data.buffer }));
+    const maxDay = toDay(data.series[data.series.length - 1].date);
 
     let lowPointIndex = -1;
     if (data.low_point) {
@@ -176,7 +185,6 @@ function _renderChart(data) {
     _forecastChart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: labels,
             datasets: [
                 {
                     label: 'Balance',
@@ -213,7 +221,18 @@ function _renderChart(data) {
                         color: _tickColor(),
                     },
                 },
-                x: { grid: { display: false }, ticks: { font: { size: 11 }, color: _tickColor(), maxTicksLimit: 12 } },
+                x: {
+                    type: 'linear',
+                    min: 0,
+                    max: maxDay,
+                    grid: { display: false },
+                    ticks: {
+                        font: { size: 11 },
+                        color: _tickColor(),
+                        maxTicksLimit: 12,
+                        callback: v => fromDay(v),
+                    },
+                },
             },
             plugins: {
                 legend: {
@@ -222,7 +241,8 @@ function _renderChart(data) {
                 },
                 tooltip: {
                     callbacks: {
-                        label: ctx => ' ' + ctx.dataset.label + ': ' + _fmtCurrency(ctx.raw, cur),
+                        title: items => items.length ? fromDay(items[0].parsed.x) : '',
+                        label: ctx => ' ' + ctx.dataset.label + ': ' + _fmtCurrency(ctx.parsed.y, cur),
                     },
                 },
             },
