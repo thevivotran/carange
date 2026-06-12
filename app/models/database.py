@@ -210,6 +210,8 @@ class Transaction(Base):
         Index("ix_transactions_import_job_id", "import_job_id"),
         Index("ix_transactions_needs_review", "needs_review"),
         Index("ix_transactions_is_savings_related", "is_savings_related"),
+        Index("ix_transactions_project_id", "project_id"),
+        Index("ix_transactions_savings_bundle_id", "savings_bundle_id"),
         Index(
             "ix_transactions_date_type_savings_category",
             "date",

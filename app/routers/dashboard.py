@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, case, and_
 from datetime import date
 from typing import Optional
 
@@ -80,40 +80,58 @@ def get_monthly_trend(db: Session = Depends(get_db)):
     cur_year, cur_month = current_period_ym(today, day)
     periods = [shift_period_ym(cur_year, cur_month, -i) for i in range(11, -1, -1)]
 
-    overall_start, _ = fiscal_window_ym(periods[0][0], periods[0][1], day)
-    _, overall_end = fiscal_window_ym(periods[-1][0], periods[-1][1], day)
-
-    rows = (
-        db.query(
-            Transaction.date,
-            Transaction.amount,
-            Transaction.type,
-            Transaction.is_savings_related,
-        )
-        .filter(
-            Transaction.date >= overall_start,
-            Transaction.date <= overall_end,
-            Transaction.deleted_at.is_(None),
-        )
-        .all()
-    )
-
     results = []
     for year_num, month_num in periods:
         start, end = fiscal_window_ym(year_num, month_num, day)
-        income = 0.0
-        expense = 0.0
-        savings = 0.0
-        for r in rows:
-            if not (start <= r.date <= end):
-                continue
-            amt = float(r.amount)
-            if r.type == TransactionType.INCOME and not r.is_savings_related:
-                income += amt
-            elif r.type == TransactionType.EXPENSE and not r.is_savings_related:
-                expense += amt
-            elif r.type == TransactionType.EXPENSE and r.is_savings_related:
-                savings += amt
+        row = (
+            db.query(
+                func.sum(
+                    case(
+                        (
+                            and_(
+                                Transaction.type == TransactionType.INCOME,
+                                Transaction.is_savings_related == False,  # noqa: E712
+                            ),
+                            Transaction.amount,
+                        ),
+                        else_=0,
+                    )
+                ).label("income"),
+                func.sum(
+                    case(
+                        (
+                            and_(
+                                Transaction.type == TransactionType.EXPENSE,
+                                Transaction.is_savings_related == False,  # noqa: E712
+                            ),
+                            Transaction.amount,
+                        ),
+                        else_=0,
+                    )
+                ).label("expense"),
+                func.sum(
+                    case(
+                        (
+                            and_(
+                                Transaction.type == TransactionType.EXPENSE,
+                                Transaction.is_savings_related == True,  # noqa: E712
+                            ),
+                            Transaction.amount,
+                        ),
+                        else_=0,
+                    )
+                ).label("savings"),
+            )
+            .filter(
+                Transaction.date >= start,
+                Transaction.date <= end,
+                Transaction.deleted_at.is_(None),
+            )
+            .one()
+        )
+        income = float(row.income or 0)
+        expense = float(row.expense or 0)
+        savings = float(row.savings or 0)
         results.append(
             {
                 "month": date(year_num, month_num, 1).strftime("%b %Y"),
@@ -188,24 +206,6 @@ def get_wealth_building_trend(db: Session = Depends(get_db)):
     cur_year, cur_month = current_period_ym(today, day)
     periods = [shift_period_ym(cur_year, cur_month, -i) for i in range(5, -1, -1)]
 
-    overall_start, _ = fiscal_window_ym(periods[0][0], periods[0][1], day)
-    _, overall_end = fiscal_window_ym(periods[-1][0], periods[-1][1], day)
-
-    rows = (
-        db.query(
-            Transaction.date,
-            Transaction.amount,
-            Transaction.type,
-            Transaction.category_id,
-        )
-        .filter(
-            Transaction.date >= overall_start,
-            Transaction.date <= overall_end,
-            Transaction.deleted_at.is_(None),
-        )
-        .all()
-    )
-
     kpi_ids = get_kpi_role_category_ids(db)
     tk_set = set(kpi_ids["liquid_savings"])
     bds_set = set(kpi_ids["real_estate"])
@@ -213,20 +213,49 @@ def get_wealth_building_trend(db: Session = Depends(get_db)):
     results = []
     for year_num, month_num in periods:
         start, end = fiscal_window_ym(year_num, month_num, day)
-        income = 0.0
-        tiet_kiem = 0.0
-        bds = 0.0
-        for r in rows:
-            if not (start <= r.date <= end):
-                continue
-            amt = float(r.amount)
-            if r.type == TransactionType.INCOME:
-                income += amt
-            elif r.type == TransactionType.EXPENSE:
-                if r.category_id in tk_set:
-                    tiet_kiem += amt
-                if r.category_id in bds_set:
-                    bds += amt
+        row = (
+            db.query(
+                func.sum(
+                    case(
+                        (Transaction.type == TransactionType.INCOME, Transaction.amount),
+                        else_=0,
+                    )
+                ).label("income"),
+                func.sum(
+                    case(
+                        (
+                            and_(
+                                Transaction.type == TransactionType.EXPENSE,
+                                Transaction.category_id.in_(tk_set) if tk_set else False,
+                            ),
+                            Transaction.amount,
+                        ),
+                        else_=0,
+                    )
+                ).label("tiet_kiem"),
+                func.sum(
+                    case(
+                        (
+                            and_(
+                                Transaction.type == TransactionType.EXPENSE,
+                                Transaction.category_id.in_(bds_set) if bds_set else False,
+                            ),
+                            Transaction.amount,
+                        ),
+                        else_=0,
+                    )
+                ).label("bds"),
+            )
+            .filter(
+                Transaction.date >= start,
+                Transaction.date <= end,
+                Transaction.deleted_at.is_(None),
+            )
+            .one()
+        )
+        income = float(row.income or 0)
+        tiet_kiem = float(row.tiet_kiem or 0)
+        bds = float(row.bds or 0)
         total = tiet_kiem + bds
         results.append(
             {
