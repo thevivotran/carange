@@ -4,7 +4,13 @@ import pytest
 
 from app.services.dashboard_layout import (
     DEFAULT_PRESET,
+    NAV_ITEM_DESCRIPTIONS,
+    NAV_ITEM_LABELS,
     PRESETS,
+    SECTION_DESCRIPTIONS,
+    SECTION_LABELS,
+    TOGGLEABLE_NAV_ITEMS,
+    TOGGLEABLE_SECTIONS,
     apply_dashboard_preset,
     get_dashboard_preset,
     get_user_sections,
@@ -12,6 +18,18 @@ from app.services.dashboard_layout import (
     match_dashboard_preset,
     set_user_sections,
 )
+
+
+def test_forecast_nav_item_registered():
+    assert "forecast" in TOGGLEABLE_NAV_ITEMS
+    assert "forecast" in NAV_ITEM_LABELS
+    assert "forecast" in NAV_ITEM_DESCRIPTIONS
+
+
+def test_cash_outlook_section_registered():
+    assert "cash_outlook" in TOGGLEABLE_SECTIONS
+    assert "cash_outlook" in SECTION_LABELS
+    assert "cash_outlook" in SECTION_DESCRIPTIONS
 
 
 def test_default_household_preset_is_full(db_session):

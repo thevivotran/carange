@@ -24,6 +24,7 @@ from app.routers import rules as rules_router
 from app.routers import payees as payees_router
 from app.routers import settings as settings_router
 from app.routers import profiles as profiles_router
+from app.routers import forecast as forecast_router
 from app.routers.dashboard import get_dashboard_page_data
 from app.middleware import ProfileMiddleware
 from app.services.settings_service import get_setting
@@ -127,6 +128,7 @@ app.include_router(rules_router.router, prefix="/api/rules")
 app.include_router(payees_router.router, prefix="/api/payees")
 app.include_router(settings_router.router, prefix="/settings")
 app.include_router(profiles_router.router, prefix="/profiles")
+app.include_router(forecast_router.router, prefix="/api/forecast")
 
 # Fragment routers (HTML partials for HTMX)
 app.include_router(frag_transactions.router, prefix="/fragments/transactions", tags=["fragments"])
@@ -201,6 +203,11 @@ async def assets_page(request: Request, db: Session = Depends(get_db)):
 @app.get("/projects", response_class=HTMLResponse)
 async def projects_page(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request, "projects/list.html", {"active_menu": "projects"})
+
+
+@app.get("/forecast", response_class=HTMLResponse)
+async def forecast_page(request: Request, db: Session = Depends(get_db)):
+    return templates.TemplateResponse(request, "forecast/index.html", {"active_menu": "forecast"})
 
 
 @app.get("/templates", response_class=HTMLResponse)

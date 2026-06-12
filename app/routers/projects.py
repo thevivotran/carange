@@ -9,6 +9,7 @@ from datetime import date
 from app.models.database import (
     get_db,
     FinancialProject,
+    PaymentStatus,
     ProjectStatus,
     ProjectType,
     SavingsBundle,
@@ -201,6 +202,44 @@ def create_payment(project_id: int, payment: ProjectPaymentCreate, db: Session =
         return project_service.create_payment(db, project, payment)
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to create payment")
+
+
+@router.get("/{project_id}/payments/match", response_model=Optional[ProjectPaymentSchema])
+def match_payment(
+    project_id: int,
+    amount: float,
+    date: Optional[date] = None,
+    db: Session = Depends(get_db),
+):
+    """Find the nearest PENDING payment of this project matching amount (and date when given)."""
+    project = db.query(FinancialProject).filter(FinancialProject.id == project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    pending = (
+        db.query(ProjectPayment)
+        .filter(
+            ProjectPayment.project_id == project_id,
+            ProjectPayment.status == PaymentStatus.PENDING,
+        )
+        .all()
+    )
+
+    tolerance = abs(amount) * 0.02
+    candidates = [p for p in pending if abs(float(p.amount) - amount) <= tolerance]
+
+    if date is not None:
+        candidates = [p for p in candidates if p.due_date is not None and abs((p.due_date - date).days) <= 7]
+
+    if not candidates:
+        return None
+
+    if date is not None:
+        candidates.sort(key=lambda p: abs((p.due_date - date).days))
+    else:
+        candidates.sort(key=lambda p: abs(float(p.amount) - amount))
+
+    return candidates[0]
 
 
 @router.patch("/{project_id}/payments/{payment_id}", response_model=ProjectPaymentSchema)

@@ -14,6 +14,7 @@ from app.models.database import (
     TransactionType,
     SavingsBundle,
     SavingsStatus,
+    PaymentStatus,
     ProjectPayment,
     FinancialProject,
 )
@@ -22,8 +23,9 @@ from app.models.schemas import (
     TransactionCreate,
     TransactionUpdate,
     TransactionAuditLogEntry,
+    ProjectPayment as ProjectPaymentSchema,
 )
-from app.services import transaction_service
+from app.services import transaction_service, project_service
 from app.services.dashboard_service import invalidate_dashboard_cache
 from app.services.fiscal_period import current_period_ym, fiscal_window_ym, get_month_start_day
 from app.notify.telegram import send_personal_advance_ping
@@ -141,6 +143,26 @@ def get_transaction_history(transaction_id: int, db: Session = Depends(get_db)):
         .order_by(TransactionAuditLog.changed_at.desc())
         .all()
     )
+
+
+@router.post("/{transaction_id}/settle-payment/{payment_id}", response_model=ProjectPaymentSchema)
+def settle_payment(transaction_id: int, payment_id: int, db: Session = Depends(get_db)):
+    """Link an existing transaction to a PENDING project payment, marking it PAID."""
+    tx = db.query(Transaction).filter(Transaction.id == transaction_id, Transaction.deleted_at.is_(None)).first()
+    if not tx:
+        raise HTTPException(status_code=404, detail="Transaction not found")
+
+    payment = db.query(ProjectPayment).filter(ProjectPayment.id == payment_id).first()
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    if payment.status == PaymentStatus.PAID:
+        raise HTTPException(status_code=400, detail="Payment is already paid")
+
+    project = db.query(FinancialProject).filter(FinancialProject.id == payment.project_id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    return project_service.settle_payment_from_transaction(db, project, payment, tx)
 
 
 @router.get("/{transaction_id}", response_model=TransactionSchema)

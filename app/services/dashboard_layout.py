@@ -12,7 +12,9 @@ DEFAULT_NAV_PRESET = "full"
 # always renders — those are the "can't be disabled" anchors every user needs.
 PRESETS: dict[str, frozenset[str]] = {
     "simple": frozenset(),
-    "standard": frozenset({"kpi_extra", "cash_flow", "budget_snapshot", "active_projects", "savings_goals"}),
+    "standard": frozenset(
+        {"kpi_extra", "cash_flow", "budget_snapshot", "active_projects", "savings_goals", "cash_outlook"}
+    ),
     "full": frozenset(
         {
             "kpi_extra",
@@ -22,6 +24,7 @@ PRESETS: dict[str, frozenset[str]] = {
             "savings_goals",
             "wealth_building",
             "stress_test",
+            "cash_outlook",
         }
     ),
 }
@@ -49,6 +52,7 @@ TOGGLEABLE_SECTIONS: tuple[str, ...] = (
     "savings_goals",
     "wealth_building",
     "stress_test",
+    "cash_outlook",
 )
 
 SECTION_LABELS = {
@@ -59,6 +63,7 @@ SECTION_LABELS = {
     "savings_goals": "Savings Goals",
     "wealth_building": "Wealth Building Analysis",
     "stress_test": "One-Income Stress Test",
+    "cash_outlook": "Cash Outlook",
 }
 
 SECTION_DESCRIPTIONS = {
@@ -69,6 +74,7 @@ SECTION_DESCRIPTIONS = {
     "savings_goals": "Progress cards for active savings goals.",
     "wealth_building": "Collapsible deep-dive into wealth-building spend.",
     "stress_test": "What-if analysis of living on a single income.",
+    "cash_outlook": "Next 30-day net and projected low point.",
 }
 
 
@@ -98,8 +104,8 @@ NAV_CORE = frozenset({"dashboard", "transactions", "budget", "savings", "setting
 # wants a clutter-free dashboard may still want quick nav access to Projects).
 NAV_PRESETS: dict[str, frozenset[str]] = {
     "simple": frozenset(),
-    "standard": frozenset({"import", "pulse", "review", "projects"}),
-    "full": frozenset({"import", "pulse", "review", "projects", "assets", "notes"}),
+    "standard": frozenset({"import", "pulse", "review", "projects", "forecast"}),
+    "full": frozenset({"import", "pulse", "review", "projects", "assets", "notes", "forecast"}),
 }
 
 NAV_PRESET_LABELS = {
@@ -116,7 +122,7 @@ NAV_PRESET_DESCRIPTIONS = {
 
 # Canonical, ordered list of nav items a profile can toggle. Must stay in sync
 # with the {% if '<key>' in visible_nav_items %} blocks in base.html.
-TOGGLEABLE_NAV_ITEMS: tuple[str, ...] = ("import", "pulse", "review", "projects", "assets", "notes")
+TOGGLEABLE_NAV_ITEMS: tuple[str, ...] = ("import", "pulse", "review", "projects", "assets", "notes", "forecast")
 
 NAV_ITEM_LABELS = {
     "import": "Import",
@@ -125,6 +131,7 @@ NAV_ITEM_LABELS = {
     "projects": "Projects",
     "assets": "Assets",
     "notes": "IOUs & Notes",
+    "forecast": "Forecast",
 }
 
 NAV_ITEM_DESCRIPTIONS = {
@@ -134,6 +141,7 @@ NAV_ITEM_DESCRIPTIONS = {
     "projects": "Financial projects with payment schedules.",
     "assets": "Gold, currency, and other non-cash holdings.",
     "notes": "IOUs and freeform money notes.",
+    "forecast": "Projected cash balance over the next 90 days.",
 }
 
 

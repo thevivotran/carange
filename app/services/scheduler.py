@@ -10,21 +10,14 @@ Runs as a daemon thread started from main.py lifespan. Each run:
 import logging
 import threading
 import time
-from datetime import date, timedelta
-from dateutil.relativedelta import relativedelta
+from datetime import date
 
 from sqlalchemy.orm import Session
 
 from app.models.database import SessionLocal, Transaction, TransactionTemplate
+from app.services.cadence import CADENCE_DELTA
 
 log = logging.getLogger("app.scheduler")
-
-_CADENCE_DELTA = {
-    "daily": lambda d: d + timedelta(days=1),
-    "weekly": lambda d: d + timedelta(weeks=1),
-    "monthly": lambda d: d + relativedelta(months=1),
-    "yearly": lambda d: d + relativedelta(years=1),
-}
 
 _CHECK_INTERVAL_SECONDS = 3600  # wake up every hour; actual work runs once per day
 
@@ -65,7 +58,7 @@ def _create_from_template(db: Session, tmpl: TransactionTemplate, today: date) -
 
     Returns True when a transaction was created, False when skipped.
     """
-    advance_fn = _CADENCE_DELTA.get(tmpl.cadence)
+    advance_fn = CADENCE_DELTA.get(tmpl.cadence)
     if advance_fn is None:
         log.warning("Scheduler: unknown cadence %r for template %d — skipping", tmpl.cadence, tmpl.id)
         return False

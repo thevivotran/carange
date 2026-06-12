@@ -93,6 +93,24 @@
     </form>
   </div>
 
+  <!-- ── Cash buffer ──────────────────────────────────────────── -->
+  <div class="cg-card rounded-2xl p-6 mb-4">
+    <h3 class="font-semibold mb-1">Cash buffer</h3>
+    <p class="text-xs text-muted mb-5">The forecast warns of a shortfall when your projected balance dips below this amount.</p>
+    <form hx-post="/settings/forecast-buffer" hx-target="#forecast-buffer-status" hx-swap="innerHTML">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Minimum balance</label>
+        <input name="forecast_buffer" type="number" min="0" step="any"
+               value="{{ forecast_buffer }}"
+               class="w-32 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+      </div>
+      <div class="flex items-center gap-4 mt-6">
+        <button type="submit" class="px-5 py-2 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-brand-hover transition">Save</button>
+        <span id="forecast-buffer-status"></span>
+      </div>
+    </form>
+  </div>
+
   <!-- ── Pay cycle ────────────────────────────────────────────── -->
   <div class="cg-card rounded-2xl p-6 mb-4">
     <h3 class="font-semibold mb-1">Pay cycle</h3>
