@@ -282,11 +282,10 @@ def _txn_ns(t) -> SimpleNamespace:
 
 
 def get_cash_on_hand(db: Session) -> float:
-    """All-time non-savings income minus all-time expense (soft-deleted excluded).
+    """All-time income minus all-time expense (soft-deleted excluded).
 
     The single figure the cash-flow forecast needs as its starting balance,
-    computed with one aggregate query instead of the full dashboard pass. Mirrors
-    the `total_income_all - total_expense_all` definition used in get_dashboard_data.
+    computed with one aggregate query instead of the full dashboard pass.
     """
     row = db.query(
         func.sum(
@@ -294,7 +293,6 @@ def get_cash_on_hand(db: Session) -> float:
                 (
                     and_(
                         Transaction.type == TransactionType.INCOME,
-                        Transaction.is_savings_related == False,  # noqa: E712
                         Transaction.deleted_at.is_(None),
                     ),
                     Transaction.amount,
