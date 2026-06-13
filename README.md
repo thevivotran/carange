@@ -42,7 +42,7 @@ notifications, and more).
 ┌────────────────────────────────────────────────────────┐
 │  Browser  ←→  FastAPI app  (Jinja2 + HTMX + Tailwind) │
 │                    │                                    │
-│              SQLite (WAL)  ←→  OCR Worker              │
+│              PostgreSQL    ←→  OCR Worker              │
 │                    │                 (PaddleOCR/Ollama) │
 │                    └─────────── Email Worker (IMAP)    │
 └────────────────────────────────────────────────────────┘
@@ -54,7 +54,7 @@ notifications, and more).
 | `carange-ocr-worker` | `ghcr.io/thevivotran/carange-ocr-worker` | OCR import pipeline ([details](ocr_worker/README.md)) |
 | `carange-email-worker` | `ghcr.io/thevivotran/carange-email-worker` | Email ingestion pipeline ([details](email_worker/README.md)) |
 
-**Stack:** FastAPI · SQLAlchemy · Pydantic v2 · SQLite (WAL) · Jinja2 · HTMX · Alpine.js ·
+**Stack:** FastAPI · SQLAlchemy · Pydantic v2 · PostgreSQL · Jinja2 · HTMX · Alpine.js ·
 Tailwind CSS · Chart.js · Font Awesome · PaddleOCR · Ollama · Telegram Bot API
 
 ---
