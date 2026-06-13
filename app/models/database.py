@@ -15,6 +15,7 @@ from sqlalchemy import (
     Text,
     Index,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import declarative_base, deferred, sessionmaker, relationship
 from sqlalchemy import types as sa_types
@@ -218,6 +219,7 @@ class Transaction(Base):
             "type",
             "is_savings_related",
             "category_id",
+            postgresql_where=text("deleted_at IS NULL"),
         ),
     )
 
