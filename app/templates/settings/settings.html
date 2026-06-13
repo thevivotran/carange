@@ -255,11 +255,25 @@
                      class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                      placeholder="Numeric chat or group ID">
             </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">App URL</label>
+              <input name="app_url" type="text" value="{{ app_url }}"
+                     class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
+                     placeholder="http://your-server:6868">
+              <p class="text-xs text-muted mt-1">Optional — if set, notifications include clickable links back to this app.</p>
+            </div>
           </div>
           <div class="flex items-center gap-4 mt-5">
             <button type="submit"
                     class="px-5 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition">
               Save
+            </button>
+            <button type="button"
+                    hx-post="/settings/telegram/test"
+                    hx-target="#telegram-status"
+                    hx-swap="innerHTML"
+                    class="px-5 py-2 rounded-xl border border-gray-300 text-sm font-semibold hover:bg-gray-50 transition">
+              Send test message
             </button>
             <span id="telegram-status"></span>
           </div>
