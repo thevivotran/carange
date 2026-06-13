@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from sqlalchemy import func, case, and_
+from sqlalchemy import func, text
 from datetime import date
 from typing import Optional
 
@@ -79,59 +79,48 @@ def get_monthly_trend(db: Session = Depends(get_db)):
     today = date.today()
     cur_year, cur_month = current_period_ym(today, day)
     periods = [shift_period_ym(cur_year, cur_month, -i) for i in range(11, -1, -1)]
+    windows = [fiscal_window_ym(year_num, month_num, day) for year_num, month_num in periods]
+
+    values_sql = ", ".join(f"(:idx{i}, :start{i}, :end{i})" for i in range(len(windows)))
+    params = {}
+    for i, (start, end) in enumerate(windows):
+        params[f"idx{i}"] = i
+        params[f"start{i}"] = start
+        params[f"end{i}"] = end
+
+    rows = (
+        db.execute(
+            text(f"""
+            WITH period_bounds (idx, start_date, end_date) AS (
+                VALUES {values_sql}
+            )
+            SELECT
+                pb.idx,
+                COALESCE(SUM(CASE WHEN t.type = 'income'
+                    AND t.is_savings_related = false THEN t.amount ELSE 0 END), 0) AS income,
+                COALESCE(SUM(CASE WHEN t.type = 'expense'
+                    AND t.is_savings_related = false THEN t.amount ELSE 0 END), 0) AS expense,
+                COALESCE(SUM(CASE WHEN t.type = 'expense'
+                    AND t.is_savings_related = true THEN t.amount ELSE 0 END), 0) AS savings
+            FROM period_bounds pb
+            LEFT JOIN transactions t
+                ON t.date BETWEEN pb.start_date AND pb.end_date
+                AND t.deleted_at IS NULL
+            GROUP BY pb.idx
+        """),
+            params,
+        )
+        .mappings()
+        .fetchall()
+    )
+    by_idx = {r["idx"]: r for r in rows}
 
     results = []
-    for year_num, month_num in periods:
-        start, end = fiscal_window_ym(year_num, month_num, day)
-        row = (
-            db.query(
-                func.sum(
-                    case(
-                        (
-                            and_(
-                                Transaction.type == TransactionType.INCOME,
-                                Transaction.is_savings_related == False,  # noqa: E712
-                            ),
-                            Transaction.amount,
-                        ),
-                        else_=0,
-                    )
-                ).label("income"),
-                func.sum(
-                    case(
-                        (
-                            and_(
-                                Transaction.type == TransactionType.EXPENSE,
-                                Transaction.is_savings_related == False,  # noqa: E712
-                            ),
-                            Transaction.amount,
-                        ),
-                        else_=0,
-                    )
-                ).label("expense"),
-                func.sum(
-                    case(
-                        (
-                            and_(
-                                Transaction.type == TransactionType.EXPENSE,
-                                Transaction.is_savings_related == True,  # noqa: E712
-                            ),
-                            Transaction.amount,
-                        ),
-                        else_=0,
-                    )
-                ).label("savings"),
-            )
-            .filter(
-                Transaction.date >= start,
-                Transaction.date <= end,
-                Transaction.deleted_at.is_(None),
-            )
-            .one()
-        )
-        income = float(row.income or 0)
-        expense = float(row.expense or 0)
-        savings = float(row.savings or 0)
+    for i, (year_num, month_num) in enumerate(periods):
+        row = by_idx.get(i)
+        income = float(row["income"]) if row else 0.0
+        expense = float(row["expense"]) if row else 0.0
+        savings = float(row["savings"]) if row else 0.0
         results.append(
             {
                 "month": date(year_num, month_num, 1).strftime("%b %Y"),
@@ -205,57 +194,51 @@ def get_wealth_building_trend(db: Session = Depends(get_db)):
     today = date.today()
     cur_year, cur_month = current_period_ym(today, day)
     periods = [shift_period_ym(cur_year, cur_month, -i) for i in range(5, -1, -1)]
+    windows = [fiscal_window_ym(year_num, month_num, day) for year_num, month_num in periods]
 
     kpi_ids = get_kpi_role_category_ids(db)
     tk_set = set(kpi_ids["liquid_savings"])
     bds_set = set(kpi_ids["real_estate"])
 
-    results = []
-    for year_num, month_num in periods:
-        start, end = fiscal_window_ym(year_num, month_num, day)
-        row = (
-            db.query(
-                func.sum(
-                    case(
-                        (Transaction.type == TransactionType.INCOME, Transaction.amount),
-                        else_=0,
-                    )
-                ).label("income"),
-                func.sum(
-                    case(
-                        (
-                            and_(
-                                Transaction.type == TransactionType.EXPENSE,
-                                Transaction.category_id.in_(tk_set) if tk_set else False,
-                            ),
-                            Transaction.amount,
-                        ),
-                        else_=0,
-                    )
-                ).label("tiet_kiem"),
-                func.sum(
-                    case(
-                        (
-                            and_(
-                                Transaction.type == TransactionType.EXPENSE,
-                                Transaction.category_id.in_(bds_set) if bds_set else False,
-                            ),
-                            Transaction.amount,
-                        ),
-                        else_=0,
-                    )
-                ).label("bds"),
+    values_sql = ", ".join(f"(:idx{i}, :start{i}, :end{i})" for i in range(len(windows)))
+    params = {"tk_ids": list(tk_set) or [-1], "bds_ids": list(bds_set) or [-1]}
+    for i, (start, end) in enumerate(windows):
+        params[f"idx{i}"] = i
+        params[f"start{i}"] = start
+        params[f"end{i}"] = end
+
+    rows = (
+        db.execute(
+            text(f"""
+            WITH period_bounds (idx, start_date, end_date) AS (
+                VALUES {values_sql}
             )
-            .filter(
-                Transaction.date >= start,
-                Transaction.date <= end,
-                Transaction.deleted_at.is_(None),
-            )
-            .one()
+            SELECT
+                pb.idx,
+                COALESCE(SUM(CASE WHEN t.type = 'income' THEN t.amount ELSE 0 END), 0) AS income,
+                COALESCE(SUM(CASE WHEN t.type = 'expense'
+                    AND t.category_id = ANY(:tk_ids) THEN t.amount ELSE 0 END), 0) AS tiet_kiem,
+                COALESCE(SUM(CASE WHEN t.type = 'expense'
+                    AND t.category_id = ANY(:bds_ids) THEN t.amount ELSE 0 END), 0) AS bds
+            FROM period_bounds pb
+            LEFT JOIN transactions t
+                ON t.date BETWEEN pb.start_date AND pb.end_date
+                AND t.deleted_at IS NULL
+            GROUP BY pb.idx
+        """),
+            params,
         )
-        income = float(row.income or 0)
-        tiet_kiem = float(row.tiet_kiem or 0)
-        bds = float(row.bds or 0)
+        .mappings()
+        .fetchall()
+    )
+    by_idx = {r["idx"]: r for r in rows}
+
+    results = []
+    for i, (year_num, month_num) in enumerate(periods):
+        row = by_idx.get(i)
+        income = float(row["income"]) if row else 0.0
+        tiet_kiem = float(row["tiet_kiem"]) if row else 0.0
+        bds = float(row["bds"]) if row else 0.0
         total = tiet_kiem + bds
         results.append(
             {
