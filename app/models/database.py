@@ -210,6 +210,8 @@ class Transaction(Base):
         Index("ix_transactions_import_job_id", "import_job_id"),
         Index("ix_transactions_needs_review", "needs_review"),
         Index("ix_transactions_is_savings_related", "is_savings_related"),
+        Index("ix_transactions_project_id", "project_id"),
+        Index("ix_transactions_savings_bundle_id", "savings_bundle_id"),
         Index(
             "ix_transactions_date_type_savings_category",
             "date",
@@ -571,33 +573,17 @@ class PeriodRollup(Base):
 
 # Database configuration
 import os
-from sqlalchemy import event
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./carange.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://carange:carange@localhost:5432/carange")
 
-_is_sqlite = DATABASE_URL.startswith("sqlite")
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False} if _is_sqlite else {},
-    pool_pre_ping=not _is_sqlite,  # reconnect silently after postgres restarts
-    **({} if _is_sqlite else {"pool_size": 3, "max_overflow": 7, "pool_timeout": 30, "pool_recycle": 1800}),
+    pool_pre_ping=True,  # reconnect silently after postgres restarts
+    pool_size=3,
+    max_overflow=7,
+    pool_timeout=30,
+    pool_recycle=1800,
 )
-
-
-@event.listens_for(engine, "connect")
-def set_sqlite_pragma(dbapi_conn, _):
-    if not _is_sqlite:
-        return
-    cursor = dbapi_conn.cursor()
-    cursor.execute("PRAGMA journal_mode=WAL")
-    cursor.execute("PRAGMA synchronous=NORMAL")
-    cursor.execute("PRAGMA cache_size=-16000")  # 16 MB page cache
-    cursor.execute("PRAGMA temp_store=MEMORY")  # temp tables in RAM
-    cursor.execute("PRAGMA mmap_size=134217728")  # 128 MB memory-mapped I/O
-    cursor.execute("PRAGMA foreign_keys=ON")  # enforce FK constraints
-    cursor.execute("PRAGMA busy_timeout=10000")  # 10 s before "locked" error
-    cursor.close()
-
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

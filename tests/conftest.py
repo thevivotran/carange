@@ -1,8 +1,8 @@
 """Shared pytest fixtures for Carange tests.
 
-Each test function gets a fresh isolated database:
-- SQLite in-memory (default, fast) when TEST_DATABASE_URL is unset
-- Real PostgreSQL (catches dialect bugs) when TEST_DATABASE_URL=postgresql://...
+Every test runs against a real PostgreSQL database (TEST_DATABASE_URL, default
+postgresql://carange:carange@localhost:5432/carange_test). Tables are created once
+for the session; each test is isolated via TRUNCATE in `_truncate_all_tables()`.
 """
 
 import os
@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+
 
 from app.models.database import Base, get_db, Category, TransactionType, User
 from main import app
@@ -30,15 +30,11 @@ def _make_profile_ctx(*, nav_items=None, sections=None):
     )
 
 
-TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "sqlite:///:memory:")
-_is_pg = TEST_DATABASE_URL.startswith("postgresql")
+TEST_DATABASE_URL = os.getenv("TEST_DATABASE_URL", "postgresql://carange:carange@localhost:5432/carange_test")
 
-# For PostgreSQL: one engine for the whole session; tables created once.
-# For SQLite: engine is created per-test (StaticPool gives a fresh in-memory DB).
-_pg_engine = None
-if _is_pg:
-    _pg_engine = create_engine(TEST_DATABASE_URL)
-    Base.metadata.create_all(_pg_engine)
+# One engine for the whole test session; tables created once, isolated per-test via TRUNCATE.
+_pg_engine = create_engine(TEST_DATABASE_URL)
+Base.metadata.create_all(_pg_engine)
 
 
 def _truncate_all_tables() -> None:
@@ -123,45 +119,27 @@ def _clear_module_caches():
 
 @pytest.fixture()
 def db_session():
-    if not _is_pg:
-        # Fresh in-memory SQLite per test — fast, fully isolated
-        engine = create_engine(
-            TEST_DATABASE_URL,
-            connect_args={"check_same_thread": False},
-            poolclass=StaticPool,
-        )
-        Base.metadata.create_all(engine)
-        Session = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-        session = Session()
+    # Attach an after_commit hook that refreshes mv_monthly_totals so dashboard
+    # tests see fresh data immediately after inserting transactions.
+    from sqlalchemy import event as sa_event
+
+    Session = sessionmaker(autocommit=False, autoflush=False, bind=_pg_engine)
+    session = Session()
+
+    @sa_event.listens_for(session, "after_commit")
+    def _refresh_mv(s):
         try:
-            yield session
-        finally:
-            session.close()
-            Base.metadata.drop_all(engine)
-            engine.dispose()
-    else:
-        # Real PostgreSQL — catches dialect bugs; isolate via TRUNCATE after each test.
-        # Attach an after_commit hook that refreshes mv_monthly_totals so dashboard
-        # tests see fresh data immediately after inserting transactions.
-        from sqlalchemy import event as sa_event
+            with _pg_engine.connect() as conn:
+                conn.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_monthly_totals"))
+                conn.commit()
+        except Exception:
+            pass
 
-        Session = sessionmaker(autocommit=False, autoflush=False, bind=_pg_engine)
-        session = Session()
-
-        @sa_event.listens_for(session, "after_commit")
-        def _refresh_mv(s):
-            try:
-                with _pg_engine.connect() as conn:
-                    conn.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_monthly_totals"))
-                    conn.commit()
-            except Exception:
-                pass
-
-        try:
-            yield session
-        finally:
-            session.close()
-            _truncate_all_tables()
+    try:
+        yield session
+    finally:
+        session.close()
+        _truncate_all_tables()
 
 
 @pytest.fixture()
@@ -178,7 +156,7 @@ def profile_client(db_session, monkeypatch):
     """TestClient with REAL profile-cookie resolution backed by the test DB.
 
     Undoes the autouse _bypass_profile stub and points the resolver's
-    SessionLocal at the per-test session (safe: StaticPool in-memory engine).
+    SessionLocal at the per-test session.
     """
     from app.services import profiles as profiles_service
 
@@ -246,12 +224,7 @@ def bds_cat(db_session):
 
 
 def _refresh_matview_pg(db) -> None:
-    """Synchronously refresh mv_monthly_totals so dashboard tests see fresh data.
-
-    Only runs when the test DB is PostgreSQL and the MATVIEW exists.
-    """
-    if not _is_pg:
-        return
+    """Synchronously refresh mv_monthly_totals so dashboard tests see fresh data."""
     try:
         db.execute(text("REFRESH MATERIALIZED VIEW CONCURRENTLY mv_monthly_totals"))
         db.commit()

@@ -3,6 +3,7 @@
 import calendar
 from datetime import date, datetime, timedelta, timezone
 
+from sqlalchemy import case, func
 from sqlalchemy.orm import Session
 
 from app.models.database import (
@@ -17,9 +18,19 @@ from app.models.database import (
 
 def recompute_project_totals(db: Session, project: FinancialProject) -> None:
     """Recompute target_amount and current_amount from payments. Flushes; caller commits."""
-    payments = db.query(ProjectPayment).filter(ProjectPayment.project_id == project.id).all()
-    project.target_amount = sum(float(p.amount) for p in payments)
-    project.current_amount = sum(float(p.amount) for p in payments if p.status == PaymentStatus.PAID)
+    db.flush()
+    totals = (
+        db.query(
+            func.sum(ProjectPayment.amount).label("target"),
+            func.sum(case((ProjectPayment.status == PaymentStatus.PAID, ProjectPayment.amount), else_=0)).label(
+                "current"
+            ),
+        )
+        .filter(ProjectPayment.project_id == project.id)
+        .one()
+    )
+    project.target_amount = float(totals.target or 0)
+    project.current_amount = float(totals.current or 0)
     if project.current_amount > 0 and project.status == ProjectStatus.PLANNING:
         project.status = ProjectStatus.IN_PROGRESS
     db.flush()

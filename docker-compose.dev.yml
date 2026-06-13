@@ -1,6 +1,6 @@
 # Local PostgreSQL for development & migration testing only — NOT for self-hosting.
 # Run the app against it with: DATABASE_URL=postgresql://carange:carange@localhost:5432/carange
-# Self-hosters should use docker-compose.yml (SQLite) or docker-compose.pg.yml (PostgreSQL) instead.
+# Self-hosters should use docker-compose.yml instead.
 
 services:
   postgres:

@@ -14,7 +14,6 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.models.database import (
     Category,
-    DATABASE_URL,
     FinancialProject,
     OtherAsset,
     PaymentStatus,
@@ -35,7 +34,7 @@ from app.services.fiscal_period import (
 )
 from app.services.settings_service import get_setting
 
-_USE_MATVIEW = DATABASE_URL.startswith("postgresql") or DATABASE_URL.startswith("postgres")
+_USE_MATVIEW = True  # PostgreSQL is the only supported database
 
 # ── Dashboard cache ───────────────────────────────────────────────────────────
 # In-memory dict for fast within-pod serving. Cross-pod invalidation (by the
@@ -186,8 +185,6 @@ def _schedule_matview_refresh() -> None:
     Spawns a daemon thread so the caller (ingest pipeline) is never blocked.
     CONCURRENTLY means existing readers are not locked out during the refresh.
     """
-    if not _USE_MATVIEW:
-        return
 
     def _refresh():
         from app.models.database import engine
@@ -352,8 +349,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     # aggregation cost on every dashboard load instead of reading the
     # pre-aggregated matview. Acceptable at typical household transaction
     # volumes (low thousands of rows); revisit if this becomes measurably slow.
-    # Fallback: inline ORM queries when the MATVIEW is unavailable (SQLite dev).
-    use_matview = _USE_MATVIEW and day == 1
+    use_matview = day == 1
     mv_rows = _fetch_matview_rows(db) if use_matview else None
 
     if mv_rows is not None:
@@ -732,7 +728,6 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
 
     # ── Expense by category ───────────────────────────────────────────────────
     if mv_rows is not None:
-        all_cats_dict = {c.id: c for c in db.query(Category).all()}
         cat_totals: dict[int, float] = {}
         for r in mv_rows:
             if (
@@ -743,6 +738,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
             ):
                 cid = r["category_id"]
                 cat_totals[cid] = cat_totals.get(cid, 0.0) + float(r["total"] or 0)
+        all_cats_dict = {c.id: c for c in db.query(Category).filter(Category.id.in_(cat_totals.keys())).all()}
         cat_rows_sorted = sorted(cat_totals.items(), key=lambda x: -x[1])
         expense_by_category = [
             {

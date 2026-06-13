@@ -4,6 +4,7 @@ import json
 import logging
 import re
 import threading
+import time
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -18,7 +19,9 @@ _VALID_OPS = {"equals", "contains", "regex", "range", "in", "gt", "lt"}
 
 # ── Payee pattern cache ───────────────────────────────────────────────────────
 # Stores list of (payee_id, canonical_name, [compiled_regex, ...]) tuples.
+_PAYEE_CACHE_TTL = 1800.0  # 30 minutes
 _payee_cache: list[tuple[int, str, list[re.Pattern]]] | None = None
+_payee_cache_ts: float = 0.0
 _payee_cache_lock = threading.Lock()
 
 
@@ -30,9 +33,9 @@ def invalidate_payee_cache() -> None:
 
 
 def _load_payee_cache(db: Session) -> list[tuple[int, str, list[re.Pattern]]]:
-    global _payee_cache
+    global _payee_cache, _payee_cache_ts
     with _payee_cache_lock:
-        if _payee_cache is not None:
+        if _payee_cache is not None and time.monotonic() - _payee_cache_ts <= _PAYEE_CACHE_TTL:
             return _payee_cache
         payees = db.query(Payee).filter(Payee.alias_patterns.isnot(None)).all()
         compiled = []
@@ -57,6 +60,7 @@ def _load_payee_cache(db: Session) -> list[tuple[int, str, list[re.Pattern]]]:
             if rxs:
                 compiled.append((payee.id, payee.canonical_name, rxs))
         _payee_cache = compiled
+        _payee_cache_ts = time.monotonic()
         return _payee_cache
 
 

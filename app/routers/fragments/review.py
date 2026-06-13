@@ -1,7 +1,7 @@
 """HTMX fragments for the review inbox."""
 
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.database import Category, Transaction, get_db
 from app.routers.fragments._helpers import render_fragment
@@ -13,6 +13,7 @@ router = APIRouter()
 def review_list(request: Request, db: Session = Depends(get_db)):
     transactions = (
         db.query(Transaction)
+        .options(joinedload(Transaction.category))
         .filter(Transaction.needs_review == True, Transaction.deleted_at.is_(None))
         .order_by(Transaction.date.desc(), Transaction.confidence_score.asc())
         .limit(100)

@@ -38,10 +38,8 @@ from typing import Optional
 
 from imapclient import IMAPClient, SEEN
 
-from app.models.database import DATABASE_URL, EmailIngestLog, ImapFolderState, SessionLocal
-from app.models.database import engine
+from app.models.database import EmailIngestLog, ImapFolderState, SessionLocal
 from app.services.settings_service import get_setting, set_setting
-from sqlalchemy import event as sa_event
 
 log = logging.getLogger("email_worker")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
@@ -84,13 +82,6 @@ def _load_config() -> None:
             MAX_EMAIL_RETRIES = int(retries_str)
     except Exception as exc:
         log.warning("Could not load config from DB, using env vars: %s", exc)
-
-
-# SQLite write-contention timeout — only runs on SQLite connections
-@sa_event.listens_for(engine, "connect")
-def _set_busy(dbapi_conn, _):
-    if DATABASE_URL.startswith("sqlite"):
-        dbapi_conn.execute("PRAGMA busy_timeout=5000")
 
 
 def _touch_liveness():

@@ -1,12 +1,27 @@
-# Self-hosting setup — SQLite (recommended default for families).
-# No extra services to run. Clone this repo, then:
+# Self-hosting setup — PostgreSQL (the only supported database).
+#
 #   docker compose up -d
 # and open http://localhost:6868
 #
-# Prefer PostgreSQL (needed for OCR/email worker queues, MATVIEW dashboard,
-# multi-pod setups)? Use docker-compose.pg.yml instead.
+# On first run against an empty database, the app creates all tables from its
+# current models and seeds 16 default categories — no manual migration step needed.
 
 services:
+  postgres:
+    image: docker.io/postgres:16-alpine
+    environment:
+      POSTGRES_USER: carange
+      POSTGRES_PASSWORD: carange
+      POSTGRES_DB: carange
+    volumes:
+      - carange_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carange"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   app:
     build: .
     ports:
@@ -14,7 +29,7 @@ services:
     volumes:
       - carange_data:/data
     environment:
-      - DATABASE_URL=sqlite:////data/carange.db
+      - DATABASE_URL=postgresql://carange:carange@postgres:5432/carange
       - UPLOAD_DIR=/data/uploads
       # --- Optional: Telegram push notifications ---
       # - TELEGRAM_BOT_TOKEN=
@@ -22,12 +37,12 @@ services:
       # --- Optional: AI budget insights (requires a self-hosted LLM, e.g. Ollama) ---
       # - OLLAMA_URL=http://your-llm-server:11434
       # - OLLAMA_MODEL=llama3.1
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
-  # Optional OCR worker — uncomment to enable screenshot import.
-  # Requires DATABASE_URL to be reachable from the worker; SQLite over a shared
-  # volume works for single-host setups only (see docker-compose.pg.yml for
-  # multi-host queue processing).
+  # Optional OCR worker — uncomment to enable screenshot import
   # ocr_worker:
   #   build:
   #     context: .
@@ -35,11 +50,14 @@ services:
   #   volumes:
   #     - carange_data:/data
   #   environment:
-  #     - DATABASE_URL=sqlite:////data/carange.db
+  #     - DATABASE_URL=postgresql://carange:carange@postgres:5432/carange
   #     - UPLOAD_DIR=/data/uploads
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
   #   restart: unless-stopped
 
-  # Optional Email worker — uncomment to enable bank email ingestion.
+  # Optional Email worker — uncomment to enable bank email ingestion
   # email_worker:
   #   build:
   #     context: .
@@ -47,12 +65,16 @@ services:
   #   volumes:
   #     - carange_data:/data
   #   environment:
-  #     - DATABASE_URL=sqlite:////data/carange.db
+  #     - DATABASE_URL=postgresql://carange:carange@postgres:5432/carange
   #     - IMAP_HOST=imap.gmail.com
   #     - IMAP_USER=
   #     - IMAP_PASSWORD=   # Gmail App Password (requires 2FA enabled)
   #     - OLLAMA_URL=      # vLLM endpoint for the LLM fallback parser (optional)
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
   #   restart: unless-stopped
 
 volumes:
   carange_data:
+  carange_pg_data:

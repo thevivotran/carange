@@ -26,17 +26,17 @@ fmt:
 # ── Test (mirrors CI stage 2) ─────────────────────────────────────────────────
 
 .PHONY: test
-test:
+test: migrate-fresh
 	@echo "── smoke: app import ─────────────────────────────────────────────"
-	$(PYTHON) -c "from main import app; print('App startup OK')"
+	DATABASE_URL=$(PG_TEST_URL) $(PYTHON) -c "from main import app; print('App startup OK')"
 	@echo "── schema sync: ORM vs migrations ───────────────────────────────"
-	$(PYTEST) tests/test_schema_sync.py -v
-	@echo "── pytest with coverage ──────────────────────────────────────────"
-	$(PYTEST) --cov=app --cov-report=term-missing --cov-fail-under=95
+	DATABASE_URL=$(PG_TEST_URL) TEST_DATABASE_URL=$(PG_TEST_URL) $(PYTEST) tests/test_schema_sync.py -v
+	@echo "── pytest with coverage ────────────────────────────────────────────"
+	DATABASE_URL=$(PG_TEST_URL) TEST_DATABASE_URL=$(PG_TEST_URL) $(PYTEST) --cov=app --cov-report=term-missing --cov-fail-under=95
 
 .PHONY: test-fast
 test-fast:
-	$(PYTEST) -q
+	DATABASE_URL=$(PG_TEST_URL) TEST_DATABASE_URL=$(PG_TEST_URL) $(PYTEST) -q
 
 # ── Audit ─────────────────────────────────────────────────────────────────────
 
@@ -85,16 +85,12 @@ migrate-fresh: db-up
 	DATABASE_URL=$(PG_TEST_URL) .venv/bin/alembic upgrade head
 	@echo "Fresh migration against carange_test OK."
 
-.PHONY: test-pg
-test-pg: migrate-fresh
-	@echo "── full test suite against real PostgreSQL ───────────────────────"
-	DATABASE_URL=$(PG_TEST_URL) TEST_DATABASE_URL=$(PG_TEST_URL) $(PYTEST) --tb=short -q
-	@echo "── PostgreSQL test suite passed ──────────────────────────────────"
+
 
 # ── Pre-push (all CI checks except Docker build) ──────────────────────────────
 
 .PHONY: pre-push
-pre-push: lint audit test test-pg
+pre-push: lint audit test
 	@echo ""
 	@echo "All checks passed — safe to push."
 

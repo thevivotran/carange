@@ -2,7 +2,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import and_, func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.database import SavingsBundle, SavingsStatus, Transaction, get_db
 from app.routers.fragments._helpers import render_fragment
@@ -67,6 +67,7 @@ def fragment_bundle_transactions(
 ):
     txs = (
         db.query(Transaction)
+        .options(joinedload(Transaction.category))
         .filter(Transaction.savings_bundle_id == bundle_id, Transaction.deleted_at.is_(None))
         .order_by(Transaction.date.desc())
         .all()
