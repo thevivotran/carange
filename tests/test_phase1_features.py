@@ -1177,3 +1177,115 @@ def test_create_transaction_telegram_exception_does_not_crash(client):
             },
         )
         assert r.status_code in (200, 201)  # tx still created despite Telegram error
+
+
+class _SyncThread:
+    """Stand-in for threading.Thread that runs the target synchronously on start()."""
+
+    def __init__(self, target=None, args=(), daemon=None):
+        self._target, self._args = target, args
+
+    def start(self):
+        if self._target:
+            self._target(*self._args)
+
+
+def test_advance_create_suppresses_generic_ping(client):
+    """An unsettled personal advance fires only the advance ping, not the generic one."""
+    cat_id = client.post(
+        "/api/categories/", json={"name": "Adv", "type": "expense", "color": "#333", "icon": "tag"}
+    ).json()["id"]
+
+    with (
+        patch("app.services.transaction_service.threading.Thread", _SyncThread),
+        patch("app.notify.telegram.send_transaction_ping_fields") as mock_generic,
+        patch("app.routers.transactions.send_personal_advance_ping") as mock_advance,
+    ):
+        r = client.post(
+            "/api/transactions/?force=true",
+            json={
+                "date": "2026-04-03",
+                "amount": 90_000,
+                "type": "expense",
+                "category_id": cat_id,
+                "payment_method": "cash",
+                "is_advance": True,
+            },
+        )
+        assert r.status_code in (200, 201)
+        assert not mock_generic.called
+        assert mock_advance.called
+        assert mock_advance.call_args.kwargs.get("action") == "created"
+
+
+def test_settled_advance_create_still_fires_generic_ping(client):
+    """A settled advance is treated like a normal tx — generic ping fires."""
+    cat_id = client.post(
+        "/api/categories/", json={"name": "AdvS", "type": "expense", "color": "#444", "icon": "tag"}
+    ).json()["id"]
+
+    with (
+        patch("app.services.transaction_service.threading.Thread", _SyncThread),
+        patch("app.notify.telegram.send_transaction_ping_fields") as mock_generic,
+    ):
+        r = client.post(
+            "/api/transactions/?force=true",
+            json={
+                "date": "2026-04-04",
+                "amount": 90_000,
+                "type": "expense",
+                "category_id": cat_id,
+                "payment_method": "cash",
+                "is_advance": True,
+                "advance_settled": True,
+            },
+        )
+        assert r.status_code in (200, 201)
+        assert mock_generic.called
+
+
+def test_update_to_advance_fires_created_ping(client):
+    """Converting a normal tx into an unsettled advance notifies with action='created'."""
+    cat_id = client.post(
+        "/api/categories/", json={"name": "Conv", "type": "expense", "color": "#555", "icon": "tag"}
+    ).json()["id"]
+    tx_id = client.post(
+        "/api/transactions/?force=true",
+        json={
+            "date": "2026-04-05",
+            "amount": 30_000,
+            "type": "expense",
+            "category_id": cat_id,
+            "payment_method": "cash",
+        },
+    ).json()["id"]
+
+    with patch("app.routers.transactions.send_personal_advance_ping") as mock_advance:
+        r = client.put(f"/api/transactions/{tx_id}", json={"is_advance": True})
+        assert r.status_code == 200
+        assert mock_advance.called
+        assert mock_advance.call_args.kwargs.get("action") == "created"
+
+
+def test_update_existing_advance_fires_updated_ping(client):
+    """Editing an already-unsettled advance notifies with action='updated'."""
+    cat_id = client.post(
+        "/api/categories/", json={"name": "Edit", "type": "expense", "color": "#666", "icon": "tag"}
+    ).json()["id"]
+    tx_id = client.post(
+        "/api/transactions/?force=true",
+        json={
+            "date": "2026-04-06",
+            "amount": 40_000,
+            "type": "expense",
+            "category_id": cat_id,
+            "payment_method": "cash",
+            "is_advance": True,
+        },
+    ).json()["id"]
+
+    with patch("app.routers.transactions.send_personal_advance_ping") as mock_advance:
+        r = client.put(f"/api/transactions/{tx_id}", json={"description": "edited note"})
+        assert r.status_code == 200
+        assert mock_advance.called
+        assert mock_advance.call_args.kwargs.get("action") == "updated"

@@ -162,7 +162,10 @@ def create_transaction(db: Session, data: TransactionCreate) -> Transaction:
             except Exception as exc:
                 log.warning("Telegram ping failed for tx %d: %s", fields["tx_id"], exc)
 
-        threading.Thread(target=_ping, args=(_ping_fields,), daemon=True).start()
+        # Unsettled personal advances get their own dedicated ping at the router
+        # layer; suppress the generic notification so they aren't double-notified.
+        if not (db_tx.is_advance and not db_tx.advance_settled):
+            threading.Thread(target=_ping, args=(_ping_fields,), daemon=True).start()
 
         return db_tx
     except Exception:

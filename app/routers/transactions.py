@@ -242,7 +242,10 @@ def update_transaction(transaction_id: int, transaction: TransactionUpdate, db: 
     db.refresh(db_transaction)
     invalidate_dashboard_cache()
     if db_transaction.is_advance and not db_transaction.advance_settled:
-        send_personal_advance_ping(db_transaction, action="updated")
+        # "created" when this update is what turns it into an advance; "updated"
+        # when it was already an unsettled advance being edited.
+        became_advance = not before.get(AuditField.IS_ADVANCE)
+        send_personal_advance_ping(db_transaction, action="created" if became_advance else "updated")
     return db_transaction
 
 
