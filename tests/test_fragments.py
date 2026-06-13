@@ -2,6 +2,7 @@
 
 import pytest
 from datetime import date
+from unittest.mock import MagicMock, patch
 from app.models.database import Transaction, TransactionType, Category
 
 
@@ -148,11 +149,29 @@ def test_settings_email_post(client):
 def test_settings_telegram_post(client):
     r = client.post(
         "/settings/telegram",
-        data={"telegram_bot_token": "abc123", "telegram_chat_id": "456"},
+        data={"telegram_bot_token": "abc123", "telegram_chat_id": "456", "app_url": "http://example.com"},
         headers={"HX-Request": "true"},
     )
     assert r.status_code == 200
     assert "HX-Trigger" in r.headers
+
+
+def test_settings_telegram_test_not_configured(client):
+    r = client.post("/settings/telegram/test", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "HX-Trigger" in r.headers
+
+
+def test_settings_telegram_test_success(client, db_session):
+    from app.services.settings_service import set_setting
+
+    set_setting(db_session, "telegram_bot_token", "tok")
+    set_setting(db_session, "telegram_chat_id", "123")
+    with patch("app.notify.telegram.requests.post") as mock_post:
+        mock_post.return_value = MagicMock(ok=True)
+        r = client.post("/settings/telegram/test", headers={"HX-Request": "true"})
+        assert r.status_code == 200
+        assert "HX-Trigger" in r.headers
 
 
 def test_settings_ocr_post(client):

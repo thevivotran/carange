@@ -95,6 +95,22 @@ def _create_from_template(db: Session, tmpl: TransactionTemplate, today: date) -
     return True
 
 
+def _send_review_reminder(db: Session) -> None:
+    """Send a Telegram reminder once per day if the review inbox is non-empty."""
+    from app.notify import telegram as _tg
+
+    count = (
+        db.query(Transaction)
+        .filter(Transaction.needs_review == True, Transaction.deleted_at.is_(None))  # noqa: E712
+        .count()
+    )
+    if count:
+        try:
+            _tg.send_review_reminder(count, db)
+        except Exception:
+            log.exception("Scheduler: failed to send review reminder")
+
+
 def _scheduler_loop() -> None:
     """Daemon loop: wakes every hour.
 
@@ -114,6 +130,7 @@ def _scheduler_loop() -> None:
                 db: Session = SessionLocal()
                 try:
                     _run_once(db, today)
+                    _send_review_reminder(db)
                     last_run_date = today
                 finally:
                     db.close()

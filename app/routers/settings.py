@@ -115,6 +115,7 @@ def _get_all_settings(db: Session, user_id: int) -> dict:
         {
             "telegram_bot_token": os.getenv("TELEGRAM_BOT_TOKEN", ""),
             "telegram_chat_id": os.getenv("TELEGRAM_CHAT_ID", ""),
+            "app_url": os.getenv("APP_URL", ""),
         },
     )
 
@@ -342,7 +343,25 @@ async def save_telegram(request: Request, db: Session = Depends(get_db)):
     new_token = str(form.get("telegram_bot_token", "")).strip()
     if new_token:
         set_setting(db, "telegram_bot_token", new_token)
+    if "app_url" in form:
+        set_setting(db, "app_url", str(form.get("app_url", "")).strip())
     return render_fragment(request, "settings/_saved.html", {}, toast="Telegram settings saved")
+
+
+@router.post("/telegram/test")
+async def test_telegram(request: Request, db: Session = Depends(get_db)):
+    from app.notify import telegram as _tg
+
+    ok = _tg.send_message("✅ Carange test message — Telegram is configured correctly.", db)
+    if ok:
+        return render_fragment(request, "settings/_saved.html", {}, toast="Test message sent!")
+    return render_fragment(
+        request,
+        "settings/_saved.html",
+        {},
+        toast="Failed to send — check bot token and chat ID",
+        toast_type="error",
+    )
 
 
 @router.post("/ocr")

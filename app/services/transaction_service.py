@@ -145,6 +145,10 @@ def create_transaction(db: Session, data: TransactionCreate) -> Transaction:
         db.commit()
         db.refresh(db_tx)
 
+        from app.services.settings_service import get_telegram_config
+
+        _tg_cfg = get_telegram_config(db)
+
         _ping_fields = {
             "tx_id": db_tx.id,
             "amount": db_tx.amount,
@@ -153,6 +157,9 @@ def create_transaction(db: Session, data: TransactionCreate) -> Transaction:
             "description": db_tx.description or "",
             "source": db_tx.source or "manual",
             "needs_review": bool(db_tx.needs_review),
+            "bot_token": _tg_cfg["telegram_bot_token"],
+            "chat_id": _tg_cfg["telegram_chat_id"],
+            "app_url": _tg_cfg["app_url"],
         }
 
         def _ping(fields: dict) -> None:

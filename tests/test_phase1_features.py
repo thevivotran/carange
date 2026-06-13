@@ -798,114 +798,142 @@ def _make_mock_tx(needs_review=False):
     return tx
 
 
-def test_telegram_no_config_returns_false():
+def test_telegram_no_config_returns_false(db_session):
     from app.notify import telegram as tg
 
-    with patch.object(tg, "_BOT_TOKEN", ""), patch.object(tg, "_CHAT_ID", ""):
-        assert tg.send_transaction_ping(_make_mock_tx()) is False
+    assert tg.send_transaction_ping(_make_mock_tx(), db_session) is False
 
 
-def test_telegram_send_transaction_ping_success():
+def test_telegram_send_transaction_ping_success(db_session):
     from app.notify import telegram as tg
+    from app.services.settings_service import set_setting
 
-    with (
-        patch.object(tg, "_BOT_TOKEN", "fake-token"),
-        patch.object(tg, "_CHAT_ID", "12345"),
-        patch("app.notify.telegram.requests.post") as mock_post,
-    ):
+    set_setting(db_session, "telegram_bot_token", "fake-token")
+    set_setting(db_session, "telegram_chat_id", "12345")
+    with patch("app.notify.telegram.requests.post") as mock_post:
         mock_post.return_value = MagicMock(ok=True)
-        result = tg.send_transaction_ping(_make_mock_tx())
+        result = tg.send_transaction_ping(_make_mock_tx(), db_session)
         assert result is True
         assert mock_post.called
 
 
-def test_telegram_send_transaction_ping_needs_review():
+def test_telegram_send_transaction_ping_needs_review(db_session):
     from app.notify import telegram as tg
+    from app.services.settings_service import set_setting
 
-    with (
-        patch.object(tg, "_BOT_TOKEN", "fake-token"),
-        patch.object(tg, "_CHAT_ID", "12345"),
-        patch("app.notify.telegram.requests.post") as mock_post,
-    ):
+    set_setting(db_session, "telegram_bot_token", "fake-token")
+    set_setting(db_session, "telegram_chat_id", "12345")
+    with patch("app.notify.telegram.requests.post") as mock_post:
         mock_post.return_value = MagicMock(ok=True)
-        result = tg.send_transaction_ping(_make_mock_tx(needs_review=True))
+        result = tg.send_transaction_ping(_make_mock_tx(needs_review=True), db_session)
         assert result is True
         text_sent = mock_post.call_args[1]["json"]["text"]
         assert "Needs review" in text_sent
 
 
-def test_telegram_send_review_reminder_zero():
+def test_telegram_send_review_reminder_zero(db_session):
     from app.notify import telegram as tg
 
-    assert tg.send_review_reminder(0) is False
+    assert tg.send_review_reminder(0, db_session) is False
 
 
-def test_telegram_send_review_reminder_positive():
+def test_telegram_send_review_reminder_positive(db_session):
     from app.notify import telegram as tg
+    from app.services.settings_service import set_setting
 
-    with (
-        patch.object(tg, "_BOT_TOKEN", "fake-token"),
-        patch.object(tg, "_CHAT_ID", "12345"),
-        patch("app.notify.telegram.requests.post") as mock_post,
-    ):
+    set_setting(db_session, "telegram_bot_token", "fake-token")
+    set_setting(db_session, "telegram_chat_id", "12345")
+    with patch("app.notify.telegram.requests.post") as mock_post:
         mock_post.return_value = MagicMock(ok=True)
-        result = tg.send_review_reminder(3)
+        result = tg.send_review_reminder(3, db_session)
         assert result is True
 
 
-def test_telegram_send_message():
+def test_telegram_send_message(db_session):
     from app.notify import telegram as tg
+    from app.services.settings_service import set_setting
 
-    with (
-        patch.object(tg, "_BOT_TOKEN", "fake-token"),
-        patch.object(tg, "_CHAT_ID", "12345"),
-        patch("app.notify.telegram.requests.post") as mock_post,
-    ):
+    set_setting(db_session, "telegram_bot_token", "fake-token")
+    set_setting(db_session, "telegram_chat_id", "12345")
+    with patch("app.notify.telegram.requests.post") as mock_post:
         mock_post.return_value = MagicMock(ok=True)
-        result = tg.send_message("<b>Hello</b>")
+        result = tg.send_message("<b>Hello</b>", db_session)
         assert result is True
 
 
-def test_telegram_request_exception_returns_false():
+def test_telegram_request_exception_returns_false(db_session):
     import requests as req_lib
     from app.notify import telegram as tg
+    from app.services.settings_service import set_setting
 
-    with (
-        patch.object(tg, "_BOT_TOKEN", "fake-token"),
-        patch.object(tg, "_CHAT_ID", "12345"),
-        patch("app.notify.telegram.requests.post", side_effect=req_lib.RequestException("timeout")),
-    ):
-        assert tg.send_transaction_ping(_make_mock_tx()) is False
+    set_setting(db_session, "telegram_bot_token", "fake-token")
+    set_setting(db_session, "telegram_chat_id", "12345")
+    with patch("app.notify.telegram.requests.post", side_effect=req_lib.RequestException("timeout")):
+        assert tg.send_transaction_ping(_make_mock_tx(), db_session) is False
 
 
-def test_telegram_api_error_logged():
+def test_telegram_api_error_logged(db_session):
     from app.notify import telegram as tg
+    from app.services.settings_service import set_setting
 
-    with (
-        patch.object(tg, "_BOT_TOKEN", "fake-token"),
-        patch.object(tg, "_CHAT_ID", "12345"),
-        patch("app.notify.telegram.requests.post") as mock_post,
-    ):
+    set_setting(db_session, "telegram_bot_token", "fake-token")
+    set_setting(db_session, "telegram_chat_id", "12345")
+    with patch("app.notify.telegram.requests.post") as mock_post:
         mock_post.return_value = MagicMock(ok=False, status_code=400, text="Bad Request")
-        result = tg.send_transaction_ping(_make_mock_tx())
+        result = tg.send_transaction_ping(_make_mock_tx(), db_session)
         assert result is False
 
 
-def test_telegram_income_tx_shows_plus():
+def test_telegram_income_tx_shows_plus(db_session):
     from app.notify import telegram as tg
+    from app.services.settings_service import set_setting
 
     tx = _make_mock_tx()
     tx.type.value = "income"
     tx.source = "ocr"
-    with (
-        patch.object(tg, "_BOT_TOKEN", "tok"),
-        patch.object(tg, "_CHAT_ID", "c"),
-        patch("app.notify.telegram.requests.post") as mock_post,
-    ):
+    set_setting(db_session, "telegram_bot_token", "tok")
+    set_setting(db_session, "telegram_chat_id", "c")
+    with patch("app.notify.telegram.requests.post") as mock_post:
         mock_post.return_value = MagicMock(ok=True)
-        tg.send_transaction_ping(tx)
+        tg.send_transaction_ping(tx, db_session)
         text = mock_post.call_args[1]["json"]["text"]
         assert "+" in text
+
+
+def test_telegram_review_link_with_app_url(db_session):
+    from app.notify import telegram as tg
+    from app.services.settings_service import set_setting
+
+    set_setting(db_session, "telegram_bot_token", "fake-token")
+    set_setting(db_session, "telegram_chat_id", "12345")
+    set_setting(db_session, "app_url", "http://example.com")
+    with patch("app.notify.telegram.requests.post") as mock_post:
+        mock_post.return_value = MagicMock(ok=True)
+        tg.send_transaction_ping(_make_mock_tx(needs_review=True), db_session)
+        text = mock_post.call_args[1]["json"]["text"]
+        assert '<a href="http://example.com/review">' in text
+
+
+def test_telegram_review_link_without_app_url(db_session):
+    from app.notify import telegram as tg
+    from app.services.settings_service import set_setting
+
+    set_setting(db_session, "telegram_bot_token", "fake-token")
+    set_setting(db_session, "telegram_chat_id", "12345")
+    with patch("app.notify.telegram.requests.post") as mock_post:
+        mock_post.return_value = MagicMock(ok=True)
+        tg.send_transaction_ping(_make_mock_tx(needs_review=True), db_session)
+        text = mock_post.call_args[1]["json"]["text"]
+        assert "<a href" not in text
+        assert "Open the Review Inbox to confirm" in text
+
+
+def test_get_telegram_config_db_override(db_session):
+    from app.services.settings_service import get_telegram_config, set_setting
+
+    set_setting(db_session, "telegram_bot_token", "db-token")
+    cfg = get_telegram_config(db_session)
+    assert cfg["telegram_bot_token"] == "db-token"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1133,17 +1161,19 @@ def test_rules_service_invalid_action_json_skips(db_session):
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def test_create_transaction_fires_telegram_ping(client):
+def test_create_transaction_fires_telegram_ping(client, db_session):
     """Telegram ping is attempted (and silently swallowed) on every manual tx."""
+    import time
+
+    from app.services.settings_service import set_setting
+
     cat_id = client.post(
         "/api/categories/", json={"name": "Food", "type": "expense", "color": "#111", "icon": "tag"}
     ).json()["id"]
 
-    with (
-        patch("app.notify.telegram._BOT_TOKEN", "tok"),
-        patch("app.notify.telegram._CHAT_ID", "123"),
-        patch("app.notify.telegram.requests.post") as mock_post,
-    ):
+    set_setting(db_session, "telegram_bot_token", "tok")
+    set_setting(db_session, "telegram_chat_id", "123")
+    with patch("app.notify.telegram.requests.post") as mock_post:
         mock_post.return_value = MagicMock(ok=True)
         r = client.post(
             "/api/transactions/?force=true",
@@ -1156,6 +1186,10 @@ def test_create_transaction_fires_telegram_ping(client):
             },
         )
         assert r.status_code in (200, 201)
+        for _ in range(20):
+            if mock_post.called:
+                break
+            time.sleep(0.05)
         assert mock_post.called
 
 

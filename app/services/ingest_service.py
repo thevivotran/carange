@@ -108,6 +108,11 @@ def commit_ingest_batch(
     # Telegram ping — extract scalar fields now (session still open),
     # then fire each HTTP POST in a daemon thread so transaction creation
     # is never blocked by Telegram network latency or timeouts.
+    if committed:
+        from app.services.settings_service import get_telegram_config
+
+        _tg_cfg = get_telegram_config(db)
+
     for tx in committed:
         try:
             db.refresh(tx)
@@ -118,6 +123,9 @@ def commit_ingest_batch(
                 "cat_name": tx.category.name if tx.category else "?",
                 "description": tx.description,
                 "needs_review": bool(tx.needs_review),
+                "bot_token": _tg_cfg["telegram_bot_token"],
+                "chat_id": _tg_cfg["telegram_chat_id"],
+                "app_url": _tg_cfg["app_url"],
             }
             threading.Thread(target=_send_telegram_ping, args=(fields,), daemon=True).start()
         except Exception as exc:

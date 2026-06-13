@@ -62,3 +62,13 @@ def get_email_config(db: Session) -> dict[str, str]:
         "email_poll_interval": os.getenv("POLL_INTERVAL", "300"),
     }
     return get_settings_bulk(db, defaults)
+
+
+def get_telegram_config(db: Session) -> dict[str, str]:
+    """Return Telegram notification config, falling back to env vars for each key."""
+    defaults = {
+        "telegram_bot_token": os.getenv("TELEGRAM_BOT_TOKEN", ""),
+        "telegram_chat_id": os.getenv("TELEGRAM_CHAT_ID", ""),
+        "app_url": os.getenv("APP_URL", ""),
+    }
+    return get_settings_bulk(db, defaults)
