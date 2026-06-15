@@ -2,7 +2,7 @@
 # NOT included in the main carange requirements.txt to keep the app image lean.
 
 setuptools
-paddlepaddle==2.6.2
-paddleocr==2.10.0
-opencv-python-headless>=4.9.0
-pillow>=10.0.0
+paddlepaddle==3.3.1
+paddleocr==3.7.0
+opencv-python-headless>=4.13.0.92
+pillow>=12.2.0
