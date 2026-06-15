@@ -7,6 +7,7 @@ CADENCE_DELTA = {
     "daily": lambda d: d + timedelta(days=1),
     "weekly": lambda d: d + timedelta(weeks=1),
     "monthly": lambda d: d + relativedelta(months=1),
+    "quarterly": lambda d: d + relativedelta(months=3),
     "yearly": lambda d: d + relativedelta(years=1),
 }
 

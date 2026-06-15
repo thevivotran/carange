@@ -304,7 +304,7 @@ class OtherAsset(OtherAssetBase):
     model_config = ConfigDict(from_attributes=True)
 
 
-_VALID_CADENCES = {"daily", "weekly", "monthly", "yearly"}
+_VALID_CADENCES = {"daily", "weekly", "monthly", "quarterly", "yearly"}
 
 
 def _validate_cadence(v):
