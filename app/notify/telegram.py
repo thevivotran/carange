@@ -58,16 +58,16 @@ def _send(text: str, bot_token: str, chat_id: str, parse_mode: str = "HTML") -> 
 
 
 def _review_link(app_url: str) -> str:
-    """Return the 'open review inbox' line, as a link if app_url is configured."""
+    """Return the 'needs review' line, linking to the filtered transactions list if app_url is configured."""
     if app_url:
-        return f'👉 <a href="{app_url.rstrip("/")}/review">Open the Review Inbox to confirm</a>'
-    return "👉 Open the Review Inbox to confirm"
+        return f'👉 <a href="{app_url.rstrip("/")}/transactions?needs_review=true">Open transactions to review</a>'
+    return "👉 Open transactions to review"
 
 
-def _transactions_footer(app_url: str, label: str) -> str:
+def _transactions_footer(app_url: str, label: str, query: str = "") -> str:
     """Return a 'pending settlement' footer, as a link if app_url is configured."""
     if app_url:
-        return f'📌 <a href="{app_url.rstrip("/")}/transactions">{label}</a>'
+        return f'📌 <a href="{app_url.rstrip("/")}/transactions{query}">{label}</a>'
     return f"📌 {label}."
 
 
@@ -155,7 +155,7 @@ def send_personal_advance_ping(tx: Transaction, db: Session, action: str = "crea
     cat_name = tx.category.name if tx.category else "?"
     desc = tx.description or "No description"
     verb = "Created" if action == "created" else "Updated"
-    footer = _transactions_footer(cfg["app_url"], "Pending settlement — view transactions")
+    footer = _transactions_footer(cfg["app_url"], "Pending settlement — view transactions", "?advance=unsettled")
     hide = cfg.get("telegram_hide_amounts") == "true"
     text = (
         f"💳 <b>Personal advance — {_esc(verb)}</b>\n"
