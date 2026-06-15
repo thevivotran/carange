@@ -21,14 +21,20 @@
   {% set total_spent   = rows | sum(attribute='this_month_spent') %}
   {% set total_balance = rows | sum(attribute='available_balance') %}
   {% set total_effective = total_balance + total_spent %}
-  {% set spent_pct     = [total_spent / total_effective * 100, 100] | min if total_effective > 0 else 0 %}
+  {% set spent_pct     = (total_spent / total_effective * 100) if total_effective > 0 else 0 %}
   {% set has_any_own   = rows | selectattr('has_own_allocation') | list | length > 0 %}
 
   {% macro fmt_vnd(n) %}{% if n | abs >= 1000000 %}{{ "%.1f"|format(n / 1000000) }}M{% elif n | abs >= 1000 %}{{ "%.0f"|format(n / 1000) }}K{% else %}{{ n | int }}{% endif %}{% endmacro %}
 
-  {% if spent_pct >= 95 or total_balance < 0 %}{% set bar_color = '#ef4444' %}
-  {% elif spent_pct >= 75 %}{% set bar_color = '#f59e0b' %}
-  {% else %}{% set bar_color = '#22c55e' %}{% endif %}
+  {% if total_balance < 0 %}
+    {% set summary_used_pct = 100 %}
+    {% set bar_color = '#ef4444' %}
+  {% else %}
+    {% set summary_used_pct = [[spent_pct, 100] | min, 0] | max %}
+    {% if summary_used_pct >= 95 %}{% set bar_color = '#ef4444' %}
+    {% elif summary_used_pct >= 75 %}{% set bar_color = '#f59e0b' %}
+    {% else %}{% set bar_color = '#22c55e' %}{% endif %}
+  {% endif %}
 
   <!-- Inherited banner -->
   {% if not has_any_own %}
@@ -65,19 +71,27 @@
   </div>
   <div class="bg-white rounded-lg shadow px-4 py-3 mb-6">
     <div class="w-full bg-gray-100 rounded-full h-3">
-      {% set remaining_summary_pct = [[100 - spent_pct, 100] | min, 0] | max %}
-      <div class="h-3 rounded-full transition-all duration-500" style="width:{{ remaining_summary_pct | int }}%; background:{{ bar_color }}"></div>
+      <div class="h-3 rounded-full transition-all duration-500" style="width:{{ summary_used_pct | int }}%; background:{{ bar_color }}"></div>
     </div>
-    <div class="text-right text-xs text-gray-400 mt-1">{{ "%.1f"|format(100 - spent_pct) }}% of monthly budgets remaining</div>
+    {% if total_balance < 0 %}
+    <div class="text-right text-xs text-red-500 font-medium mt-1">Over budget by {{ total_balance | abs | currency }}</div>
+    {% else %}
+    <div class="text-right text-xs text-gray-400 mt-1">{{ "%.1f"|format(100 - summary_used_pct) }}% of monthly budgets remaining</div>
+    {% endif %}
   </div>
 
   <!-- Category cards grid -->
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
     {% for r in rows %}
-    {% set remaining_pct = [[100 - r.cumulative_pct, 100] | min, 0] | max %}
-    {% if r.available_balance < 0 or r.cumulative_pct >= 95 %}{% set color = '#ef4444' %}
-    {% elif r.cumulative_pct >= 75 %}{% set color = '#f59e0b' %}
-    {% else %}{% set color = '#22c55e' %}{% endif %}
+    {% if r.available_balance < 0 %}
+      {% set used_pct = 100 %}
+      {% set color = '#ef4444' %}
+    {% else %}
+      {% set used_pct = [[r.cumulative_pct, 100] | min, 0] | max %}
+      {% if used_pct >= 95 %}{% set color = '#ef4444' %}
+      {% elif used_pct >= 75 %}{% set color = '#f59e0b' %}
+      {% else %}{% set color = '#22c55e' %}{% endif %}
+    {% endif %}
     {% set rollover = r.cumulative_allocated - r.monthly_allocation - (r.cumulative_spent - r.this_month_spent) %}
     <div class="cat-card">
       <div class="flex items-center justify-between mb-2 gap-2">
@@ -100,7 +114,7 @@
         </div>
       </div>
       <div class="progress-bg">
-        <div class="progress-bar" style="width:{{ remaining_pct | int }}%; background:{{ color }}"></div>
+        <div class="progress-bar" style="width:{{ used_pct | int }}%; background:{{ color }}"></div>
       </div>
       <div class="flex justify-between text-xs text-gray-400 mt-1">
         <span>
@@ -114,7 +128,7 @@
             {{ fmt_vnd(r.monthly_allocation) }}/month
           {% endif %}
         </span>
-        <span style="color:{{ color }}">{{ remaining_pct | int }}% left</span>
+        <span style="color:{{ color }}">{{ 'Over budget' if r.available_balance < 0 else (100 - used_pct) | int ~ '% left' }}</span>
       </div>
     </div>
     {% endfor %}

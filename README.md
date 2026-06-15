@@ -123,7 +123,7 @@ python main.py                     # → http://localhost:6868
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `DATABASE_URL` | `sqlite:///./carange.db` | SQLite path |
+| `DATABASE_URL` | `postgresql://carange:carange@localhost:5432/carange` | PostgreSQL connection string |
 | `UPLOAD_DIR` | `uploads` | Screenshot storage for OCR jobs |
 | `TELEGRAM_BOT_TOKEN` | — | Telegram push notifications |
 | `TELEGRAM_CHAT_ID` | — | Target chat ID for notifications |
