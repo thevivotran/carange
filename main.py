@@ -5,7 +5,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.middleware.gzip import GZipMiddleware
 from sqlalchemy.orm import Session
 from contextlib import asynccontextmanager
-from calendar import monthrange
+from datetime import date
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -266,13 +266,25 @@ async def payees_page(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/pulse", response_class=HTMLResponse)
 async def pulse_page(request: Request, db: Session = Depends(get_db)):
+    from app.services.fiscal_period import (
+        current_period_label,
+        current_period_ym,
+        day_index_in_period,
+        days_in_period,
+        get_month_start_day,
+    )
+
     data = get_dashboard_page_data(db)
     summary = data["summary"]
     today = data["today"]
 
-    _, last_day = monthrange(today.year, today.month)
-    days_remaining = last_day - today.day
-    day_pct = round(today.day / last_day * 100)
+    month_start_day = get_month_start_day(db)
+    day_index = day_index_in_period(today, month_start_day)
+    last_day = days_in_period(current_period_label(today, month_start_day), month_start_day)
+    days_remaining = last_day - day_index
+    day_pct = round(day_index / last_day * 100)
+    fiscal_year, fiscal_month = current_period_ym(today, month_start_day)
+    fiscal_month_name = date(fiscal_year, fiscal_month, 1).strftime("%B")
 
     adh = summary.get("budget_adherence_pct")
     net = summary.get("net_this_month", 0)
@@ -319,9 +331,11 @@ async def pulse_page(request: Request, db: Session = Depends(get_db)):
             "active_menu": "pulse",
             "summary": summary,
             "today": today,
+            "day_index": day_index,
             "days_remaining": days_remaining,
             "day_pct": day_pct,
             "last_day": last_day,
+            "fiscal_month_name": fiscal_month_name,
             "pulse_level": pulse_level,
             "pulse_label": pulse_label,
             "pulse_message": pulse_message,

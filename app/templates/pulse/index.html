@@ -91,10 +91,10 @@
   <div class="bg-white rounded-2xl border border-gray-100 p-4">
     <div class="flex justify-between items-center mb-2">
       <p class="text-xs uppercase tracking-widest text-gray-400 font-semibold">
-        {{ today.strftime('%B') }} Progress
+        {{ fiscal_month_name }} Progress
       </p>
       <span class="text-xs text-gray-400">
-        Day {{ today.day }} / {{ last_day }}
+        Day {{ day_index }} / {{ last_day }}
       </span>
     </div>
     <div class="w-full rounded-full h-2 mb-1.5" style="background: var(--surface-sunken)">
@@ -104,9 +104,9 @@
       {% if days_remaining == 0 %}
         Last day of the month
       {% elif days_remaining == 1 %}
-        1 day left in {{ today.strftime('%B') }}
+        1 day left in {{ fiscal_month_name }}
       {% else %}
-        {{ days_remaining }} days left in {{ today.strftime('%B') }}
+        {{ days_remaining }} days left in {{ fiscal_month_name }}
       {% endif %}
     </p>
   </div>

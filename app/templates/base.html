@@ -418,6 +418,8 @@
         /* ── Mobile bottom nav ────────────────────────────── */
         .bottom-nav-link { transition: color 0.15s; color: var(--text-muted); }
         .bottom-nav-link.active { color: var(--brand-text); }
+        /* Tap leaves :hover "stuck" on mobile, flashing an underline on the label */
+        .bottom-nav-link:hover, .bottom-nav-link:focus, .bottom-nav-link:active { text-decoration: none; }
         .dark #mobile-bottom-nav { background-color: var(--surface-card) !important; border-color: var(--border-default) !important; }
         .dark .bottom-nav-link { color: var(--text-muted); }
         .dark .bottom-nav-link.active { color: var(--brand-text); }
@@ -428,16 +430,6 @@
         @media (max-width: 767px) {
           main { padding-bottom: calc(3.5rem + max(env(safe-area-inset-bottom), 0.75rem)) !important; }
         }
-
-        /* ── Cross-document view transitions (Chrome 116+, Safari 18.2+) ──
-           Simple full-page crossfade on every same-origin navigation.
-           No element isolation — avoids root-composite "hole" artifacts. */
-        @view-transition { navigation: auto; }
-
-        ::view-transition-old(root) { animation: _vtx-out 100ms ease forwards; }
-        ::view-transition-new(root) { animation: _vtx-in  150ms ease; }
-        @keyframes _vtx-out { to   { opacity: 0; } }
-        @keyframes _vtx-in  { from { opacity: 0; } }
 
         /* ── Navigation progress bar ─────────────────────────────────────── */
         #nav-progress {
@@ -462,7 +454,19 @@
             animation: _np-run 2s ease-out forwards;
         }
     </style>
-    
+
+    <!-- ── Cross-document view transitions (Chrome 116+, Safari 18.2+) ──
+         Simple full-page crossfade on same-origin navigation. Desktop only —
+         on mobile, the bottom-nav full-page reloads produced a jarring flash. -->
+    <style media="(min-width: 768px)">
+        @view-transition { navigation: auto; }
+
+        ::view-transition-old(root) { animation: _vtx-out 100ms ease forwards; }
+        ::view-transition-new(root) { animation: _vtx-in  150ms ease; }
+        @keyframes _vtx-out { to   { opacity: 0; } }
+        @keyframes _vtx-in  { from { opacity: 0; } }
+    </style>
+
     {% block extra_css %}{% endblock %}
 
     <!-- HTMX (pinned — do not change to @latest) -->

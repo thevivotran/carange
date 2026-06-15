@@ -585,6 +585,20 @@ function _fiscalWindow(ym) {
     return [_isoLocalDate(start), _isoLocalDate(end)];
 }
 
+// "YYYY-MM" label of the fiscal period containing today. Mirrors
+// fiscal_period.current_period_ym.
+function _currentFiscalYM() {
+    const day = CARANGE_MONTH_START_DAY || 1;
+    const now = new Date();
+    const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    let y = now.getFullYear(), m = now.getMonth() + 1;
+    if (now.getDate() < Math.min(day, dim)) {
+        m -= 1;
+        if (m < 1) { m = 12; y -= 1; }
+    }
+    return `${y}-${String(m).padStart(2,'0')}`;
+}
+
 function _fmtRange(startIso, endIso) {
     const opts = { month: 'short', day: 'numeric' };
     const s = new Date(startIso + 'T00:00:00');
@@ -611,9 +625,9 @@ function _updateMonthRangeDisplay(ym, elementId) {
         _curYear  = y;
         _curMonth = m;
     } else {
-        const today = new Date();
-        _curYear  = today.getFullYear();
-        _curMonth = today.getMonth() + 1;
+        const [y, m] = _currentFiscalYM().split('-').map(Number);
+        _curYear  = y;
+        _curMonth = m;
     }
     const ym = `${_curYear}-${String(_curMonth).padStart(2,'0')}`;
     localStorage.setItem('carange-active-month', ym);
