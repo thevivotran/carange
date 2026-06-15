@@ -111,6 +111,16 @@ def _send_review_reminder(db: Session) -> None:
             log.exception("Scheduler: failed to send review reminder")
 
 
+def _send_budget_threshold_alerts(db: Session) -> None:
+    """Check budget thresholds and send Telegram alerts if crossed."""
+    from app.services.budget_alerts import check_and_send_budget_alerts
+
+    try:
+        check_and_send_budget_alerts(db)
+    except Exception:
+        log.exception("Scheduler: failed to send budget threshold alerts")
+
+
 def _scheduler_loop() -> None:
     """Daemon loop: wakes every hour.
 
@@ -131,6 +141,7 @@ def _scheduler_loop() -> None:
                 try:
                     _run_once(db, today)
                     _send_review_reminder(db)
+                    _send_budget_threshold_alerts(db)
                     last_run_date = today
                 finally:
                     db.close()

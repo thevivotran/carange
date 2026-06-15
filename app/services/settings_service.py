@@ -70,5 +70,7 @@ def get_telegram_config(db: Session) -> dict[str, str]:
         "telegram_bot_token": os.getenv("TELEGRAM_BOT_TOKEN", ""),
         "telegram_chat_id": os.getenv("TELEGRAM_CHAT_ID", ""),
         "app_url": os.getenv("APP_URL", ""),
+        "telegram_hide_amounts": os.getenv("TELEGRAM_HIDE_AMOUNTS", "false"),
+        "telegram_budget_alerts_enabled": os.getenv("TELEGRAM_BUDGET_ALERTS_ENABLED", "true"),
     }
     return get_settings_bulk(db, defaults)

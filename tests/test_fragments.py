@@ -156,6 +156,33 @@ def test_settings_telegram_post(client):
     assert "HX-Trigger" in r.headers
 
 
+def test_settings_telegram_post_checkboxes_roundtrip(client):
+    r = client.post(
+        "/settings/telegram",
+        data={
+            "telegram_bot_token": "abc123",
+            "telegram_chat_id": "456",
+            "app_url": "http://example.com",
+            "telegram_hide_amounts": "on",
+            "telegram_budget_alerts_enabled": "on",
+        },
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert "HX-Trigger" in r.headers
+
+    page = client.get("/settings")
+    assert page.status_code == 200
+    assert 'name="telegram_hide_amounts"' in page.text
+    assert 'name="telegram_budget_alerts_enabled"' in page.text
+    import re
+
+    hide_match = re.search(r'name="telegram_hide_amounts"[^>]*checked', page.text)
+    alerts_match = re.search(r'name="telegram_budget_alerts_enabled"[^>]*checked', page.text)
+    assert hide_match, "telegram_hide_amounts checkbox should be checked"
+    assert alerts_match, "telegram_budget_alerts_enabled checkbox should be checked"
+
+
 def test_settings_telegram_test_not_configured(client):
     r = client.post("/settings/telegram/test", headers={"HX-Request": "true"})
     assert r.status_code == 200

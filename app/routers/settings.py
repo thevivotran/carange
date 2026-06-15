@@ -116,6 +116,8 @@ def _get_all_settings(db: Session, user_id: int) -> dict:
             "telegram_bot_token": os.getenv("TELEGRAM_BOT_TOKEN", ""),
             "telegram_chat_id": os.getenv("TELEGRAM_CHAT_ID", ""),
             "app_url": os.getenv("APP_URL", ""),
+            "telegram_hide_amounts": os.getenv("TELEGRAM_HIDE_AMOUNTS", "false"),
+            "telegram_budget_alerts_enabled": os.getenv("TELEGRAM_BUDGET_ALERTS_ENABLED", "true"),
         },
     )
 
@@ -345,6 +347,8 @@ async def save_telegram(request: Request, db: Session = Depends(get_db)):
         set_setting(db, "telegram_bot_token", new_token)
     if "app_url" in form:
         set_setting(db, "app_url", str(form.get("app_url", "")).strip())
+    set_setting(db, "telegram_hide_amounts", "true" if form.get("telegram_hide_amounts") else "false")
+    set_setting(db, "telegram_budget_alerts_enabled", "true" if form.get("telegram_budget_alerts_enabled") else "false")
     return render_fragment(request, "settings/_saved.html", {}, toast="Telegram settings saved")
 
 

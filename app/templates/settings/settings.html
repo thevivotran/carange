@@ -262,6 +262,22 @@
                      placeholder="http://your-server:6868">
               <p class="text-xs text-muted mt-1">Optional — if set, notifications include clickable links back to this app.</p>
             </div>
+            <label class="flex items-start gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition has-[:checked]:border-indigo-300 has-[:checked]:bg-indigo-50 dark:has-[:checked]:border-indigo-400 dark:has-[:checked]:bg-indigo-500/20">
+              <input type="checkbox" name="telegram_hide_amounts"
+                     {% if telegram_hide_amounts == "true" %}checked{% endif %}
+                     class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-300">
+              <div class="min-w-0">
+                <p class="text-sm font-medium text-gray-800">🙈 Hide amounts behind a spoiler (tap to reveal)</p>
+              </div>
+            </label>
+            <label class="flex items-start gap-3 p-3 border rounded-xl cursor-pointer hover:bg-gray-50 transition has-[:checked]:border-indigo-300 has-[:checked]:bg-indigo-50 dark:has-[:checked]:border-indigo-400 dark:has-[:checked]:bg-indigo-500/20">
+              <input type="checkbox" name="telegram_budget_alerts_enabled"
+                     {% if telegram_budget_alerts_enabled == "true" %}checked{% endif %}
+                     class="mt-0.5 rounded text-indigo-600 focus:ring-indigo-300">
+              <div class="min-w-0">
+                <p class="text-sm font-medium text-gray-800">🚨 Send budget threshold alerts at 80% / 100% of category budget</p>
+              </div>
+            </label>
           </div>
           <div class="flex items-center gap-4 mt-5">
             <button type="submit"
