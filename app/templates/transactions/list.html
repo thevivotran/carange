@@ -1604,6 +1604,7 @@
     function restoreFilters() {
         const urlParams = new URLSearchParams(window.location.search);
         const advanceParam = urlParams.get('advance');
+        const needsReviewParam = urlParams.get('needs_review');
 
         const savedFilters = sessionStorage.getItem('transactionFilters');
         if (savedFilters) {
@@ -1637,6 +1638,12 @@
         // URL param ?advance=unsettled overrides session (from dashboard link)
         if (advanceParam === 'unsettled') {
             document.getElementById('filter-advance').value = 'unsettled';
+        }
+
+        // URL param ?needs_review=true overrides session (from Telegram links)
+        if (needsReviewParam === 'true') {
+            document.getElementById('filter-review-btn').dataset.active = 'true';
+            _updateReviewBtn();
         }
         updateFilterBadge();
     }

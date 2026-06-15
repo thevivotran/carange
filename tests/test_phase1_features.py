@@ -911,7 +911,7 @@ def test_telegram_review_link_with_app_url(db_session):
         mock_post.return_value = MagicMock(ok=True)
         tg.send_transaction_ping(_make_mock_tx(needs_review=True), db_session)
         text = mock_post.call_args[1]["json"]["text"]
-        assert '<a href="http://example.com/review">' in text
+        assert '<a href="http://example.com/transactions?needs_review=true">' in text
 
 
 def test_telegram_review_link_without_app_url(db_session):
@@ -925,7 +925,7 @@ def test_telegram_review_link_without_app_url(db_session):
         tg.send_transaction_ping(_make_mock_tx(needs_review=True), db_session)
         text = mock_post.call_args[1]["json"]["text"]
         assert "<a href" not in text
-        assert "Open the Review Inbox to confirm" in text
+        assert "Open transactions to review" in text
 
 
 def test_get_telegram_config_db_override(db_session):
