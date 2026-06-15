@@ -603,14 +603,27 @@
     // ── Month pill helpers ────────────────────────────────────────────────────
     const _TX_MONTH_NAMES = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
+    // "YYYY-MM" label of the fiscal period containing today. Mirrors
+    // fiscal_period.current_period_ym.
+    function _currentFiscalYM() {
+        const day = CARANGE_MONTH_START_DAY || 1;
+        const now = new Date();
+        const dim = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        let y = now.getFullYear(), m = now.getMonth() + 1;
+        if (now.getDate() < Math.min(day, dim)) {
+            m -= 1;
+            if (m < 1) { m = 12; y -= 1; }
+        }
+        return `${y}-${String(m).padStart(2,'0')}`;
+    }
+
     function _txCurrentYM() {
         // Derive from the active date filter if it spans a full month, else use localStorage or today
         const start = document.getElementById('filter-start-date').value;
         if (start && /^\d{4}-\d{2}-\d{2}$/.test(start)) return start.slice(0, 7);
         const stored = localStorage.getItem('carange-active-month');
         if (stored && /^\d{4}-\d{2}$/.test(stored)) return stored;
-        const now = new Date();
-        return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+        return _currentFiscalYM();
     }
 
     function _fmtTxMonth(ym) {
