@@ -336,7 +336,7 @@ class TransactionTemplate(Base):
     description = Column(Text, nullable=True)
     payment_method = Column(String(50), default="cash")
     is_active = Column(Boolean, default=True)
-    cadence = Column(String(20), nullable=True)  # daily|weekly|monthly|yearly
+    cadence = Column(String(20), nullable=True)  # daily|weekly|monthly|quarterly|yearly
     next_run_at = Column(Date, nullable=True)
     last_run_at = Column(Date, nullable=True)
     auto_approve = Column(Boolean, default=False, nullable=False, server_default="0")
