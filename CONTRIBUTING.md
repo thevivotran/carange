@@ -47,6 +47,14 @@ See the [README](README.md) for environment variables and the full local setup.
 
 New features and bug fixes should include tests. CI enforces a minimum of 95% coverage.
 
+## Releases
+
+A `release-please` bot maintains a standing "Release PR" against `main`, computing the
+next version from Conventional Commit types since the last release (`fix:` → patch,
+`feat:` → minor, `feat!:`/`BREAKING CHANGE:` → major). Merging that PR updates
+`CHANGELOG.md` and `pyproject.toml`, and creates a `vX.Y.Z` tag + GitHub Release. No
+manual versioning or tagging is needed.
+
 ## Reporting issues
 
 Please include:
