@@ -146,6 +146,14 @@ tags and rolls out the updated pods automatically.
 
 ---
 
+## Contributing
+
+Issues and pull requests are welcome — see [`CONTRIBUTING.md`](CONTRIBUTING.md) for the
+development workflow, code style, and test requirements. Notable changes are tracked in
+[`CHANGELOG.md`](CHANGELOG.md).
+
+---
+
 ## License
 
 [MIT](LICENSE)
