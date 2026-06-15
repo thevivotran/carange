@@ -7,6 +7,7 @@ TELEGRAM_CHAT_ID / APP_URL env vars. If bot token or chat ID are missing,
 functions log a debug message and return False.
 """
 
+import html
 import logging
 
 import requests
@@ -19,6 +20,22 @@ log = logging.getLogger("app.notify.telegram")
 
 _API_BASE = "https://api.telegram.org"
 _TIMEOUT = 10
+
+
+def _esc(text) -> str:
+    return html.escape(str(text), quote=False)
+
+
+def _amount(amount_str: str, hide: bool) -> str:
+    if hide:
+        return f"<tg-spoiler>{amount_str}</tg-spoiler>"
+    return amount_str
+
+
+def _budget_link(app_url: str, label: str = "Open Budget") -> str:
+    if app_url:
+        return f'📊 <a href="{app_url.rstrip("/")}/budget">{label}</a>'
+    return f"📊 {label}."
 
 
 def _send(text: str, bot_token: str, chat_id: str, parse_mode: str = "HTML") -> bool:
@@ -59,22 +76,28 @@ def send_transaction_ping_fields(fields: dict) -> bool:
 
     `fields` must include `bot_token`, `chat_id`, and `app_url`, resolved by the
     caller (via `get_telegram_config`) while the DB session was still open.
+    The caller is also responsible for populating `telegram_hide_amounts`.
     """
     amount_str = f"{fields['amount']:,.0f}đ"
     direction = "+" if fields["tx_type"] == "income" else "-"
     source_label = {"email": "Email", "ocr": "OCR"}.get(fields["source"], fields["source"])
     desc = fields["description"] or "No description"
     app_url = fields.get("app_url", "")
+    hide = fields.get("telegram_hide_amounts", "false") == "true"
 
     if fields["needs_review"]:
         text = (
-            f"⚠️ <b>Needs review</b> [{source_label}]\n"
-            f"{direction}{amount_str} — {fields['cat_name']}\n"
-            f"<i>{desc}</i>\n"
+            f"⚠️ <b>Needs review</b> [{_esc(source_label)}]\n"
+            f"{_amount(direction + amount_str, hide)} — {_esc(fields['cat_name'])}\n"
+            f"<i>{_esc(desc)}</i>\n"
             f"{_review_link(app_url)}"
         )
     else:
-        text = f"💸 <b>New</b> [{source_label}]\n{direction}{amount_str} — {fields['cat_name']}\n<i>{desc}</i>"
+        text = (
+            f"💸 <b>New</b> [{_esc(source_label)}]\n"
+            f"{_amount(direction + amount_str, hide)} — {_esc(fields['cat_name'])}\n"
+            f"<i>{_esc(desc)}</i>"
+        )
 
     return _send(text, fields["bot_token"], fields["chat_id"])
 
@@ -90,16 +113,21 @@ def send_transaction_ping(tx: Transaction, db: Session) -> bool:
     cat_name = tx.category.name if tx.category else "?"
     desc = tx.description or "No description"
     source_label = {"email": "Email", "ocr": "OCR"}.get(tx.source or "", tx.source or "manual")
+    hide = cfg.get("telegram_hide_amounts") == "true"
 
     if tx.needs_review:
         text = (
-            f"⚠️ <b>Needs review</b> [{source_label}]\n"
-            f"{direction}{amount_str} — {cat_name}\n"
-            f"<i>{desc}</i>\n"
+            f"⚠️ <b>Needs review</b> [{_esc(source_label)}]\n"
+            f"{_amount(direction + amount_str, hide)} — {_esc(cat_name)}\n"
+            f"<i>{_esc(desc)}</i>\n"
             f"{_review_link(cfg['app_url'])}"
         )
     else:
-        text = f"💸 <b>New</b> [{source_label}]\n{direction}{amount_str} — {cat_name}\n<i>{desc}</i>"
+        text = (
+            f"💸 <b>New</b> [{_esc(source_label)}]\n"
+            f"{_amount(direction + amount_str, hide)} — {_esc(cat_name)}\n"
+            f"<i>{_esc(desc)}</i>"
+        )
 
     return _send(text, cfg["telegram_bot_token"], cfg["telegram_chat_id"])
 
@@ -128,7 +156,30 @@ def send_personal_advance_ping(tx: Transaction, db: Session, action: str = "crea
     desc = tx.description or "No description"
     verb = "Created" if action == "created" else "Updated"
     footer = _transactions_footer(cfg["app_url"], "Pending settlement — view transactions")
-    text = f"💳 <b>Personal advance — {verb}</b>\n-{amount_str} — {cat_name}\n<i>{desc}</i>\n{footer}"
+    hide = cfg.get("telegram_hide_amounts") == "true"
+    text = (
+        f"💳 <b>Personal advance — {_esc(verb)}</b>\n"
+        f"{_amount('-' + amount_str, hide)} — {_esc(cat_name)}\n"
+        f"<i>{_esc(desc)}</i>\n"
+        f"{footer}"
+    )
+    return _send(text, cfg["telegram_bot_token"], cfg["telegram_chat_id"])
+
+
+def send_budget_threshold_alert(
+    category_name: str, spent: float, limit: float, pct: float, threshold: int, db: Session
+) -> bool:
+    cfg = get_telegram_config(db)
+    hide = cfg.get("telegram_hide_amounts") == "true"
+    spent_str = f"{spent:,.0f}đ"
+    limit_str = f"{limit:,.0f}đ"
+    status_line = "Over budget!" if threshold >= 100 else "Approaching budget limit"
+    text = (
+        f"🚨 <b>Budget Alert</b> — {_esc(category_name)}\n"
+        f"{_amount(spent_str, hide)} / {_amount(limit_str, hide)} (<b>{pct:.0f}%</b>)\n"
+        f"{status_line}\n"
+        f"{_budget_link(cfg['app_url'])}"
+    )
     return _send(text, cfg["telegram_bot_token"], cfg["telegram_chat_id"])
 
 

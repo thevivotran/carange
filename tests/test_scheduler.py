@@ -229,3 +229,42 @@ def test_scheduler_skips_review_reminder_when_empty(db_session):
     with patch("app.notify.telegram.requests.post") as mock_post:
         _send_review_reminder(db_session)
         assert not mock_post.called
+
+
+def test_scheduler_sends_budget_threshold_alerts(db_session):
+    from datetime import date as _date
+    from unittest.mock import MagicMock, patch
+
+    from app.models.database import BudgetAllocation
+    from app.services.scheduler import _send_budget_threshold_alerts
+    from app.services.settings_service import set_setting
+
+    cat = Category(name="AlertCat", type=TransactionType.EXPENSE, color="#000", icon="tag")
+    db_session.add(cat)
+    db_session.commit()
+
+    today = _date.today()
+    ym = f"{today.year:04d}-{today.month:02d}"
+    db_session.add(BudgetAllocation(category_id=cat.id, year_month=ym, amount=5_000_000))
+    db_session.commit()
+
+    tx = Transaction(
+        date=today,
+        amount=4_500_000,
+        type=TransactionType.EXPENSE,
+        category_id=cat.id,
+        payment_method="cash",
+    )
+    db_session.add(tx)
+    db_session.commit()
+
+    set_setting(db_session, "telegram_bot_token", "tok")
+    set_setting(db_session, "telegram_chat_id", "123")
+    set_setting(db_session, "telegram_budget_alerts_enabled", "true")
+
+    with patch("app.notify.telegram.requests.post") as mock_post:
+        mock_post.return_value = MagicMock(ok=True)
+        _send_budget_threshold_alerts(db_session)
+        assert mock_post.called
+        text = mock_post.call_args[1]["json"]["text"]
+        assert "Budget Alert" in text

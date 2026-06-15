@@ -1211,3 +1211,109 @@ def test_create_transaction_telegram_exception_does_not_crash(client):
             },
         )
         assert r.status_code in (200, 201)  # tx still created despite Telegram error
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Telegram — HTML escaping, spoiler amounts, budget alert
+# ─────────────────────────────────────────────────────────────────────────────
+
+
+def _make_evil_tx(needs_review=False):
+    tx = MagicMock()
+    tx.amount = 250_000
+    tx.type = MagicMock()
+    tx.type.value = "expense"
+    tx.category = MagicMock()
+    tx.category.name = "Food"
+    tx.description = "<b>evil</b> & co"
+    tx.source = "email"
+    tx.needs_review = needs_review
+    return tx
+
+
+def _make_mock_advance():
+    tx = MagicMock()
+    tx.amount = 250_000
+    tx.type = MagicMock()
+    tx.type.value = "expense"
+    tx.category = MagicMock()
+    tx.category.name = "Food"
+    tx.description = "<b>evil</b> & co"
+    tx.source = "email"
+    tx.needs_review = False
+    tx.is_advance = True
+    tx.advance_settled = False
+    return tx
+
+
+def test_telegram_send_transaction_ping_escapes_html(db_session):
+    from app.notify import telegram as tg
+    from app.services.settings_service import set_setting
+
+    set_setting(db_session, "telegram_bot_token", "fake-token")
+    set_setting(db_session, "telegram_chat_id", "12345")
+    with patch("app.notify.telegram.requests.post") as mock_post:
+        mock_post.return_value = MagicMock(ok=True)
+        tg.send_transaction_ping(_make_evil_tx(), db_session)
+        text = mock_post.call_args[1]["json"]["text"]
+        assert "&lt;b&gt;evil&lt;/b&gt; &amp; co" in text
+
+
+def test_telegram_send_personal_advance_ping_escapes_html(db_session):
+    from app.notify import telegram as tg
+    from app.services.settings_service import set_setting
+
+    set_setting(db_session, "telegram_bot_token", "fake-token")
+    set_setting(db_session, "telegram_chat_id", "12345")
+    with patch("app.notify.telegram.requests.post") as mock_post:
+        mock_post.return_value = MagicMock(ok=True)
+        tg.send_personal_advance_ping(_make_mock_advance(), db_session)
+        text = mock_post.call_args[1]["json"]["text"]
+        assert "&lt;b&gt;evil&lt;/b&gt; &amp; co" in text
+
+
+def test_telegram_send_transaction_ping_spoiler_amounts(db_session):
+    from app.notify import telegram as tg
+    from app.services.settings_service import set_setting
+
+    set_setting(db_session, "telegram_bot_token", "fake-token")
+    set_setting(db_session, "telegram_chat_id", "12345")
+    set_setting(db_session, "telegram_hide_amounts", "true")
+    with patch("app.notify.telegram.requests.post") as mock_post:
+        mock_post.return_value = MagicMock(ok=True)
+        tg.send_transaction_ping(_make_mock_tx(), db_session)
+        text = mock_post.call_args[1]["json"]["text"]
+        assert "<tg-spoiler>" in text
+        assert "</tg-spoiler>" in text
+
+
+def test_telegram_budget_alert_over_budget(db_session):
+    from app.notify import telegram as tg
+    from app.services.settings_service import set_setting
+
+    set_setting(db_session, "telegram_bot_token", "fake-token")
+    set_setting(db_session, "telegram_chat_id", "12345")
+    with patch("app.notify.telegram.requests.post") as mock_post:
+        mock_post.return_value = MagicMock(ok=True)
+        result = tg.send_budget_threshold_alert("Groceries", 5_000_000, 4_000_000, 125.0, 100, db_session)
+        assert result is True
+        text = mock_post.call_args[1]["json"]["text"]
+        assert "Budget Alert" in text
+        assert "Groceries" in text
+        assert "Over budget!" in text
+
+
+def test_telegram_budget_alert_approaching_limit(db_session):
+    from app.notify import telegram as tg
+    from app.services.settings_service import set_setting
+
+    set_setting(db_session, "telegram_bot_token", "fake-token")
+    set_setting(db_session, "telegram_chat_id", "12345")
+    with patch("app.notify.telegram.requests.post") as mock_post:
+        mock_post.return_value = MagicMock(ok=True)
+        result = tg.send_budget_threshold_alert("Transport", 3_200_000, 4_000_000, 80.0, 80, db_session)
+        assert result is True
+        text = mock_post.call_args[1]["json"]["text"]
+        assert "Budget Alert" in text
+        assert "Transport" in text
+        assert "Approaching budget limit" in text
