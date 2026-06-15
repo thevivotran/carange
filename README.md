@@ -1,5 +1,9 @@
 # Carange — Family Finance Tracker
 
+[![CI / Build](https://github.com/thevivotran/carange/actions/workflows/build.yaml/badge.svg)](https://github.com/thevivotran/carange/actions/workflows/build.yaml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Conventional Commits](https://img.shields.io/badge/commits-conventional-fe5196.svg)](https://www.conventionalcommits.org/)
+
 A self-hosted personal finance app for tracking a Vietnamese household's daily spending,
 savings, investment projects, budget, and assets. Built with FastAPI and SQLite; designed
 to feel native on your phone and your desktop alike. Runs as Docker containers — at home,
@@ -101,6 +105,8 @@ This app has **no authentication layer**. Run it:
 - Behind a reverse proxy with auth (Nginx + htpasswd, Authelia, etc.)
 
 **Never expose port 6868 directly to the internet.**
+
+Found a security issue? See [`SECURITY.md`](SECURITY.md) for how to report it.
 
 ---
 
