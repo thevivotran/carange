@@ -3,6 +3,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, case, and_
 from typing import List, Optional
+import logging
 from datetime import date, datetime, timezone
 
 from app.models.database import (
@@ -28,7 +29,9 @@ from app.models.schemas import (
 from app.services import transaction_service, project_service
 from app.services.dashboard_service import invalidate_dashboard_cache
 from app.services.fiscal_period import current_period_ym, fiscal_window_ym, get_month_start_day
-from app.notify.telegram import send_personal_advance_ping
+from app.services.notification_service import publish_notification
+
+log = logging.getLogger("app.transactions")
 
 _AUDIT_FIELDS = list(AuditField)
 
@@ -211,7 +214,22 @@ def create_transaction(transaction: TransactionCreate, force: bool = False, db: 
     result = transaction_service.create_transaction(db, transaction)
     invalidate_dashboard_cache()
     if result.is_advance and not result.advance_settled:
-        send_personal_advance_ping(result, db, action="created")
+        try:
+            cat_name = result.category.name if result.category else "?"
+            publish_notification(
+                db,
+                "advance_ping",
+                {
+                    "tx_id": result.id,
+                    "amount": str(result.amount),
+                    "cat_name": cat_name,
+                    "description": result.description or "No description",
+                    "action": "created",
+                },
+            )
+            db.commit()
+        except Exception:
+            log.warning("Failed to publish advance_ping notification", exc_info=True)
     return result
 
 
@@ -273,7 +291,22 @@ def update_transaction(transaction_id: int, transaction: TransactionUpdate, db: 
     invalidate_dashboard_cache()
     if db_transaction.is_advance and not db_transaction.advance_settled:
         action = "created" if becoming_advance else "updated"
-        send_personal_advance_ping(db_transaction, db, action=action)
+        try:
+            cat_name = db_transaction.category.name if db_transaction.category else "?"
+            publish_notification(
+                db,
+                "advance_ping",
+                {
+                    "tx_id": db_transaction.id,
+                    "amount": str(db_transaction.amount),
+                    "cat_name": cat_name,
+                    "description": db_transaction.description or "No description",
+                    "action": action,
+                },
+            )
+            db.commit()
+        except Exception:
+            log.warning("Failed to publish advance_ping notification", exc_info=True)
     return db_transaction
 
 

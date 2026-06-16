@@ -10,6 +10,7 @@ env:
   IMAGE: ghcr.io/thevivotran/carange
   IMAGE_WORKER: ghcr.io/thevivotran/carange-ocr-worker
   IMAGE_EMAIL_WORKER: ghcr.io/thevivotran/carange-email-worker
+  IMAGE_NOTIFY_WORKER: ghcr.io/thevivotran/carange-notify-worker
   PYTHON_VERSION: "3.12"   # must match Dockerfile
 
 jobs:
@@ -21,6 +22,7 @@ jobs:
       app: ${{ steps.filter.outputs.app }}
       worker: ${{ steps.filter.outputs.worker }}
       email_worker: ${{ steps.filter.outputs.email_worker }}
+      notify_worker: ${{ steps.filter.outputs.notify_worker }}
     steps:
       - uses: actions/checkout@v6
       - uses: dorny/paths-filter@v3
@@ -38,6 +40,12 @@ jobs:
               - 'requirements.txt'
             email_worker:
               - 'email_worker/**'
+              - 'app/services/**'
+              - 'app/models/**'
+              - 'app/notify/**'
+              - 'requirements.txt'
+            notify_worker:
+              - 'notify_worker/**'
               - 'app/services/**'
               - 'app/models/**'
               - 'app/notify/**'
@@ -268,3 +276,40 @@ jobs:
           tags: ${{ env.IMAGE_EMAIL_WORKER }}:${{ steps.tag.outputs.value }}
           cache-from: type=gha,scope=email-worker
           cache-to: type=gha,mode=max,scope=email-worker
+
+  # ── 6. Build & push notify worker image ──────────────────────────────────────
+  build-notify-worker:
+    name: Build & Push Notify Worker
+    needs: [test, changes]
+    if: github.ref == 'refs/heads/main' && needs.changes.outputs.notify_worker == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate image tag
+        id: tag
+        run: |
+          TAG="main-$(date -u '+%Y%m%d-%H%M%S')-$(git rev-parse --short HEAD)"
+          echo "value=${TAG}" >> $GITHUB_OUTPUT
+
+      - name: Build and push notify worker image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: notify_worker/Dockerfile
+          push: true
+          tags: ${{ env.IMAGE_NOTIFY_WORKER }}:${{ steps.tag.outputs.value }}
+          cache-from: type=gha,scope=notify-worker
+          cache-to: type=gha,mode=max,scope=notify-worker

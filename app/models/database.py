@@ -149,6 +149,27 @@ class ImportJob(Base):
     transactions = relationship("Transaction", back_populates="import_job")
 
 
+class NotificationEventStatus(str, enum.Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    DONE = "done"
+    FAILED = "failed"
+
+
+class NotificationEvent(Base):
+    __tablename__ = "notification_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    event_type = Column(String(50), nullable=False)
+    payload = Column(JSON, nullable=False)
+    status = Column(CIEnum(NotificationEventStatus), default=NotificationEventStatus.PENDING, nullable=False)
+    retry_count = Column(Integer, default=0, nullable=False, server_default="0")
+    retry_after = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    started_at = Column(DateTime(timezone=True), nullable=True)
+    error_msg = Column(Text, nullable=True)
+
+
 class Category(Base):
     __tablename__ = "categories"
 
