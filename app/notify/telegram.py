@@ -9,6 +9,7 @@ functions log a debug message and return False.
 
 import html
 import logging
+import threading
 
 import requests
 from sqlalchemy.orm import Session
@@ -39,7 +40,7 @@ def _budget_link(app_url: str, label: str = "Open Budget") -> str:
 
 
 def _send(text: str, bot_token: str, chat_id: str, parse_mode: str = "HTML") -> bool:
-    """POST a message to the configured chat. Returns True on success."""
+    """POST a message to the configured chat. Returns True on success (blocking)."""
     if not bot_token or not chat_id:
         log.debug("Telegram not configured — skipping notification")
         return False
@@ -57,6 +58,14 @@ def _send(text: str, bot_token: str, chat_id: str, parse_mode: str = "HTML") -> 
         return False
 
 
+def _fire(text: str, bot_token: str, chat_id: str, parse_mode: str = "HTML") -> None:
+    """Non-blocking variant of _send — spawns a daemon thread so the caller returns immediately."""
+    if not bot_token or not chat_id:
+        log.debug("Telegram not configured — skipping notification")
+        return
+    threading.Thread(target=_send, args=(text, bot_token, chat_id, parse_mode), daemon=True).start()
+
+
 def _review_link(app_url: str) -> str:
     """Return the 'needs review' line, linking to the filtered transactions list if app_url is configured."""
     if app_url:
@@ -71,7 +80,7 @@ def _transactions_footer(app_url: str, label: str, query: str = "") -> str:
     return f"📌 {label}."
 
 
-def send_transaction_ping_fields(fields: dict) -> bool:
+def send_transaction_ping_fields(fields: dict) -> None:
     """Fire-and-forget variant that takes pre-extracted scalar fields (no ORM/DB access).
 
     `fields` must include `bot_token`, `chat_id`, and `app_url`, resolved by the
@@ -99,10 +108,10 @@ def send_transaction_ping_fields(fields: dict) -> bool:
             f"<i>{_esc(desc)}</i>"
         )
 
-    return _send(text, fields["bot_token"], fields["chat_id"])
+    _fire(text, fields["bot_token"], fields["chat_id"])
 
 
-def send_transaction_ping(tx: Transaction, db: Session) -> bool:
+def send_transaction_ping(tx: Transaction, db: Session) -> None:
     """Notify when an auto-ingested transaction is created.
 
     If the transaction needs review, the message prompts to open the inbox.
@@ -129,27 +138,27 @@ def send_transaction_ping(tx: Transaction, db: Session) -> bool:
             f"<i>{_esc(desc)}</i>"
         )
 
-    return _send(text, cfg["telegram_bot_token"], cfg["telegram_chat_id"])
+    _fire(text, cfg["telegram_bot_token"], cfg["telegram_chat_id"])
 
 
-def send_review_reminder(count: int, db: Session) -> bool:
+def send_review_reminder(count: int, db: Session) -> None:
     """Notify when the review inbox has been sitting unread."""
     if count <= 0:
-        return False
+        return
     cfg = get_telegram_config(db)
     plural = "s" if count != 1 else ""
     text = f"📋 <b>{count} transaction{plural}</b> pending review.\n{_review_link(cfg['app_url'])}"
-    return _send(text, cfg["telegram_bot_token"], cfg["telegram_chat_id"])
+    _fire(text, cfg["telegram_bot_token"], cfg["telegram_chat_id"])
 
 
-def send_personal_advance_ping(tx: Transaction, db: Session, action: str = "created") -> bool:
+def send_personal_advance_ping(tx: Transaction, db: Session, action: str = "created") -> None:
     """Notify when a personal-advance transaction is created or updated (unsettled).
 
     action: "created" | "updated"
     Only fires when is_advance=True and advance_settled=False.
     """
     if not tx.is_advance or tx.advance_settled:
-        return False
+        return
     cfg = get_telegram_config(db)
     amount_str = f"{tx.amount:,.0f}đ"
     cat_name = tx.category.name if tx.category else "?"
@@ -163,12 +172,12 @@ def send_personal_advance_ping(tx: Transaction, db: Session, action: str = "crea
         f"<i>{_esc(desc)}</i>\n"
         f"{footer}"
     )
-    return _send(text, cfg["telegram_bot_token"], cfg["telegram_chat_id"])
+    _fire(text, cfg["telegram_bot_token"], cfg["telegram_chat_id"])
 
 
 def send_budget_threshold_alert(
     category_name: str, spent: float, limit: float, pct: float, threshold: int, db: Session
-) -> bool:
+) -> None:
     cfg = get_telegram_config(db)
     hide = cfg.get("telegram_hide_amounts") == "true"
     spent_str = f"{spent:,.0f}đ"
@@ -180,7 +189,7 @@ def send_budget_threshold_alert(
         f"{status_line}\n"
         f"{_budget_link(cfg['app_url'])}"
     )
-    return _send(text, cfg["telegram_bot_token"], cfg["telegram_chat_id"])
+    _fire(text, cfg["telegram_bot_token"], cfg["telegram_chat_id"])
 
 
 def send_message(text: str, db: Session) -> bool:

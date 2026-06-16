@@ -798,10 +798,13 @@ def _make_mock_tx(needs_review=False):
     return tx
 
 
-def test_telegram_no_config_returns_false(db_session):
+def test_telegram_no_config_skips_send(db_session):
     from app.notify import telegram as tg
+    from unittest.mock import patch
 
-    assert tg.send_transaction_ping(_make_mock_tx(), db_session) is False
+    with patch("app.notify.telegram.requests.post") as mock_post:
+        tg.send_transaction_ping(_make_mock_tx(), db_session)
+        assert not mock_post.called
 
 
 def test_telegram_send_transaction_ping_success(db_session):
@@ -812,8 +815,7 @@ def test_telegram_send_transaction_ping_success(db_session):
     set_setting(db_session, "telegram_chat_id", "12345")
     with patch("app.notify.telegram.requests.post") as mock_post:
         mock_post.return_value = MagicMock(ok=True)
-        result = tg.send_transaction_ping(_make_mock_tx(), db_session)
-        assert result is True
+        tg.send_transaction_ping(_make_mock_tx(), db_session)
         assert mock_post.called
 
 
@@ -825,8 +827,7 @@ def test_telegram_send_transaction_ping_needs_review(db_session):
     set_setting(db_session, "telegram_chat_id", "12345")
     with patch("app.notify.telegram.requests.post") as mock_post:
         mock_post.return_value = MagicMock(ok=True)
-        result = tg.send_transaction_ping(_make_mock_tx(needs_review=True), db_session)
-        assert result is True
+        tg.send_transaction_ping(_make_mock_tx(needs_review=True), db_session)
         text_sent = mock_post.call_args[1]["json"]["text"]
         assert "Needs review" in text_sent
 
@@ -834,7 +835,9 @@ def test_telegram_send_transaction_ping_needs_review(db_session):
 def test_telegram_send_review_reminder_zero(db_session):
     from app.notify import telegram as tg
 
-    assert tg.send_review_reminder(0, db_session) is False
+    with patch("app.notify.telegram.requests.post") as mock_post:
+        tg.send_review_reminder(0, db_session)
+        assert not mock_post.called
 
 
 def test_telegram_send_review_reminder_positive(db_session):
@@ -845,8 +848,8 @@ def test_telegram_send_review_reminder_positive(db_session):
     set_setting(db_session, "telegram_chat_id", "12345")
     with patch("app.notify.telegram.requests.post") as mock_post:
         mock_post.return_value = MagicMock(ok=True)
-        result = tg.send_review_reminder(3, db_session)
-        assert result is True
+        tg.send_review_reminder(3, db_session)
+        assert mock_post.called
 
 
 def test_telegram_send_message(db_session):
@@ -869,7 +872,7 @@ def test_telegram_request_exception_returns_false(db_session):
     set_setting(db_session, "telegram_bot_token", "fake-token")
     set_setting(db_session, "telegram_chat_id", "12345")
     with patch("app.notify.telegram.requests.post", side_effect=req_lib.RequestException("timeout")):
-        assert tg.send_transaction_ping(_make_mock_tx(), db_session) is False
+        tg.send_transaction_ping(_make_mock_tx(), db_session)  # must not raise
 
 
 def test_telegram_api_error_logged(db_session):
@@ -880,8 +883,7 @@ def test_telegram_api_error_logged(db_session):
     set_setting(db_session, "telegram_chat_id", "12345")
     with patch("app.notify.telegram.requests.post") as mock_post:
         mock_post.return_value = MagicMock(ok=False, status_code=400, text="Bad Request")
-        result = tg.send_transaction_ping(_make_mock_tx(), db_session)
-        assert result is False
+        tg.send_transaction_ping(_make_mock_tx(), db_session)
 
 
 def test_telegram_income_tx_shows_plus(db_session):
@@ -1295,8 +1297,7 @@ def test_telegram_budget_alert_over_budget(db_session):
     set_setting(db_session, "telegram_chat_id", "12345")
     with patch("app.notify.telegram.requests.post") as mock_post:
         mock_post.return_value = MagicMock(ok=True)
-        result = tg.send_budget_threshold_alert("Groceries", 5_000_000, 4_000_000, 125.0, 100, db_session)
-        assert result is True
+        tg.send_budget_threshold_alert("Groceries", 5_000_000, 4_000_000, 125.0, 100, db_session)
         text = mock_post.call_args[1]["json"]["text"]
         assert "Budget Alert" in text
         assert "Groceries" in text
@@ -1311,8 +1312,7 @@ def test_telegram_budget_alert_approaching_limit(db_session):
     set_setting(db_session, "telegram_chat_id", "12345")
     with patch("app.notify.telegram.requests.post") as mock_post:
         mock_post.return_value = MagicMock(ok=True)
-        result = tg.send_budget_threshold_alert("Transport", 3_200_000, 4_000_000, 80.0, 80, db_session)
-        assert result is True
+        tg.send_budget_threshold_alert("Transport", 3_200_000, 4_000_000, 80.0, 80, db_session)
         text = mock_post.call_args[1]["json"]["text"]
         assert "Budget Alert" in text
         assert "Transport" in text
