@@ -96,9 +96,7 @@ def _create_from_template(db: Session, tmpl: TransactionTemplate, today: date) -
 
 
 def _send_review_reminder(db: Session) -> None:
-    """Send a Telegram reminder once per day if the review inbox is non-empty."""
-    from app.notify import telegram as _tg
-
+    """Publish a review_reminder notification event if the review inbox is non-empty."""
     count = (
         db.query(Transaction)
         .filter(Transaction.needs_review == True, Transaction.deleted_at.is_(None))  # noqa: E712
@@ -106,9 +104,12 @@ def _send_review_reminder(db: Session) -> None:
     )
     if count:
         try:
-            _tg.send_review_reminder(count, db)
+            from app.services.notification_service import publish_notification
+
+            publish_notification(db, "review_reminder", {"count": count})
+            db.commit()
         except Exception:
-            log.exception("Scheduler: failed to send review reminder")
+            log.warning("Failed to publish review_reminder notification", exc_info=True)
 
 
 def _send_budget_threshold_alerts(db: Session) -> None:

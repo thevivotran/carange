@@ -7,7 +7,6 @@ are consistent regardless of source.
 
 import logging
 import os
-import threading
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from typing import Optional
@@ -105,42 +104,29 @@ def commit_ingest_batch(
 
         invalidate_dashboard_cache(db)
 
-    # Telegram ping — extract scalar fields now (session still open),
-    # then fire each HTTP POST in a daemon thread so transaction creation
-    # is never blocked by Telegram network latency or timeouts.
     if committed:
-        from app.services.settings_service import get_telegram_config
+        from app.services.notification_service import publish_notification
 
-        _tg_cfg = get_telegram_config(db)
-
-    for tx in committed:
-        try:
-            db.refresh(tx)
-            fields = {
-                "amount": tx.amount,
-                "tx_type": tx.type.value if tx.type else "expense",
-                "source": tx.source or "",
-                "cat_name": tx.category.name if tx.category else "?",
-                "description": tx.description,
-                "needs_review": bool(tx.needs_review),
-                "bot_token": _tg_cfg["telegram_bot_token"],
-                "chat_id": _tg_cfg["telegram_chat_id"],
-                "app_url": _tg_cfg["app_url"],
-            }
-            threading.Thread(target=_send_telegram_ping, args=(fields,), daemon=True).start()
-        except Exception as exc:
-            log.warning("Telegram ping setup failed for tx %d: %s", tx.id, exc)
+        for tx in committed:
+            try:
+                publish_notification(
+                    db,
+                    "tx_ingested",
+                    {
+                        "tx_id": tx.id,
+                        "amount": str(tx.amount),
+                        "tx_type": tx.type.value if tx.type else "expense",
+                        "source": tx.source or "manual",
+                        "cat_name": tx.category.name if tx.category else "?",
+                        "description": tx.description or "No description",
+                        "needs_review": tx.needs_review or False,
+                    },
+                )
+            except Exception:
+                log.warning("Failed to publish tx_ingested notification for tx %d", tx.id, exc_info=True)
+        db.commit()
 
     return committed
-
-
-def _send_telegram_ping(fields: dict) -> None:
-    from app.notify import telegram as _tg  # local import avoids circular dep
-
-    try:
-        _tg.send_transaction_ping_fields(fields)
-    except Exception as exc:
-        log.warning("Telegram ping failed: %s", exc)
 
 
 # ── Private helpers ────────────────────────────────────────────────────────────

@@ -1,10 +1,13 @@
 from datetime import date
+import logging
 
 from sqlalchemy.orm import Session
 
 from app.services.budget_service import compute_budget_rows
 from app.services.fiscal_period import current_period_label, get_month_start_day
 from app.services.settings_service import get_setting, get_telegram_config, set_setting
+
+log = logging.getLogger("app.budget_alerts")
 
 
 def check_and_send_budget_alerts(db: Session) -> None:
@@ -35,14 +38,21 @@ def check_and_send_budget_alerts(db: Session) -> None:
         prev = int(get_setting(db, key, "0"))
 
         if new_threshold > prev:
-            from app.notify.telegram import send_budget_threshold_alert
+            from app.services.notification_service import publish_notification
 
-            send_budget_threshold_alert(
-                row["category_name"],
-                row["this_month_spent"],
-                row["monthly_allocation"],
-                pct,
-                new_threshold,
-                db,
-            )
+            try:
+                publish_notification(
+                    db,
+                    "budget_alert",
+                    {
+                        "category_name": row["category_name"],
+                        "spent": float(row["this_month_spent"]),
+                        "limit": float(row["monthly_allocation"]),
+                        "pct": float(pct),
+                        "threshold": new_threshold,
+                    },
+                )
+                db.commit()
+            except Exception:
+                log.warning("Failed to publish budget_alert notification", exc_info=True)
             set_setting(db, key, str(new_threshold))
