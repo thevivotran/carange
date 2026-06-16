@@ -375,6 +375,95 @@ def test_by_category_defaults_to_current_month(client):
     assert isinstance(r.json(), list)
 
 
+def test_create_advance_transaction_publishes_event(client, cat_ids, db_session):
+    """Creating an advance transaction inserts a pending advance_ping event."""
+    from app.models.database import NotificationEvent
+
+    r = _make_tx(
+        client,
+        date_str="2026-05-01",
+        amount=500_000,
+        type_="expense",
+        category_id=cat_ids["expense"],
+        is_advance=True,
+    )
+    assert r.status_code == 200
+    evt = db_session.query(NotificationEvent).filter_by(event_type="advance_ping").first()
+    assert evt is not None
+    assert evt.payload["action"] == "created"
+
+
+def test_update_transaction_normal_to_advance_publishes_event(client, cat_ids, db_session):
+    """Converting a normal transaction to advance inserts a pending advance_ping event."""
+    from app.models.database import NotificationEvent
+
+    r = _make_tx(
+        client,
+        date_str="2026-05-01",
+        amount=300_000,
+        type_="expense",
+        category_id=cat_ids["expense"],
+        is_advance=False,
+    )
+    assert r.status_code == 200
+    tx_id = r.json()["id"]
+
+    r2 = client.put(f"/api/transactions/{tx_id}", json={"is_advance": True})
+    assert r2.status_code == 200
+    assert r2.json()["is_advance"] is True
+
+    evt = db_session.query(NotificationEvent).filter_by(event_type="advance_ping").first()
+    assert evt is not None
+    assert evt.payload["action"] == "created"
+    assert evt.payload["tx_id"] == tx_id
+
+
+def test_update_existing_advance_transaction_publishes_event(client, cat_ids, db_session):
+    """Updating an already-advance transaction publishes an advance_ping with action=updated."""
+    from app.models.database import NotificationEvent
+
+    r = _make_tx(
+        client,
+        date_str="2026-05-01",
+        amount=200_000,
+        type_="expense",
+        category_id=cat_ids["expense"],
+        is_advance=True,
+    )
+    assert r.status_code == 200
+    tx_id = r.json()["id"]
+
+    db_session.query(NotificationEvent).delete()
+    db_session.commit()
+
+    r2 = client.put(f"/api/transactions/{tx_id}", json={"description": "updated desc"})
+    assert r2.status_code == 200
+
+    evt = db_session.query(NotificationEvent).filter_by(event_type="advance_ping").first()
+    assert evt is not None
+    assert evt.payload["action"] == "updated"
+
+
+def test_create_advance_publish_failure_is_silent(client, cat_ids, monkeypatch):
+    """If publish_notification raises, the create endpoint still returns 200."""
+    from app.services import notification_service
+
+    def _boom(*a, **kw):
+        raise Exception("db down")
+
+    monkeypatch.setattr(notification_service, "publish_notification", _boom)
+
+    r = _make_tx(
+        client,
+        date_str="2026-05-01",
+        amount=100_000,
+        type_="expense",
+        category_id=cat_ids["expense"],
+        is_advance=True,
+    )
+    assert r.status_code == 200
+
+
 def test_create_transaction_with_inline_savings_bundle(client, cat_ids):
     """POSTing with savings_bundle creates the bundle and links it."""
     r = client.post(
