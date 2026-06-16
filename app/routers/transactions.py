@@ -251,6 +251,12 @@ def update_transaction(transaction_id: int, transaction: TransactionUpdate, db: 
         db.flush()
         update_data["savings_bundle_id"] = db_bundle.id
 
+    # When re-marking as advance, reset advance_settled so the ping can fire
+    # (advance_settled may be True if this was previously settled then un-advanced)
+    becoming_advance = update_data.get("is_advance") is True and not db_transaction.is_advance
+    if becoming_advance:
+        update_data["advance_settled"] = False
+
     before = transaction_service.snapshot_audit_fields(db_transaction)
 
     for key, value in update_data.items():
@@ -266,7 +272,8 @@ def update_transaction(transaction_id: int, transaction: TransactionUpdate, db: 
     db.refresh(db_transaction)
     invalidate_dashboard_cache()
     if db_transaction.is_advance and not db_transaction.advance_settled:
-        send_personal_advance_ping(db_transaction, db, action="updated")
+        action = "created" if becoming_advance else "updated"
+        send_personal_advance_ping(db_transaction, db, action=action)
     return db_transaction
 
 
