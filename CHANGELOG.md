@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.0](https://github.com/thevivotran/carange/compare/v0.1.1...v0.2.0) (2026-06-16)
+
+
+### Features
+
+* **notify:** replace fire-and-forget Telegram with durable event queue ([#39](https://github.com/thevivotran/carange/issues/39)) ([e913f36](https://github.com/thevivotran/carange/commit/e913f36df4902a7ec402f887733f5d64a8ca28ad))
+
+
+### Bug Fixes
+
+* **notify:** make Telegram sends non-blocking to prevent request stalls ([022400d](https://github.com/thevivotran/carange/commit/022400df579ba1212b346ed81997126ee6bbd11f))
+
 ## [0.1.1](https://github.com/thevivotran/carange/compare/v0.1.0...v0.1.1) (2026-06-16)
 
 
