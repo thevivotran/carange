@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM paddlepaddle/paddle:3.0.0-gpu-cuda11.8-cudnn8.6
 
 WORKDIR /app
 
@@ -14,6 +14,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Worker-specific deps in a separate layer so the heavy layer is cached
 COPY ocr_worker/requirements.txt ./ocr_worker/requirements.txt
 RUN pip install --no-cache-dir -r ocr_worker/requirements.txt
+
+# Pre-download PP-OCRv5 model weights to avoid cold-start delay in k8s
+RUN python -c "from paddleocr import PaddleOCR; PaddleOCR(lang='vi', ocr_version='PP-OCRv5')"
 
 # Disable MKL-DNN/oneDNN to avoid double-free crash on CI/non-AVX2 hosts
 ENV FLAGS_use_mkldnn=0

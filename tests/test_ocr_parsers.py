@@ -12,6 +12,10 @@ from ocr_worker.parsers.base import parse_vnd, parse_date, group_rows, row_text
 from ocr_worker.parsers.timo import TimoParser
 from ocr_worker.parsers.shopee import ShopeeParser
 from ocr_worker.parsers.grab import GrabParser
+from ocr_worker.parsers.vpbank import VPBankParser
+from ocr_worker.parsers.techcombank import TechcombankParser
+from ocr_worker.parsers.mbbank import MBBankParser
+from ocr_worker.parsers.vietcombank import VietcomBankParser
 from ocr_worker.parsers.generic import GenericParser
 from ocr_worker.source_detector import detect_source
 from app.models.database import ImportSource
@@ -131,6 +135,10 @@ def _blocks_from_text(text: str) -> list[TextBlock]:
         ("Timo\nLịch sử giao dịch\n+1,500,000", ImportSource.TIMO),
         ("Don da mua\nShopee Mall\nHoan thanh\nTong so tien: 350.000d", ImportSource.SHOPEE),
         ("GrabFood\nMcDonald's\n₫125,000", ImportSource.GRAB),
+        ("VPBank Smart\nSo du kha dung\n-45.000đ", ImportSource.VPBANK),
+        ("Techcombank\nGhi nợ\nSố tiền: 200.000đ", ImportSource.TECHCOMBANK),
+        ("MB Bank\nMB App\n-100.000đ", ImportSource.MBBANK),
+        ("Vietcombank\nSố tiền GD\nCR 500.000đ", ImportSource.VIETCOMBANK),
     ],
 )
 def test_detect_source(text, expected_source):
@@ -289,6 +297,167 @@ def test_grab_category_hint():
     assert all(t.category_hint == "Đi lại" for t in txns)
 
 
+# ── VPBank parser ────────────────────────────────────────────────────────────
+
+
+def _vpbank_blocks():
+    all_blocks = []
+    y = 0.0
+
+    def add_row(*texts, dy=40):
+        nonlocal y
+        all_blocks.extend(row_at(y, *texts))
+        y += dy
+
+    add_row("VPBank Smart")
+    add_row("15/05/2026 10:30")
+    add_row("Chuyen tien", "-45.000đ")
+    add_row("Số dư: 1.000.000đ")
+    add_row("14/05/2026 08:00")
+    add_row("Nhan luong", "+1.200.000đ")
+    return all_blocks
+
+
+def test_vpbank_parser_count():
+    txns = VPBankParser().parse(_vpbank_blocks())
+    assert len(txns) == 2
+
+
+def test_vpbank_parser_types():
+    txns = VPBankParser().parse(_vpbank_blocks())
+    types = {t.tx_type for t in txns}
+    assert "expense" in types
+    assert "income" in types
+
+
+def test_vpbank_parser_amounts():
+    txns = VPBankParser().parse(_vpbank_blocks())
+    amounts = {t.amount for t in txns}
+    assert 45_000 in amounts
+    assert 1_200_000 in amounts
+
+
+# ── Techcombank parser ───────────────────────────────────────────────────────
+
+
+def _techcombank_blocks():
+    all_blocks = []
+    y = 0.0
+
+    def add_row(*texts, dy=40):
+        nonlocal y
+        all_blocks.extend(row_at(y, *texts))
+        y += dy
+
+    add_row("Techcombank")
+    add_row("15/05/2026")
+    add_row("Số tiền: 200.000đ")
+    add_row("Nội dung: Thanh toan dien nuoc")
+    add_row("Ghi nợ")
+    add_row("16/05/2026")
+    add_row("Số tiền: 5.000.000đ")
+    add_row("Nội dung: Nhan luong")
+    add_row("Ghi có")
+    return all_blocks
+
+
+def test_techcombank_parser_count():
+    txns = TechcombankParser().parse(_techcombank_blocks())
+    assert len(txns) == 2
+
+
+def test_techcombank_parser_expense():
+    txns = TechcombankParser().parse(_techcombank_blocks())
+    expenses = [t for t in txns if t.tx_type == "expense"]
+    assert len(expenses) == 1
+    assert expenses[0].amount == 200_000
+
+
+def test_techcombank_parser_income():
+    txns = TechcombankParser().parse(_techcombank_blocks())
+    incomes = [t for t in txns if t.tx_type == "income"]
+    assert len(incomes) == 1
+    assert incomes[0].amount == 5_000_000
+
+
+# ── MB Bank parser ───────────────────────────────────────────────────────────
+
+
+def _mbbank_blocks():
+    all_blocks = []
+    y = 0.0
+
+    def add_row(*texts, dy=40):
+        nonlocal y
+        all_blocks.extend(row_at(y, *texts))
+        y += dy
+
+    add_row("MB Bank")
+    add_row("15/05/2026")
+    add_row("Mua ca phe", "-55.000đ")
+    add_row("So du: 2.000.000đ")
+    add_row("14/05/2026")
+    add_row("Nhan tien", "+3.000.000đ")
+    return all_blocks
+
+
+def test_mbbank_parser_count():
+    txns = MBBankParser().parse(_mbbank_blocks())
+    assert len(txns) == 2
+
+
+def test_mbbank_parser_amounts():
+    txns = MBBankParser().parse(_mbbank_blocks())
+    amounts = {t.amount for t in txns}
+    assert 55_000 in amounts
+    assert 3_000_000 in amounts
+
+
+def test_mbbank_parser_confidence():
+    txns = MBBankParser().parse(_mbbank_blocks())
+    for t in txns:
+        assert 0 < t.confidence <= 1.0
+
+
+# ── VietcomBank parser ───────────────────────────────────────────────────────
+
+
+def _vietcombank_blocks():
+    all_blocks = []
+    y = 0.0
+
+    def add_row(*texts, dy=40):
+        nonlocal y
+        all_blocks.extend(row_at(y, *texts))
+        y += dy
+
+    add_row("Vietcombank")
+    add_row("15/05/2026")
+    add_row("Noi dung GD mua hang", "DR 150.000đ")
+    add_row("16/05/2026")
+    add_row("Noi dung GD nhan luong", "CR 10.000.000đ")
+    return all_blocks
+
+
+def test_vietcombank_parser_count():
+    txns = VietcomBankParser().parse(_vietcombank_blocks())
+    assert len(txns) == 2
+
+
+def test_vietcombank_parser_types():
+    txns = VietcomBankParser().parse(_vietcombank_blocks())
+    types = {t.tx_type for t in txns}
+    assert "expense" in types
+    assert "income" in types
+
+
+def test_vietcombank_parser_amounts():
+    txns = VietcomBankParser().parse(_vietcombank_blocks())
+    amounts = {t.amount for t in txns}
+    assert 150_000 in amounts
+    assert 10_000_000 in amounts
+
+
 # ── Generic parser ────────────────────────────────────────────────────────────
 
 
@@ -391,3 +560,86 @@ def test_processor_full_pipeline(tmp_path, monkeypatch):
         assert txns[0].amount == 350_000
         assert txns[0].source == "shopee"
         assert txns[0].import_job_id == job.id
+
+
+def test_vpbank_parser_expense():
+    all_blocks = []
+    y = 0.0
+
+    def add_row(*texts, dy=40):
+        nonlocal y
+        all_blocks.extend(row_at(y, *texts))
+        y += dy
+
+    add_row("VPBank Smart")
+    add_row("15/05/2026 10:30")
+    add_row("Chuyen tien", "-45.000đ")
+    txns = VPBankParser().parse(all_blocks)
+    expenses = [t for t in txns if t.tx_type == "expense"]
+    assert len(expenses) == 1
+    assert expenses[0].amount == 45000
+    assert expenses[0].tx_type == "expense"
+
+
+def test_mbbank_parser_expense():
+    all_blocks = []
+    y = 0.0
+
+    def add_row(*texts, dy=40):
+        nonlocal y
+        all_blocks.extend(row_at(y, *texts))
+        y += dy
+
+    add_row("MB Bank")
+    add_row("15/05/2026")
+    add_row("Mua ca phe", "-200.000đ")
+    txns = MBBankParser().parse(all_blocks)
+    expenses = [t for t in txns if t.tx_type == "expense"]
+    assert len(expenses) == 1
+    assert expenses[0].amount == 200000
+    assert expenses[0].tx_type == "expense"
+
+
+def test_vietcombank_parser_both():
+    all_blocks = []
+    y = 0.0
+
+    def add_row(*texts, dy=40):
+        nonlocal y
+        all_blocks.extend(row_at(y, *texts))
+        y += dy
+
+    add_row("Vietcombank")
+    add_row("15/05/2026")
+    add_row("Noi dung GD mua hang", "DR 150.000đ")
+    add_row("16/05/2026")
+    add_row("Noi dung GD nhan luong", "CR 10.000.000đ")
+    txns = VietcomBankParser().parse(all_blocks)
+    assert len(txns) == 2
+    types = {t.tx_type for t in txns}
+    assert "expense" in types
+    assert "income" in types
+    dr = [t for t in txns if t.tx_type == "expense"][0]
+    cr = [t for t in txns if t.tx_type == "income"][0]
+    assert dr.amount == 150000
+    assert cr.amount == 10000000
+
+
+def test_detect_vpbank():
+    bs = _blocks_from_text("VPBank Smart\nSo du kha dung\n-45.000đ")
+    assert detect_source(bs) == ImportSource.VPBANK
+
+
+def test_detect_techcombank():
+    bs = _blocks_from_text("Techcombank\nGhi nợ\nSố tiền: 200.000đ")
+    assert detect_source(bs) == ImportSource.TECHCOMBANK
+
+
+def test_detect_mbbank():
+    bs = _blocks_from_text("MB Bank\nMB App\n-100.000đ")
+    assert detect_source(bs) == ImportSource.MBBANK
+
+
+def test_detect_vietcombank():
+    bs = _blocks_from_text("Vietcombank\nSố tiền GD\nCR 500.000đ")
+    assert detect_source(bs) == ImportSource.VIETCOMBANK

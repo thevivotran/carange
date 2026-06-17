@@ -39,6 +39,33 @@ _RULES: dict[ImportSource, List[tuple[str, float]]] = {
         (r"grab express", 1.5),
         (r"grabcoins", 2.0),  # Activity History screenshot — "+N GrabCoins" per transaction
     ],
+    ImportSource.VPBANK: [
+        (r"\bvpbank\b", 3.0),
+        (r"vpbank smart", 2.5),
+        (r"ngan hang viet nam thinh vuong", 2.0),
+        (r"so du kha dung", 1.5),
+        (r"số dư khả dụng", 1.5),
+    ],
+    ImportSource.TECHCOMBANK: [
+        (r"\btechcombank\b", 3.0),
+        (r"\btcb\b", 2.0),
+        (r"f@st i-bank", 2.0),
+        (r"ghi no\b", 1.5),
+        (r"ghi có\b", 1.5),
+    ],
+    ImportSource.MBBANK: [
+        (r"\bmbbank\b", 3.0),
+        (r"\bmb bank\b", 2.5),
+        (r"ngan hang quan doi", 2.0),
+        (r"mb app", 2.0),
+    ],
+    ImportSource.VIETCOMBANK: [
+        (r"\bvietcombank\b", 3.0),
+        (r"\bvcb\b", 2.5),
+        (r"so tien gd", 2.0),
+        (r"số tiền gd", 2.0),
+        (r"ngan hang ngoai thuong", 2.0),
+    ],
 }
 
 _MIN_CONFIDENCE = 1.5  # minimum accumulated weight to declare a match

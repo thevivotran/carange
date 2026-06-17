@@ -25,12 +25,13 @@ def _init_engine():
     from paddleocr import PaddleOCR  # type: ignore
 
     use_gpu = _has_gpu()
-    log.info("Initialising PaddleOCR (GPU=%s, lang=vi)", use_gpu)
+    device = "gpu:0" if use_gpu else "cpu"
+    log.info("Initialising PaddleOCR 3.x (device=%s, lang=vi, PP-OCRv5)", device)
     return PaddleOCR(
-        use_angle_cls=True,
         lang="vi",
-        use_gpu=use_gpu,
-        show_log=False,
+        ocr_version="PP-OCRv5",
+        use_angle_cls=True,
+        device=device,
     )
 
 
@@ -44,23 +45,22 @@ def _get_engine():
 def extract_blocks(image_path: str) -> List[TextBlock]:
     """Run OCR on *image_path* and return a flat list of TextBlock objects."""
     engine = _get_engine()
-    result = engine.ocr(image_path, cls=True)
+    result = engine.predict(image_path)
 
     blocks: List[TextBlock] = []
-    # result is list-of-pages; we always have a single image → result[0]
-    page = result[0] if result else []
-    if page is None:
+    if not result or result[0] is None:
         return blocks
 
-    for item in page:
-        bbox, (text, conf) = item
-        # bbox: [[x1,y1],[x2,y2],[x3,y3],[x4,y4]] (four corners, may be rotated)
-        xs = [p[0] for p in bbox]
-        ys = [p[1] for p in bbox]
-        x = min(xs)
-        y = min(ys)
-        w = max(xs) - x
-        h = max(ys) - y
+    page = result[0]
+    texts = page.get("rec_texts", [])
+    scores = page.get("rec_scores", [])
+    polys = page.get("dt_polys", [])
+
+    for text, conf, poly in zip(texts, scores, polys):
+        xs = poly[:, 0]
+        ys = poly[:, 1]
+        x, y = float(xs.min()), float(ys.min())
+        w, h = float(xs.max() - x), float(ys.max() - y)
         blocks.append(TextBlock(text=text.strip(), confidence=conf, x=x, y=y, w=w, h=h))
 
     return blocks

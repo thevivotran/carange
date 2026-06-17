@@ -28,6 +28,7 @@ log = logging.getLogger("ocr_worker.processor")
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
 VISION_CONFIDENCE = 0.85
+LOW_CONF_THRESHOLD = float(os.getenv("LOW_CONF_THRESHOLD", "0.75"))
 
 
 class TransientJobError(Exception):
@@ -72,12 +73,28 @@ def process_job(job: ImportJob, db: Session) -> None:
     except Exception as exc:
         raise TransientJobError(f"OCR failed: {exc}") from exc
 
+    full_text = " ".join(b.text.lower() for b in blocks)
+
+    learned_txns = _try_learned_parser(db, full_text, blocks, job.id)
+    if learned_txns is not None:
+        items = _parsed_to_ingest_items(learned_txns, None)
+        committed = commit_ingest_batch(db, items, source_tag="ocr", import_job_id=job.id)
+        _done(db, job, transaction_count=len(committed))
+        return
+
     effective_source = job.source_hint or detect_source(blocks)
     if effective_source != job.detected_source:
         job.detected_source = effective_source
         db.flush()
 
     log.info("Job %d: detected source = %s", job.id, effective_source)
+
+    if effective_source is None and _ollama.is_enabled():
+        generated = _generate_and_save_parser(db, file_path, blocks, job.id)
+        if generated is not None:
+            committed = commit_ingest_batch(db, generated, source_tag="ocr", import_job_id=job.id)
+            _done(db, job, transaction_count=len(committed))
+            return
 
     if not blocks:
         log.info("Job %d: no text detected — marking done (0 tx)", job.id)
@@ -92,6 +109,17 @@ def process_job(job: ImportJob, db: Session) -> None:
         return
 
     log.info("Job %d: parser found %d candidate transactions", job.id, len(parsed))
+
+    if _ollama.is_enabled() and parsed and any(t.confidence < LOW_CONF_THRESHOLD for t in parsed):
+        log.info("Job %d: low confidence — triggering vision fallback", job.id)
+        vision_items = _extract_via_vision(file_path)
+        if vision_items is not None:
+            log.info("Job %d: vision fallback returned %d items", job.id, len(vision_items))
+            committed = commit_ingest_batch(db, vision_items, source_tag="ocr", import_job_id=job.id)
+            _done(db, job, transaction_count=len(committed))
+            return
+        log.info("Job %d: vision fallback failed — using original parse", job.id)
+
     source_tag = effective_source.value if effective_source else "ocr"
     items = _parsed_to_ingest_items(parsed, effective_source)
     committed = commit_ingest_batch(db, items, source_tag=source_tag, import_job_id=job.id)
@@ -99,6 +127,100 @@ def process_job(job: ImportJob, db: Session) -> None:
 
 
 # ── Vision extraction ─────────────────────────────────────────────────────────
+
+
+def _try_learned_parser(db, full_text, blocks, job_id):
+    from ocr_worker.learned_parser_store import lookup, run_parser
+
+    lp = lookup(db, full_text)
+    if lp is None:
+        return None
+    log.info("Job %d: matched learned parser %r", job_id, lp.source_name)
+    return run_parser(lp.extraction_script, blocks)
+
+
+def _generate_and_save_parser(db, file_path, blocks, job_id):
+    try:
+        from ocr_worker.learned_parser_store import run_parser, save
+
+        today_str = date.today().strftime("%Y-%m-%d")
+        system = (
+            "You are a financial data extraction and parser generation assistant. "
+            "Return only valid JSON, no explanation."
+        )
+        prompt = (
+            f"Today: {today_str}\n"
+            "Extract all financial transactions from this screenshot AND generate "
+            "a reusable Python parser function for this layout.\n"
+            "Return a single JSON object with exactly two keys:\n"
+            '  "transactions": [...same schema as standard extraction...]\n'
+            '  "parser": {\n'
+            '    "source_name": "<snake_case id>",\n'
+            '    "detection_keywords": ["<keyword1>", ...],\n'
+            '    "extraction_script": "def parse(blocks):\\n    ..."\n'
+            "  }\n"
+            "If no transactions, set transactions to [].\n"
+            "The extraction_script must be a complete Python function named parse "
+            "that accepts list[TextBlock] and returns list[ParsedTransaction].\n"
+            "Import nothing — use only: re, math, date, datetime, TextBlock, ParsedTransaction."
+        )
+        raw = _ollama.vision_sync(file_path, prompt=prompt, system=system)
+        if not raw:
+            return None
+
+        text = _FENCE_RE.sub("", raw.strip()).strip()
+        obj = json.loads(text)
+        if not isinstance(obj, dict):
+            return None
+
+        raw_transactions = obj.get("transactions")
+        parser_dict = obj.get("parser")
+
+        result_items = None
+        if isinstance(raw_transactions, list) and raw_transactions:
+            result_items = []
+            for item in raw_transactions:
+                try:
+                    tx_type = str(item["type"]).strip().lower()
+                    if tx_type not in ("expense", "income"):
+                        raise ValueError(f"unknown type {tx_type!r}")
+                    result_items.append(
+                        IngestItem(
+                            date=date.fromisoformat(item["date"]),
+                            amount=_coerce_amount(item["amount"]),
+                            tx_type=tx_type,
+                            description=str(item.get("description", "")),
+                            confidence=VISION_CONFIDENCE,
+                            category_hint=item.get("category_hint"),
+                        )
+                    )
+                except (KeyError, ValueError, TypeError) as exc:
+                    log.debug("Skipping malformed generated item %s: %s", item, exc)
+
+        if not isinstance(parser_dict, dict):
+            return result_items
+
+        source_name = parser_dict.get("source_name")
+        keywords = parser_dict.get("detection_keywords")
+        script = parser_dict.get("extraction_script")
+
+        if not source_name or not isinstance(keywords, list) or not script:
+            return result_items
+
+        if "def parse(" not in script:
+            return result_items
+
+        dry_run = run_parser(script, blocks[:3])
+        if dry_run is None and blocks[:3]:
+            return result_items
+
+        save(db, source_name, keywords, script)
+        log.info("Job %d: saved learned parser %r", job_id, source_name)
+
+        return result_items
+    except Exception as exc:
+        log.warning("Job %d: _generate_and_save_parser failed: %s", job_id, exc)
+        return None
 
 
 _FENCE_RE = re.compile(r"^```(?:json)?\s*|\s*```$", re.MULTILINE)

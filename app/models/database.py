@@ -113,6 +113,10 @@ class ImportSource(str, enum.Enum):
     GRAB = "grab"
     UOB = "uob"
     LIOBANK = "liobank"
+    VPBANK = "vpbank"
+    TECHCOMBANK = "techcombank"
+    MBBANK = "mbbank"
+    VIETCOMBANK = "vietcombank"
 
 
 class AuditField(str, enum.Enum):
@@ -147,6 +151,18 @@ class ImportJob(Base):
     retry_after = Column(DateTime(timezone=True), nullable=True)
 
     transactions = relationship("Transaction", back_populates="import_job")
+
+
+class LearnedParser(Base):
+    __tablename__ = "learned_parsers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    source_name = Column(String(64), nullable=False, unique=True)
+    detection_keywords = Column(JSON, nullable=False)
+    extraction_script = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    hit_count = Column(Integer, default=0, nullable=False, server_default="0")
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
 
 
 class NotificationEventStatus(str, enum.Enum):
