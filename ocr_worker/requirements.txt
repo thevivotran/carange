@@ -1,5 +1,10 @@
 # OCR worker dependencies — installed in the separate carange-ocr-worker image.
 # NOT included in the main carange requirements.txt to keep the app image lean.
+#
+# paddlepaddle (CPU) is used here so the Docker image builds on standard CI runners.
+# The homelab k8s deployment overrides this at runtime by mounting a GPU-enabled
+# PaddlePaddle installation via the node's CUDA libraries — the inference code
+# auto-detects GPU via paddle.is_compiled_with_cuda() / nvidia-smi.
 
 setuptools
 paddlepaddle==3.0.0
