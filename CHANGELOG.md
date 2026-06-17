@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/thevivotran/carange/compare/v0.2.0...v0.2.1) (2026-06-17)
+
+
+### Bug Fixes
+
+* **notify:** commit tx_ingested atomically with transaction to fix ordering race ([83aa0a1](https://github.com/thevivotran/carange/commit/83aa0a134f76640fc02aa6f19ee9ee0be91a3f58))
+
 ## [0.2.0](https://github.com/thevivotran/carange/compare/v0.1.1...v0.2.0) (2026-06-16)
 
 
