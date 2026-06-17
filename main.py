@@ -25,6 +25,7 @@ from app.routers import payees as payees_router
 from app.routers import settings as settings_router
 from app.routers import profiles as profiles_router
 from app.routers import forecast as forecast_router
+from app.routers import learned_parsers as learned_parsers_router
 from app.routers.dashboard import get_dashboard_page_data
 from app.middleware import ProfileMiddleware
 from app.services.settings_service import get_setting
@@ -129,6 +130,7 @@ app.include_router(payees_router.router, prefix="/api/payees")
 app.include_router(settings_router.router, prefix="/settings")
 app.include_router(profiles_router.router, prefix="/profiles")
 app.include_router(forecast_router.router, prefix="/api/forecast")
+app.include_router(learned_parsers_router.router, prefix="/api")
 
 # Fragment routers (HTML partials for HTMX)
 app.include_router(frag_transactions.router, prefix="/fragments/transactions", tags=["fragments"])

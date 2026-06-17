@@ -163,6 +163,7 @@ class LearnedParser(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     hit_count = Column(Integer, default=0, nullable=False, server_default="0")
     last_used_at = Column(DateTime(timezone=True), nullable=True)
+    is_approved = Column(Boolean, default=False, nullable=False, server_default="false")
 
 
 class NotificationEventStatus(str, enum.Enum):

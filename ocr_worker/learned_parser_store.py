@@ -2,6 +2,7 @@ import ast
 import logging
 import math
 import re
+import signal
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 
@@ -12,7 +13,11 @@ from ocr_worker.types import ParsedTransaction, TextBlock
 
 log = logging.getLogger("ocr_worker.learned_parser_store")
 
+_PARSER_TIMEOUT_SECS = 10
+
 # AST node types and attribute names that can escape the restricted namespace.
+# This is defense-in-depth only — the primary security control is the human
+# approval gate (is_approved=False until an admin reviews the script).
 _BANNED_NODE_TYPES = (ast.Import, ast.ImportFrom)
 _BANNED_ATTR_NAMES = frozenset(
     {
@@ -48,7 +53,12 @@ def _ast_is_safe(script: str) -> bool:
 
 
 def lookup(db: Session, full_text: str) -> "LearnedParser | None":
-    parsers = db.query(LearnedParser).order_by(LearnedParser.hit_count.desc()).all()
+    parsers = (
+        db.query(LearnedParser)
+        .filter(LearnedParser.is_approved == True)  # noqa: E712
+        .order_by(LearnedParser.hit_count.desc())
+        .all()
+    )
     for lp in parsers:
         keywords = lp.detection_keywords or []
         if any(kw.lower() in full_text for kw in keywords):
@@ -70,16 +80,23 @@ def save(db: Session, source_name: str, keywords: list[str], script: str) -> "Le
         source_name=source_name,
         detection_keywords=keywords,
         extraction_script=script,
+        is_approved=False,
     )
     db.add(lp)
     db.flush()
     return lp
 
 
+def _timeout_handler(signum, frame):
+    raise TimeoutError("parser script exceeded time limit")
+
+
 def run_parser(script: str, blocks: list[TextBlock]) -> "list[ParsedTransaction] | None":
     if not _ast_is_safe(script):
         log.warning("run_parser: script rejected by AST safety check")
         return None
+    old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
+    signal.alarm(_PARSER_TIMEOUT_SECS)
     try:
         namespace: dict = {
             "re": re,
@@ -96,6 +113,12 @@ def run_parser(script: str, blocks: list[TextBlock]) -> "list[ParsedTransaction]
         if isinstance(result, list) and len(result) > 0:
             return result
         return None
+    except TimeoutError:
+        log.warning("run_parser: script timed out after %ds", _PARSER_TIMEOUT_SECS)
+        return None
     except Exception as exc:
         log.debug("run_parser failed: %s", exc)
         return None
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old_handler)
