@@ -3,6 +3,9 @@ from sqlalchemy.orm import Session
 
 from app.models.database import LearnedParser, get_db
 
+# This app has no auth layer (single-user, homelab deployment, access-controlled
+# at the ingress level). If multi-user auth is added later, these mutation
+# endpoints (approve, delete) must be restricted to admin/operator role.
 router = APIRouter(prefix="/learned-parsers", tags=["learned-parsers"])
 
 
