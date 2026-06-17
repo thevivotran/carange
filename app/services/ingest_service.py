@@ -95,7 +95,33 @@ def commit_ingest_batch(
 
         committed.append(tx)
 
-    db.commit()
+    # Publish tx_ingested events inside the same transaction so they are committed
+    # atomically with the rows. Without this, the transaction is visible in the UI
+    # before the notification event is queued, which lets a concurrent advance_ping
+    # (from the user editing the new row) land in the worker queue first.
+    if committed:
+        from app.services.notification_service import publish_notification
+
+        for tx in committed:
+            try:
+                with db.begin_nested():  # SAVEPOINT: isolate each notification flush
+                    publish_notification(
+                        db,
+                        "tx_ingested",
+                        {
+                            "tx_id": tx.id,
+                            "amount": str(tx.amount),
+                            "tx_type": tx.type.value if tx.type else "expense",
+                            "source": tx.source or "manual",
+                            "cat_name": tx.category.name if tx.category else "?",
+                            "description": tx.description or "No description",
+                            "needs_review": tx.needs_review or False,
+                        },
+                    )
+            except Exception:
+                log.warning("Failed to publish tx_ingested notification for tx %d", tx.id, exc_info=True)
+
+    db.commit()  # transactions + notification events committed atomically
 
     # Cross-pod cache invalidation: workers run in separate pods from the main app.
     # Writing the sentinel here ensures the main app recomputes on the next request.
@@ -103,28 +129,6 @@ def commit_ingest_batch(
         from app.services.dashboard_service import invalidate_dashboard_cache
 
         invalidate_dashboard_cache(db)
-
-    if committed:
-        from app.services.notification_service import publish_notification
-
-        for tx in committed:
-            try:
-                publish_notification(
-                    db,
-                    "tx_ingested",
-                    {
-                        "tx_id": tx.id,
-                        "amount": str(tx.amount),
-                        "tx_type": tx.type.value if tx.type else "expense",
-                        "source": tx.source or "manual",
-                        "cat_name": tx.category.name if tx.category else "?",
-                        "description": tx.description or "No description",
-                        "needs_review": tx.needs_review or False,
-                    },
-                )
-            except Exception:
-                log.warning("Failed to publish tx_ingested notification for tx %d", tx.id, exc_info=True)
-        db.commit()
 
     return committed
 

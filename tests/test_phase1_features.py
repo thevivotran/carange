@@ -9,6 +9,7 @@ import pytest
 from app.models.database import (
     Category,
     EmailIngestLog,
+    NotificationEvent,
     Payee,
     Transaction,
     TransactionRule,
@@ -503,6 +504,49 @@ def test_commit_ingest_batch_with_email_log_id(db_session):
     committed = commit_ingest_batch(db_session, [item], source_tag="email", email_ingest_log_id=log_row.id)
     assert len(committed) == 1
     assert committed[0].email_ingest_log_id == log_row.id
+
+
+def test_commit_ingest_batch_publishes_tx_ingested_notification(db_session):
+    """commit_ingest_batch must publish a tx_ingested notification in the same commit as the transaction."""
+    _make_cat(db_session, name="Others")
+    item = IngestItem(date=date(2026, 3, 1), amount=150_000, tx_type="expense", description="Coffee", confidence=0.99)
+    committed = commit_ingest_batch(db_session, [item], source_tag="email")
+    assert len(committed) == 1
+
+    evt = db_session.query(NotificationEvent).filter_by(event_type="tx_ingested").first()
+    assert evt is not None, "tx_ingested notification event must be created by commit_ingest_batch"
+    assert evt.payload["tx_id"] == committed[0].id
+    assert evt.payload["source"] == "email"
+    assert float(evt.payload["amount"]) == 150000
+
+
+def test_commit_ingest_batch_tx_ingested_before_any_followup(db_session):
+    """tx_ingested event created_at must be <= any event inserted after the batch completes.
+
+    This guards the ordering race: the notification must be committed inside
+    the same transaction as the row so a follow-up advance_ping can never
+    land in the queue before it.
+    """
+    import time
+    from app.services.notification_service import publish_notification
+
+    _make_cat(db_session, name="Others")
+    item = IngestItem(date=date(2026, 3, 2), amount=200_000, tx_type="expense", description="Lunch", confidence=0.99)
+    commit_ingest_batch(db_session, [item], source_tag="email")
+
+    # Simulate a subsequent advance_ping (as would happen if the user immediately
+    # marks the imported transaction as an advance).
+    time.sleep(0.01)
+    publish_notification(db_session, "advance_ping", {"tx_id": 1, "action": "created"})
+    db_session.commit()
+
+    ingested = db_session.query(NotificationEvent).filter_by(event_type="tx_ingested").first()
+    advance = db_session.query(NotificationEvent).filter_by(event_type="advance_ping").first()
+    assert ingested is not None
+    assert advance is not None
+    assert ingested.created_at <= advance.created_at, (
+        "tx_ingested must be queued before advance_ping so the worker sends it first"
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
