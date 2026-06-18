@@ -943,23 +943,32 @@
                 <!-- Amount -->
                 <div>
                     <label class="field-required block text-sm font-medium text-gray-700 mb-2">Amount (VND)</label>
-                    <input type="number" id="global-tx-amount" required min="1" step="1"
+                    <input type="number" id="global-tx-amount" name="amount" required min="1" step="1"
                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
-                           placeholder="Enter amount">
+                           placeholder="Enter amount"
+                           hx-get="/fragments/transactions/budget-preview"
+                           hx-include="#global-tx-category,#global-tx-date,this"
+                           hx-target="#global-tx-budget-preview"
+                           hx-trigger="change, keyup changed delay:400ms">
                 </div>
                 <!-- Date -->
                 <div>
                     <label class="field-required block text-sm font-medium text-gray-700 mb-2">Date</label>
-                    <input type="date" id="global-tx-date" required
+                    <input type="date" id="global-tx-date" name="date" required
                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent bg-white">
                 </div>
                 <!-- Category -->
                 <div>
                     <label class="field-required block text-sm font-medium text-gray-700 mb-2">Category</label>
-                    <select id="global-tx-category" required
-                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <select id="global-tx-category" name="category_id" required
+                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                            hx-get="/fragments/transactions/budget-preview"
+                            hx-include="#global-tx-amount,#global-tx-date,this"
+                            hx-target="#global-tx-budget-preview"
+                            hx-trigger="change">
                         <option value="">Select Category</option>
                     </select>
+                    <div id="global-tx-budget-preview" class="mt-2"></div>
                 </div>
                 <!-- Description -->
                 <div>
@@ -1002,6 +1011,7 @@
         }
         function closeGlobalAddModal() {
             document.getElementById('global-tx-modal').classList.add('hidden');
+            document.getElementById('global-tx-budget-preview').replaceChildren();
         }
         async function _loadGlobalCategories() {
             const type = document.querySelector('input[name="global-type"]:checked').value;

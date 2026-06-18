@@ -217,11 +217,13 @@ def fragment_monthly_summary(
 @router.get("/budget-preview")
 def fragment_budget_preview(
     request: Request,
-    category_id: int,
+    category_id: Optional[int] = None,
     amount: float = 0,
     date: Optional[date] = None,
     db: Session = Depends(get_db),
 ):
+    if not category_id:
+        return render_fragment(request, "partials/transactions/_budget_preview.html", {"snap": None})
     day = get_month_start_day(db)
     label = current_period_label(date or datetime.date.today(), day)
     snap = budget_snapshot(db, category_id, label, extra_amount=amount, day=day)
