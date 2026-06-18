@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/thevivotran/carange/compare/v0.3.0...v0.3.1) (2026-06-18)
+
+
+### Bug Fixes
+
+* **telegram:** force IPv4 to prevent ENETUNREACH in k8s flannel pods ([#44](https://github.com/thevivotran/carange/issues/44)) ([4080684](https://github.com/thevivotran/carange/commit/40806849fc83ce0d8a89ee52f698cbacd30bcac7))
+
 ## [0.3.0](https://github.com/thevivotran/carange/compare/v0.2.1...v0.3.0) (2026-06-18)
 
 
