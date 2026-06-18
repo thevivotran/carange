@@ -38,15 +38,18 @@ def _budget_link(app_url: str, label: str = "Open Budget") -> str:
     return f"📊 {label}."
 
 
-def _send(text: str, bot_token: str, chat_id: str, parse_mode: str = "HTML") -> bool:
+def _send(text: str, bot_token: str, chat_id: str, parse_mode: str = "HTML", reply_markup: dict | None = None) -> bool:
     """POST a message to the configured chat. Returns True on success (blocking)."""
     if not bot_token or not chat_id:
         log.debug("Telegram not configured — skipping notification")
         return False
     try:
+        payload: dict = {"chat_id": chat_id, "text": text, "parse_mode": parse_mode}
+        if reply_markup is not None:
+            payload["reply_markup"] = reply_markup
         resp = requests.post(
             f"{_API_BASE}/bot{bot_token}/sendMessage",
-            json={"chat_id": chat_id, "text": text, "parse_mode": parse_mode},
+            json=payload,
             timeout=_TIMEOUT,
         )
         if not resp.ok:
@@ -57,12 +60,12 @@ def _send(text: str, bot_token: str, chat_id: str, parse_mode: str = "HTML") -> 
         return False
 
 
-def _fire(text: str, bot_token: str, chat_id: str, parse_mode: str = "HTML") -> None:
+def _fire(text: str, bot_token: str, chat_id: str, parse_mode: str = "HTML", reply_markup: dict | None = None) -> None:
     """Non-blocking variant of _send — spawns a daemon thread so the caller returns immediately."""
     if not bot_token or not chat_id:
         log.debug("Telegram not configured — skipping notification")
         return
-    threading.Thread(target=_send, args=(text, bot_token, chat_id, parse_mode), daemon=True).start()
+    threading.Thread(target=_send, args=(text, bot_token, chat_id, parse_mode, reply_markup), daemon=True).start()
 
 
 def _review_link(app_url: str) -> str:
@@ -79,6 +82,50 @@ def _transactions_footer(app_url: str, label: str, query: str = "") -> str:
     return f"📌 {label}."
 
 
+def inline_url_keyboard(app_url: str, items: list[tuple[str, str]]) -> dict | None:
+    """Build an inline keyboard dict from (label, path) pairs. Returns None when app_url is empty.
+
+    Buttons are laid out in rows of up to 2.
+    """
+    if not app_url:
+        return None
+    base = app_url.rstrip("/")
+    rows: list[list[dict]] = []
+    for i in range(0, len(items), 2):
+        row = []
+        for label, path in items[i : i + 2]:
+            row.append({"text": label, "url": base + path})
+        rows.append(row)
+    return {"inline_keyboard": rows}
+
+
+def _budget_bar_line(snapshot: dict) -> str:
+    """Render a budget bar line from a snapshot dict: `{bar} {usage_pct}%  {status}`."""
+    from app.services.budget_context import render_bar
+
+    pct = snapshot.get("projected_usage_pct", snapshot.get("usage_pct", 0))
+    status = snapshot.get("projected_status", snapshot.get("status", ""))
+    bar = render_bar(pct)
+    suffix = " ⚠️" if pct >= 100 else ""
+    return f"{bar} {pct:.0f}%  {status}{suffix}"
+
+
+def _build_card_text(
+    header: str,
+    body_lines: list[str],
+    amount_line: str,
+    snapshot: dict | None = None,
+    hide_amount: bool = False,
+) -> str:
+    """Assemble a card: header, divider, body, optional budget bar, amount line."""
+    parts = [f"<b>{header}</b>", "━━━━━━━━━━━━━━━━━━━━"]
+    parts.extend(body_lines)
+    if snapshot:
+        parts.append(_budget_bar_line(snapshot))
+    parts.append(_amount(amount_line, hide_amount))
+    return "\n".join(parts)
+
+
 def send_transaction_ping_fields(fields: dict) -> None:
     """Fire-and-forget variant that takes pre-extracted scalar fields (no ORM/DB access).
 
@@ -92,22 +139,33 @@ def send_transaction_ping_fields(fields: dict) -> None:
     desc = fields["description"] or "No description"
     app_url = fields.get("app_url", "")
     hide = fields.get("telegram_hide_amounts", "false") == "true"
+    tx_id = fields.get("tx_id")
+
+    snapshot = fields.get("budget_snapshot")
 
     if fields["needs_review"]:
-        text = (
-            f"⚠️ <b>Needs review</b> [{_esc(source_label)}]\n"
-            f"{_amount(direction + amount_str, hide)} — {_esc(fields['cat_name'])}\n"
-            f"<i>{_esc(desc)}</i>\n"
-            f"{_review_link(app_url)}"
-        )
+        header = f"⚠️ Needs review [{_esc(source_label)}]"
+        body_lines = [f"<i>{_esc(desc)}</i>"]
+        amount_line = f"{direction}{amount_str} — {_esc(fields['cat_name'])}"
+        text = _build_card_text(header, body_lines, amount_line, snapshot, hide)
+        keyboard_items = [
+            ("📥 Review inbox", "/transactions?needs_review=true"),
+        ]
+        if tx_id:
+            keyboard_items.append(("✏️ Edit", f"/transactions?focus={tx_id}"))
+        keyboard_items.append(("📊 View budget", "/budget"))
     else:
-        text = (
-            f"💸 <b>New</b> [{_esc(source_label)}]\n"
-            f"{_amount(direction + amount_str, hide)} — {_esc(fields['cat_name'])}\n"
-            f"<i>{_esc(desc)}</i>"
-        )
+        header = f"💸 New [{_esc(source_label)}]"
+        body_lines = [f"<i>{_esc(desc)}</i>"]
+        amount_line = f"{direction}{amount_str} — {_esc(fields['cat_name'])}"
+        text = _build_card_text(header, body_lines, amount_line, snapshot, hide)
+        keyboard_items = []
+        if tx_id:
+            keyboard_items.append(("✏️ Edit", f"/transactions?focus={tx_id}"))
+        keyboard_items.append(("📊 View budget", "/budget"))
 
-    _fire(text, fields["bot_token"], fields["chat_id"])
+    markup = inline_url_keyboard(app_url, keyboard_items)
+    _fire(text, fields["bot_token"], fields["chat_id"], reply_markup=markup)
 
 
 def send_message(text: str, db: Session) -> bool:

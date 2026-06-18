@@ -156,11 +156,13 @@ def _handle_failure(db: Session, evt: NotificationEvent, reason: str) -> None:
 # ── Message building ──────────────────────────────────────────────────────────
 
 
-def _build_message(evt: NotificationEvent, cfg: dict) -> str | None:
-    """Dispatch on evt.event_type and build the Telegram message text."""
-    from app.notify.telegram import _esc, _amount, _review_link, _transactions_footer, _budget_link
+def _build_message(evt: NotificationEvent, cfg: dict) -> tuple[str | None, dict | None]:
+    """Dispatch on evt.event_type and build the Telegram message text + optional reply_markup."""
+    from app.notify.telegram import _esc, _amount, _review_link, _transactions_footer, _budget_link, inline_url_keyboard
+    from app.services.budget_context import render_bar
 
     payload = evt.payload
+    app_url = cfg.get("app_url", "")
 
     if evt.event_type == "advance_ping":
         amount_str = f"{float(payload['amount']):,.0f}đ"
@@ -169,10 +171,18 @@ def _build_message(evt: NotificationEvent, cfg: dict) -> str | None:
         footer = _transactions_footer(cfg["app_url"], "Pending settlement — view transactions", "?advance=unsettled")
         text = (
             f"💳 <b>Personal advance — {_esc(verb)}</b>\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
             f"-{_amount(amount_str, hide)} — {_esc(payload['cat_name'])}\n"
             f"<i>{_esc(payload['description'])}</i>\n{footer}"
         )
-        return text
+        markup = inline_url_keyboard(
+            app_url,
+            [
+                ("📌 View transactions", "/transactions?advance=unsettled"),
+                ("📊 View budget", "/budget"),
+            ],
+        )
+        return text, markup
 
     elif evt.event_type == "tx_ingested":
         amount_str = f"{float(payload['amount']):,.0f}đ"
@@ -180,43 +190,73 @@ def _build_message(evt: NotificationEvent, cfg: dict) -> str | None:
         hide = cfg.get("telegram_hide_amounts") == "true"
         source_label = {"email": "Email", "ocr": "OCR"}.get(payload["source"], payload["source"])
         amt = _amount(direction + amount_str, hide)
+        tx_id = payload.get("tx_id")
         if payload["needs_review"]:
             text = (
                 f"⚠️ <b>Needs review</b> [{_esc(source_label)}]\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
                 f"{amt} — {_esc(payload['cat_name'])}\n"
                 f"<i>{_esc(payload['description'])}</i>\n{_review_link(cfg['app_url'])}"
             )
+            keyboard_items = [
+                ("📥 Review inbox", "/transactions?needs_review=true"),
+            ]
+            if tx_id:
+                keyboard_items.append(("✏️ Edit", f"/transactions?focus={tx_id}"))
+            keyboard_items.append(("📊 View budget", "/budget"))
         else:
             text = (
                 f"💸 <b>New</b> [{_esc(source_label)}]\n"
+                f"━━━━━━━━━━━━━━━━━━━━\n"
                 f"{amt} — {_esc(payload['cat_name'])}\n"
                 f"<i>{_esc(payload['description'])}</i>"
             )
-        return text
+            keyboard_items = []
+            if tx_id:
+                keyboard_items.append(("✏️ Edit", f"/transactions?focus={tx_id}"))
+            keyboard_items.append(("📊 View budget", "/budget"))
+        markup = inline_url_keyboard(app_url, keyboard_items)
+        return text, markup
 
     elif evt.event_type == "review_reminder":
         count = payload["count"]
         if count <= 0:
-            return None
+            return None, None
         plural = "s" if count != 1 else ""
         text = f"📋 <b>{count} transaction{plural}</b> pending review.\n{_review_link(cfg['app_url'])}"
-        return text
+        markup = inline_url_keyboard(
+            app_url,
+            [
+                ("📥 Review inbox", "/transactions?needs_review=true"),
+            ],
+        )
+        return text, markup
 
     elif evt.event_type == "budget_alert":
         hide = cfg.get("telegram_hide_amounts") == "true"
         spent_str = f"{payload['spent']:,.0f}đ"
         limit_str = f"{payload['limit']:,.0f}đ"
-        status_line = "Over budget!" if payload["threshold"] >= 100 else "Approaching budget limit"
+        pct = payload["pct"]
+        bar = render_bar(pct)
+        status_line = "Over budget!" if pct >= 100 else "Approaching budget limit"
         text = (
             f"🚨 <b>Budget Alert</b> — {_esc(payload['category_name'])}\n"
-            f"{_amount(spent_str, hide)} / {_amount(limit_str, hide)} (<b>{payload['pct']:.0f}%</b>)\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"{bar} {pct:.0f}%\n"
+            f"{_amount(spent_str, hide)} / {_amount(limit_str, hide)}\n"
             f"{status_line}\n{_budget_link(cfg['app_url'])}"
         )
-        return text
+        markup = inline_url_keyboard(
+            app_url,
+            [
+                ("📊 View budget", "/budget"),
+            ],
+        )
+        return text, markup
 
     else:
         log.warning("Unknown event_type: %s", evt.event_type)
-        return None
+        return None, None
 
 
 # ── Run loops ─────────────────────────────────────────────────────────────────
@@ -236,12 +276,12 @@ def _process_one(SessionFactory) -> bool:
         _mark_progress()
         try:
             cfg = get_telegram_config(db)
-            text = _build_message(evt, cfg)
+            text, reply_markup = _build_message(evt, cfg)
             if text is None:
                 evt.status = NotificationEventStatus.DONE
                 db.commit()
             else:
-                ok = _send(text, cfg["telegram_bot_token"], cfg["telegram_chat_id"])
+                ok = _send(text, cfg["telegram_bot_token"], cfg["telegram_chat_id"], reply_markup=reply_markup)
                 if ok:
                     evt.status = NotificationEventStatus.DONE
                     db.commit()

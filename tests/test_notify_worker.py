@@ -87,9 +87,11 @@ def test_build_message_advance_ping_created():
     )
     cfg = {"app_url": "https://example.com", "telegram_hide_amounts": "false"}
 
-    text = _build_message(evt, cfg)
+    text, markup = _build_message(evt, cfg)
     assert text is not None
     assert "Personal advance — Created" in text
+    assert markup is not None
+    assert "inline_keyboard" in markup
 
 
 def test_build_message_review_reminder_zero():
@@ -100,8 +102,9 @@ def test_build_message_review_reminder_zero():
     )
     cfg = {"app_url": "https://example.com"}
 
-    text = _build_message(evt, cfg)
+    text, markup = _build_message(evt, cfg)
     assert text is None
+    assert markup is None
 
 
 def test_build_message_unknown_event_returns_none():
@@ -112,5 +115,6 @@ def test_build_message_unknown_event_returns_none():
     )
     cfg = {"app_url": "https://example.com"}
 
-    text = _build_message(evt, cfg)
+    text, markup = _build_message(evt, cfg)
     assert text is None
+    assert markup is None
