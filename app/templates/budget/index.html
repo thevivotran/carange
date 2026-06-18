@@ -275,10 +275,26 @@ async function openEditModal() {
         nameRow.appendChild(dot);
         nameRow.appendChild(label);
 
-        // Line 2: amount + month inputs, indented to align with label
+        // When the amount is carried forward from an earlier month (no record at
+        // the viewed month), flag it: editing here forks a new effective-from.
+        if (!r.has_own_allocation) {
+            const inherited = document.createElement('span');
+            inherited.className = 'text-[10px] uppercase tracking-wide text-amber-600 bg-amber-50 rounded px-1.5 py-0.5';
+            inherited.textContent = 'inherited';
+            inherited.title = 'No budget set for this month — value carried forward. Saving sets a new budget starting from the chosen month.';
+            nameRow.appendChild(inherited);
+        }
+
+        // Line 2: amount + month inputs, each with its own field label so the
+        // two controls are independently understandable on mobile.
         const inputRow = document.createElement('div');
         inputRow.className = 'flex gap-2 pl-5';
 
+        const amtField = document.createElement('div');
+        amtField.className = 'flex-1 min-w-0';
+        const amtLabel = document.createElement('span');
+        amtLabel.className = 'block text-[10px] uppercase tracking-wide text-gray-400 mb-0.5';
+        amtLabel.textContent = 'Amount (VND)';
         const amtInput = document.createElement('input');
         amtInput.type = 'number';
         amtInput.min = '0';
@@ -286,16 +302,26 @@ async function openEditModal() {
         amtInput.value = r.monthly_allocation;
         amtInput.dataset.catId = r.category_id;
         amtInput.dataset.origAmt = r.monthly_allocation;
-        amtInput.className = 'flex-1 min-w-0 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary text-right';
+        amtInput.className = 'w-full min-w-0 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary text-right';
+        amtField.appendChild(amtLabel);
+        amtField.appendChild(amtInput);
 
+        const monthField = document.createElement('div');
+        monthField.className = 'flex-1 min-w-0';
+        const monthLabel = document.createElement('span');
+        monthLabel.className = 'block text-[10px] uppercase tracking-wide text-gray-400 mb-0.5';
+        monthLabel.textContent = 'Effective from';
         const monthInput = document.createElement('input');
         monthInput.type = 'month';
         monthInput.value = currentYM;
         monthInput.dataset.forCat = r.category_id;
-        monthInput.className = 'flex-1 min-w-0 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary';
+        monthInput.dataset.origMonth = currentYM;
+        monthInput.className = 'w-full min-w-0 border rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary';
+        monthField.appendChild(monthLabel);
+        monthField.appendChild(monthInput);
 
-        inputRow.appendChild(amtInput);
-        inputRow.appendChild(monthInput);
+        inputRow.appendChild(amtField);
+        inputRow.appendChild(monthField);
 
         row.appendChild(nameRow);
         row.appendChild(inputRow);
@@ -313,10 +339,16 @@ async function saveEdits() {
         const newAmt  = parseFloat(inp.value);
         const origAmt = parseFloat(inp.dataset.origAmt);
         const catId   = parseInt(inp.dataset.catId);
-        if (isNaN(newAmt) || newAmt === origAmt) return;
+        if (isNaN(newAmt)) return;
         const monthInput = document.querySelector(`#edit-form input[data-for-cat="${catId}"]`);
         const effectiveMonth = monthInput ? monthInput.value : currentYM;
         if (!effectiveMonth) return;
+        const origMonth = monthInput ? monthInput.dataset.origMonth : currentYM;
+        // Save when either the amount OR the effective-from month was changed,
+        // so users can re-date an allocation without touching the amount.
+        const amountChanged = newAmt !== origAmt;
+        const monthChanged  = effectiveMonth !== origMonth;
+        if (!amountChanged && !monthChanged) return;
         promises.push(
             fetch('/api/budget/', {
                 method: 'POST',
