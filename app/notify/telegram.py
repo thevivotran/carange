@@ -46,7 +46,7 @@ def _budget_link(app_url: str, label: str = "Open Budget") -> str:
 def _send(text: str, bot_token: str, chat_id: str, parse_mode: str = "HTML", reply_markup: dict | None = None) -> bool:
     """POST a message to the configured chat. Returns True on success (blocking)."""
     if not bot_token or not chat_id:
-        log.debug("Telegram not configured — skipping notification")
+        log.warning("Telegram not configured (missing bot_token or chat_id) — skipping notification")
         return False
     try:
         payload: dict = {"chat_id": chat_id, "text": text, "parse_mode": parse_mode}
@@ -68,8 +68,9 @@ def _send(text: str, bot_token: str, chat_id: str, parse_mode: str = "HTML", rep
 def _fire(text: str, bot_token: str, chat_id: str, parse_mode: str = "HTML", reply_markup: dict | None = None) -> None:
     """Non-blocking variant of _send — spawns a daemon thread so the caller returns immediately."""
     if not bot_token or not chat_id:
-        log.debug("Telegram not configured — skipping notification")
+        log.warning("Telegram not configured (missing bot_token or chat_id) — skipping notification")
         return
+    log.info("Telegram: firing notification to chat %s", chat_id)
     threading.Thread(target=_send, args=(text, bot_token, chat_id, parse_mode, reply_markup), daemon=True).start()
 
 

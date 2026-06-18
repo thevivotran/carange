@@ -160,6 +160,7 @@ def create_transaction(db: Session, data: TransactionCreate) -> Transaction:
             "bot_token": _tg_cfg["telegram_bot_token"],
             "chat_id": _tg_cfg["telegram_chat_id"],
             "app_url": _tg_cfg["app_url"],
+            "telegram_hide_amounts": _tg_cfg.get("telegram_hide_amounts", "false"),
         }
 
         try:
