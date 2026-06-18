@@ -116,6 +116,8 @@ def commit_ingest_batch(
                             "cat_name": tx.category.name if tx.category else "?",
                             "description": tx.description or "No description",
                             "needs_review": tx.needs_review or False,
+                            "category_id": tx.category_id,
+                            "date": str(tx.date) if tx.date else None,
                         },
                     )
             except Exception:
