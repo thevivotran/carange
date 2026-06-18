@@ -12,7 +12,12 @@ import logging
 import threading
 
 import requests
+import urllib3.util.connection as _urllib3_conn
 from sqlalchemy.orm import Session
+
+# flannel CNI in k8s pods has no IPv6 egress; force urllib3 to use IPv4 only
+# so DNS responses that include AAAA records don't cause ENETUNREACH failures.
+_urllib3_conn.HAS_IPV6 = False
 
 from app.services.settings_service import get_telegram_config
 
