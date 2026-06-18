@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 from datetime import date
+import datetime
 
 from app.models.database import (
     get_db,
@@ -9,6 +10,9 @@ from app.models.database import (
     TransactionAuditLog,
 )
 from app.routers.fragments._helpers import render_fragment
+from app.services.budget_context import budget_snapshot, status_word
+from app.services.budget_service import compute_budget_rows
+from app.services.fiscal_period import current_period_label, get_month_start_day
 
 router = APIRouter()
 
@@ -143,6 +147,30 @@ def fragment_transaction_list(
 
     current_page = skip // limit if limit else 0
 
+    day = get_month_start_day(db)
+    labels_present: set[str] = set()
+    for t in transactions:
+        if t.type == "expense":
+            labels_present.add(current_period_label(t.date, day))
+
+    label_rows: dict[str, dict[int, dict]] = {}
+    for label in labels_present:
+        rows = compute_budget_rows(db, label, day)
+        label_rows[label] = {r["category_id"]: r for r in rows}
+
+    tx_budgets: dict[int, dict | None] = {}
+    for t in transactions:
+        if t.type != "expense" or t.category_id is None:
+            tx_budgets[t.id] = None
+            continue
+        label = current_period_label(t.date, day)
+        row = label_rows.get(label, {}).get(t.category_id)
+        if row is None or row["monthly_allocation"] <= 0:
+            tx_budgets[t.id] = None
+            continue
+        left = row["monthly_allocation"] - row["this_month_spent"]
+        tx_budgets[t.id] = {"left": left, "status": status_word(row["usage_pct"], left)}
+
     return render_fragment(
         request,
         "partials/transactions/_list_body.html",
@@ -161,6 +189,7 @@ def fragment_transaction_list(
             "trash": trash,
             "ocr_sources": OCR_SOURCES,
             "edited_ids": edited_ids,
+            "tx_budgets": tx_budgets,
         },
     )
 
@@ -182,6 +211,49 @@ def fragment_monthly_summary(
         request,
         "partials/transactions/_monthly_summary.html",
         {"summary": data},
+    )
+
+
+@router.get("/budget-preview")
+def fragment_budget_preview(
+    request: Request,
+    category_id: int,
+    amount: float = 0,
+    date: Optional[date] = None,
+    db: Session = Depends(get_db),
+):
+    day = get_month_start_day(db)
+    label = current_period_label(date or datetime.date.today(), day)
+    snap = budget_snapshot(db, category_id, label, extra_amount=amount, day=day)
+    return render_fragment(
+        request,
+        "partials/transactions/_budget_preview.html",
+        {"snap": snap},
+    )
+
+
+@router.get("/{transaction_id}/budget-context")
+def fragment_budget_context(
+    transaction_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    t = db.query(Transaction).options(joinedload(Transaction.category)).filter(Transaction.id == transaction_id).first()
+    if t is None:
+        return render_fragment(
+            request,
+            "partials/transactions/_budget_context.html",
+            {"snap": None, "is_expense": False},
+        )
+    day = get_month_start_day(db)
+    label = current_period_label(t.date, day)
+    snap = None
+    if t.type == "expense" and t.category_id is not None:
+        snap = budget_snapshot(db, t.category_id, label, day=day)
+    return render_fragment(
+        request,
+        "partials/transactions/_budget_context.html",
+        {"snap": snap, "is_expense": t.type == "expense"},
     )
 
 

@@ -207,23 +207,32 @@
             <!-- Amount -->
             <div>
                 <label class="field-required block text-sm font-medium text-gray-700 mb-2">Amount (VND)</label>
-                <input type="number" id="amount" required min="0" step="1"
+                <input type="number" id="amount" name="amount" required min="0" step="1"
                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
-                       placeholder="Enter exact amount">
+                       placeholder="Enter exact amount"
+                       hx-get="/fragments/transactions/budget-preview"
+                       hx-include="[name=category_id],[name=amount],[name=date]"
+                       hx-target="#tx-budget-preview"
+                       hx-trigger="change, keyup changed delay:400ms">
+                <div id="tx-budget-preview" class="mt-2"></div>
             </div>
             
             <!-- Date -->
             <div>
                 <label class="field-required block text-sm font-medium text-gray-700 mb-2">Date</label>
-                <input type="date" id="date" required
+                <input type="date" id="date" name="date" required
                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent bg-white">
             </div>
             
             <!-- Category -->
             <div>
                 <label class="field-required block text-sm font-medium text-gray-700 mb-2">Category</label>
-                <select id="category" required
-                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                <select id="category" name="category_id" required
+                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                        hx-get="/fragments/transactions/budget-preview"
+                        hx-include="[name=category_id],[name=amount],[name=date]"
+                        hx-target="#tx-budget-preview"
+                        hx-trigger="change">
                     <option value="">Select Category</option>
                 </select>
             </div>
@@ -1446,6 +1455,11 @@
                 function() { closeTxDrawer(); deleteTransactionSafe(t, null); }));
         }
 
+        htmx.ajax('GET', '/fragments/transactions/' + t.id + '/budget-context', {
+            target: '#tx-budget-context',
+            swap: 'innerHTML',
+        });
+
         document.getElementById('tx-drawer').classList.remove('hidden');
     }
 
@@ -1778,6 +1792,7 @@
             </button>
         </div>
         <div id="tx-drawer-body" class="overflow-y-auto overscroll-contain flex-1 p-4 space-y-3"></div>
+        <div id="tx-budget-context" class="px-4 pb-2"></div>
         <div id="tx-drawer-footer" class="p-4 border-t flex flex-wrap gap-2"></div>
     </div>
 </div>

@@ -71,6 +71,14 @@
         <span class="text-sm font-semibold whitespace-nowrap {{ 'text-green-600' if t.type == 'income' else 'text-red-600' }}">
           {{ '+' if t.type == 'income' else '-' }}{{ t.amount | currency }}
         </span>
+
+        {% set budget_info = tx_budgets.get(t.id) if tx_budgets is defined else None %}
+        {% if budget_info %}
+          {% set badge_mod = '--success' if budget_info.status == 'On track' else ('--warning' if budget_info.status == 'Watch' else '--danger') %}
+          <span class="hidden md:inline-flex flex-shrink-0 items-center px-2 py-0.5 rounded-full text-xs font-medium cg-badge cg-badge{{ badge_mod }}">
+            {{ budget_info.left | currency }} left
+          </span>
+        {% endif %}
       </div>
     </div>
   {% endfor %}

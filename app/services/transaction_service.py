@@ -162,6 +162,19 @@ def create_transaction(db: Session, data: TransactionCreate) -> Transaction:
             "app_url": _tg_cfg["app_url"],
         }
 
+        try:
+            if db_tx.type == TransactionType.EXPENSE and db_tx.category_id:
+                from app.services.budget_context import budget_snapshot
+                from app.services.fiscal_period import current_period_label, get_month_start_day
+
+                _day = get_month_start_day(db)
+                _label = current_period_label(db_tx.date, _day)
+                _snap = budget_snapshot(db, db_tx.category_id, _label, day=_day)
+                if _snap:
+                    _ping_fields["budget_snapshot"] = _snap
+        except Exception as exc:
+            log.warning("Budget snapshot failed for tx %d: %s", db_tx.id, exc)
+
         def _ping(fields: dict) -> None:
             try:
                 from app.notify import telegram as _tg

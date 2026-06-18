@@ -1,0 +1,24 @@
+{% if not snap or not is_expense %}
+  <p class="text-xs text-gray-400 text-center py-2">No budget set for this category</p>
+{% else %}
+  {% set bar_pct = [[snap.usage_pct, 100] | min, 0] | max %}
+  {% if snap.status == 'On track' %}
+    {% set bar_color = '#22c55e' %}
+  {% elif snap.status == 'Watch' %}
+    {% set bar_color = '#f59e0b' %}
+  {% else %}
+    {% set bar_color = '#ef4444' %}
+  {% endif %}
+  <div class="space-y-1.5">
+    <div class="w-full bg-gray-100 rounded-full h-2.5">
+      <div class="h-2.5 rounded-full transition-all duration-500" style="width:{{ bar_pct | int }}%; background:{{ bar_color }}"></div>
+    </div>
+    <div class="flex items-center justify-between text-xs">
+      <span class="text-gray-600">
+        {{ snap.spent | currency }} / {{ snap.allocated | currency }} &middot; {{ snap.left | currency }} left
+      </span>
+      <span class="font-medium" style="color:{{ bar_color }}">{{ snap.status }}</span>
+    </div>
+    <p class="text-xs text-gray-400">{{ snap.usage_pct }}% spent &middot; {{ snap.pace_status }}</p>
+  </div>
+{% endif %}
