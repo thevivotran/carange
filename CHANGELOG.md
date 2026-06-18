@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.3.0](https://github.com/thevivotran/carange/compare/v0.2.1...v0.3.0) (2026-06-18)
+
+
+### Features
+
+* **budget:** surface budget awareness in transactions and Telegram ([#42](https://github.com/thevivotran/carange/issues/42)) ([907f2f7](https://github.com/thevivotran/carange/commit/907f2f763453bc4ce0962401583216a335fe5186))
+* **ocr:** upgrade to PaddleOCR 3.x + add VN bank parsers + AI fallback loop ([e537c7e](https://github.com/thevivotran/carange/commit/e537c7e836bf7dcb35ae0ced13ac33819c7fe7ac))
+
+
+### Bug Fixes
+
+* **ci:** use python:3.12-slim base image for ocr-worker Docker build ([94b5425](https://github.com/thevivotran/carange/commit/94b542569dc28e606d2c86fb0f7b422c54d62904))
+* **security:** add human approval gate for AI-generated parsers (Option A) ([2b61945](https://github.com/thevivotran/carange/commit/2b61945bc8cb305bcf79942b77260da644f1663b))
+
 ## [0.2.1](https://github.com/thevivotran/carange/compare/v0.2.0...v0.2.1) (2026-06-17)
 
 
