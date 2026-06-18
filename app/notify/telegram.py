@@ -118,16 +118,13 @@ def _budget_bar_line(snapshot: dict) -> str:
 def _build_card_text(
     header: str,
     body_lines: list[str],
-    amount_line: str,
     snapshot: dict | None = None,
-    hide_amount: bool = False,
 ) -> str:
-    """Assemble a card: header, divider, body, optional budget bar, amount line."""
-    parts = [f"<b>{header}</b>", "━━━━━━━━━━━━━━━━━━━━"]
+    """Assemble a card: header, divider, body lines, optional budget bar."""
+    parts = [f"<b>{header}</b>", "———"]
     parts.extend(body_lines)
     if snapshot:
         parts.append(_budget_bar_line(snapshot))
-    parts.append(_amount(amount_line, hide_amount))
     return "\n".join(parts)
 
 
@@ -148,25 +145,25 @@ def send_transaction_ping_fields(fields: dict) -> None:
 
     snapshot = fields.get("budget_snapshot")
 
+    amount_line = _amount(f"{direction}{amount_str} — {_esc(fields['cat_name'])}", hide)
+
     if fields["needs_review"]:
         header = f"⚠️ Needs review [{_esc(source_label)}]"
-        body_lines = [f"<i>{_esc(desc)}</i>"]
-        amount_line = f"{direction}{amount_str} — {_esc(fields['cat_name'])}"
-        text = _build_card_text(header, body_lines, amount_line, snapshot, hide)
+        body_lines = [f"<b>{amount_line}</b>", f"<i>{_esc(desc)}</i>"]
+        text = _build_card_text(header, body_lines, snapshot)
         keyboard_items = [
             ("📥 Review inbox", "/transactions?needs_review=true"),
         ]
         if tx_id:
-            keyboard_items.append(("✏️ Edit", f"/transactions?focus={tx_id}"))
+            keyboard_items.append(("🔍 View", f"/transactions?focus={tx_id}"))
         keyboard_items.append(("📊 View budget", "/budget"))
     else:
         header = f"💸 New [{_esc(source_label)}]"
-        body_lines = [f"<i>{_esc(desc)}</i>"]
-        amount_line = f"{direction}{amount_str} — {_esc(fields['cat_name'])}"
-        text = _build_card_text(header, body_lines, amount_line, snapshot, hide)
+        body_lines = [f"<b>{amount_line}</b>", f"<i>{_esc(desc)}</i>"]
+        text = _build_card_text(header, body_lines, snapshot)
         keyboard_items = []
         if tx_id:
-            keyboard_items.append(("✏️ Edit", f"/transactions?focus={tx_id}"))
+            keyboard_items.append(("🔍 View", f"/transactions?focus={tx_id}"))
         keyboard_items.append(("📊 View budget", "/budget"))
 
     markup = inline_url_keyboard(app_url, keyboard_items)

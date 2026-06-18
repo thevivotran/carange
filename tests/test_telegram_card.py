@@ -101,16 +101,16 @@ def test_budget_bar_line_over_100_gets_warning():
 
 def test_build_card_text_with_snapshot():
     snap = _snapshot()
-    text = _build_card_text("Header", ["body line"], "-50,000đ — Food", snap)
+    text = _build_card_text("Header", ["-50,000đ — Food", "body line"], snap)
     assert "<b>Header</b>" in text
-    assert "━━━━━━━━━━━━━━━━━━━━" in text
+    assert "———" in text
     assert "body line" in text
     assert "█" in text
     assert "On track" in text
 
 
 def test_build_card_text_without_snapshot():
-    text = _build_card_text("Header", ["body line"], "-50,000đ — Food", None)
+    text = _build_card_text("Header", ["-50,000đ — Food", "body line"])
     assert "█" not in text
     assert "<b>Header</b>" in text
 

@@ -156,7 +156,7 @@ def _handle_failure(db: Session, evt: NotificationEvent, reason: str) -> None:
 # ── Message building ──────────────────────────────────────────────────────────
 
 
-def _build_message(evt: NotificationEvent, cfg: dict) -> tuple[str | None, dict | None]:
+def _build_message(evt: NotificationEvent, cfg: dict, db: Session | None = None) -> tuple[str | None, dict | None]:
     """Dispatch on evt.event_type and build the Telegram message text + optional reply_markup."""
     from app.notify.telegram import _esc, _amount, _review_link, _transactions_footer, _budget_link, inline_url_keyboard
     from app.services.budget_context import render_bar
@@ -171,7 +171,7 @@ def _build_message(evt: NotificationEvent, cfg: dict) -> tuple[str | None, dict 
         footer = _transactions_footer(cfg["app_url"], "Pending settlement — view transactions", "?advance=unsettled")
         text = (
             f"💳 <b>Personal advance — {_esc(verb)}</b>\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"———\n"
             f"-{_amount(amount_str, hide)} — {_esc(payload['cat_name'])}\n"
             f"<i>{_esc(payload['description'])}</i>\n{footer}"
         )
@@ -185,35 +185,48 @@ def _build_message(evt: NotificationEvent, cfg: dict) -> tuple[str | None, dict 
         return text, markup
 
     elif evt.event_type == "tx_ingested":
+        from app.notify.telegram import _budget_bar_line
+
         amount_str = f"{float(payload['amount']):,.0f}đ"
         direction = "+" if payload["tx_type"] == "income" else "-"
         hide = cfg.get("telegram_hide_amounts") == "true"
         source_label = {"email": "Email", "ocr": "OCR"}.get(payload["source"], payload["source"])
-        amt = _amount(direction + amount_str, hide)
+        amt_line = _amount(f"{direction}{amount_str} — {_esc(payload['cat_name'])}", hide)
         tx_id = payload.get("tx_id")
+
+        # Fetch budget snapshot for expense transactions when DB is available
+        snap = None
+        is_expense = payload.get("tx_type") == "expense"
+        if db is not None and is_expense and payload.get("category_id") and payload.get("date"):
+            try:
+                from app.services.budget_context import budget_snapshot
+                from app.services.fiscal_period import current_period_label, get_month_start_day
+                from datetime import date as _date
+
+                _day = get_month_start_day(db)
+                _tx_date = _date.fromisoformat(payload["date"])
+                _label = current_period_label(_tx_date, _day)
+                snap = budget_snapshot(db, payload["category_id"], _label, day=_day)
+            except Exception as exc:
+                log.warning("Budget snapshot failed for tx_ingested event %d: %s", evt.id, exc)
+
+        bar_line = ("\n" + _budget_bar_line(snap)) if snap else ""
+
         if payload["needs_review"]:
-            text = (
-                f"⚠️ <b>Needs review</b> [{_esc(source_label)}]\n"
-                f"━━━━━━━━━━━━━━━━━━━━\n"
-                f"{amt} — {_esc(payload['cat_name'])}\n"
-                f"<i>{_esc(payload['description'])}</i>\n{_review_link(cfg['app_url'])}"
-            )
+            header = f"⚠️ <b>Needs review [{_esc(source_label)}]</b>"
+            text = f"{header}\n———\n<b>{amt_line}</b>\n<i>{_esc(payload['description'])}</i>{bar_line}"
             keyboard_items = [
                 ("📥 Review inbox", "/transactions?needs_review=true"),
             ]
             if tx_id:
-                keyboard_items.append(("✏️ Edit", f"/transactions?focus={tx_id}"))
+                keyboard_items.append(("🔍 View", f"/transactions?focus={tx_id}"))
             keyboard_items.append(("📊 View budget", "/budget"))
         else:
-            text = (
-                f"💸 <b>New</b> [{_esc(source_label)}]\n"
-                f"━━━━━━━━━━━━━━━━━━━━\n"
-                f"{amt} — {_esc(payload['cat_name'])}\n"
-                f"<i>{_esc(payload['description'])}</i>"
-            )
+            header = f"💸 <b>New [{_esc(source_label)}]</b>"
+            text = f"{header}\n———\n<b>{amt_line}</b>\n<i>{_esc(payload['description'])}</i>{bar_line}"
             keyboard_items = []
             if tx_id:
-                keyboard_items.append(("✏️ Edit", f"/transactions?focus={tx_id}"))
+                keyboard_items.append(("🔍 View", f"/transactions?focus={tx_id}"))
             keyboard_items.append(("📊 View budget", "/budget"))
         markup = inline_url_keyboard(app_url, keyboard_items)
         return text, markup
@@ -241,7 +254,7 @@ def _build_message(evt: NotificationEvent, cfg: dict) -> tuple[str | None, dict 
         status_line = "Over budget!" if pct >= 100 else "Approaching budget limit"
         text = (
             f"🚨 <b>Budget Alert</b> — {_esc(payload['category_name'])}\n"
-            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"———\n"
             f"{bar} {pct:.0f}%\n"
             f"{_amount(spent_str, hide)} / {_amount(limit_str, hide)}\n"
             f"{status_line}\n{_budget_link(cfg['app_url'])}"
@@ -276,7 +289,7 @@ def _process_one(SessionFactory) -> bool:
         _mark_progress()
         try:
             cfg = get_telegram_config(db)
-            text, reply_markup = _build_message(evt, cfg)
+            text, reply_markup = _build_message(evt, cfg, db)
             if text is None:
                 evt.status = NotificationEventStatus.DONE
                 db.commit()

@@ -769,6 +769,13 @@
             updateSavingsFutureAmount();
         });
 
+        const focusId = urlParams.get('focus');
+        if (focusId) {
+            fetch('/api/transactions/' + focusId)
+                .then(function(r) { return r.ok ? r.json() : null; })
+                .then(function(t) { if (t) openTxDrawer(t); });
+        }
+
         if (fromImportParam) {
             const hintDescription = urlParams.get('hint_description') || '';
             const hintDate = urlParams.get('hint_date') || '';
