@@ -148,6 +148,8 @@ def send_transaction_ping_fields(fields: dict) -> None:
 
     amount_line = _amount(f"{direction}{amount_str} — {_esc(fields['cat_name'])}", hide)
 
+    is_expense = fields["tx_type"] == "expense"
+
     if fields["needs_review"]:
         header = f"⚠️ Needs review [{_esc(source_label)}]"
         body_lines = [f"<b>{amount_line}</b>", f"<i>{_esc(desc)}</i>"]
@@ -155,9 +157,6 @@ def send_transaction_ping_fields(fields: dict) -> None:
         keyboard_items = [
             ("📥 Review inbox", "/transactions?needs_review=true"),
         ]
-        if tx_id:
-            keyboard_items.append(("🔍 View", f"/transactions?focus={tx_id}"))
-        keyboard_items.append(("📊 View budget", "/budget"))
     else:
         header = f"💸 New [{_esc(source_label)}]"
         body_lines = [f"<b>{amount_line}</b>", f"<i>{_esc(desc)}</i>"]
@@ -165,7 +164,8 @@ def send_transaction_ping_fields(fields: dict) -> None:
         keyboard_items = []
         if tx_id:
             keyboard_items.append(("🔍 View", f"/transactions?focus={tx_id}"))
-        keyboard_items.append(("📊 View budget", "/budget"))
+        if is_expense:
+            keyboard_items.append(("📊 View budget", "/budget"))
 
     markup = inline_url_keyboard(app_url, keyboard_items)
     _fire(text, fields["bot_token"], fields["chat_id"], reply_markup=markup)

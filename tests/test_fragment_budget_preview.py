@@ -101,3 +101,28 @@ def test_budget_preview_respects_date_param(client, db_session, food_cat):
     body = resp.text
     assert "After save:" in body
     assert "40.0%" in body
+
+
+def test_budget_preview_empty_strings_no_error(client):
+    """HTMX sends empty strings for unfilled form fields — must not 422."""
+    resp = client.get(
+        "/fragments/transactions/budget-preview",
+        params={"category_id": "", "amount": "", "date": ""},
+    )
+    assert resp.status_code == 200
+    assert resp.text.strip() == ""
+
+
+def test_budget_preview_income_category_returns_empty(client, db_session):
+    """Income categories have no budget — preview should be empty, not error."""
+    income_cat = Category(name="Salary", type=TransactionType.INCOME, color="#22c55e", icon="wallet")
+    db_session.add(income_cat)
+    db_session.commit()
+    db_session.refresh(income_cat)
+
+    resp = client.get(
+        "/fragments/transactions/budget-preview",
+        params={"category_id": income_cat.id, "amount": 5_000_000},
+    )
+    assert resp.status_code == 200
+    assert resp.text.strip() == ""
