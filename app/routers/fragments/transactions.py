@@ -211,6 +211,7 @@ def fragment_budget_preview(
         amt = 0.0
 
     from app.models.database import Category
+
     cat = db.query(Category).filter(Category.id == cat_id).first()
     if not cat or cat.type != "expense":
         return empty
