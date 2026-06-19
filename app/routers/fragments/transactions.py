@@ -10,8 +10,7 @@ from app.models.database import (
     TransactionAuditLog,
 )
 from app.routers.fragments._helpers import render_fragment
-from app.services.budget_context import budget_snapshot, status_word
-from app.services.budget_service import compute_budget_rows
+from app.services.budget_context import budget_snapshot
 from app.services.fiscal_period import current_period_label, get_month_start_day
 
 router = APIRouter()
@@ -147,30 +146,6 @@ def fragment_transaction_list(
 
     current_page = skip // limit if limit else 0
 
-    day = get_month_start_day(db)
-    labels_present: set[str] = set()
-    for t in transactions:
-        if t.type == "expense":
-            labels_present.add(current_period_label(t.date, day))
-
-    label_rows: dict[str, dict[int, dict]] = {}
-    for label in labels_present:
-        rows = compute_budget_rows(db, label, day)
-        label_rows[label] = {r["category_id"]: r for r in rows}
-
-    tx_budgets: dict[int, dict | None] = {}
-    for t in transactions:
-        if t.type != "expense" or t.category_id is None:
-            tx_budgets[t.id] = None
-            continue
-        label = current_period_label(t.date, day)
-        row = label_rows.get(label, {}).get(t.category_id)
-        if row is None or row["monthly_allocation"] <= 0:
-            tx_budgets[t.id] = None
-            continue
-        left = row["monthly_allocation"] - row["this_month_spent"]
-        tx_budgets[t.id] = {"left": left, "status": status_word(row["usage_pct"], left)}
-
     return render_fragment(
         request,
         "partials/transactions/_list_body.html",
@@ -189,7 +164,6 @@ def fragment_transaction_list(
             "trash": trash,
             "ocr_sources": OCR_SOURCES,
             "edited_ids": edited_ids,
-            "tx_budgets": tx_budgets,
         },
     )
 
@@ -217,16 +191,37 @@ def fragment_monthly_summary(
 @router.get("/budget-preview")
 def fragment_budget_preview(
     request: Request,
-    category_id: Optional[int] = None,
-    amount: float = 0,
-    date: Optional[date] = None,
+    category_id: str = "",
+    amount: str = "",
+    date: str = "",
     db: Session = Depends(get_db),
 ):
-    if not category_id:
-        return render_fragment(request, "partials/transactions/_budget_preview.html", {"snap": None})
+    empty = render_fragment(request, "partials/transactions/_budget_preview.html", {"snap": None})
+
+    try:
+        cat_id = int(category_id) if category_id.strip() else None
+    except (ValueError, TypeError):
+        return empty
+    if not cat_id:
+        return empty
+
+    try:
+        amt = float(amount) if amount.strip() else 0.0
+    except (ValueError, TypeError):
+        amt = 0.0
+
+    from app.models.database import Category
+    cat = db.query(Category).filter(Category.id == cat_id).first()
+    if not cat or cat.type != "expense":
+        return empty
+
+    try:
+        parsed_date = datetime.date.fromisoformat(date.strip()) if date.strip() else datetime.date.today()
+    except ValueError:
+        parsed_date = datetime.date.today()
     day = get_month_start_day(db)
-    label = current_period_label(date or datetime.date.today(), day)
-    snap = budget_snapshot(db, category_id, label, extra_amount=amount, day=day)
+    label = current_period_label(parsed_date, day)
+    snap = budget_snapshot(db, cat_id, label, extra_amount=amt, day=day)
     return render_fragment(
         request,
         "partials/transactions/_budget_preview.html",

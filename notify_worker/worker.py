@@ -178,8 +178,7 @@ def _build_message(evt: NotificationEvent, cfg: dict, db: Session | None = None)
         markup = inline_url_keyboard(
             app_url,
             [
-                ("📌 View transactions", "/transactions?advance=unsettled"),
-                ("📊 View budget", "/budget"),
+                ("📌 View advances", "/transactions?advance=unsettled"),
             ],
         )
         return text, markup
@@ -218,16 +217,14 @@ def _build_message(evt: NotificationEvent, cfg: dict, db: Session | None = None)
             keyboard_items = [
                 ("📥 Review inbox", "/transactions?needs_review=true"),
             ]
-            if tx_id:
-                keyboard_items.append(("🔍 View", f"/transactions?focus={tx_id}"))
-            keyboard_items.append(("📊 View budget", "/budget"))
         else:
             header = f"💸 <b>New [{_esc(source_label)}]</b>"
             text = f"{header}\n———\n<b>{amt_line}</b>\n<i>{_esc(payload['description'])}</i>{bar_line}"
             keyboard_items = []
             if tx_id:
                 keyboard_items.append(("🔍 View", f"/transactions?focus={tx_id}"))
-            keyboard_items.append(("📊 View budget", "/budget"))
+            if is_expense:
+                keyboard_items.append(("📊 View budget", "/budget"))
         markup = inline_url_keyboard(app_url, keyboard_items)
         return text, markup
 
