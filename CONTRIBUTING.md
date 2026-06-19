@@ -8,17 +8,19 @@ issues, bug reports, and pull requests are welcome.
 ```bash
 git clone git@github.com:thevivotran/carange.git
 cd carange
-pip install -r requirements.txt   # or: uv sync
-python main.py                     # → http://localhost:6868
+uv sync                              # or: pip install -r requirements.txt
+python main.py                       # → http://localhost:6868
 ```
 
 See the [README](README.md) for environment variables and the full local setup.
 
+**Note:** Carange requires PostgreSQL. Start a local instance with `make db-up`
+(uses Podman) or point `DATABASE_URL` at any PostgreSQL 16+ server.
+
 ## Development workflow
 
 1. Create a feature branch off `main`: `git checkout -b feat/your-feature`
-2. Make your changes, following the conventions in [`AGENTS.md`](AGENTS.md) /
-   [`CLAUDE.md`](CLAUDE.md) if present.
+2. Make your changes, following the project conventions (see Code style below).
 3. Run the full check suite before pushing:
 
    ```bash
@@ -26,26 +28,55 @@ See the [README](README.md) for environment variables and the full local setup.
    ```
 
 4. Commit using [Conventional Commits](https://www.conventionalcommits.org/)
-   (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`), e.g.
+   (`feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`, etc.), e.g.
    `feat(notify): add quarterly recurrence option`.
 5. Open a pull request against `main`.
 
+**Git remote note:** This repo uses the SSH alias `git@thevivotran:thevivotran/carange.git`
+(configured in `~/.ssh/config`), not `git@github.com:`. If push fails, check your
+`~/.ssh/config` has the right host alias. There is no `gh` CLI — open PRs via a compare
+link: `https://github.com/thevivotran/carange/compare/main...<branch>?expand=1`
+
 ## Code style
 
-- Linting and formatting via `ruff` (`make lint` / `ruff format`).
-- Routes go in `app/routers/`, business logic in `app/services/`, models in
-  `app/models/database.py` (SQLAlchemy) and `app/models/schemas.py` (Pydantic).
-- Database schema changes require a matching Alembic migration — see
-  `tests/test_schema_sync.py`, which CI runs to keep the ORM and migration chain in sync.
-- Templates use Jinja2 + HTMX + Tailwind. Avoid `innerHTML` with dynamic content; use
-  `createElement` / `textContent` / `appendChild`.
+- **Python** — linting and formatting via `ruff` (`make lint` / `ruff format`).
+- **Architecture** — routes go in `app/routers/`, business logic in `app/services/`,
+  models in `app/models/database.py` (SQLAlchemy) and `app/models/schemas.py` (Pydantic).
+- **Database schema** — changes require a matching Alembic migration. CI runs
+  `test_schema_sync.py` to keep the ORM and migration chain in sync.
+- **Templates** — Jinja2 + HTMX + Tailwind. Never use `innerHTML` with dynamic content
+  (a git hook blocks it). Use `createElement` / `textContent` / `appendChild` exclusively.
+- **Notifications** — Telegram message formatting helpers live in `app/notify/telegram.py`.
+  The notify worker (`notify_worker/worker.py`) processes the `notification_events` queue
+  via PostgreSQL LISTEN/NOTIFY.
 
 ## Tests
 
-- `make test` — full suite with coverage (requires PostgreSQL via `make db-up`)
-- `make test-fast` — quick run without coverage, using SQLite
+- `make test` — full suite with coverage against a PostgreSQL test database
+  (auto-creates `carange_test` DB). Requires `make db-up` for the PostgreSQL container.
+- `make test-fast` — quick run without coverage.
 
 New features and bug fixes should include tests. CI enforces a minimum of 95% coverage.
+
+**~1,080 tests** across 42+ modules covering:
+- Route handlers, services, models, fragments
+- OCR and email worker logic
+- Telegram notification formatting
+- Budget, forecast, fiscal period, Pulse
+- Schema sync (ORM vs Alembic migrations)
+- UI lint (design token enforcement)
+
+## Using Hermes Agent (recommended)
+
+This project has a companion **Carange skill** loaded by Hermes Agent:
+
+```
+hermes skills list         # should show "carange-app" under software-development
+hermes -s carange-app     # start a session with the skill pre-loaded
+```
+
+The skill contains the project guide, gotchas, and architecture reference. Other
+related skills: `homelab` (k3s deployment), `projects-overview` (all projects).
 
 ## Releases
 

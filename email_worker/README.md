@@ -8,24 +8,28 @@ transactions, and feeds them into Carange's review pipeline. Runs as a separate 
 
 ## How it works
 
-1. **UID-cursor ingestion** — new messages are discovered by UID, not by the `\Seen` flag.
+1. **UID-cursor ingestion** — new messages are discovered by UID, not by the `\\Seen` flag.
    The worker keeps a per-`(account, folder)` high-water mark in the `imap_folder_state`
    table and searches `UID <last+1>:*` each cycle, so reading the mailbox from another
    client can never starve the worker. The cursor resets automatically when the server
    reports a new `UIDVALIDITY` (Message-ID dedup prevents double ingestion).
+
 2. **Push, not poll** — when the server supports IMAP `IDLE` (Gmail does), new mail is
    processed within seconds of arriving. Without IDLE the worker falls back to sleeping
    `POLL_INTERVAL` between cycles. Bodies are fetched with `BODY.PEEK[]`, which never
-   flips `\Seen` as a side effect (messages are marked seen explicitly, as a courtesy).
+   flips `\\Seen` as a side effect (messages are marked seen explicitly, as a courtesy).
+
 3. **Raw copy stored for replay** — each new message is recorded in `EmailIngestLog`
    (keyed by `Message-ID`) with its zlib-compressed RFC 2822 source attached. Retries and
    manual reprocessing replay from this stored copy; the IMAP message is never needed
    twice. Once transactions are committed the blob is cleared — failed and
    zero-transaction rows keep it so they can be replayed after a parser fix via the
    **Reprocess** button in Import → Email Receipts.
+
 4. Extracts MIME parts (`email_parser.py`) — plaintext, HTML, sender, subject,
    `Message-ID` — and unwraps forwarded/replied threads to find the original sender
    behind `>` quoting.
+
 5. Routes the cleaned body through an ordered chain of source-specific parsers
    (`route_and_parse`); the first parser that recognises the sender/subject/body wins:
 
@@ -62,6 +66,13 @@ Pattern lifecycle: every successful match bumps `success_count` and resets the
 `failure_count` streak; after **5 consecutive misses** (sender changed their template) the
 patterns are dropped so the LLM re-learns the new format on the next email.
 
+### AI parser human approval gate
+
+LLM-generated regex parsers (both from the email worker's `GenericOllamaParser` and the
+OCR worker's AI fallback loop) require **manual approval** before they activate. A
+security gate prevents AI-generated code from running without a human reviewing it first.
+Approvals can be managed via **Import → Email Receipts** → Approved Parsers.
+
 ### Retry & failure handling
 
 All retries are **database-driven** — they replay the stored raw copy, independent of the
@@ -95,7 +106,7 @@ cycle; host/credential/folder changes trigger a clean reconnect).
 | `IMAP_PASSWORD` | — | Gmail **App Password** — not the account password; requires 2FA (**required**) |
 | `IMAP_FOLDER` | `INBOX` | Mailbox to watch |
 | `IMAP_TIMEOUT` | `60` | Socket timeout (seconds) — a hung connection reconnects instead of stalling |
-| `DATABASE_URL` | `sqlite:///./carange.db` | Same database as the main app |
+| `DATABASE_URL` | `postgresql://carange:***@localhost:5432/carange` | Same PostgreSQL database as the main app |
 | `POLL_INTERVAL` | `300` | Seconds between polls when IDLE is unavailable |
 | `STUCK_TIMEOUT_MIN` | `30` | Minutes before a crashed `pending` row is reclaimed |
 | `MAX_EMAIL_RETRIES` | `3` | Retry attempts (exponential backoff) before permanent failure |
@@ -118,7 +129,9 @@ Locally:
 
 ```bash
 cd carange_app/carange
-IMAP_USER=you@gmail.com IMAP_PASSWORD=<app-password> python -m email_worker.worker
+DATABASE_URL=postgresql://carange:***@localhost:5432/carange \
+  IMAP_USER=you@gmail.com IMAP_PASSWORD=<app-password> \
+  python -m email_worker.worker
 ```
 
 It shares the main app's database and `requirements.txt`; worker-specific dependencies

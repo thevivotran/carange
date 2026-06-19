@@ -20,16 +20,23 @@ order:
    VND-formatted string amounts like `"45.000đ"` are coerced correctly). An explicit empty
    array is trusted as "no transactions" and finishes the job — only a *failed* extraction
    falls through to path 2.
-2. **PaddleOCR + source-specific parser** (`ocr.py` + `parsers/`) — fallback when Ollama is
-   offline or returns nothing parseable:
+
+2. **PaddleOCR 3.x + source-specific parser** (`ocr.py` + `parsers/`) — fallback when
+   Ollama is offline or returns nothing parseable:
    - `ocr.extract_blocks` runs PaddleOCR (Vietnamese model, GPU auto-detected) and returns a
      flat list of `TextBlock`s with text, confidence, and bounding box.
    - `source_detector.detect_source` keyword-matches the extracted text against weighted
-     rules to guess the source app (Timo / Shopee / Grab), unless `job.source_hint` was set
-     at upload time.
+     rules to guess the source app (Timo / Shopee / Grab / LioBank), unless `job.source_hint`
+     was set at upload time.
    - `parsers.get_parser` returns the matching parser (`TimoParser`, `ShopeeParser`,
-     `GrabParser`, or `GenericParser` as fallback), which turns the text blocks into
-     `ParsedTransaction`s using each app's layout conventions.
+     `GrabParser`, `LioBankParser`, or `GenericParser` as fallback), which turns the text
+     blocks into `ParsedTransaction`s using each app's layout conventions.
+
+3. **AI fallback loop** — if both Ollama vision and PaddleOCR fail to produce usable
+   results, the worker calls an LLM (vLLM) to generate a custom regex parser for the
+   unfamiliar screenshot format. **Parsers generated this way require human approval**
+   before they are activated, preventing AI-generated code from running without a manual
+   review. See `parsers/gen_parser.py` for the generation + approval gate logic.
 
 Either path's results are converted to `IngestItem`s and run through the same dedup → rules
 → review pipeline as email imports (`app.services.ingest_service.commit_ingest_batch`),
@@ -38,19 +45,15 @@ image is deleted from disk once the job finishes (success or failure).
 
 ### Job claiming
 
-The worker supports two database backends with different claiming strategies:
+The worker uses **PostgreSQL-only** claiming (production):
+- `LISTEN/NOTIFY` on the `ocr_jobs` channel for instant wake-up on upload
+- Atomic `SELECT ... FOR UPDATE SKIP LOCKED` so multiple replicas can claim jobs safely
+  without colliding
+- 30-second poll fallback to catch missed notifications and reclaim stuck jobs
 
-- **PostgreSQL** (production) — `LISTEN/NOTIFY` on the `ocr_jobs` channel for instant
-  wake-up on upload, plus atomic `SELECT ... FOR UPDATE SKIP LOCKED` so multiple replicas can
-  claim jobs safely without colliding. Falls back to a 30 s poll to catch missed
-  notifications and reclaim stuck jobs.
-- **SQLite** (development / single-instance self-hosting) — simple poll every
-  `POLL_INTERVAL` seconds with a select-then-update claim (safe for a single worker only).
-
-In both modes, jobs stuck in `PROCESSING` past `STUCK_TIMEOUT` minutes (e.g. from a crashed
-run) are reclaimed back to `PENDING`. Each reclaim consumes a retry, so a poison-pill job
-that hangs or crashes the worker is permanently failed after `MAX_RETRIES` instead of
-looping forever.
+Jobs stuck in `PROCESSING` past `STUCK_TIMEOUT` minutes (e.g. from a crashed run) are
+reclaimed back to `PENDING`. Each reclaim consumes a retry, so a poison-pill job that hangs
+or crashes the worker is permanently failed after `MAX_RETRIES` instead of looping forever.
 
 ### Retry & failure handling
 
@@ -72,12 +75,12 @@ genuinely hung loop still does.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
-| `DATABASE_URL` | `sqlite:///./carange.db` | Same database as the main app — backend is auto-detected from the URL scheme |
+| `DATABASE_URL` | `postgresql://carange:***@localhost:5432/carange` | Same PostgreSQL database as the main app |
 | `UPLOAD_DIR` | `uploads` | Where uploaded screenshots are stored |
-| `POLL_INTERVAL` | `10` | Seconds between polls (SQLite mode only) |
 | `STUCK_TIMEOUT` | `30` | Minutes before a `PROCESSING` job is reclaimed |
 | `MAX_RETRIES` | `3` | Retry attempts (exponential backoff) before permanent failure |
-| `OLLAMA_URL` | — | Self-hosted Ollama endpoint for vision extraction (set on the main app — read via `app.services.ollama`) |
+| `OLLAMA_URL` | — | Self-hosted Ollama endpoint for vision extraction |
+| `OLLAMA_MODEL` | `Qwen3.5-9B` | Vision model for screenshot analysis |
 
 ---
 
@@ -90,11 +93,24 @@ Locally:
 
 ```bash
 cd carange_app/carange
-python -m ocr_worker.worker
+DATABASE_URL=postgresql://carange:***@localhost:5432/carange python -m ocr_worker.worker
 ```
 
 It shares the main app's database and `requirements.txt`; worker-specific dependencies
-(`paddlepaddle`, `paddleocr`, `opencv-python-headless`, ...) live in
+(`paddlepaddle`, `paddleocr==3.0.0`, `opencv-python-headless`, ...) live in
 `ocr_worker/requirements.txt` and are installed in a separate Docker layer to keep the app
 image lean. The Dockerfile sets `FLAGS_use_mkldnn=0` to avoid a known double-free crash on
 non-AVX2 hosts (e.g. CI runners).
+
+---
+
+## Key Files
+
+| File | Purpose |
+|------|---------|
+| `ocr_worker/worker.py` | Main worker loop: job claiming, processing, retry |
+| `ocr_worker/processor.py` | `process_job` — orchestrates extraction paths |
+| `ocr_worker/ocr.py` | PaddleOCR 3.x text extraction (`extract_blocks`) |
+| `ocr_worker/parsers/` | Source-specific parsers (Timo, Shopee, Grab, LioBank, Generic) |
+| `ocr_worker/parsers/gen_parser.py` | AI fallback loop — generates regex parsers from unseen formats (requires human approval) |
+| `ocr_worker/source_detector.py` | Keyword-matching to guess the source app |
