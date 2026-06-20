@@ -30,6 +30,7 @@ class CategoryBase(BaseModel):
     is_wealth_building: bool = False
     is_passive_income: bool = False
     kpi_role: Optional[str] = None
+    is_savings_category: bool = False
 
 
 class CategoryCreate(CategoryBase):
@@ -94,6 +95,12 @@ class SavingsBundleBase(BaseModel):
 
 class SavingsBundleCreate(SavingsBundleBase):
     linked_project_id: Optional[int] = None
+
+
+class SavingsDepositCreate(BaseModel):
+    date: date
+    amount: float = Field(gt=0, description="Deposit amount must be greater than 0")
+    description: Optional[str] = None
 
 
 class SavingsBundleUpdate(BaseModel):
@@ -402,6 +409,7 @@ class DashboardSummary(BaseModel):
     cash_on_hand: float
     total_savings_active: float
     total_savings_target: float
+    monthly_savings_deposits: float = 0
     total_assets_current: float = 0
     total_assets_purchase: float = 0
     total_assets_count: int = 0

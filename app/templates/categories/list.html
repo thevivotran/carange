@@ -161,6 +161,21 @@
                 <p class="text-xs text-gray-400 mt-1">Spending in this category counts toward the chosen metric instead of Living Expense.</p>
             </div>
 
+            <!-- Savings Category flag (expense categories only) -->
+            <div id="savings-category-row" class="hidden">
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <div class="relative">
+                        <input type="checkbox" id="is-savings-category" class="sr-only peer">
+                        <div class="w-10 h-5 bg-gray-200 rounded-full peer peer-checked:bg-purple-500 transition"></div>
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow peer-checked:translate-x-5 transition-transform"></div>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-gray-700">Savings Category</p>
+                        <p class="text-xs text-gray-400">Transactions in this category are automatically treated as savings deposits</p>
+                    </div>
+                </label>
+            </div>
+
             <!-- Submit -->
             <div class="flex gap-4 pt-4">
                 <button type="button" onclick="closeModal()"
@@ -225,6 +240,7 @@
         document.getElementById('type-select').value = currentTab;
         document.getElementById('passive-income-row').classList.toggle('hidden', currentTab !== 'income');
         document.getElementById('kpi-role-row').classList.toggle('hidden', currentTab !== 'expense');
+        document.getElementById('savings-category-row').classList.toggle('hidden', currentTab !== 'expense');
         document.getElementById('kpi-role').value = '';
         document.getElementById('category-modal').classList.remove('hidden');
         setTimeout(function() { document.getElementById('name').focus(); }, 50);
@@ -233,6 +249,7 @@
     document.getElementById('type-select').addEventListener('change', function() {
         document.getElementById('passive-income-row').classList.toggle('hidden', this.value !== 'income');
         document.getElementById('kpi-role-row').classList.toggle('hidden', this.value !== 'expense');
+        document.getElementById('savings-category-row').classList.toggle('hidden', this.value !== 'expense');
     });
 
     function closeModal() {
@@ -251,6 +268,7 @@
             is_active: true,
             is_passive_income: catType === 'income' && document.getElementById('is-passive-income').checked,
             kpi_role: catType === 'expense' ? (document.getElementById('kpi-role').value || null) : null,
+            is_savings_category: catType === 'expense' && document.getElementById('is-savings-category').checked,
         };
         try {
             const url = categoryId ? '/api/categories/' + categoryId : '/api/categories/';
@@ -288,6 +306,8 @@
             document.getElementById('passive-income-row').classList.toggle('hidden', cat.type !== 'income');
             document.getElementById('kpi-role-row').classList.toggle('hidden', cat.type !== 'expense');
             document.getElementById('kpi-role').value = cat.kpi_role || '';
+            document.getElementById('is-savings-category').checked = !!cat.is_savings_category;
+            document.getElementById('savings-category-row').classList.toggle('hidden', cat.type !== 'expense');
             document.getElementById('category-modal').classList.remove('hidden');
         } catch(e) {
             showToast('Failed to load category', 'error');

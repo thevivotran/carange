@@ -6,7 +6,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from app.models.database import get_db, SavingsBundle, SavingsStatus
+from app.models.database import get_db, Category, SavingsBundle, SavingsStatus, TransactionType
 from app.routers.fragments._helpers import render_fragment
 from app.services.currency_format import CURRENCIES, DEFAULT_CURRENCY, inject_currency
 from app.services.currency_format import register as register_currency_filters
@@ -93,6 +93,7 @@ def _get_all_settings(db: Session, user_id: int) -> dict:
             "savings_target_pct": "25",
             "fi_target_vnd": "",
             "baby_fund_bundle_id": "",
+            "savings_deposit_category_id": "",
             "display_currency": DEFAULT_CURRENCY,
             "month_start_day": "1",
             "forecast_buffer": "0",
@@ -140,6 +141,16 @@ def _get_all_settings(db: Session, user_id: int) -> dict:
         },
     )
 
+    expense_categories = (
+        db.query(Category.id, Category.name)
+        .filter(
+            Category.type == TransactionType.EXPENSE,
+            Category.is_active == True,
+        )
+        .order_by(Category.name)
+        .all()
+    )
+
     return {
         **general,
         **email,
@@ -147,6 +158,7 @@ def _get_all_settings(db: Session, user_id: int) -> dict:
         **ocr,
         **thresholds,
         "savings_bundles": [{"id": r.id, "name": r.name} for r in savings_bundles],
+        "expense_categories": [{"id": r.id, "name": r.name} for r in expense_categories],
         "currencies": [{"code": code, "label": cfg["label"]} for code, cfg in CURRENCIES.items()],
         **_layout_context(db, user_id),
         "sample_data_loaded": has_sample_data(db),
@@ -385,3 +397,11 @@ async def save_thresholds(request: Request, db: Session = Depends(get_db)):
         if key in form:
             set_setting(db, key, str(form[key]).strip())
     return render_fragment(request, "settings/_saved.html", {}, toast="Threshold settings saved")
+
+
+@router.post("/savings-deposit-category")
+async def save_savings_deposit_category(request: Request, db: Session = Depends(get_db)):
+    form = await request.form()
+    value = str(form.get("savings_deposit_category_id", "")).strip()
+    set_setting(db, "savings_deposit_category_id", value)
+    return render_fragment(request, "settings/_saved.html", {}, toast="Savings defaults saved")

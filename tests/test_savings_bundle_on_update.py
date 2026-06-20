@@ -206,7 +206,10 @@ def test_get_bundle_transactions_empty(client, cat):
     ).json()["id"]
     r = client.get(f"/api/savings/{bundle_id}/transactions")
     assert r.status_code == 200
-    assert r.json() == []
+    txs = r.json()
+    assert len(txs) == 1
+    assert txs[0]["amount"] == pytest.approx(50_000_000)
+    assert txs[0]["description"] == "Initial deposit: Empty Bundle - VCB"
 
 
 def test_get_bundle_transactions_after_upgrade(client, cat):

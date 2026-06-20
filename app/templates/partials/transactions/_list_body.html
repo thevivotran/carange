@@ -54,6 +54,7 @@
         <!-- Category badge (desktop only) -->
         <span class="hidden md:inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 w-24 truncate"
               style="background-color: {{ (t.category.color if t.category else '#6B7280') }}20; color: {{ t.category.color if t.category else '#6B7280' }}">
+          {% if t.is_savings_related %}<i class="fas fa-piggy-bank text-purple-600 mr-1"></i>{% endif %}
           {{ t.category.name if t.category else 'Uncategorized' }}
         </span>
 
@@ -63,8 +64,18 @@
 
         <!-- Description -->
         <div class="flex-1 min-w-0">
-          <p class="text-sm text-gray-700 truncate select-text cursor-text">{{ t.description or '-' }}</p>
+          <p class="text-sm text-gray-700 truncate select-text cursor-text">{% if t.is_savings_related %}<i class="fas fa-piggy-bank text-purple-600 mr-1"></i>{% endif %}{{ t.description or '-' }}</p>
           <p class="md:hidden text-xs text-gray-400 truncate">{{ t.category.name if t.category else 'Uncategorized' }}</p>
+          {% if t.is_savings_related and t.savings_bundle and t.savings_bundle.maturity_date %}
+          {% set days_until = (t.savings_bundle.maturity_date - today).days %}
+          {% if days_until > 0 %}
+          <span class="inline-flex items-center gap-1 text-xs text-purple-600 font-medium mt-0.5">⏳ Matures in {{ days_until }} days</span>
+          {% elif days_until == 0 %}
+          <span class="inline-flex items-center gap-1 text-xs text-green-600 font-medium mt-0.5">✅ Maturing today</span>
+          {% else %}
+          <span class="inline-flex items-center gap-1 text-xs text-green-600 font-medium mt-0.5">✅ Matured on {{ t.savings_bundle.maturity_date.strftime('%d/%m/%Y') }}</span>
+          {% endif %}
+          {% endif %}
         </div>
 
         <!-- Amount -->

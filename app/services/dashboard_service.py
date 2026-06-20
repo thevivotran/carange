@@ -364,6 +364,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
             else monthly_expense_full
         )
         monthly_savings = _mv_sum(mv_rows, month=month_start, type_val="expense", savings=True)
+        monthly_savings_deposits = _mv_sum(mv_rows, month=month_start, type_val="expense", savings=True)
         monthly_tiet_kiem = _mv_sum(mv_rows, month=month_start, type_val="expense", cat_ids=ls_set) if ls_set else 0.0
         monthly_bds = _mv_sum(mv_rows, month=month_start, type_val="expense", cat_ids=re_set) if re_set else 0.0
         total_income_all = _mv_sum(mv_rows, type_val="income", savings=False)
@@ -410,6 +411,18 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         monthly_savings = float(_agg.monthly_savings or 0)
         monthly_tiet_kiem = float(_agg.monthly_tiet_kiem or 0)
         monthly_bds = float(_agg.monthly_bds or 0)
+        monthly_savings_deposits = float(
+            db.query(func.sum(Transaction.amount))
+            .filter(
+                Transaction.savings_bundle_id.isnot(None),
+                Transaction.type == TransactionType.EXPENSE,
+                Transaction.date >= month_start,
+                Transaction.date <= month_end,
+                Transaction.deleted_at.is_(None),
+            )
+            .scalar()
+            or 0
+        )
         total_income_all = float(_agg.total_income or 0)
         total_expense_all = float(_agg.total_expense or 0)
 
@@ -894,6 +907,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
             "total_income": monthly_income,
             "total_expense": monthly_expense,
             "total_savings_expense": monthly_savings,
+            "monthly_savings_deposits": monthly_savings_deposits,
             "net_this_month": _net_this_month,
             "savings_rate": savings_rate,
             "liquid_savings_rate": liquid_savings_rate,

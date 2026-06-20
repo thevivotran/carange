@@ -886,232 +886,408 @@
                     else { if (element) element.style.display = ''; showToast('Failed to delete', 'error'); }
                 } catch(e) { if (element) element.style.display = ''; showToast('Failed to delete', 'error'); }
             }, delay !== undefined ? delay : 5000);
-        }
+    }
     </script>
-    
+
+    {# ── Transaction Modal JS (shared across pages) ────#}
+    <script>
+    // Categories cache — shared by the modal form across all pages
+    let categories = [];
+    let _txTemplates = [];
+
+    function openAddModal() {
+        var modal = document.getElementById('transaction-modal');
+        if (!modal) return;
+        document.getElementById('modal-title').textContent = 'Add Transaction';
+        document.getElementById('transaction-form').reset();
+        document.getElementById('transaction-id').value = '';
+        document.getElementById('existing-savings-bundle-id').value = '';
+        var savingsSection = document.getElementById('savings-section');
+        if (savingsSection) {
+            savingsSection.classList.remove('opacity-50', 'pointer-events-none');
+            savingsSection.title = '';
+        }
+        document.getElementById('date').valueAsDate = new Date();
+        var tplList = document.getElementById('template-picker-list');
+        if (tplList) tplList.classList.add('hidden');
+        var tplArrow = document.getElementById('template-picker-arrow');
+        if (tplArrow) tplArrow.className = 'fas fa-chevron-down text-gray-400 text-xs';
+        var nrSection = document.getElementById('needs-review-section');
+        if (nrSection) nrSection.classList.add('hidden');
+        modal.classList.remove('hidden');
+        setTimeout(function() { var el = document.getElementById('amount'); if (el) el.focus(); }, 50);
+    }
+
+    function closeModal() {
+        var modal = document.getElementById('transaction-modal');
+        if (modal) modal.classList.add('hidden');
+        var budgetPreview = document.getElementById('tx-budget-preview');
+        if (budgetPreview) budgetPreview.replaceChildren();
+    }
+
+    function onCategoryChange() {
+        var categoryId = document.getElementById('category').value;
+        var savingsSection = document.getElementById('savings-section');
+        if (!savingsSection) return;
+        if (!categoryId) {
+            savingsSection.classList.add('hidden');
+            return;
+        }
+        var selectedCat = categories.find(function(c) { return c.id === parseInt(categoryId); });
+        if (selectedCat && selectedCat.is_savings_category) {
+            savingsSection.classList.remove('hidden');
+            updateSavingsFutureAmount();
+            var oneYearFromNow = new Date();
+            oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+            var matDate = document.getElementById('savings-maturity-date');
+            if (matDate) matDate.valueAsDate = oneYearFromNow;
+        } else {
+            savingsSection.classList.add('hidden');
+        }
+    }
+
+    function updateSavingsFutureAmount() {
+        var amount = parseFloat(document.getElementById('amount').value) || 0;
+        var futureAmountInput = document.getElementById('savings-future-amount');
+        if (futureAmountInput && !futureAmountInput.value) {
+            futureAmountInput.value = amount;
+        }
+    }
+
+    async function loadCategories() {
+        try {
+            if (!categories.length) {
+                var response = await fetch('/api/categories/');
+                categories = await response.json();
+            }
+
+            var type = document.querySelector('input[name="type"]:checked');
+            type = type ? type.value : 'expense';
+            var categorySelect = document.getElementById('category');
+            if (!categorySelect) return;
+
+            categorySelect.replaceChildren();
+            var placeholder = document.createElement('option');
+            placeholder.value = '';
+            placeholder.textContent = 'Select Category';
+            categorySelect.appendChild(placeholder);
+            categories.filter(function(c) { return c.type === type && c.is_active; }).forEach(function(cat) {
+                var opt = document.createElement('option');
+                opt.value = cat.id;
+                opt.textContent = cat.name;
+                categorySelect.appendChild(opt);
+            });
+
+            // Also populate filter category select if present on the page
+            var filterCategorySelect = document.getElementById('filter-category');
+            if (filterCategorySelect) {
+                var currentFilterCategory = filterCategorySelect.value;
+                filterCategorySelect.replaceChildren();
+                var filterPlaceholder = document.createElement('option');
+                filterPlaceholder.value = '';
+                filterPlaceholder.textContent = 'All Categories';
+                filterCategorySelect.appendChild(filterPlaceholder);
+                var activeTypeFilter = document.getElementById('filter-type');
+                activeTypeFilter = activeTypeFilter ? activeTypeFilter.value : '';
+                categories.filter(function(c) { return c.is_active && (!activeTypeFilter || c.type === activeTypeFilter); }).forEach(function(cat) {
+                    var opt = document.createElement('option');
+                    opt.value = cat.id;
+                    opt.textContent = (!activeTypeFilter ? (cat.type === 'income' ? '(Income) ' : '(Expense) ') : '') + cat.name;
+                    filterCategorySelect.appendChild(opt);
+                });
+                if (currentFilterCategory && !activeTypeFilter) {
+                    var exists = Array.from(filterCategorySelect.options).some(function(o) { return o.value === currentFilterCategory; });
+                    if (exists) filterCategorySelect.value = currentFilterCategory;
+                }
+            }
+        } catch (error) {
+            console.error('Error loading categories:', error);
+        }
+    }
+
+    async function _ensureTemplates() {
+        if (_txTemplates.length) return;
+        try {
+            var res = await fetch('/api/templates/');
+            _txTemplates = await res.json();
+        } catch(e) { _txTemplates = []; }
+    }
+
+    async function toggleTemplatePicker() {
+        var list = document.getElementById('template-picker-list');
+        var arrow = document.getElementById('template-picker-arrow');
+        if (!list || !arrow) return;
+        if (!list.classList.contains('hidden')) {
+            list.classList.add('hidden');
+            arrow.classList.remove('fa-chevron-up');
+            arrow.classList.add('fa-chevron-down');
+            return;
+        }
+        await _ensureTemplates();
+        var items = document.getElementById('template-picker-items');
+        if (!items) return;
+        while (items.firstChild) items.removeChild(items.firstChild);
+        if (!_txTemplates.length) {
+            var p = document.createElement('p');
+            p.className = 'text-sm text-gray-400 text-center py-4 px-4';
+            p.textContent = 'No templates saved yet';
+            items.appendChild(p);
+        } else {
+            _txTemplates.forEach(function(t) {
+                var btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = 'w-full text-left px-4 py-2.5 hover:bg-blue-50 transition flex items-center justify-between gap-2';
+                var nameSpan = document.createElement('span');
+                nameSpan.className = 'text-sm font-medium text-gray-800';
+                nameSpan.textContent = t.name;
+                var metaSpan = document.createElement('span');
+                metaSpan.className = 'text-xs text-gray-400 flex-shrink-0';
+                metaSpan.textContent = t.type + ' · ' + formatVND(t.amount);
+                btn.appendChild(nameSpan);
+                btn.appendChild(metaSpan);
+                btn.addEventListener('click', function() { applyTransactionTemplate(t); });
+                items.appendChild(btn);
+            });
+        }
+        list.classList.remove('hidden');
+        arrow.classList.remove('fa-chevron-down');
+        arrow.classList.add('fa-chevron-up');
+    }
+
+    function applyTransactionTemplate(t) {
+        var list = document.getElementById('template-picker-list');
+        var arrow = document.getElementById('template-picker-arrow');
+        if (list) list.classList.add('hidden');
+        if (arrow) {
+            arrow.classList.remove('fa-chevron-up');
+            arrow.classList.add('fa-chevron-down');
+        }
+        var typeRadio = document.querySelector('input[name="type"][value="' + t.type + '"]');
+        if (typeRadio) typeRadio.checked = true;
+        var amountEl = document.getElementById('amount');
+        if (amountEl) amountEl.value = t.amount;
+        var descEl = document.getElementById('description');
+        if (descEl) descEl.value = t.description || '';
+        loadCategories();
+        setTimeout(function() {
+            var catSel = document.getElementById('category');
+            if (catSel) catSel.value = t.category_id;
+        }, 100);
+    }
+
+    // ── Form submit handler (guarded for page-specific actions) ──────────
+    document.addEventListener('DOMContentLoaded', function() {
+        var form = document.getElementById('transaction-form');
+        if (!form) return;
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            var transactionId = document.getElementById('transaction-id').value;
+            var categoryId = document.getElementById('category').value;
+            if (!categoryId) { showToast('Please select a category', 'error'); return; }
+
+            var selectedCat = categories.find(function(c) { return c.id === parseInt(categoryId); });
+            var isSavingsRelated = selectedCat ? (selectedCat.is_savings_category || false) : false;
+            var existingBundleId = document.getElementById('existing-savings-bundle-id').value;
+            var needsNewBundle = isSavingsRelated && !existingBundleId;
+
+            if (needsNewBundle) {
+                var savingsName = document.getElementById('savings-name').value.trim();
+                var savingsBankName = document.getElementById('savings-bank-name').value.trim();
+                if (!savingsName || !savingsBankName) {
+                    showToast('Please fill in Bundle Name and Bank Name', 'error');
+                    return;
+                }
+            }
+
+            var data = {
+                date: document.getElementById('date').value,
+                amount: parseFloat(document.getElementById('amount').value),
+                type: document.querySelector('input[name="type"]:checked').value,
+                category_id: parseInt(categoryId),
+                description: document.getElementById('description').value,
+                payment_method: 'cash',
+                is_savings_related: isSavingsRelated,
+                is_advance: document.getElementById('is-advance').checked,
+            };
+            if (!transactionId) {
+                data.advance_settled = false;
+            }
+
+            // Clear review flag if editing a needs_review tx
+            if (transactionId) {
+                var nrSection = document.getElementById('needs-review-section');
+                if (nrSection && !nrSection.classList.contains('hidden') && document.getElementById('clear-review-flag').checked) {
+                    data.needs_review = false;
+                }
+            }
+
+            if (needsNewBundle) {
+                var amount = parseFloat(document.getElementById('amount').value) || 0;
+                var futureAmount = parseFloat(document.getElementById('savings-future-amount').value) || amount;
+                data.savings_bundle = {
+                    name: document.getElementById('savings-name').value.trim(),
+                    bank_name: document.getElementById('savings-bank-name').value.trim(),
+                    type: 'fixed_deposit',
+                    initial_deposit: amount,
+                    future_amount: futureAmount,
+                    interest_rate: parseFloat(document.getElementById('savings-interest-rate').value) || null,
+                    start_date: document.getElementById('date').value,
+                    maturity_date: document.getElementById('savings-maturity-date').value || null,
+                    notes: document.getElementById('savings-notes').value.trim() || null
+                };
+            }
+
+            // Build bundle update payload when editing a transaction linked to an existing bundle
+            var bundleUpdateData = null;
+            if (existingBundleId) {
+                var bName = document.getElementById('savings-name').value.trim();
+                var bBank = document.getElementById('savings-bank-name').value.trim();
+                var bInterest = document.getElementById('savings-interest-rate').value;
+                var bMaturity = document.getElementById('savings-maturity-date').value;
+                var bFuture = document.getElementById('savings-future-amount').value;
+                var bNotes = document.getElementById('savings-notes').value.trim();
+
+                if (bName || bBank || bInterest || bMaturity || bFuture || bNotes) {
+                    bundleUpdateData = {};
+                    if (bName) bundleUpdateData.name = bName;
+                    if (bBank) bundleUpdateData.bank_name = bBank;
+                    if (bInterest) bundleUpdateData.interest_rate = parseFloat(bInterest);
+                    if (bMaturity) bundleUpdateData.maturity_date = bMaturity;
+                    var amt = parseFloat(document.getElementById('amount').value) || 0;
+                    bundleUpdateData.future_amount = bFuture ? parseFloat(bFuture) : amt;
+                    if (bNotes) bundleUpdateData.notes = bNotes;
+                }
+            }
+
+            try {
+                var url = transactionId ? '/api/transactions/' + transactionId : '/api/transactions/';
+                var method = transactionId ? 'PUT' : 'POST';
+
+                var response = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+
+                if (response.ok) {
+                    var result = await response.json();
+                    if (!transactionId && result.duplicate_warning) {
+                        if (typeof showDuplicateWarning === 'function') {
+                            showDuplicateWarning(result.matches, data);
+                        }
+                        return;
+                    }
+                    // If editing with an existing bundle and bundle fields were set, update the bundle too
+                    if (bundleUpdateData && existingBundleId) {
+                        try {
+                            await fetch('/api/savings/' + existingBundleId, {
+                                method: 'PUT',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(bundleUpdateData),
+                            });
+                        } catch(e) {
+                            console.error('Error updating savings bundle:', e);
+                        }
+                    }
+                    closeModal();
+                    // Guarded page-specific actions
+                    if (typeof saveFilters === 'function') saveFilters();
+                    if (typeof loadTransactions === 'function') loadTransactions();
+                    if (typeof loadMonthlySummary === 'function') loadMonthlySummary();
+                } else {
+                    var error = await response.json();
+                    var errorMessage = typeof error.detail === 'object' ? JSON.stringify(error.detail) : error.detail;
+                    showToast('Error: ' + errorMessage, 'error');
+                }
+            } catch (error) {
+                console.error('Error saving transaction:', error);
+                showToast('Failed to save transaction', 'error');
+            }
+        });
+    });
+
+    async function editTransaction(id) {
+        try {
+            var response = await fetch('/api/transactions/' + id);
+            var transaction = await response.json();
+
+            document.getElementById('modal-title').textContent = 'Edit Transaction';
+            document.getElementById('transaction-id').value = transaction.id;
+            document.getElementById('date').value = transaction.date;
+            document.getElementById('amount').value = transaction.amount;
+            var typeRadio = document.querySelector('input[name="type"][value="' + transaction.type + '"]');
+            if (typeRadio) typeRadio.checked = true;
+            loadCategories();
+            setTimeout(function() {
+                var catSel = document.getElementById('category');
+                if (catSel) catSel.value = transaction.category_id;
+                // Trigger category-driven savings detection
+                onCategoryChange();
+                // If the transaction was savings-related but category might not be marked yet,
+                // force-show the savings section
+                if (transaction.is_savings_related) {
+                    var sec = document.getElementById('savings-section');
+                    if (sec) {
+                        sec.classList.remove('hidden');
+                        // Pre-fill bundle fields if present
+                        if (transaction.savings_bundle_id) {
+                            document.getElementById('existing-savings-bundle-id').value = transaction.savings_bundle_id || '';
+                            var sTitle = document.getElementById('savings-section');
+                            if (sTitle) sTitle.title = 'Changes to these fields will also update the savings bundle.';
+                        }
+                    }
+                }
+            }, 100);
+            document.getElementById('description').value = transaction.description || '';
+            document.getElementById('is-advance').checked = transaction.is_advance || false;
+
+            var nrSection = document.getElementById('needs-review-section');
+            if (transaction.needs_review) {
+                if (nrSection) {
+                    nrSection.classList.remove('hidden');
+                    document.getElementById('clear-review-flag').checked = true;
+                }
+            } else {
+                if (nrSection) nrSection.classList.add('hidden');
+            }
+
+            // Remove old is-savings-related checkbox handling — category-driven now
+            document.getElementById('existing-savings-bundle-id').value = transaction.savings_bundle_id || '';
+
+            var savingsSection = document.getElementById('savings-section');
+            if (savingsSection) {
+                savingsSection.classList.remove('opacity-50', 'pointer-events-none');
+                savingsSection.title = '';
+            }
+
+            document.getElementById('transaction-modal').classList.remove('hidden');
+        } catch (error) {
+            console.error('Error loading transaction:', error);
+        }
+    }
+
+    // ── Wire amount input to update savings future amount ──────────────
+    document.addEventListener('DOMContentLoaded', function() {
+        var amountInput = document.getElementById('amount');
+        if (amountInput) {
+            amountInput.addEventListener('input', function() {
+                updateSavingsFutureAmount();
+            });
+        }
+    });
+    </script>
+
     {% block extra_js %}{% endblock %}
 
     <!-- FAB: global quick-add transaction (desktop only — mobile uses bottom nav) -->
-    <button onclick="openGlobalAddModal()"
+    <button onclick="openAddModal()"
             class="hidden md:flex fixed bottom-6 right-6 z-[100] w-14 h-14 bg-brand text-white rounded-full shadow-brand hover:bg-brand-hover active:scale-95 transition-all items-center justify-center"
             style="bottom:calc(1.5rem + env(safe-area-inset-bottom))">
         <i class="fas fa-plus text-xl"></i>
     </button>
 
-    <!-- Global quick-add transaction modal -->
-    <div id="global-tx-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[110] flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90dvh] flex flex-col">
-            <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
-                <h3 class="text-xl font-bold text-gray-800">Quick Add Transaction</h3>
-                <button onclick="closeGlobalAddModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close">
-                    <i class="fas fa-times text-xl"></i>
-                </button>
-            </div>
-            <div class="flex-1 overflow-y-auto overscroll-contain">
-            <form id="global-tx-form" class="p-6 space-y-4">
-                <!-- From Template picker -->
-                <div>
-                    <button type="button" onclick="_toggleGlobalTemplatePicker()"
-                            class="w-full flex items-center justify-between px-4 py-2 bg-gray-50 border rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition">
-                        <span><i class="fas fa-copy mr-2 text-gray-400"></i>From Template</span>
-                        <i class="fas fa-chevron-down text-gray-400 text-xs" id="global-tpl-arrow"></i>
-                    </button>
-                    <div id="global-tpl-list" class="hidden mt-1 border rounded-lg overflow-hidden shadow-sm max-h-40 overflow-y-auto">
-                        <div id="global-tpl-items" class="divide-y divide-gray-100"></div>
-                    </div>
-                </div>
-                <!-- Type -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Type</label>
-                    <div class="flex gap-4">
-                        <label class="flex-1 cursor-pointer">
-                            <input type="radio" name="global-type" value="income" class="hidden peer" onchange="_loadGlobalCategories()">
-                            <div class="text-center py-3 border-2 rounded-lg peer-checked:border-green-500 peer-checked:bg-green-50 transition">
-                                <i class="fas fa-arrow-down text-green-600 text-xl mb-1"></i>
-                                <p class="text-sm font-medium">Income</p>
-                            </div>
-                        </label>
-                        <label class="flex-1 cursor-pointer">
-                            <input type="radio" name="global-type" value="expense" class="hidden peer" checked onchange="_loadGlobalCategories()">
-                            <div class="text-center py-3 border-2 rounded-lg peer-checked:border-red-500 peer-checked:bg-red-50 transition">
-                                <i class="fas fa-arrow-up text-red-600 text-xl mb-1"></i>
-                                <p class="text-sm font-medium">Expense</p>
-                            </div>
-                        </label>
-                    </div>
-                </div>
-                <!-- Amount -->
-                <div>
-                    <label class="field-required block text-sm font-medium text-gray-700 mb-2">Amount (VND)</label>
-                    <input type="number" id="global-tx-amount" name="amount" required min="1" step="1"
-                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
-                           placeholder="Enter amount"
-                           hx-get="/fragments/transactions/budget-preview"
-                           hx-include="#global-tx-category,#global-tx-date,this"
-                           hx-target="#global-tx-budget-preview"
-                           hx-trigger="change, keyup changed delay:400ms">
-                </div>
-                <!-- Date -->
-                <div>
-                    <label class="field-required block text-sm font-medium text-gray-700 mb-2">Date</label>
-                    <input type="date" id="global-tx-date" name="date" required
-                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent bg-white">
-                </div>
-                <!-- Category -->
-                <div>
-                    <label class="field-required block text-sm font-medium text-gray-700 mb-2">Category</label>
-                    <select id="global-tx-category" name="category_id" required
-                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
-                            hx-get="/fragments/transactions/budget-preview"
-                            hx-include="#global-tx-amount,#global-tx-date,this"
-                            hx-target="#global-tx-budget-preview"
-                            hx-trigger="change">
-                        <option value="">Select Category</option>
-                    </select>
-                    <div id="global-tx-budget-preview" class="mt-2"></div>
-                </div>
-                <!-- Description -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
-                    <input type="text" id="global-tx-desc"
-                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
-                           placeholder="Optional description">
-                </div>
-                <!-- Advance -->
-                <div class="flex items-center">
-                    <input type="checkbox" id="global-tx-advance"
-                           class="w-5 h-5 text-amber-500 border-gray-300 rounded focus:ring-amber-400">
-                    <label for="global-tx-advance" class="ml-3 text-sm font-medium text-gray-700">
-                        <i class="fas fa-hand-holding-usd text-amber-500 mr-1"></i>
-                        Personal advance (family owes me back)
-                    </label>
-                </div>
-                <!-- Submit -->
-                <div class="flex gap-4 pt-4">
-                    <button type="button" onclick="closeGlobalAddModal()"
-                            class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition">Cancel</button>
-                    <button type="submit"
-                            class="flex-1 px-4 py-3 bg-success text-white rounded-lg hover:bg-success/90 transition">Save</button>
-                </div>
-            </form>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        async function openGlobalAddModal() {
-            document.getElementById('global-tx-form').reset();
-            document.querySelector('input[name="global-type"][value="expense"]').checked = true;
-            document.getElementById('global-tx-date').valueAsDate = new Date();
-            document.getElementById('global-tpl-list').classList.add('hidden');
-            document.getElementById('global-tpl-arrow').className = 'fas fa-chevron-down text-gray-400 text-xs';
-            document.getElementById('global-tx-modal').classList.remove('hidden');
-            await _loadGlobalCategories();
-            setTimeout(function() { document.getElementById('global-tx-amount').focus(); }, 50);
-        }
-        function closeGlobalAddModal() {
-            document.getElementById('global-tx-modal').classList.add('hidden');
-            document.getElementById('global-tx-budget-preview').replaceChildren();
-        }
-        async function _loadGlobalCategories() {
-            const type = document.querySelector('input[name="global-type"]:checked').value;
-            const res  = await fetch('/api/categories/');
-            const cats = await res.json();
-            const sel  = document.getElementById('global-tx-category');
-            sel.replaceChildren();
-            const placeholder = document.createElement('option');
-            placeholder.value = '';
-            placeholder.textContent = 'Select Category';
-            sel.appendChild(placeholder);
-            cats.filter(c => c.type === type && c.is_active).forEach(function(c) {
-                const opt = document.createElement('option');
-                opt.value = c.id;
-                opt.textContent = c.name;
-                sel.appendChild(opt);
-            });
-        }
-        document.getElementById('global-tx-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const catVal = document.getElementById('global-tx-category').value;
-            if (!catVal) { showToast('Please select a category', 'error'); return; }
-            const res = await fetch('/api/transactions/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    date: document.getElementById('global-tx-date').value,
-                    amount: parseFloat(document.getElementById('global-tx-amount').value),
-                    type: document.querySelector('input[name="global-type"]:checked').value,
-                    category_id: parseInt(catVal),
-                    description: document.getElementById('global-tx-desc').value,
-                    payment_method: 'cash',
-                    is_savings_related: false,
-                    is_advance: document.getElementById('global-tx-advance').checked,
-                    advance_settled: false,
-                })
-            });
-            if (res.ok) {
-                closeGlobalAddModal();
-                showToast('Transaction saved', 'success');
-                if (window.location.pathname === '/transactions' && typeof loadTransactions === 'function') {
-                    loadTransactions(); loadMonthlySummary();
-                }
-            } else {
-                const err = await res.json();
-                showToast('Error: ' + (err.detail || 'Unknown'), 'error');
-            }
-        });
-
-        let _globalTemplates = [];
-        async function _toggleGlobalTemplatePicker() {
-            const list = document.getElementById('global-tpl-list');
-            const arrow = document.getElementById('global-tpl-arrow');
-            if (!list.classList.contains('hidden')) {
-                list.classList.add('hidden');
-                arrow.className = 'fas fa-chevron-down text-gray-400 text-xs';
-                return;
-            }
-            if (!_globalTemplates.length) {
-                try { const r = await fetch('/api/templates/'); _globalTemplates = await r.json(); }
-                catch(e) { _globalTemplates = []; }
-            }
-            const items = document.getElementById('global-tpl-items');
-            while (items.firstChild) items.removeChild(items.firstChild);
-            if (!_globalTemplates.length) {
-                const p = document.createElement('p');
-                p.className = 'text-sm text-gray-400 text-center py-4 px-4';
-                p.textContent = 'No templates saved yet';
-                items.appendChild(p);
-            } else {
-                _globalTemplates.forEach(function(t) {
-                    const btn = document.createElement('button');
-                    btn.type = 'button';
-                    btn.className = 'w-full text-left px-4 py-2.5 hover:bg-blue-50 transition flex items-center justify-between gap-2';
-                    const nameSpan = document.createElement('span');
-                    nameSpan.className = 'text-sm font-medium text-gray-800';
-                    nameSpan.textContent = t.name;
-                    const metaSpan = document.createElement('span');
-                    metaSpan.className = 'text-xs text-gray-400 flex-shrink-0';
-                    metaSpan.textContent = t.type + ' · ' + formatVND(t.amount);
-                    btn.appendChild(nameSpan);
-                    btn.appendChild(metaSpan);
-                    btn.addEventListener('click', function() { _applyGlobalTemplate(t); });
-                    items.appendChild(btn);
-                });
-            }
-            list.classList.remove('hidden');
-            arrow.className = 'fas fa-chevron-up text-gray-400 text-xs';
-        }
-
-        async function _applyGlobalTemplate(t) {
-            document.getElementById('global-tpl-list').classList.add('hidden');
-            document.getElementById('global-tpl-arrow').className = 'fas fa-chevron-down text-gray-400 text-xs';
-            document.querySelector('input[name="global-type"][value="' + t.type + '"]').checked = true;
-            document.getElementById('global-tx-amount').value = t.amount;
-            document.getElementById('global-tx-desc').value = t.description || '';
-            await _loadGlobalCategories();
-            document.getElementById('global-tx-category').value = t.category_id;
-        }
-    </script>
+    {% include "partials/transactions/_modal_form.html" %}
 
     <!-- Toast container — Alpine-driven, sits above bottom nav on mobile -->
     <div x-data class="fixed bottom-20 right-4 md:bottom-4 z-[200] space-y-2">
@@ -1146,7 +1322,7 @@
                 <span class="text-xs">Txns</span>
             </a>
             <div class="flex-1 flex items-center justify-center">
-                <button onclick="openGlobalAddModal()"
+                <button onclick="openAddModal()"
                         class="w-12 h-12 bg-brand text-white rounded-full shadow-brand hover:bg-brand-hover active:scale-95 transition-all flex items-center justify-center -mt-5">
                     <i class="fas fa-plus text-xl"></i>
                 </button>

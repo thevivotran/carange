@@ -35,13 +35,12 @@ def _build_tx_query(
     import_job_id: Optional[int] = None,
     trash: bool = False,
 ):
+    join_opts = [joinedload(Transaction.category), joinedload(Transaction.savings_bundle)]
     if trash:
-        query = (
-            db.query(Transaction).options(joinedload(Transaction.category)).filter(Transaction.deleted_at.isnot(None))
-        )
+        query = db.query(Transaction).options(*join_opts).filter(Transaction.deleted_at.isnot(None))
         return query.order_by(Transaction.deleted_at.desc()).offset(skip).limit(limit).all()
 
-    query = db.query(Transaction).options(joinedload(Transaction.category)).filter(Transaction.deleted_at.is_(None))
+    query = db.query(Transaction).options(*join_opts).filter(Transaction.deleted_at.is_(None))
     if type:
         query = query.filter(Transaction.type == type)
     if category_id:
@@ -164,6 +163,7 @@ def fragment_transaction_list(
             "trash": trash,
             "ocr_sources": OCR_SOURCES,
             "edited_ids": edited_ids,
+            "today": date.today(),
         },
     )
 
