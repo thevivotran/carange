@@ -252,3 +252,143 @@ def test_add_deposit_to_nonexistent_bundle_fails(client):
         json={"date": "2026-03-01", "amount": 1_000_000},
     )
     assert r.status_code == 404
+
+
+def test_create_bundle_uses_configured_deposit_category(client):
+    """Creating a bundle with a configured deposit category should use that category."""
+    # First, create a bundle to auto-create the Tiết kiệm category
+    r = client.post(
+        "/api/savings/",
+        json={
+            "name": "Cat Seeder Bundle",
+            "bank_name": "VCB",
+            "type": "fixed_deposit",
+            "initial_deposit": 1_000_000,
+            "future_amount": 1_050_000,
+            "interest_rate": 5.0,
+            "start_date": "2026-01-01",
+            "maturity_date": "2026-07-01",
+        },
+    )
+    assert r.status_code == 200
+
+    # Now find the auto-created Tiết kiệm category
+    r = client.get("/api/categories/")
+    assert r.status_code == 200
+    cats = r.json()
+    deposit_cat = next((c for c in cats if c["name"] == "Tiết kiệm"), None)
+    assert deposit_cat is not None, "Tiết kiệm category should exist"
+
+    # Configure the setting to point at this category
+    r = client.post("/settings/savings-deposit-category", data={"savings_deposit_category_id": str(deposit_cat["id"])})
+    assert r.status_code == 200
+
+    # Create another bundle — should use the configured category
+    r = client.post(
+        "/api/savings/",
+        json={
+            "name": "Configured Cat Bundle",
+            "bank_name": "VCB",
+            "type": "fixed_deposit",
+            "initial_deposit": 10_000_000,
+            "future_amount": 10_500_000,
+            "interest_rate": 5.0,
+            "start_date": "2026-05-01",
+            "maturity_date": "2026-11-01",
+        },
+    )
+    assert r.status_code == 200
+    bundle_id = r.json()["id"]
+
+    # Linked transaction should use the configured category
+    txs = client.get(f"/api/savings/{bundle_id}/transactions").json()
+    assert len(txs) == 1
+    assert txs[0]["category_id"] == deposit_cat["id"]
+
+
+def test_transaction_derives_is_savings_related_from_category(client):
+    """Creating a tx with a savings category should auto-set is_savings_related=True."""
+    # Seed: create a bundle so _get_savings_deposit_category auto-creates Tiết kiệm (has is_savings_category=True)
+    r = client.post(
+        "/api/savings/",
+        json={
+            "name": "Seed Bundle",
+            "bank_name": "VCB",
+            "type": "fixed_deposit",
+            "initial_deposit": 1_000_000,
+            "future_amount": 1_050_000,
+            "interest_rate": 5.0,
+            "start_date": "2026-01-01",
+            "maturity_date": "2026-07-01",
+        },
+    )
+    assert r.status_code == 200
+
+    # Find the Tiết kiệm category (has is_savings_category=True)
+    r = client.get("/api/categories/")
+    assert r.status_code == 200
+    cats = r.json()
+    savings_cat = next((c for c in cats if c["is_savings_category"]), None)
+    assert savings_cat is not None, "A savings category should exist"
+
+    # Create an expense transaction with this category (no savings_bundle data)
+    r = client.post(
+        "/api/transactions/",
+        json={
+            "date": "2026-06-01",
+            "amount": 3_000_000,
+            "type": "expense",
+            "category_id": savings_cat["id"],
+            "description": "Auto-savings test",
+            "payment_method": "cash",
+        },
+    )
+    assert r.status_code == 200
+    tx = r.json()
+    # The backend should have forced is_savings_related=True from the category flag
+    assert tx["is_savings_related"] is True, "is_savings_related should be set by category"
+
+    # Now create a tx with a non-savings category — should be False
+    regular_cat = next((c for c in cats if c["type"] == "expense" and not c["is_savings_category"]), None)
+    if regular_cat:
+        r = client.post(
+            "/api/transactions/",
+            json={
+                "date": "2026-06-01",
+                "amount": 500_000,
+                "type": "expense",
+                "category_id": regular_cat["id"],
+                "description": "Regular expense test",
+                "payment_method": "cash",
+            },
+        )
+        assert r.status_code == 200
+        assert r.json()["is_savings_related"] is False
+
+
+def test_configured_deposit_category_fallback_on_invalid_id(client):
+    """Setting an invalid savings_deposit_category_id should fall back gracefully."""
+    # Set an invalid category ID (exists but is income type, not expense)
+    r = client.post("/settings/savings-deposit-category", data={"savings_deposit_category_id": "invalid"})
+    assert r.status_code == 200
+
+    # Create a bundle — should fall back to auto-create Tiết kiệm category
+    r = client.post(
+        "/api/savings/",
+        json={
+            "name": "Fallback Bundle",
+            "bank_name": "VCB",
+            "type": "fixed_deposit",
+            "initial_deposit": 5_000_000,
+            "future_amount": 5_250_000,
+            "interest_rate": 5.0,
+            "start_date": "2026-01-01",
+            "maturity_date": "2026-07-01",
+        },
+    )
+    assert r.status_code == 200
+    bundle_id = r.json()["id"]
+
+    # Should have a linked transaction
+    txs = client.get(f"/api/savings/{bundle_id}/transactions").json()
+    assert len(txs) == 1
