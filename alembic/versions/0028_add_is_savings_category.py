@@ -25,11 +25,11 @@ def upgrade() -> None:
                 "is_savings_category",
                 sa.Boolean(),
                 nullable=False,
-                server_default=sa.false(),
+                server_default=sa.text("0"),
             )
         )
 
-    op.execute("UPDATE categories SET is_savings_category = true WHERE kpi_role = 'liquid_savings'")
+    op.execute("UPDATE categories SET is_savings_category = 1 WHERE kpi_role = 'liquid_savings'")
 
 
 def downgrade() -> None:
