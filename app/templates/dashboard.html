@@ -55,6 +55,22 @@
   {% set living_delta  = summary.living_expense_ratio - summary.prev_living_expense_ratio %}
   {% include "partials/dashboard/_kpi_cards.html" %}
 
+  <!-- ── Savings Deposits Card ─────────────────────────────────────── -->
+  <div class="cg-card p-5 mb-6">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="w-10 h-10 rounded-lg flex items-center justify-center" style="background: var(--brand-subtle)">
+          <i class="fas fa-piggy-bank text-brand"></i>
+        </span>
+        <div>
+          <p class="eyebrow">Savings Deposits This Month</p>
+          <p class="text-2xl font-bold amount tabular-nums mt-0.5">{{ summary.monthly_savings_deposits | currency }}</p>
+        </div>
+      </div>
+      <a href="/savings" class="text-xs text-accent hover:underline flex-shrink-0">View bundles →</a>
+    </div>
+  </div>
+
   <!-- ── BDS Progress ───────────────────────────────────────────────── -->
   {% if bds_project %}
   {% set bds_pct = (bds_project.current_amount / bds_project.target_amount * 100) if bds_project.target_amount > 0 else 0 %}
@@ -552,7 +568,7 @@
       </div>
       <p class="text-sm font-semibold mb-1">No transactions yet</p>
       <p class="text-xs text-muted max-w-xs mx-auto">Log your first income or expense to start seeing your activity here.</p>
-      <button onclick="openGlobalAddModal()"
+      <button onclick="openAddModal()"
               class="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-white text-xs font-medium transition-colors" style="background: var(--accent)">
         Add a transaction
       </button>

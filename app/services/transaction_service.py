@@ -106,6 +106,12 @@ def create_transaction(db: Session, data: TransactionCreate) -> Transaction:
     savings_bundle_id = data.savings_bundle_id
 
     try:
+        # Resolve category to get DB instance (for savings category detection)
+        if data.category_id:
+            category = db.query(Category).filter(Category.id == data.category_id).first()
+            if category and category.is_savings_category:
+                transaction_data["is_savings_related"] = True
+
         if data.is_savings_related and data.savings_bundle:
             bundle_data: SavingsBundleCreate = data.savings_bundle
             db_bundle = SavingsBundle(

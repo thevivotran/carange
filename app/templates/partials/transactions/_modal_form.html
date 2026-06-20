@@ -1,0 +1,188 @@
+<!-- Add/Edit Transaction Modal (shared partial) -->
+<div id="transaction-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
+    <div class="cg-card rounded-xl shadow-xl max-w-md w-full max-h-[90dvh] flex flex-col">
+        <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
+            <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Transaction</h3>
+            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div class="flex-1 overflow-y-auto overscroll-contain">
+        <form id="transaction-form" class="p-6 space-y-4">
+            <input type="hidden" id="transaction-id">
+            <input type="hidden" id="existing-savings-bundle-id">
+
+            <!-- From Template picker -->
+            <div>
+                <button type="button" onclick="toggleTemplatePicker()"
+                        class="w-full flex items-center justify-between px-4 py-2 bg-gray-50 border rounded-lg text-sm text-gray-600 hover:bg-gray-100 transition">
+                    <span><i class="fas fa-copy mr-2 text-gray-400"></i>From Template</span>
+                    <i class="fas fa-chevron-down text-gray-400 text-xs" id="template-picker-arrow"></i>
+                </button>
+                <div id="template-picker-list" class="hidden mt-1 border rounded-lg overflow-hidden shadow-sm max-h-40 overflow-y-auto">
+                    <div id="template-picker-items" class="divide-y divide-gray-100"></div>
+                </div>
+            </div>
+
+            <!-- Type -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                <div class="flex gap-4">
+                    <label class="flex-1 cursor-pointer">
+                        <input type="radio" name="type" value="income" class="hidden peer" onchange="loadCategories()">
+                        <div class="text-center py-3 border-2 rounded-lg peer-checked:border-green-500 peer-checked:bg-green-50 transition">
+                            <i class="fas fa-arrow-down text-green-600 text-xl mb-1"></i>
+                            <p class="text-sm font-medium">Income</p>
+                        </div>
+                    </label>
+                    <label class="flex-1 cursor-pointer">
+                        <input type="radio" name="type" value="expense" class="hidden peer" checked onchange="loadCategories()">
+                        <div class="text-center py-3 border-2 rounded-lg peer-checked:border-red-500 peer-checked:bg-red-50 transition">
+                            <i class="fas fa-arrow-up text-red-600 text-xl mb-1"></i>
+                            <p class="text-sm font-medium">Expense</p>
+                        </div>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Amount -->
+            <div>
+                <label class="field-required block text-sm font-medium text-gray-700 mb-2">Amount (VND)</label>
+                <input type="number" id="amount" name="amount" required min="0" step="1"
+                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                       placeholder="Enter exact amount"
+                       hx-get="/fragments/transactions/budget-preview"
+                       hx-include="[name=category_id],[name=amount],[name=date]"
+                       hx-target="#tx-budget-preview"
+                       hx-trigger="change, keyup changed delay:400ms">
+                <div id="tx-budget-preview" class="mt-2"></div>
+            </div>
+
+            <!-- Date -->
+            <div>
+                <label class="field-required block text-sm font-medium text-gray-700 mb-2">Date</label>
+                <input type="date" id="date" name="date" required
+                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent bg-white">
+            </div>
+
+            <!-- Category -->
+            <div>
+                <label class="field-required block text-sm font-medium text-gray-700 mb-2">Category</label>
+                <select id="category" name="category_id" required
+                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                        onchange="onCategoryChange()"
+                        hx-get="/fragments/transactions/budget-preview"
+                        hx-include="[name=category_id],[name=amount],[name=date]"
+                        hx-target="#tx-budget-preview"
+                        hx-trigger="change">
+                    <option value="">Select Category</option>
+                </select>
+            </div>
+
+            <!-- Description -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <input type="text" id="description"
+                       class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                       placeholder="Optional description">
+            </div>
+
+            <!-- Is Advance -->
+            <div>
+                <div class="flex items-center">
+                    <input type="checkbox" id="is-advance"
+                           class="w-5 h-5 text-amber-500 border-gray-300 rounded focus:ring-amber-400">
+                    <label for="is-advance" class="ml-3 text-sm font-medium text-gray-700">
+                        <i class="fas fa-hand-holding-usd text-amber-500 mr-1"></i>
+                        Personal advance (family owes me back)
+                    </label>
+                </div>
+                <p class="text-xs text-gray-400 mt-1 ml-8">
+                    Money you've personally fronted that the household will pay you back later. It's tracked
+                    separately so you can mark it "settled" once repaid — find open and settled advances via
+                    the Advanced filter on this page.
+                </p>
+            </div>
+
+            <!-- Savings Bundle Section (hidden by default) -->
+            <div id="savings-section" class="hidden space-y-4 border-t pt-4 mt-4">
+                <h4 class="text-lg font-semibold text-gray-800 flex items-center">
+                    <i class="fas fa-piggy-bank text-purple-600 mr-2"></i>
+                    Savings Bundle Details
+                </h4>
+
+                <!-- Bundle Name -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Bundle Name <span class="text-red-500">*</span></label>
+                    <input type="text" id="savings-name"
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                           placeholder="e.g., Techcombank Fixed Deposit">
+                </div>
+
+                <!-- Bank Name -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Bank Name <span class="text-red-500">*</span></label>
+                    <input type="text" id="savings-bank-name"
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                           placeholder="e.g., Techcombank">
+                </div>
+
+                <!-- Interest Rate -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Annual Interest Rate (%)</label>
+                    <input type="number" id="savings-interest-rate" step="0.01" min="0"
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                           placeholder="e.g., 6.5">
+                </div>
+
+                <!-- Maturity Date -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Maturity Date</label>
+                    <input type="date" id="savings-maturity-date"
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent bg-white">
+                </div>
+
+                <!-- Future Amount -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Expected Future Amount (VND)</label>
+                    <input type="number" id="savings-future-amount" step="1" min="0"
+                           class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent bg-gray-50"
+                           placeholder="Amount at maturity">
+                    <p class="text-xs text-gray-500 mt-1">Leave blank to use transaction amount</p>
+                </div>
+
+                <!-- Notes -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                    <textarea id="savings-notes" rows="2"
+                              class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
+                              placeholder="Optional notes about this savings"></textarea>
+                </div>
+            </div>
+
+            <!-- Clear review flag (shown only when editing a needs_review transaction) -->
+            <div id="needs-review-section" class="hidden rounded-lg bg-orange-50 border border-orange-200 p-3">
+                <div class="flex items-center">
+                    <input type="checkbox" id="clear-review-flag"
+                           class="w-4 h-4 text-orange-500 border-gray-300 rounded focus:ring-orange-400" checked>
+                    <label for="clear-review-flag" class="ml-2.5 text-sm font-medium text-orange-700">
+                        Mark as reviewed (clear ⚠ Review flag on save)
+                    </label>
+                </div>
+            </div>
+
+            <!-- Submit -->
+            <div class="flex gap-4 pt-4">
+                <button type="button" onclick="closeModal()"
+                        class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition">
+                    Cancel
+                </button>
+                <button type="submit"
+                        class="flex-1 px-4 py-3 bg-primary text-white rounded-lg hover:bg-blue-600 transition">
+                    Save Transaction
+                </button>
+            </div>
+        </form>
+        </div>
+    </div>
+</div>

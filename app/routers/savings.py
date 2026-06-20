@@ -10,14 +10,17 @@ from app.models.database import (
     SavingsStatus,
     FinancialProject,
     Transaction,
+    TransactionType,
 )
 from app.models.schemas import (
     SavingsBundle as SavingsBundleSchema,
     SavingsBundleCreate,
     SavingsBundleUpdate,
+    SavingsDepositCreate,
     Transaction as TransactionSchema,
 )
 from app.services import savings_service
+from app.services.savings_service import _get_savings_deposit_category
 
 router = APIRouter()
 
@@ -65,6 +68,36 @@ def get_bundle_transactions(bundle_id: int, db: Session = Depends(get_db)):
     )
 
 
+@router.post("/{bundle_id}/deposit", response_model=SavingsBundleSchema)
+def add_bundle_deposit(bundle_id: int, deposit: SavingsDepositCreate, db: Session = Depends(get_db)):
+    """Add a deposit transaction to an existing savings bundle."""
+    bundle = db.query(SavingsBundle).filter(SavingsBundle.id == bundle_id, SavingsBundle.deleted_at.is_(None)).first()
+    if not bundle:
+        raise HTTPException(status_code=404, detail="Savings bundle not found")
+    if bundle.status != SavingsStatus.ACTIVE:
+        raise HTTPException(status_code=400, detail="Cannot deposit to a non-active bundle")
+
+    deposit_cat = _get_savings_deposit_category(db)
+    tx = Transaction(
+        date=deposit.date,
+        amount=deposit.amount,
+        type=TransactionType.EXPENSE,
+        category_id=deposit_cat.id,
+        description=deposit.description or f"Deposit: {bundle.name} - {bundle.bank_name}",
+        payment_method="bank_transfer",
+        is_savings_related=True,
+        savings_bundle_id=bundle.id,
+        source="manual",
+    )
+    db.add(tx)
+
+    bundle.current_amount = (bundle.current_amount or 0) + deposit.amount
+
+    db.commit()
+    db.refresh(bundle)
+    return bundle
+
+
 @router.get("/{bundle_id}", response_model=SavingsBundleSchema)
 def get_savings_bundle(bundle_id: int, db: Session = Depends(get_db)):
     bundle = db.query(SavingsBundle).filter(SavingsBundle.id == bundle_id, SavingsBundle.deleted_at.is_(None)).first()
@@ -87,6 +120,22 @@ def create_savings_bundle(bundle: SavingsBundleCreate, db: Session = Depends(get
         bundle_data["current_amount"] = bundle_data["initial_deposit"]
     db_bundle = SavingsBundle(**bundle_data)
     db.add(db_bundle)
+    db.flush()
+
+    deposit_cat = _get_savings_deposit_category(db)
+    tx = Transaction(
+        date=db_bundle.start_date,
+        amount=db_bundle.initial_deposit,
+        type=TransactionType.EXPENSE,
+        category_id=deposit_cat.id,
+        description=f"Initial deposit: {db_bundle.name} - {db_bundle.bank_name}",
+        payment_method="bank_transfer",
+        is_savings_related=True,
+        savings_bundle_id=db_bundle.id,
+        source="manual",
+    )
+    db.add(tx)
+
     db.commit()
     db.refresh(db_bundle)
     return db_bundle
@@ -105,12 +154,44 @@ def update_savings_bundle(bundle_id: int, bundle_update: SavingsBundleUpdate, db
         if not project:
             raise HTTPException(status_code=404, detail="Linked project not found")
 
+    deposit_changed = "initial_deposit" in update_data
+
     for key, value in update_data.items():
         setattr(db_bundle, key, value)
 
     # If status changed to completed, set completed_at
     if bundle_update.status == SavingsStatus.COMPLETED and not db_bundle.completed_at:
         db_bundle.completed_at = datetime.now(timezone.utc)
+
+    if deposit_changed:
+        linked_tx = (
+            db.query(Transaction)
+            .filter(
+                Transaction.savings_bundle_id == bundle_id,
+                Transaction.source == "manual",
+                Transaction.type == TransactionType.EXPENSE,
+                Transaction.is_savings_related == True,
+                Transaction.deleted_at.is_(None),
+            )
+            .order_by(Transaction.created_at.asc())
+            .first()
+        )
+        if linked_tx is not None:
+            linked_tx.amount = db_bundle.initial_deposit
+        else:
+            deposit_cat = _get_savings_deposit_category(db)
+            tx = Transaction(
+                date=db_bundle.start_date,
+                amount=db_bundle.initial_deposit,
+                type=TransactionType.EXPENSE,
+                category_id=deposit_cat.id,
+                description=f"Initial deposit: {db_bundle.name} - {db_bundle.bank_name}",
+                payment_method="bank_transfer",
+                is_savings_related=True,
+                savings_bundle_id=db_bundle.id,
+                source="manual",
+            )
+            db.add(tx)
 
     db.commit()
     db.refresh(db_bundle)
@@ -160,11 +241,28 @@ def mark_bundle_completed(bundle_id: int, db: Session = Depends(get_db)):
 @router.post("/{bundle_id}/rollover", response_model=SavingsBundleSchema)
 def rollover_bundle(bundle_id: int, db: Session = Depends(get_db)):
     try:
-        return savings_service.rollover_bundle(db, bundle_id)
+        new_bundle = savings_service.rollover_bundle(db, bundle_id)
     except LookupError:
         raise HTTPException(status_code=404, detail="Savings bundle not found")
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    deposit_cat = _get_savings_deposit_category(db)
+    tx = Transaction(
+        date=new_bundle.start_date,
+        amount=new_bundle.initial_deposit,
+        type=TransactionType.EXPENSE,
+        category_id=deposit_cat.id,
+        description=f"Initial deposit: {new_bundle.name} - {new_bundle.bank_name}",
+        payment_method="bank_transfer",
+        is_savings_related=True,
+        savings_bundle_id=new_bundle.id,
+        source="savings_maturity",
+    )
+    db.add(tx)
+    db.commit()
+    db.refresh(new_bundle)
+    return new_bundle
 
 
 @router.get("/stats/summary")

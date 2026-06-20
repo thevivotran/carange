@@ -72,4 +72,4 @@ def fragment_bundle_transactions(
         .order_by(Transaction.date.desc())
         .all()
     )
-    return render_fragment(request, "partials/savings/_transactions.html", {"txs": txs})
+    return render_fragment(request, "partials/savings/_tx_list.html", {"txs": txs})

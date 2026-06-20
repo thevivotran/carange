@@ -11,6 +11,52 @@ from app.models.database import (
     Transaction,
     TransactionType,
 )
+from app.services.settings_service import get_setting
+
+
+def _get_savings_deposit_category(db: Session) -> Category:
+    configured_id = get_setting(db, "savings_deposit_category_id")
+    if configured_id:
+        try:
+            cat = (
+                db.query(Category)
+                .filter(
+                    Category.id == int(configured_id),
+                    Category.type == TransactionType.EXPENSE,
+                    Category.is_active == True,
+                )
+                .first()
+            )
+            if cat is not None:
+                return cat
+        except (ValueError, TypeError):
+            pass
+
+    cat = (
+        db.query(Category)
+        .filter(
+            Category.type == TransactionType.EXPENSE,
+            Category.is_savings_category == True,
+            Category.is_active == True,
+        )
+        .first()
+    )
+    if cat is not None:
+        return cat
+
+    cat = Category(
+        name="Tiết kiệm",
+        type=TransactionType.EXPENSE,
+        color="#8B5CF6",
+        icon="piggy-bank",
+        is_active=True,
+        is_wealth_building=False,
+        kpi_role="liquid_savings",
+        is_savings_category=True,
+    )
+    db.add(cat)
+    db.flush()
+    return cat
 
 
 def _get_or_create_interest_category(db: Session) -> Category | None:

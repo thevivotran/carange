@@ -1,0 +1,18 @@
+{% for tx in txs %}
+<div class="flex items-center justify-between text-xs rounded px-3 py-2" style="background: var(--surface-sunken)">
+  <div class="flex items-center gap-2 min-w-0">
+    <span class="shrink-0 px-1.5 py-0.5 rounded font-medium cg-badge
+      {{ 'cg-badge--income' if tx.type == 'income' else 'cg-badge--expense' }}">
+      {{ 'IN' if tx.type == 'income' else 'OUT' }}
+    </span>
+    <span class="text-secondary truncate">{{ tx.description or (tx.category.name if tx.category else '') }}</span>
+    <span class="shrink-0 text-muted">{{ tx.date }}</span>
+  </div>
+  <span class="shrink-0 font-semibold ml-2 amount tabular-nums
+    {{ 'text-income' if tx.type == 'income' else 'text-expense' }}">
+    {{ '+' if tx.type == 'income' else '-' }}{{ tx.amount | currency }}
+  </span>
+</div>
+{% else %}
+<p class="text-xs text-muted py-1">No linked transactions</p>
+{% endfor %}

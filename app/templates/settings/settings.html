@@ -93,6 +93,34 @@
     </form>
   </div>
 
+  <!-- ── Savings Defaults ─────────────────────────────────────── -->
+  <div class="cg-card rounded-2xl p-6 mb-4">
+    <h3 class="font-semibold mb-1">Savings Defaults</h3>
+    <p class="text-xs text-muted mb-5">Default expense category used when auto-creating a savings deposit transaction</p>
+    <form hx-post="/settings/savings-deposit-category"
+          hx-target="#savings-deposit-status"
+          hx-swap="innerHTML">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Savings Deposit Category</label>
+        <p class="text-xs text-gray-400 mb-2">Transactions created when you add or roll over a savings bundle use this category.</p>
+        <select name="savings_deposit_category_id"
+                class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
+          <option value="">— Auto-create (Tiết kiệm) —</option>
+          {% for c in expense_categories %}
+          <option value="{{ c.id }}" {% if c.id | string == savings_deposit_category_id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="flex items-center gap-4 mt-6">
+        <button type="submit"
+                class="px-5 py-2 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-brand-hover transition">
+          Save
+        </button>
+        <span id="savings-deposit-status"></span>
+      </div>
+    </form>
+  </div>
+
   <!-- ── Cash buffer ──────────────────────────────────────────── -->
   <div class="cg-card rounded-2xl p-6 mb-4">
     <h3 class="font-semibold mb-1">Cash buffer</h3>
