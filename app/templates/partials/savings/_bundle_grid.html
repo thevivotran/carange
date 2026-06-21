@@ -103,26 +103,6 @@
       </div>
       {% endif %}
 
-      <!-- Monetary progress bar (all active bundles) -->
-      {% if bundle.status.value == 'active' %}
-      {% set monetary_pct = (bundle.current_amount / bundle.future_amount * 100) if bundle.future_amount > 0 else 0 %}
-      <div class="mb-4">
-        <div class="flex justify-between text-xs text-muted mb-1">
-          <span>Savings Goal</span>
-          <span class="font-semibold {% if monetary_pct >= 100 %}text-success{% elif monetary_pct >= 50 %}text-accent{% else %}text-muted{% endif %}">{{ "%.1f"|format(monetary_pct) }}%</span>
-        </div>
-        <div class="w-full rounded-full h-2" style="background: var(--surface-sunken)">
-          <div class="h-2 rounded-full transition-all duration-500
-            {% if monetary_pct >= 100 %}bg-success
-            {% elif monetary_pct >= 75 %}bg-accent
-            {% elif monetary_pct >= 50 %}bg-info
-            {% else %}bg-muted{% endif %}"
-            style="width:{{ [monetary_pct, 100]|min | int }}%"></div>
-        </div>
-        <p class="text-xs mt-1 text-muted">{{ bundle.current_amount | currency_abbrev }} of {{ bundle.future_amount | currency_abbrev }}</p>
-      </div>
-      {% endif %}
-
       <!-- Dates -->
       <div class="text-sm text-muted mb-4 space-y-1">
         <div><i class="fas fa-calendar-alt mr-2 w-4"></i>Start: {{ bundle.start_date or '—' }}</div>
