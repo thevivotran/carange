@@ -8,7 +8,7 @@
             <h2 class="text-3xl font-bold text-gray-800">Savings Bundles</h2>
             <p class="text-muted mt-1">Track your family's fixed deposits and savings goals</p>
         </div>
-        <button onclick="openAddModal()" class="bg-brand text-white px-6 py-3 rounded-lg hover:bg-brand-hover transition flex items-center">
+        <button onclick="openSavingsModal()" class="bg-brand text-white px-6 py-3 rounded-lg hover:bg-brand-hover transition flex items-center">
             <i class="fas fa-plus mr-2"></i>Add Savings Bundle
         </button>
     </div>
@@ -39,7 +39,7 @@
     <div class="cg-card rounded-xl shadow-xl max-w-lg w-full max-h-[90dvh] flex flex-col">
         <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
             <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Savings Bundle</h3>
-            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close">
+            <button onclick="closeSavingsModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close">
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
@@ -137,7 +137,7 @@
             
         </div>
         <div class="p-6 border-t flex gap-4 flex-shrink-0">
-            <button type="button" onclick="closeModal()"
+            <button type="button" onclick="closeSavingsModal()"
                     class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition">
                 Cancel
             </button>
@@ -187,7 +187,7 @@
     }
 
 
-    function openAddModal() {
+    function openSavingsModal() {
         document.getElementById('modal-title').textContent = 'Add Savings Bundle';
         document.getElementById('savings-form').reset();
         document.getElementById('savings-id').value = '';
@@ -195,7 +195,7 @@
         document.getElementById('savings-modal').classList.remove('hidden');
     }
 
-    function closeModal() {
+    function closeSavingsModal() {
         document.getElementById('savings-modal').classList.add('hidden');
     }
 
@@ -225,7 +225,7 @@
                 body: JSON.stringify(data)
             });
             if (response.ok) {
-                closeModal();
+                closeSavingsModal();
                 _reloadSavings();
                 showToast(savingsId ? 'Bundle updated' : 'Bundle added', 'success');
             } else {

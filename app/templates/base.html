@@ -431,48 +431,16 @@
           main { padding-bottom: calc(3.5rem + max(env(safe-area-inset-bottom), 0.75rem)) !important; }
         }
 
-        /* ── Navigation progress bar ─────────────────────────────────────── */
-        #nav-progress {
-            position: fixed; top: 0; left: 0; right: 0; height: 3px;
-            background: linear-gradient(90deg, var(--brand) 0%, var(--accent) 100%);
-            transform-origin: left; transform: scaleX(0); opacity: 0;
-            z-index: 99999; pointer-events: none;
-        }
-        body.navigating #nav-progress {
-            opacity: 1;
-            animation: _np-run 2s ease-out forwards;
-        }
-        @keyframes _np-run {
-            0%   { transform: scaleX(0); }
-            40%  { transform: scaleX(0.6); }
-            100% { transform: scaleX(0.92); }
-        }
 
-        /* ── HTMX fragment request progress bar ─────────────────────────── */
-        body.htmx-loading #nav-progress {
-            opacity: 1;
-            animation: _np-run 2s ease-out forwards;
-        }
     </style>
 
-    <!-- ── Cross-document view transitions (Chrome 116+, Safari 18.2+) ──
-         Simple full-page crossfade on same-origin navigation. Desktop only —
-         on mobile, the bottom-nav full-page reloads produced a jarring flash. -->
-    <style media="(min-width: 768px)">
-        @view-transition { navigation: auto; }
 
-        ::view-transition-old(root) { animation: _vtx-out 100ms ease forwards; }
-        ::view-transition-new(root) { animation: _vtx-in  150ms ease; }
-        @keyframes _vtx-out { to   { opacity: 0; } }
-        @keyframes _vtx-in  { from { opacity: 0; } }
-    </style>
 
     {% block extra_css %}{% endblock %}
 
     <!-- HTMX (pinned — do not change to @latest) -->
     <script src="https://unpkg.com/htmx.org@2.0.3" crossorigin="anonymous"></script>
     <script>
-        htmx.config.globalViewTransitions = true;
         htmx.config.scrollBehavior = 'smooth';
         htmx.config.historyCacheSize = 10;
     </script>
@@ -481,7 +449,6 @@
     <script defer src="https://unpkg.com/alpinejs@3.14.3/dist/cdn.min.js"></script>
 </head>
 <body class="bg-gray-50">
-    <div id="nav-progress"></div>
     <div class="flex h-screen" style="height:100vh;height:100dvh;">
         <!-- Sidebar -->
         <aside id="sidebar"
@@ -838,15 +805,6 @@
             var parts = dateString.split('-');
             return parts[2] + '/' + parts[1] + '/' + parts[0];
         }
-
-        // ── Navigation progress bar ───────────────────────────────────────────
-        document.addEventListener('click', function(e) {
-            var a = e.target.closest('a[href]');
-            if (!a || a.hostname !== location.hostname || a.target === '_blank') return;
-            var href = a.getAttribute('href');
-            if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
-            document.body.classList.add('navigating');
-        });
 
         // ── Undo-delete ───────────────────────────────────────────────────────
         // delay=0: immediate soft-delete (no undo); delay>0: undo toast for N ms.

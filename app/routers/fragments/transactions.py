@@ -8,7 +8,9 @@ from app.models.database import (
     get_db,
     Transaction,
     TransactionAuditLog,
+    TransactionType,
 )
+from sqlalchemy import func, case, and_
 from app.routers.fragments._helpers import render_fragment
 from app.services.budget_context import budget_snapshot
 from app.services.fiscal_period import current_period_label, get_month_start_day
@@ -168,19 +170,164 @@ def fragment_transaction_list(
     )
 
 
+def _build_tx_summary_query(
+    db: Session,
+    type: Optional[str] = None,
+    category_id: Optional[int] = None,
+    project_id: Optional[int] = None,
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    search: Optional[str] = None,
+    is_advance: Optional[bool] = None,
+    advance_settled: Optional[bool] = None,
+    source: Optional[str] = None,
+    needs_review: Optional[bool] = None,
+    import_job_id: Optional[int] = None,
+):
+    """Build a filtered aggregate query returning income, expense, savings, cash_on_hand."""
+    # Default to current fiscal period when no dates provided (matching get_monthly_summary behavior)
+    if not start_date and not end_date:
+        from app.services.fiscal_period import fiscal_window_ym, get_month_start_day
+
+        day = get_month_start_day(db)
+        from datetime import date as dt_date
+        from app.services.fiscal_period import current_period_ym
+
+        _y, _m = current_period_ym(dt_date.today(), day)
+        month_start, month_end = fiscal_window_ym(_y, _m, day)
+        start_date = month_start
+        end_date = month_end
+
+    # Start with filters matching _build_tx_query but no skip/limit/trash
+    base = db.query(Transaction).filter(Transaction.deleted_at.is_(None))
+    if type:
+        base = base.filter(Transaction.type == type)
+    if category_id:
+        base = base.filter(Transaction.category_id == category_id)
+    if project_id:
+        base = base.filter(Transaction.project_id == project_id)
+    if start_date:
+        base = base.filter(Transaction.date >= start_date)
+    if end_date:
+        base = base.filter(Transaction.date <= end_date)
+    if search:
+        base = base.filter(Transaction.description.ilike(f"%{search}%"))
+    if is_advance is not None:
+        base = base.filter(Transaction.is_advance == is_advance)
+    if advance_settled is not None:
+        if advance_settled is False:
+            base = base.filter((Transaction.advance_settled == False) | (Transaction.advance_settled.is_(None)))
+        else:
+            base = base.filter(Transaction.advance_settled == advance_settled)
+    if source:
+        base = base.filter(Transaction.source == source)
+    if needs_review is not None:
+        base = base.filter(Transaction.needs_review == needs_review)
+    if import_job_id is not None:
+        base = base.filter(Transaction.import_job_id == import_job_id)
+
+    # Cache the filtered base as a subquery for reuse across the CASE expressions
+    filtered = base.subquery()
+
+    row = (
+        db.query(
+            func.sum(
+                case(
+                    (
+                        and_(
+                            filtered.c.type == TransactionType.INCOME,
+                            filtered.c.is_savings_related == False,
+                        ),
+                        filtered.c.amount,
+                    ),
+                    else_=0,
+                )
+            ).label("income"),
+            func.sum(
+                case(
+                    (
+                        and_(
+                            filtered.c.type == TransactionType.EXPENSE,
+                            filtered.c.is_savings_related == False,
+                        ),
+                        filtered.c.amount,
+                    ),
+                    else_=0,
+                )
+            ).label("expense"),
+            func.sum(
+                case(
+                    (
+                        and_(
+                            filtered.c.type == TransactionType.EXPENSE,
+                            filtered.c.is_savings_related == True,
+                        ),
+                        filtered.c.amount,
+                    ),
+                    else_=0,
+                )
+            ).label("savings"),
+            func.sum(
+                case(
+                    (filtered.c.type == TransactionType.INCOME, filtered.c.amount),
+                    else_=0,
+                )
+            ).label("total_income"),
+            func.sum(
+                case(
+                    (filtered.c.type == TransactionType.EXPENSE, filtered.c.amount),
+                    else_=0,
+                )
+            ).label("total_expense"),
+        )
+    ).first()
+
+    income = float(row.income or 0)
+    expense = float(row.expense or 0)
+    savings = float(row.savings or 0)
+    cash_on_hand = float((row.total_income or 0) - (row.total_expense or 0))
+
+    return {
+        "income": income,
+        "expense": expense,
+        "savings": savings,
+        "net": income - expense - savings,
+        "cash_on_hand": cash_on_hand,
+    }
+
+
 @router.get("/summary")
 def fragment_monthly_summary(
     request: Request,
+    type: Optional[str] = None,
+    category_id: Optional[int] = None,
+    project_id: Optional[int] = None,
     start_date: Optional[date] = None,
     end_date: Optional[date] = None,
+    search: Optional[str] = None,
+    is_advance: Optional[bool] = None,
+    advance_settled: Optional[bool] = None,
+    source: Optional[str] = None,
+    needs_review: Optional[bool] = None,
+    import_job_id: Optional[int] = None,
     db: Session = Depends(get_db),
 ):
-    from app.routers.transactions import get_monthly_summary
+    """Monthly summary bar that respects the same filters as the transaction list."""
 
-    if start_date:
-        data = get_monthly_summary(year=start_date.year, month=start_date.month, db=db)
-    else:
-        data = get_monthly_summary(db=db)
+    data = _build_tx_summary_query(
+        db,
+        type=type,
+        category_id=category_id,
+        project_id=project_id,
+        start_date=start_date,
+        end_date=end_date,
+        search=search,
+        is_advance=is_advance,
+        advance_settled=advance_settled,
+        source=source,
+        needs_review=needs_review,
+        import_job_id=import_job_id,
+    )
     return render_fragment(
         request,
         "partials/transactions/_monthly_summary.html",
