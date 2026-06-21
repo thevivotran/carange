@@ -247,10 +247,9 @@ def _build_transaction_from_row(
     description: str | None = None,
     payment_method: str = "cash",
 ) -> Transaction:
-    """Instantiate, add, and flush a plain Transaction (no commit).
+    """Instantiate and add a plain Transaction to the session (no flush/commit).
 
-    Flushing per row surfaces DB constraint violations immediately so a single
-    bad row doesn't roll back the entire batch at commit time.
+    Caller is responsible for flushing after the batch.
     """
     tx = Transaction(
         date=trans_date,
@@ -262,7 +261,6 @@ def _build_transaction_from_row(
         is_savings_related=False,
     )
     db.add(tx)
-    db.flush()
     return tx
 
 
@@ -313,7 +311,13 @@ def parse_csv_vietnamese(content: bytes, db: Session) -> dict:
     stats: dict = {"income": 0, "expense": 0, "skipped": 0, "errors": []}
     month_start_day = get_month_start_day(db)
 
-    for row_num, row in enumerate(reader, start=2):
+    # First pass: parse all rows, resolve categories, collect pending transactions
+    pending: list[tuple] = []
+    min_date: date | None = None
+    max_date: date | None = None
+
+    rows = list(reader)
+    for row_num, row in enumerate(rows, start=2):
         try:
             year_str = row.get(found_columns["year"], "").strip()
             month_str = row.get(found_columns["month"], "").strip()
@@ -343,21 +347,18 @@ def parse_csv_vietnamese(content: bytes, db: Session) -> dict:
 
             transaction_date, _ = fiscal_window_ym(year, month, month_start_day)
 
+            if min_date is None or transaction_date < min_date:
+                min_date = transaction_date
+            if max_date is None or transaction_date > max_date:
+                max_date = transaction_date
+
             if thu > 0:
                 cat = get_or_create_category(db, category_name, TransactionType.INCOME)
-                if not _is_csv_duplicate(db, transaction_date, thu, TransactionType.INCOME, cat.id):
-                    _build_transaction_from_row(db, transaction_date, thu, TransactionType.INCOME, cat.id, description)
-                    stats["income"] += 1
-                else:
-                    stats["skipped"] += 1
+                pending.append((transaction_date, thu, TransactionType.INCOME, cat.id, description))
 
             if chi > 0:
                 cat = get_or_create_category(db, category_name, TransactionType.EXPENSE)
-                if not _is_csv_duplicate(db, transaction_date, chi, TransactionType.EXPENSE, cat.id):
-                    _build_transaction_from_row(db, transaction_date, chi, TransactionType.EXPENSE, cat.id, description)
-                    stats["expense"] += 1
-                else:
-                    stats["skipped"] += 1
+                pending.append((transaction_date, chi, TransactionType.EXPENSE, cat.id, description))
 
             if thu == 0 and chi == 0:
                 stats["skipped"] += 1
@@ -366,6 +367,35 @@ def parse_csv_vietnamese(content: bytes, db: Session) -> dict:
             stats["errors"].append(f"Row {row_num}: {e!s}")
             stats["skipped"] += 1
 
+    # Build in-memory dedup set from existing transactions in the date range
+    # Vietnamese parser only checks duplicates on (date, amount, type, category_id) with description IS NULL
+    existing_tuples: set[tuple] = set()
+    if min_date is not None and max_date is not None:
+        existing = (
+            db.query(Transaction)
+            .filter(
+                Transaction.date >= min_date,
+                Transaction.date <= max_date,
+                Transaction.deleted_at.is_(None),
+                Transaction.description.is_(None),
+            )
+            .all()
+        )
+        for t in existing:
+            existing_tuples.add((t.date, t.amount, t.type, t.category_id))
+
+    # Second pass: filter duplicates and create transactions
+    for transaction_date, amount, trans_type, category_id, description in pending:
+        if (transaction_date, amount, trans_type, category_id) in existing_tuples:
+            stats["skipped"] += 1
+            continue
+        _build_transaction_from_row(db, transaction_date, amount, trans_type, category_id, description)
+        if trans_type == TransactionType.INCOME:
+            stats["income"] += 1
+        else:
+            stats["expense"] += 1
+
+    db.flush()
     db.commit()
     return stats
 
@@ -404,7 +434,13 @@ def parse_csv_english(content: bytes, db: Session) -> dict:
     stats: dict = {"income": 0, "expense": 0, "skipped": 0, "errors": []}
     valid_payments = ["cash", "credit_card", "debit_card", "bank_transfer", "mobile_payment", "other"]
 
-    for row_num, row in enumerate(reader, start=2):
+    # First pass: parse all rows, resolve categories, collect pending transactions
+    pending: list[tuple] = []
+    min_date: date | None = None
+    max_date: date | None = None
+
+    rows = list(reader)
+    for row_num, row in enumerate(rows, start=2):
         try:
             date_str = row.get(field_map["date"], "").strip()
             try:
@@ -450,22 +486,49 @@ def parse_csv_english(content: bytes, db: Session) -> dict:
             if payment_method not in valid_payments:
                 payment_method = "cash"
 
-            if _is_csv_duplicate(db, transaction_date, amount, trans_type, category.id, description):
-                stats["skipped"] += 1
-                continue
+            if min_date is None or transaction_date < min_date:
+                min_date = transaction_date
+            if max_date is None or transaction_date > max_date:
+                max_date = transaction_date
 
-            _build_transaction_from_row(
-                db, transaction_date, amount, trans_type, category.id, description, payment_method
-            )
-
-            if trans_type == TransactionType.INCOME:
-                stats["income"] += 1
-            else:
-                stats["expense"] += 1
+            pending.append((transaction_date, amount, trans_type, category.id, description, payment_method))
 
         except Exception as e:
             stats["errors"].append(f"Row {row_num}: {e!s}")
             stats["skipped"] += 1
 
+    # Build in-memory dedup set from existing transactions in the date range
+    existing_tuples: set[tuple] = set()
+    if min_date is not None and max_date is not None:
+        existing = (
+            db.query(Transaction)
+            .filter(
+                Transaction.date >= min_date,
+                Transaction.date <= max_date,
+                Transaction.deleted_at.is_(None),
+            )
+            .all()
+        )
+        for t in existing:
+            # Store the actual description value (None if NULL, empty string if empty, etc.)
+            existing_tuples.add((t.date, t.amount, t.type, t.category_id, t.description))
+
+    # Second pass: filter duplicates and create transactions
+    for transaction_date, amount, trans_type, category_id, description, payment_method in pending:
+        # Replicate _is_csv_duplicate logic: falsy description → check description IS NULL
+        check_desc = description if description else None
+        key = (transaction_date, amount, trans_type, category_id, check_desc)
+        if key in existing_tuples:
+            stats["skipped"] += 1
+            continue
+
+        _build_transaction_from_row(db, transaction_date, amount, trans_type, category_id, description, payment_method)
+
+        if trans_type == TransactionType.INCOME:
+            stats["income"] += 1
+        else:
+            stats["expense"] += 1
+
+    db.flush()
     db.commit()
     return stats

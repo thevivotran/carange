@@ -246,10 +246,8 @@ class Transaction(Base):
     __table_args__ = (
         Index("ix_transactions_type_date", "type", "date"),
         Index("ix_transactions_category_id", "category_id"),
-        Index("ix_transactions_deleted_at", "deleted_at"),
+        Index("ix_transactions_trash", "deleted_at", postgresql_where=text("deleted_at IS NOT NULL")),
         Index("ix_transactions_import_job_id", "import_job_id"),
-        Index("ix_transactions_needs_review", "needs_review"),
-        Index("ix_transactions_is_savings_related", "is_savings_related"),
         Index("ix_transactions_project_id", "project_id"),
         Index("ix_transactions_savings_bundle_id", "savings_bundle_id"),
         Index(
@@ -274,6 +272,8 @@ class TransactionAuditLog(Base):
     new_value = Column(Text, nullable=True)
 
     transaction = relationship("Transaction", back_populates="audit_logs")
+
+    __table_args__ = (Index("ix_audit_logs_txn_changed", "transaction_id", "changed_at"),)
 
 
 class SavingsBundle(Base):
@@ -341,6 +341,8 @@ class ProjectPayment(Base):
 
     project = relationship("FinancialProject", back_populates="payments")
     transaction = relationship("Transaction")
+
+    __table_args__ = (Index("ix_project_payments_project_status", "project_id", "status"),)
 
 
 class OtherAsset(Base):
@@ -624,6 +626,11 @@ engine = create_engine(
     max_overflow=7,
     pool_timeout=30,
     pool_recycle=1800,
+    connect_args=(
+        {"options": "-c statement_timeout=30000 -c application_name=carange"}
+        if DATABASE_URL.startswith("postgresql")
+        else {}
+    ),
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)

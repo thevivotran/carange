@@ -580,3 +580,72 @@ def test_bulk_upload_english_exception_row_logged(client):
     )
     # Might succeed with inf or skip, either way no 500
     assert r.status_code in (200, 400)
+
+
+def test_is_csv_duplicate_detects_exact_match(db_session, cats):
+    """Direct unit test for _is_csv_duplicate — covers the retained helper."""
+    from datetime import date
+    from app.models.database import Transaction, TransactionType
+    from app.services.transaction_service import _is_csv_duplicate
+
+    # No matching tx yet
+    assert _is_csv_duplicate(db_session, date(2026, 5, 1), 100_000, TransactionType.EXPENSE, cats["expense"]) is False
+
+    # Create one
+    db_session.add(
+        Transaction(
+            date=date(2026, 5, 1),
+            amount=100_000,
+            type=TransactionType.EXPENSE,
+            category_id=cats["expense"],
+            description=None,
+        )
+    )
+    db_session.commit()
+
+    # Now it should match
+    assert _is_csv_duplicate(db_session, date(2026, 5, 1), 100_000, TransactionType.EXPENSE, cats["expense"]) is True
+
+    # Different date should not match
+    assert _is_csv_duplicate(db_session, date(2026, 5, 2), 100_000, TransactionType.EXPENSE, cats["expense"]) is False
+
+    # Match with description
+    db_session.add(
+        Transaction(
+            date=date(2026, 5, 3),
+            amount=200_000,
+            type=TransactionType.EXPENSE,
+            category_id=cats["expense"],
+            description="Grocery",
+        )
+    )
+    db_session.commit()
+
+    assert (
+        _is_csv_duplicate(
+            db_session, date(2026, 5, 3), 200_000, TransactionType.EXPENSE, cats["expense"], description="Grocery"
+        )
+        is True
+    )
+
+
+def test_csv_vietnamese_garbled_bytes(client):
+    """Vietnamese CSV with binary that fails UTF-8 decoding covers UnicodeDecodeError handler."""
+    import io
+
+    r = client.post(
+        "/api/transactions/bulk-upload",
+        files={"file": ("bad.csv", io.BytesIO(b"\xff\xfe\x80\x81"), "text/csv")},
+    )
+    assert r.status_code in (200, 400)
+
+
+def test_csv_english_garbled_bytes(client):
+    """English CSV with binary that fails UTF-8 decoding covers UnicodeDecodeError handler."""
+    import io
+
+    r = client.post(
+        "/api/transactions/bulk-upload?format=english",
+        files={"file": ("bad.csv", io.BytesIO(b"\xff\xfe\x80\x81"), "text/csv")},
+    )
+    assert r.status_code in (200, 400)

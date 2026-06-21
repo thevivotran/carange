@@ -299,3 +299,25 @@ def test_en_csv_creates_new_category_on_unknown_name(client):
     csv = _en_csv("2026-03-01,750000,income,FreshCategory,bonus\n")
     result = _upload_csv(client, csv)
     assert result["stats"]["income"] == 1
+
+
+def test_direct_budget_rows_deleted_category(db_session):
+    """Direct call to compute_budget_rows with a hard-deleted category covers line 172."""
+    from app.models.database import Category, BudgetAllocation, TransactionType
+    from app.services.budget_service import compute_budget_rows
+
+    cat = Category(name="TempCat", type=TransactionType.EXPENSE, color="#000", icon="x")
+    db_session.add(cat)
+    db_session.commit()
+    cat_id = cat.id
+
+    db_session.add(BudgetAllocation(category_id=cat_id, year_month="2026-06", amount=1_000_000))
+    db_session.commit()
+
+    # Hard-delete the category using ORM so it works across SQLite and PG
+    db_session.delete(cat)
+    db_session.commit()
+
+    rows = compute_budget_rows(db_session, "2026-06")
+    assert isinstance(rows, list)
+    assert all(r["category_id"] != cat_id for r in rows)

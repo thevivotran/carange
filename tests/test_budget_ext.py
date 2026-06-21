@@ -201,3 +201,28 @@ def test_budget_rows_spans_year_boundary(client, db_session, food_cat):
     assert len(rows) == 1
     # Dec + Jan = 2 months × 5M = 10M cumulative
     assert rows[0]["cumulative_allocated"] == pytest.approx(10_000_000)
+
+
+def test_budget_rows_december_year_rollover(client, db_session, food_cat):
+    """year_month=2026-12 exercises the _m>12 year rollover branch in compute_budget_rows."""
+    _alloc(db_session, food_cat.id, "2026-01", 5_000_000)
+    r = client.get("/api/budget/2026-12/rows")
+    assert r.status_code == 200
+    rows = r.json()
+    assert len(rows) == 1
+    # The allocation spans all 12 months (no subsequent allocation to truncate it)
+    assert rows[0]["cumulative_allocated"] == pytest.approx(60_000_000)
+
+
+def test_budget_rows_deleted_category_skipped(client, db_session, food_cat):
+    """Allocation for a hard-deleted category does not crash budget rows."""
+    cat_id = food_cat.id
+    _alloc(db_session, cat_id, "2026-06", 2_000_000)
+    # Hard-delete the category
+    db_session.delete(food_cat)
+    db_session.commit()
+    r = client.get("/api/budget/2026-06/rows")
+    assert r.status_code == 200
+    rows = r.json()
+    # The deleted category's allocation should be skipped
+    assert all(row["category_id"] != cat_id for row in rows)
