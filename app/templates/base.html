@@ -806,6 +806,13 @@
             return parts[2] + '/' + parts[1] + '/' + parts[0];
         }
 
+        function escapeHtml(str) {
+            if (!str) return '';
+            var div = document.createElement('div');
+            div.appendChild(document.createTextNode(str));
+            return div.innerHTML;
+        }
+
         // ── Undo-delete ───────────────────────────────────────────────────────
         // delay=0: immediate soft-delete (no undo); delay>0: undo toast for N ms.
         function deleteWithUndo(element, deleteUrl, reloadFn, itemName, delay) {
