@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.4.0](https://github.com/thevivotran/carange/compare/v0.3.1...v0.4.0) (2026-06-21)
+
+
+### Features
+
+* **budget:** budget-aware transactions and Telegram notifications ([#50](https://github.com/thevivotran/carange/issues/50)) ([89437aa](https://github.com/thevivotran/carange/commit/89437aaa76b94a2d9378d0ab3710b9c50206442a))
+* **savings-transactions:** unify forms, auto-create linked tx, categ… ([#51](https://github.com/thevivotran/carange/issues/51)) ([a21b5b4](https://github.com/thevivotran/carange/commit/a21b5b427139272ec37d35306c829ce5fd2c5919))
+* **telegram:** fix notification format, add budget bar to ingested txns, and add ?focus deep-link ([#46](https://github.com/thevivotran/carange/issues/46)) ([5823257](https://github.com/thevivotran/carange/commit/58232573bc967e25ae1516a82313f51a12a932ad))
+
+
+### Bug Fixes
+
+* **notify:** surface missing-credentials warning and pass telegram_hide_amounts to manual tx ping ([#48](https://github.com/thevivotran/carange/issues/48)) ([6d4a75f](https://github.com/thevivotran/carange/commit/6d4a75fa4b18a2534677e3b3ea9daf1dafe00793))
+* resolve merge conflict in build.yaml — accept both actions/checkout@v7 and dorny/paths-filter@v4 ([c0c263b](https://github.com/thevivotran/carange/commit/c0c263b13dccceee7571f23065d24344f688045b))
+
+
+### Documentation
+
+* update all README files to reflect current PostgreSQL-only, budget, forecast, and Telegram notifications state ([ed5640b](https://github.com/thevivotran/carange/commit/ed5640b01ed5e9f7bfe4fe2b7a9afceafd89efca))
+
 ## [0.3.1](https://github.com/thevivotran/carange/compare/v0.3.0...v0.3.1) (2026-06-18)
 
 
