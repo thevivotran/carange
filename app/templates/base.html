@@ -918,7 +918,7 @@
         setTimeout(function() { var el = document.getElementById('amount'); if (el) el.focus(); }, 50);
     }
 
-    function closeModal() {
+    function closeTransactionModal() {
         var modal = document.getElementById('transaction-modal');
         if (modal) modal.classList.add('hidden');
         var budgetPreview = document.getElementById('tx-budget-preview');
@@ -1190,7 +1190,7 @@
                             console.error('Error updating savings bundle:', e);
                         }
                     }
-                    closeModal();
+                    closeTransactionModal();
                     // Guarded page-specific actions
                     if (typeof saveFilters === 'function') saveFilters();
                     if (typeof loadTransactions === 'function') loadTransactions();
