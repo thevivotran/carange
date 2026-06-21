@@ -391,7 +391,7 @@
                     body: JSON.stringify(originalData),
                 });
                 if (res.ok) {
-                    closeModal();
+                    closeTransactionModal();
                     saveFilters();
                     loadTransactions();
                     loadMonthlySummary();
