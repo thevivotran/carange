@@ -8,9 +8,14 @@
             <h2 class="text-3xl font-bold text-gray-800">Savings Bundles</h2>
             <p class="text-muted mt-1">Track your family's fixed deposits and savings goals</p>
         </div>
-        <button onclick="openSavingsModal()" class="bg-brand text-white px-6 py-3 rounded-lg hover:bg-brand-hover transition flex items-center">
-            <i class="fas fa-plus mr-2"></i>Add Savings Bundle
-        </button>
+        <div class="flex gap-3">
+            <button onclick="openTrashModal()" class="border border-gray-300 text-gray-600 px-4 py-3 rounded-lg hover:bg-gray-50 transition flex items-center gap-2">
+                <i class="fas fa-trash-alt"></i><span class="hidden sm:inline">Trash</span>
+            </button>
+            <button onclick="openSavingsModal()" class="bg-brand text-white px-6 py-3 rounded-lg hover:bg-brand-hover transition flex items-center">
+                <i class="fas fa-plus mr-2"></i>Add Savings Bundle
+            </button>
+        </div>
     </div>
 
     <!-- Filters -->
@@ -31,6 +36,23 @@
          hx-trigger="load, savings-updated from:body"
          hx-target="this"
          hx-swap="outerHTML">
+    </div>
+</div>
+
+<!-- Trash Modal -->
+<div id="trash-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
+    <div class="cg-card rounded-xl shadow-xl max-w-2xl w-full max-h-[90dvh] flex flex-col">
+        <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
+            <h3 class="text-xl font-bold text-gray-800"><i class="fas fa-trash-alt mr-2 text-muted"></i>Trash</h3>
+            <button onclick="closeTrashModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <div id="trash-content" class="flex-1 overflow-y-auto overscroll-contain p-6">
+            <div class="flex justify-center py-12">
+                <i class="fas fa-spinner fa-spin text-2xl text-muted"></i>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -315,9 +337,9 @@
     function deleteSavingsBundle(id, name, txCount) {
         const card = document.getElementById('bundle-card-' + id);
         const msg = txCount > 0
-            ? '"' + name + '" has ' + txCount + ' linked transaction' + (txCount === 1 ? '' : 's') +
+            ? '\"' + name + '\" has ' + txCount + ' linked transaction' + (txCount === 1 ? '' : 's') +
               '. They will remain in your history but will no longer be associated with any savings bundle.'
-            : 'Delete "' + name + '"?';
+            : 'Delete \"' + name + '\"?';
         const doDelete = function() {
             deleteWithUndo(card, '/api/savings/' + id, _reloadSavings, name);
         };
@@ -326,6 +348,78 @@
         } else {
             doDelete();
         }
+    }
+
+    // ── Trash Modal ────────────────────────────────────────────
+    function openTrashModal() {
+        var modal = document.getElementById('trash-modal');
+        var content = document.getElementById('trash-content');
+        modal.classList.remove('hidden');
+        content.innerHTML = '<div class="flex justify-center py-12"><i class="fas fa-spinner fa-spin text-2xl text-muted"></i></div>';
+
+        fetch('/api/savings/trash')
+            .then(function(r) { return r.json(); })
+            .then(function(bundles) {
+                if (!bundles || bundles.length === 0) {
+                    content.innerHTML = '<div class="flex flex-col items-center py-16 text-center"><div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style="background: var(--surface-sunken)"><i class="fas fa-trash-alt text-3xl text-muted"></i></div><p class="text-lg font-medium mb-1">Trash is empty</p><p class="text-sm text-muted">Deleted bundles appear here until permanently removed.</p></div>';
+                    return;
+                }
+                var html = '<div class="space-y-3">';
+                bundles.forEach(function(b) {
+                    var amount = (b.current_amount || b.initial_deposit || 0).toLocaleString();
+                    html += '<div id="trash-item-' + b.id + '" class="flex items-center justify-between p-4 border rounded-lg">' +
+                        '<div><p class="font-semibold">' + escapeHtml(b.name) + '</p>' +
+                        '<p class="text-sm text-muted">' + escapeHtml(b.bank_name || '') + ' \u2014 ' + amount + ' VND' +
+                        (b.deleted_at ? ' \u00b7 deleted ' + new Date(b.deleted_at).toLocaleDateString() : '') + '</p></div>' +
+                        '<div class="flex gap-2 flex-shrink-0">' +
+                        '<button onclick="restoreBundle(' + b.id + ')" class="px-3 py-2 text-sm font-medium bg-accent-subtle text-accent rounded-lg hover:bg-accent-hover transition"><i class="fas fa-undo mr-1"></i>Restore</button>' +
+                        '<button onclick="hardDeleteBundle(' + b.id + ')" class="px-3 py-2 text-sm font-medium bg-danger-subtle text-danger rounded-lg hover:bg-danger-hover transition"><i class="fas fa-times mr-1"></i>Delete</button>' +
+                        '</div></div>';
+                });
+                html += '</div>';
+                content.innerHTML = html;
+            })
+            .catch(function(e) {
+                content.innerHTML = '<div class="flex flex-col items-center py-16 text-center"><p class="text-danger">Failed to load trash</p><p class="text-sm text-muted mt-1">' + e.message + '</p></div>';
+            });
+    }
+
+    function closeTrashModal() {
+        document.getElementById('trash-modal').classList.add('hidden');
+    }
+
+    function restoreBundle(id) {
+        fetch('/api/savings/' + id + '/restore', { method: 'POST' })
+            .then(function(r) {
+                if (!r.ok) throw new Error('Restore failed');
+                var el = document.getElementById('trash-item-' + id);
+                if (el) el.remove();
+                showToast('Bundle restored', 'success');
+                _reloadSavings();
+                var content = document.getElementById('trash-content');
+                if (content && content.querySelectorAll('[id^="trash-item-"]').length === 0) {
+                    content.innerHTML = '<div class="flex flex-col items-center py-16 text-center"><div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style="background: var(--surface-sunken)"><i class="fas fa-trash-alt text-3xl text-muted"></i></div><p class="text-lg font-medium mb-1">Trash is empty</p><p class="text-sm text-muted">Deleted bundles appear here until permanently removed.</p></div>';
+                }
+            })
+            .catch(function(e) { showToast('Error: ' + e.message, 'error'); });
+    }
+
+    function hardDeleteBundle(id) {
+        showConfirm('Permanently delete this bundle? This cannot be undone.', function() {
+            fetch('/api/savings/' + id + '/hard', { method: 'DELETE' })
+                .then(function(r) {
+                    if (!r.ok) throw new Error('Delete failed');
+                    var el = document.getElementById('trash-item-' + id);
+                    if (el) el.remove();
+                    showToast('Bundle permanently deleted', 'success');
+                    _reloadSavings();
+                    var content = document.getElementById('trash-content');
+                    if (content && content.querySelectorAll('[id^="trash-item-"]').length === 0) {
+                        content.innerHTML = '<div class="flex flex-col items-center py-16 text-center"><div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style="background: var(--surface-sunken)"><i class="fas fa-trash-alt text-3xl text-muted"></i></div><p class="text-lg font-medium mb-1">Trash is empty</p><p class="text-sm text-muted">Deleted bundles appear here until permanently removed.</p></div>';
+                    }
+                })
+                .catch(function(e) { showToast('Error: ' + e.message, 'error'); });
+        }, 'Delete Forever', 'bg-red-600 hover:bg-red-700');
     }
 
 </script>
