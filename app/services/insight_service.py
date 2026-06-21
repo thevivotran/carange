@@ -55,7 +55,7 @@ _SYSTEM_BUDGET = (
 
 
 WEEKLY_DIGEST_MAX_AGE_HOURS = 12
-BUDGET_ADVISOR_MAX_AGE_HOURS = 2
+BUDGET_ADVISOR_MAX_AGE_HOURS = 12
 
 
 # ── Read / staleness ──────────────────────────────────────────────────────────
