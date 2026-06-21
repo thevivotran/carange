@@ -3,7 +3,7 @@
     <div class="cg-card rounded-xl shadow-xl max-w-md w-full max-h-[90dvh] flex flex-col">
         <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
             <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Transaction</h3>
-            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close">
+            <button onclick="closeTransactionModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close">
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
@@ -173,7 +173,7 @@
 
             <!-- Submit -->
             <div class="flex gap-4 pt-4">
-                <button type="button" onclick="closeModal()"
+                <button type="button" onclick="closeTransactionModal()"
                         class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition">
                     Cancel
                 </button>
