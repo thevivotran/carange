@@ -8,7 +8,7 @@
             <h2 class="text-3xl font-bold text-gray-800">Financial Projects</h2>
             <p class="text-gray-600 mt-1">Track your family's financial goals and projects</p>
         </div>
-        <button onclick="openAddModal()" class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition flex items-center">
+        <button onclick="openProjectModal()" class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition flex items-center">
             <i class="fas fa-plus mr-2"></i>Add Project
         </button>
     </div>
@@ -50,7 +50,7 @@
     <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90dvh] flex flex-col">
         <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
             <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Financial Project</h3>
-            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close"><i class="fas fa-times text-xl"></i></button>
+            <button onclick="closeProjectModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close"><i class="fas fa-times text-xl"></i></button>
         </div>
         <div class="flex-1 overflow-y-auto overscroll-contain">
         <form id="project-form" class="p-6 space-y-4">
@@ -95,7 +95,7 @@
                 </select>
             </div>
             <div class="flex gap-4 pt-4">
-                <button type="button" onclick="closeModal()" class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition text-sm font-medium">Cancel</button>
+                <button type="button" onclick="closeProjectModal()" class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition text-sm font-medium">Cancel</button>
                 <button type="submit" class="flex-1 px-4 py-3 bg-primary text-white rounded-lg hover:bg-blue-600 transition text-sm font-medium">Save Project</button>
             </div>
         </form>
@@ -276,7 +276,7 @@
     const todayStr = () => new Date().toISOString().split('T')[0];
 
     document.addEventListener('DOMContentLoaded', function() {
-        loadCategories();
+        loadProjectCategories();
     });
 
     // Inject filter params into HTMX projects grid request
@@ -291,7 +291,7 @@
         document.body.dispatchEvent(new CustomEvent('projects-updated'));
     }
 
-    async function loadCategories() {
+    async function loadProjectCategories() {
         try {
             const res = await fetch('/api/categories/');
             allCategories = await res.json();
@@ -329,14 +329,14 @@
 
 
     // ---- Project modal ----
-    function openAddModal() {
+    function openProjectModal() {
         document.getElementById('modal-title').textContent = 'Add Financial Project';
         document.getElementById('project-form').reset();
         document.getElementById('project-id').value = '';
         document.getElementById('project-modal').classList.remove('hidden');
     }
 
-    function closeModal() {
+    function closeProjectModal() {
         document.getElementById('project-modal').classList.add('hidden');
     }
 
@@ -374,7 +374,7 @@
             const res = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
             if (res.ok) {
                 const saved = await res.json();
-                closeModal();
+                closeProjectModal();
                 _reloadProjects();
                 if (!projectId) openTimelineModal(saved.id, saved.name);
             } else {

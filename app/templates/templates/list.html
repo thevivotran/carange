@@ -8,7 +8,7 @@
             <h2 class="text-3xl font-bold text-gray-800">Templates</h2>
             <p class="text-gray-600 mt-1">Quick-entry shortcuts for common transactions. Tap <i class="fas fa-clock text-indigo-500"></i> on any template to make it run automatically on a schedule.</p>
         </div>
-        <button onclick="openAddModal()" class="bg-primary text-white px-5 py-2.5 rounded-lg hover:bg-blue-600 transition flex items-center gap-2">
+        <button onclick="openTemplateModal()" class="bg-primary text-white px-5 py-2.5 rounded-lg hover:bg-blue-600 transition flex items-center gap-2">
             <i class="fas fa-plus"></i> Add Template
         </button>
     </div>
@@ -75,7 +75,7 @@
     <div class="bg-white rounded-xl shadow-xl max-w-md w-full max-h-[90dvh] flex flex-col">
         <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
             <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Template</h3>
-            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close">
+            <button onclick="closeTemplateModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close">
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
@@ -160,7 +160,7 @@
 
         </div>
         <div class="p-6 border-t flex gap-4 flex-shrink-0">
-            <button type="button" onclick="closeModal()"
+            <button type="button" onclick="closeTemplateModal()"
                     class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition">
                 Cancel
             </button>
@@ -299,7 +299,7 @@
         }
     }
 
-    function openAddModal() {
+    function openTemplateModal() {
         document.getElementById('modal-title').textContent = 'Add Template';
         document.getElementById('template-form').reset();
         document.getElementById('template-id').value = '';
@@ -307,7 +307,7 @@
         loadModalCategories();
     }
 
-    function closeModal() {
+    function closeTemplateModal() {
         document.getElementById('template-modal').classList.add('hidden');
     }
 
@@ -332,7 +332,7 @@
                 body: JSON.stringify(data),
             });
             if (res.ok) {
-                closeModal();
+                closeTemplateModal();
                 _reloadTemplates();
             } else {
                 const err = await res.json();

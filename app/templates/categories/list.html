@@ -8,7 +8,7 @@
             <h2 class="text-3xl font-bold text-gray-800">Categories</h2>
             <p class="text-gray-600 mt-1">Manage income and expense categories. Assign a <strong>KPI Role</strong> to expense categories to count them toward Savings Rate or Real Estate metrics.</p>
         </div>
-        <button onclick="openAddModal()" class="bg-primary text-white px-5 py-2.5 rounded-lg hover:bg-blue-600 transition flex items-center gap-2">
+        <button onclick="openCategoryModal()" class="bg-primary text-white px-5 py-2.5 rounded-lg hover:bg-blue-600 transition flex items-center gap-2">
             <i class="fas fa-plus"></i> Add Category
         </button>
     </div>
@@ -71,7 +71,7 @@
     <div class="bg-white rounded-xl shadow-xl max-w-md w-full">
         <div class="p-6 border-b flex justify-between items-center">
             <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Category</h3>
-            <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close">
+            <button onclick="closeCategoryModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close">
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
@@ -178,7 +178,7 @@
 
             <!-- Submit -->
             <div class="flex gap-4 pt-4">
-                <button type="button" onclick="closeModal()"
+                <button type="button" onclick="closeCategoryModal()"
                         class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition">
                     Cancel
                 </button>
@@ -232,7 +232,7 @@
         _reloadCategories();
     }
 
-    function openAddModal() {
+    function openCategoryModal() {
         document.getElementById('modal-title').textContent = 'Add Category';
         document.getElementById('category-form').reset();
         document.getElementById('category-id').value = '';
@@ -252,7 +252,7 @@
         document.getElementById('savings-category-row').classList.toggle('hidden', this.value !== 'expense');
     });
 
-    function closeModal() {
+    function closeCategoryModal() {
         document.getElementById('category-modal').classList.add('hidden');
     }
 
@@ -279,7 +279,7 @@
                 body: JSON.stringify(data)
             });
             if (response.ok) {
-                closeModal();
+                closeCategoryModal();
                 _reloadCategories();
             } else {
                 const error = await response.json();

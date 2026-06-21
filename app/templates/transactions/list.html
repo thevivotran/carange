@@ -136,7 +136,7 @@
          hx-target="this"
          hx-swap="innerHTML"
          class="cg-card rounded-xl px-5 py-2.5 mb-4 text-sm">
-        <span class="text-muted text-sm animate-pulse">Loading…</span>
+        <span class="text-muted text-sm">Loading…</span>
     </div>
     
     <!-- Trash mode banner -->
@@ -156,8 +156,6 @@
         </div>
     </div>
 </div>
-
-{% include "partials/transactions/_modal_form.html" %}
 
 <script>
     // Pay-cycle start day (1-28) — a "month" filter runs from this day to the
@@ -612,7 +610,7 @@
         if (evt.target.id === 'tx-list-wrapper') {
             Object.assign(evt.detail.parameters, p);
         } else if (evt.target.id === 'monthly-summary-bar') {
-            // Pass active date range so summary matches the viewed period
+            // Only pass date range — summary always shows the selected month, not filtered subset
             if (p.start_date) evt.detail.parameters.start_date = p.start_date;
             if (p.end_date) evt.detail.parameters.end_date = p.end_date;
         }

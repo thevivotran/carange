@@ -28,7 +28,7 @@
               class="hidden md:flex items-center justify-center w-10 h-10 cg-card border text-secondary rounded-lg hover:bg-surface-sunken transition flex-shrink-0">
         <i class="fas fa-history"></i>
       </button>
-      <button onclick="openAddModal()" title="Add Category" aria-label="Add Category"
+      <button onclick="openBudgetAddModal()" title="Add Category" aria-label="Add Category"
               class="flex items-center justify-center gap-2 w-10 h-10 md:w-auto md:h-auto md:px-4 md:py-3 cg-card border text-secondary rounded-lg hover:bg-surface-sunken transition flex-shrink-0">
         <i class="fas fa-plus"></i>
         <span class="hidden md:inline">Add Category</span>
@@ -365,7 +365,7 @@ async function saveEdits() {
 }
 
 // ── Add modal ──────────────────────────────────────────────────────────────
-async function openAddModal() {
+async function openBudgetAddModal() {
     const res = await fetch(`/api/budget/categories/unbudgeted/${currentYM}`);
     const cats = await res.json();
     const sel = document.getElementById('add-cat-select');
