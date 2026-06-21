@@ -42,7 +42,10 @@ OPENCODE_API_KEY = os.getenv("OPENCODE_API_KEY", "")
 _GENERATE_TIMEOUT = 600.0
 _HEALTH_TIMEOUT = 5.0
 
-_CHAT_PATH = "/v1/chat/completions"
+# OLLAMA_URL should be the full OpenAI-compatible API base URL
+# (e.g. https://opencode.ai/zen/go/v1 which already includes /v1),
+# so we append only the endpoint paths relative to that base.
+_CHAT_PATH = "/chat/completions"
 _HEALTH_PATH = "/health"
 
 
