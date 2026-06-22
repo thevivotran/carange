@@ -34,8 +34,8 @@ def months_range(from_ym: str, to_ym: str) -> list[str]:
 def compute_budget_rows(db: Session, year_month: str, day: int | None = None) -> list[dict]:
     """Compute budget tracking rows for a given month.
 
-    The step-function allocation carry-forward is resolved via a correlated SQL
-    subquery per (category, month), avoiding a Python month-by-month loop.
+    The step-function allocation carry-forward is resolved via a SQL window
+    function (LEAD) over allocation spans, avoiding a Python month-by-month loop.
     Spending queries use ORM to avoid raw SQL type-storage assumptions.
 
     ``day`` is the fiscal month-start day; callers that already loaded it can
@@ -117,40 +117,52 @@ def compute_budget_rows(db: Session, year_month: str, day: int | None = None) ->
     )
     this_month_map = {r[0]: float(r[1] or 0) for r in this_month_rows}
 
-    # ── Cumulative allocated: step-function carry-forward via SQL CTE ─────────
+    # ── Cumulative allocated: step-function carry-forward via window function ─
+    cumulative_alloc_map: dict[int, float] = {}
     if all_months:
-        # generate_series builds the month list for the carry-forward CTE
-        start_gs = f"{all_months[0]}-01"
-        end_gs = f"{all_months[-1]}-01"
+        # Compute the month after target for LEAD default value
+        _y, _m = int(year_month[:4]), int(year_month[5:])
+        _m += 1
+        if _m > 12:
+            _m, _y = 1, _y + 1
+        year_month_next = f"{_y:04d}-{_m:02d}"
         cumulative_alloc_rows = db.execute(
             text("""
-            WITH month_series(ym) AS (
-                SELECT to_char(gs::date, 'YYYY-MM')
-                FROM generate_series(
-                    CAST(:start_gs AS date), CAST(:end_gs AS date), '1 month'::interval
-                ) AS gs
-            ),
-            resolved AS (
+            WITH allocation_spans AS (
                 SELECT
-                    cats.cat_id,
-                    ms.ym,
-                    (
-                        SELECT amount
-                        FROM budget_allocations ba
-                        WHERE ba.category_id = cats.cat_id
-                          AND ba.year_month <= ms.ym
-                        ORDER BY ba.year_month DESC
-                        LIMIT 1
-                    ) AS applicable_amount
-                FROM (SELECT DISTINCT category_id AS cat_id FROM budget_allocations
-                      WHERE year_month <= :year_month) AS cats
-                CROSS JOIN month_series ms
+                    category_id,
+                    year_month,
+                    amount,
+                    LEAD(year_month, 1, :year_month_next) OVER (
+                        PARTITION BY category_id
+                        ORDER BY year_month
+                    ) AS next_year_month
+                FROM budget_allocations
+                WHERE year_month <= :year_month
             )
-            SELECT cat_id, SUM(COALESCE(applicable_amount, 0)) AS cumulative_allocated
-            FROM resolved
-            GROUP BY cat_id
+            SELECT
+                category_id,
+                SUM(
+                    amount *
+                    (
+                        (DATE_PART('year', DATE_TRUNC('month', (next_year_month || '-01')::date))
+                         - DATE_PART('year', GREATEST(
+                               DATE_TRUNC('month', (:baseline || '-01')::date),
+                               DATE_TRUNC('month', (year_month || '-01')::date)
+                           ))
+                        ) * 12
+                        + (DATE_PART('month', DATE_TRUNC('month', (next_year_month || '-01')::date))
+                           - DATE_PART('month', GREATEST(
+                                 DATE_TRUNC('month', (:baseline || '-01')::date),
+                                 DATE_TRUNC('month', (year_month || '-01')::date)
+                             ))
+                        )
+                    )
+                ) AS cumulative_allocated
+            FROM allocation_spans
+            GROUP BY category_id
             """),
-            {"year_month": year_month, "start_gs": start_gs, "end_gs": end_gs},
+            {"year_month": year_month, "year_month_next": year_month_next, "baseline": baseline},
         ).fetchall()
         cumulative_alloc_map = {r[0]: float(r[1] or 0) for r in cumulative_alloc_rows}
 

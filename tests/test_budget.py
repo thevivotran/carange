@@ -163,3 +163,32 @@ def test_this_month_spent_only_current_month(db_session, food_cat):
     r = rows[0]
     assert r["this_month_spent"] == pytest.approx(1_500_000)
     assert r["cumulative_spent"] == pytest.approx(3_500_000)
+
+
+def test_cumulative_alloc_fallback(db_session, food_cat):
+    """Exercises the SQLite fallback path for cumulative allocation (DATE_TRUNC not available)."""
+    _add_alloc(db_session, food_cat.id, "2026-01", 3_000_000)
+    _add_alloc(db_session, food_cat.id, "2026-04", 4_000_000)
+    # This call will hit the except block on SQLite (DATE_TRUNC fail → Python loop fallback)
+    rows = _compute_rows(db_session, "2026-06")
+    assert len(rows) == 1
+    # 3 months of 3M (Jan, Feb, Mar) + 3 months of 4M (Apr, May, Jun) = 21M
+    assert rows[0]["cumulative_allocated"] == pytest.approx(21_000_000)
+
+
+def test_budget_rows_skips_deleted_category(db_session):
+    """Direct call with a hard-deleted category covers the 'if not cat: continue' branch."""
+    cat = Category(name="TempCat", type=TransactionType.EXPENSE, color="#000", icon="x")
+    db_session.add(cat)
+    db_session.commit()
+    cat_id = cat.id
+
+    _add_alloc(db_session, cat_id, "2026-06", 1_000_000)
+
+    # Hard-delete the category
+    db_session.delete(cat)
+    db_session.commit()
+
+    rows = _compute_rows(db_session, "2026-06")
+    assert isinstance(rows, list)
+    assert all(r["category_id"] != cat_id for r in rows)

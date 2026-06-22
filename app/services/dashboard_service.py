@@ -53,6 +53,11 @@ _cache_lock = threading.Lock()
 _SENTINEL_HORIZON = "__inv__"
 _SENTINEL_KEY = "global"
 
+# Sentinel ts cache: avoids a DB round-trip on every cache HIT.
+# (monotonic_ts, float_ts). Invalidated every SENTINEL_CACHE_TTL seconds.
+_SENTINEL_CACHE_TTL = 15.0
+_sentinel_cache: tuple[float, float] | None = None
+
 
 def _db_get_sentinel_wall_ts(db: Session) -> float | None:
     """Return the sentinel's computed_at as a UTC timestamp float, or None if absent."""
@@ -123,6 +128,57 @@ def _fetch_matview_rows(db: Session) -> list | None:
         log.warning("mv_monthly_totals unavailable (%s) — falling back to ORM queries", exc)
         db.rollback()
         return None
+
+
+def _index_mv_rows(rows: list) -> dict:
+    """Build a nested lookup dict from matview rows for O(1) aggregate queries.
+
+    Structure: {month: {type: {is_savings_related: {category_id: total}}}}
+    """
+    idx: dict = {}
+    for r in rows:
+        m = r["month"]
+        t = r["type"]
+        s = bool(r["is_savings_related"])
+        cid = r["category_id"]
+        total = float(r["total"] or 0)
+        month_dict = idx.setdefault(m, {})
+        type_dict = month_dict.setdefault(t, {})
+        savings_dict = type_dict.setdefault(s, {})
+        savings_dict[cid] = savings_dict.get(cid, 0.0) + total
+    return idx
+
+
+def _sum_from_index(
+    idx: dict,
+    *,
+    month: date | None = None,
+    from_month: date | None = None,
+    until_month: date | None = None,
+    type_val: str | None = None,
+    savings: bool | None = None,
+    cat_ids: set[int] | None = None,
+) -> float:
+    """Sum totals from a pre-indexed MATVIEW dict. Replaces _mv_sum for performance."""
+    total = 0.0
+    for m, month_data in idx.items():
+        if month is not None and m != month:
+            continue
+        if from_month is not None and m < from_month:
+            continue
+        if until_month is not None and m > until_month:
+            continue
+        for t, type_data in month_data.items():
+            if type_val is not None and t != type_val:
+                continue
+            for s, cat_data in type_data.items():
+                if savings is not None and s != savings:
+                    continue
+                for cid, subtotal in cat_data.items():
+                    if cat_ids is not None and cid not in cat_ids:
+                        continue
+                    total += subtotal
+    return total
 
 
 def _mv_sum(
@@ -209,9 +265,21 @@ def invalidate_dashboard_cache(db: Session = None) -> None:
     """
     with _cache_lock:
         _cache.clear()
+    global _sentinel_cache
+    _sentinel_cache = None
     if db is not None:
         _db_write_sentinel(db)
         _schedule_matview_refresh()
+
+
+def _cached_sentinel_ts(db: Session) -> float | None:
+    """Return the sentinel wall timestamp, cached for _SENTINEL_CACHE_TTL seconds."""
+    global _sentinel_cache
+    if _sentinel_cache is not None and time.monotonic() - _sentinel_cache[0] < _SENTINEL_CACHE_TTL:
+        return _sentinel_cache[1]
+    ts = _db_get_sentinel_wall_ts(db)
+    _sentinel_cache = (time.monotonic(), ts or 0.0)
+    return ts
 
 
 def _cache_get(key: tuple, db: Session = None) -> Any | None:
@@ -226,7 +294,7 @@ def _cache_get(key: tuple, db: Session = None) -> Any | None:
         return None
     # Cross-pod check: did a worker write a sentinel AFTER this pod cached the value?
     if db is not None:
-        sentinel_ts = _db_get_sentinel_wall_ts(db)
+        sentinel_ts = _cached_sentinel_ts(db)
         if sentinel_ts is not None and sentinel_ts > wall_ts:
             with _cache_lock:
                 _cache.pop(key, None)
@@ -351,24 +419,29 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     # volumes (low thousands of rows); revisit if this becomes measurably slow.
     use_matview = day == 1
     mv_rows = _fetch_matview_rows(db) if use_matview else None
+    mv_index = _index_mv_rows(mv_rows) if mv_rows is not None else None
 
     if mv_rows is not None:
-        monthly_income = _mv_sum(mv_rows, month=month_start, type_val="income", savings=False)
+        monthly_income = _sum_from_index(mv_index, month=month_start, type_val="income", savings=False)
         # All non-savings expense (incl. bucket categories) — used for net cash.
-        monthly_expense_full = _mv_sum(mv_rows, month=month_start, type_val="expense", savings=False)
+        monthly_expense_full = _sum_from_index(mv_index, month=month_start, type_val="expense", savings=False)
         # Living expense for display/ratios excludes the KPI bucket categories.
         monthly_expense = (
             monthly_expense_full
-            - _mv_sum(mv_rows, month=month_start, type_val="expense", savings=False, cat_ids=bucket_set)
+            - _sum_from_index(mv_index, month=month_start, type_val="expense", savings=False, cat_ids=bucket_set)
             if bucket_set
             else monthly_expense_full
         )
-        monthly_savings = _mv_sum(mv_rows, month=month_start, type_val="expense", savings=True)
-        monthly_savings_deposits = _mv_sum(mv_rows, month=month_start, type_val="expense", savings=True)
-        monthly_tiet_kiem = _mv_sum(mv_rows, month=month_start, type_val="expense", cat_ids=ls_set) if ls_set else 0.0
-        monthly_bds = _mv_sum(mv_rows, month=month_start, type_val="expense", cat_ids=re_set) if re_set else 0.0
-        total_income_all = _mv_sum(mv_rows, type_val="income", savings=False)
-        total_expense_all = _mv_sum(mv_rows, type_val="expense")
+        monthly_savings = _sum_from_index(mv_index, month=month_start, type_val="expense", savings=True)
+        monthly_savings_deposits = _sum_from_index(mv_index, month=month_start, type_val="expense", savings=True)
+        monthly_tiet_kiem = (
+            _sum_from_index(mv_index, month=month_start, type_val="expense", cat_ids=ls_set) if ls_set else 0.0
+        )
+        monthly_bds = (
+            _sum_from_index(mv_index, month=month_start, type_val="expense", cat_ids=re_set) if re_set else 0.0
+        )
+        total_income_all = _sum_from_index(mv_index, type_val="income", savings=False)
+        total_expense_all = _sum_from_index(mv_index, type_val="expense")
     else:
         tk_filter = (
             Transaction.category_id.in_(kpi_ids["liquid_savings"]) if kpi_ids["liquid_savings"] else sqla_false()
@@ -438,19 +511,28 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     prev_month_start, prev_month_end = fiscal_window_ym(prev_year_num, prev_month_num, day)
 
     if mv_rows is not None:
-        _pi = _mv_sum(mv_rows, month=prev_month_start, type_val="income", savings=False)
+        _pi = _sum_from_index(mv_index, month=prev_month_start, type_val="income", savings=False)
         # Full non-savings expense (incl. buckets) for net cash; bucket-excluded for the ratio.
-        _pe_full = _mv_sum(mv_rows, month=prev_month_start, type_val="expense", savings=False)
+        _pe_full = _sum_from_index(mv_index, month=prev_month_start, type_val="expense", savings=False)
         _pe = (
-            _pe_full - _mv_sum(mv_rows, month=prev_month_start, type_val="expense", savings=False, cat_ids=bucket_set)
+            _pe_full
+            - _sum_from_index(
+                mv_index,
+                month=prev_month_start,
+                type_val="expense",
+                savings=False,
+                cat_ids=bucket_set,
+            )
             if bucket_set
             else _pe_full
         )
-        _ps = _mv_sum(mv_rows, month=prev_month_start, type_val="expense", savings=True)
+        _ps = _sum_from_index(mv_index, month=prev_month_start, type_val="expense", savings=True)
         _prev_tiet_kiem = (
-            _mv_sum(mv_rows, month=prev_month_start, type_val="expense", cat_ids=ls_set) if ls_set else 0.0
+            _sum_from_index(mv_index, month=prev_month_start, type_val="expense", cat_ids=ls_set) if ls_set else 0.0
         )
-        _prev_bds = _mv_sum(mv_rows, month=prev_month_start, type_val="expense", cat_ids=re_set) if re_set else 0.0
+        _prev_bds = (
+            _sum_from_index(mv_index, month=prev_month_start, type_val="expense", cat_ids=re_set) if re_set else 0.0
+        )
     else:
         tk_filter = (
             Transaction.category_id.in_(kpi_ids["liquid_savings"]) if kpi_ids["liquid_savings"] else sqla_false()
@@ -530,8 +612,8 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     _ef_start, _ = fiscal_window_ym(_ef_year, _ef_month, day)
     _ef_end = prev_month_end
     if mv_rows is not None:
-        _ef_total = _mv_sum(
-            mv_rows,
+        _ef_total = _sum_from_index(
+            mv_index,
             from_month=_ef_start,
             until_month=prev_month_start,
             type_val="expense",
@@ -553,14 +635,17 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     avg_monthly_expense = _ef_total / 3 if _ef_total > 0 else monthly_expense or 1
     emergency_fund_months = round(total_savings / avg_monthly_expense, 1) if avg_monthly_expense > 0 else 0
 
-    active_projects_count = (
+    # ── Active projects — list first, derive count from it ─────────────────────
+    active_projects_list = (
         db.query(FinancialProject)
         .filter(
             FinancialProject.status.in_([ProjectStatus.PLANNING, ProjectStatus.IN_PROGRESS]),
             FinancialProject.deleted_at.is_(None),
         )
-        .count()
+        .all()
     )
+    active_projects_list.sort(key=lambda p: p.deadline or date(9999, 12, 31))
+    active_projects_count = len(active_projects_list)
     completed_projects_count = (
         db.query(FinancialProject)
         .filter(FinancialProject.status == ProjectStatus.COMPLETED, FinancialProject.deleted_at.is_(None))
@@ -631,17 +716,6 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         .order_by(SavingsBundle.maturity_date)
         .all()
     )
-
-    # ── Active projects ───────────────────────────────────────────────────────
-    active_projects_list = (
-        db.query(FinancialProject)
-        .filter(
-            FinancialProject.status.in_([ProjectStatus.PLANNING, ProjectStatus.IN_PROGRESS]),
-            FinancialProject.deleted_at.is_(None),
-        )
-        .all()
-    )
-    active_projects_list.sort(key=lambda p: p.deadline or date(9999, 12, 31))
 
     # ── BDS project details ───────────────────────────────────────────────────
     bds_project = next(
@@ -740,17 +814,11 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     )
 
     # ── Expense by category ───────────────────────────────────────────────────
-    if mv_rows is not None:
+    if mv_index is not None:
         cat_totals: dict[int, float] = {}
-        for r in mv_rows:
-            if (
-                r["month"] == month_start
-                and r["type"] == "expense"
-                and not r["is_savings_related"]
-                and r["category_id"] != 0  # 0 = COALESCE sentinel for NULL
-            ):
-                cid = r["category_id"]
-                cat_totals[cid] = cat_totals.get(cid, 0.0) + float(r["total"] or 0)
+        for cid, subtotal in mv_index.get(month_start, {}).get("expense", {}).get(False, {}).items():
+            if cid != 0:
+                cat_totals[cid] = cat_totals.get(cid, 0.0) + subtotal
         all_cats_dict = {c.id: c for c in db.query(Category).filter(Category.id.in_(cat_totals.keys())).all()}
         cat_rows_sorted = sorted(cat_totals.items(), key=lambda x: -x[1])
         expense_by_category = [
@@ -800,8 +868,8 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
 
     # Net worth 1 month ago: cumulative income − expense up to end of prev month
     if mv_rows is not None:
-        _prev_cum_income = _mv_sum(mv_rows, until_month=prev_month_start, type_val="income", savings=False)
-        _prev_cum_expense = _mv_sum(mv_rows, until_month=prev_month_start, type_val="expense")
+        _prev_cum_income = _sum_from_index(mv_index, until_month=prev_month_start, type_val="income", savings=False)
+        _prev_cum_expense = _sum_from_index(mv_index, until_month=prev_month_start, type_val="expense")
     else:
         _prev_cum_income = float(
             db.query(func.sum(Transaction.amount))
@@ -850,8 +918,8 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     ]
     if passive_cat_ids:
         if mv_rows is not None:
-            passive_income_monthly = _mv_sum(
-                mv_rows,
+            passive_income_monthly = _sum_from_index(
+                mv_index,
                 month=month_start,
                 type_val="income",
                 cat_ids=set(passive_cat_ids),

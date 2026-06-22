@@ -81,8 +81,11 @@ def build_forecast(db: Session, horizon_days: int = 90, include_budget_estimate:
                 )
 
     # ── Pending project payments ─────────────────────────────────────────────
+    from sqlalchemy.orm import joinedload
+
     payments = (
         db.query(ProjectPayment)
+        .options(joinedload(ProjectPayment.project))
         .join(FinancialProject, ProjectPayment.project_id == FinancialProject.id)
         .filter(
             ProjectPayment.status == PaymentStatus.PENDING,

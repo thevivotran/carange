@@ -63,14 +63,14 @@ def set_allocation(data: BudgetAllocationCreate, db: Session = Depends(get_db)):
         existing.updated_at = datetime.now(timezone.utc)
         db.commit()
         db.refresh(existing)
-        invalidate_dashboard_cache()
+        invalidate_dashboard_cache(db)
         return existing
 
     alloc = BudgetAllocation(**data.model_dump())
     db.add(alloc)
     db.commit()
     db.refresh(alloc)
-    invalidate_dashboard_cache()
+    invalidate_dashboard_cache(db)
     return alloc
 
 
@@ -83,7 +83,7 @@ def update_allocation(allocation_id: int, data: BudgetAllocationUpdate, db: Sess
     alloc.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(alloc)
-    invalidate_dashboard_cache()
+    invalidate_dashboard_cache(db)
     return alloc
 
 
@@ -111,7 +111,7 @@ def delete_category_budget(category_id: int, db: Session = Depends(get_db)):
     db.commit()
     if deleted == 0:
         raise HTTPException(status_code=404, detail="No allocations found for this category")
-    invalidate_dashboard_cache()
+    invalidate_dashboard_cache(db)
     return {"message": f"Deleted {deleted} allocation(s)"}
 
 
@@ -122,5 +122,5 @@ def delete_allocation(allocation_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Allocation not found")
     db.delete(alloc)
     db.commit()
-    invalidate_dashboard_cache()
+    invalidate_dashboard_cache(db)
     return {"message": "Allocation deleted"}

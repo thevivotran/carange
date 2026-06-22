@@ -212,7 +212,7 @@ def create_transaction(transaction: TransactionCreate, force: bool = False, db: 
             )
 
     result = transaction_service.create_transaction(db, transaction)
-    invalidate_dashboard_cache()
+    invalidate_dashboard_cache(db)
     if result.is_advance and not result.advance_settled:
         try:
             cat_name = result.category.name if result.category else "?"
@@ -288,7 +288,7 @@ def update_transaction(transaction_id: int, transaction: TransactionUpdate, db: 
         db.rollback()
         raise
     db.refresh(db_transaction)
-    invalidate_dashboard_cache()
+    invalidate_dashboard_cache(db)
     if db_transaction.is_advance and not db_transaction.advance_settled:
         action = "created" if becoming_advance else "updated"
         try:
@@ -325,7 +325,7 @@ def hard_delete_transaction(transaction_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Transaction not found in trash")
     db.delete(transaction)
     db.commit()
-    invalidate_dashboard_cache()
+    invalidate_dashboard_cache(db)
     return {"message": "Transaction permanently deleted"}
 
 
@@ -345,7 +345,7 @@ def restore_transaction(transaction_id: int, db: Session = Depends(get_db)):
     transaction.deleted_at = None
     db.commit()
     db.refresh(transaction)
-    invalidate_dashboard_cache()
+    invalidate_dashboard_cache(db)
     return transaction
 
 
@@ -356,7 +356,7 @@ def delete_transaction(transaction_id: int, db: Session = Depends(get_db)):
         transaction_service.soft_delete_transaction(db, transaction_id)
     except LookupError:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    invalidate_dashboard_cache()
+    invalidate_dashboard_cache(db)
     return {"message": "Transaction deleted"}
 
 
@@ -512,7 +512,7 @@ def bulk_upload_transactions(file: UploadFile = File(...), db: Session = Depends
         return JSONResponse(status_code=400, content={"error": str(e)})
 
     if stats.get("income", 0) + stats.get("expense", 0) > 0:
-        invalidate_dashboard_cache()
+        invalidate_dashboard_cache(db)
     return {
         "success": True,
         "message": f"Successfully imported {stats['income']} income and {stats['expense']} expense transactions",
