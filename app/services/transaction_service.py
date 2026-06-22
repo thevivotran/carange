@@ -25,6 +25,7 @@ from app.models.database import (
 from app.models.schemas import SavingsBundleCreate, TransactionCreate
 from app.services.fiscal_period import fiscal_window_ym, get_month_start_day
 from app.services.rules_service import apply_rules, normalize_description
+from app.services.savings_service import find_existing_savings_bundle as _find_existing_savings_bundle
 
 log = logging.getLogger("app.transaction_service")
 
@@ -39,21 +40,32 @@ def check_duplicate(
     trans_type: TransactionType,
     category_id: int,
     window_days: int = 1,
+    savings_bundle_id: int | None = None,
 ) -> list[Transaction]:
-    """Return up to 5 active transactions matching the given criteria within ±window_days."""
-    return (
-        db.query(Transaction)
-        .filter(
-            Transaction.date >= trans_date - timedelta(days=window_days),
-            Transaction.date <= trans_date + timedelta(days=window_days),
-            Transaction.amount == amount,
-            Transaction.type == trans_type,
-            Transaction.category_id == category_id,
-            Transaction.deleted_at.is_(None),
-        )
-        .limit(5)
-        .all()
+    """Return up to 5 active transactions matching the given criteria within ±window_days.
+
+    When ``savings_bundle_id`` is provided, the duplicate check widens the date
+    window (7 days) because the user often retroactively enters deposits on the
+    bank-statement date while the bundle's start_date is the actual deposit
+    date — a tight 1-day window misses legitimate but offset duplicates. The
+    bundle_id link makes the match unambiguous so we don't false-positive on
+    unrelated same-amount transactions.
+    """
+    effective_window = window_days
+    if savings_bundle_id is not None:
+        effective_window = max(window_days, 7)
+
+    query = db.query(Transaction).filter(
+        Transaction.date >= trans_date - timedelta(days=effective_window),
+        Transaction.date <= trans_date + timedelta(days=effective_window),
+        Transaction.amount == amount,
+        Transaction.type == trans_type,
+        Transaction.category_id == category_id,
+        Transaction.deleted_at.is_(None),
     )
+    if savings_bundle_id is not None:
+        query = query.filter(Transaction.savings_bundle_id == savings_bundle_id)
+    return query.limit(5).all()
 
 
 def write_audit_log(
@@ -114,22 +126,37 @@ def create_transaction(db: Session, data: TransactionCreate) -> Transaction:
 
         if data.is_savings_related and data.savings_bundle:
             bundle_data: SavingsBundleCreate = data.savings_bundle
-            db_bundle = SavingsBundle(
-                name=bundle_data.name,
-                bank_name=bundle_data.bank_name,
-                type=bundle_data.type,
-                initial_deposit=bundle_data.initial_deposit,
-                current_amount=bundle_data.initial_deposit,
-                future_amount=bundle_data.future_amount,
-                interest_rate=bundle_data.interest_rate,
-                start_date=bundle_data.start_date,
-                maturity_date=bundle_data.maturity_date,
-                notes=bundle_data.notes,
-                status=SavingsStatus.ACTIVE,
-            )
-            db.add(db_bundle)
-            db.flush()
-            savings_bundle_id = db_bundle.id
+            # Dedupe: if an ACTIVE bundle with the same case-insensitive name and
+            # bank already exists, link the transaction to it instead of creating
+            # a duplicate bundle (and the duplicate initial-deposit expense that
+            # would inflate cash_on_hand). Matches against non-deleted bundles only.
+            existing_bundle = _find_existing_savings_bundle(db, name=bundle_data.name, bank_name=bundle_data.bank_name)
+            if existing_bundle is not None:
+                log.info(
+                    "create_transaction: linking to existing savings bundle id=%s "
+                    "for name=%r bank=%r (skipping duplicate creation)",
+                    existing_bundle.id,
+                    bundle_data.name,
+                    bundle_data.bank_name,
+                )
+                savings_bundle_id = existing_bundle.id
+            else:
+                db_bundle = SavingsBundle(
+                    name=bundle_data.name,
+                    bank_name=bundle_data.bank_name,
+                    type=bundle_data.type,
+                    initial_deposit=bundle_data.initial_deposit,
+                    current_amount=bundle_data.initial_deposit,
+                    future_amount=bundle_data.future_amount,
+                    interest_rate=bundle_data.interest_rate,
+                    start_date=bundle_data.start_date,
+                    maturity_date=bundle_data.maturity_date,
+                    notes=bundle_data.notes,
+                    status=SavingsStatus.ACTIVE,
+                )
+                db.add(db_bundle)
+                db.flush()
+                savings_bundle_id = db_bundle.id
 
         transaction_data["savings_bundle_id"] = savings_bundle_id
 

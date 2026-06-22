@@ -442,6 +442,11 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         )
         total_income_all = _sum_from_index(mv_index, type_val="income", savings=False)
         total_expense_all = _sum_from_index(mv_index, type_val="expense")
+        # Symmetric "true liquid" cash on hand: includes savings-related legs on BOTH
+        # sides so the headline number isn't distorted by bundle deposits. This is
+        # the canonical cash_on_hand — also computed by get_cash_on_hand() for the
+        # forecast, and the only way the dashboard and forecast can agree.
+        total_income_all_sym = _sum_from_index(mv_index, type_val="income")
     else:
         tk_filter = (
             Transaction.category_id.in_(kpi_ids["liquid_savings"]) if kpi_ids["liquid_savings"] else sqla_false()
@@ -477,6 +482,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
             _month_case(TransactionType.EXPENSE, None, bds_filter).label("monthly_bds"),
             _alltime_case(TransactionType.INCOME, False).label("total_income"),
             _alltime_case(TransactionType.EXPENSE).label("total_expense"),
+            _alltime_case(TransactionType.INCOME).label("total_income_sym"),
         ).first()
         monthly_income = float(_agg.monthly_income or 0)
         monthly_expense = float(_agg.monthly_expense or 0)
@@ -498,6 +504,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         )
         total_income_all = float(_agg.total_income or 0)
         total_expense_all = float(_agg.total_expense or 0)
+        total_income_all_sym = float(_agg.total_income_sym or 0)
 
     monthly_wealth_building = monthly_tiet_kiem + monthly_bds
 
@@ -652,7 +659,18 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         .count()
     )
 
-    cash_on_hand = total_income_all - total_expense_all
+    # operating_surplus is the asymmetric view: non-savings income − all expense.
+    # Answers "are we living within our means?" — strips savings INCOME (e.g.
+    # bundle interest credit) from the revenue side while keeping all expense
+    # (including bundle deposits). The savings income sits in `total_savings`
+    # via `future_amount`, so removing it from the income leg avoids double-
+    # counting it here AND in net worth.
+    operating_surplus = total_income_all - total_expense_all
+    # cash_on_hand is the symmetric view: ALL income − ALL expense. This is the
+    # actual liquid position — including bundle deposits which really did leave
+    # the spendable account. This matches get_cash_on_hand() and the forecast
+    # starting balance so all three numbers agree.
+    cash_on_hand = total_income_all_sym - total_expense_all
 
     _assets_agg = db.query(
         func.coalesce(func.sum(OtherAsset.current_value_vnd), 0).label("cur"),
@@ -991,6 +1009,7 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
             "stress_test_cushion": stress_test_cushion,
             "net_worth": net_worth,
             "cash_on_hand": cash_on_hand,
+            "operating_surplus": operating_surplus,
             "total_savings": total_savings,
             "total_savings_initial": total_savings_initial,
             "total_assets_current": total_assets_current,

@@ -1,7 +1,9 @@
 """Savings bundle domain business logic."""
 
+import logging
 from datetime import date, datetime, timezone
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.database import (
@@ -12,6 +14,28 @@ from app.models.database import (
     TransactionType,
 )
 from app.services.settings_service import get_setting
+
+log = logging.getLogger("app.savings_service")
+
+
+def find_existing_savings_bundle(db: Session, name: str, bank_name: str | None) -> SavingsBundle | None:
+    """Find an active SavingsBundle matching the given name + bank (case-insensitive).
+
+    Returns None when no match exists, or when the only matches are soft-deleted.
+    Used by both `create_savings_bundle` (router) and `create_transaction` (when
+    the transaction form auto-creates a savings bundle) to prevent duplicate
+    bundle creation — which would also create a duplicate initial-deposit expense
+    that inflates cash_on_hand.
+    """
+    if not name:
+        return None
+    query = db.query(SavingsBundle).filter(
+        SavingsBundle.deleted_at.is_(None),
+        func.lower(SavingsBundle.name) == name.strip().lower(),
+    )
+    if bank_name:
+        query = query.filter(func.lower(SavingsBundle.bank_name) == bank_name.strip().lower())
+    return query.first()
 
 
 def _get_savings_deposit_category(db: Session) -> Category:

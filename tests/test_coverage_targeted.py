@@ -516,14 +516,21 @@ def test_update_payment_route_returns_500_on_service_error(client):
 
 
 def test_create_bundle_null_current_amount_defaults_to_initial_deposit(db_session):
-    """Covers line 87: current_amount is set to initial_deposit when None.
-    Called directly because sending current_amount=null via API hits a validator TypeError."""
+    """Covers the current_amount default branch. Called directly because
+    sending current_amount=null via API hits a validator TypeError.
+
+    The mock must also expose ``name`` and ``bank_name`` (real strings, not
+    MagicMock children) because the dedup check at the top of
+    create_savings_bundle passes them straight into the SQLAlchemy query.
+    """
     from unittest.mock import MagicMock
 
     from app.routers.savings import create_savings_bundle
 
     mock_bundle = MagicMock()
     mock_bundle.linked_project_id = None
+    mock_bundle.name = "Auto Amount Bundle"
+    mock_bundle.bank_name = "VCB"
     mock_bundle.model_dump.return_value = {
         "name": "Auto Amount Bundle",
         "bank_name": "VCB",
