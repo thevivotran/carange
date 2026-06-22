@@ -29,17 +29,35 @@ branch_labels = None
 depends_on = None
 
 
+def _drop_index_safe(conn, base_name: str, table_name: str):
+    """Drop an index by base name, also matching pgloader's OID-prefixed names.
+
+    pgloader renames indexes to idx_<oid>_<base_name> during SQLite→PG migration.
+    This helper tries both the expected name (fresh PG) and any prefixed variants.
+    """
+    conn.execute(sa.text(f'DROP INDEX IF EXISTS "{base_name}"'))
+    # Also handle pgloader-prefixed names (idx_<oid>_<base_name>)
+    rows = conn.execute(
+        sa.text(
+            "SELECT indexname FROM pg_indexes WHERE tablename = :table AND indexname LIKE :pat AND indexname != :base"
+        ),
+        {"table": table_name, "pat": f"%\\_{base_name}", "base": base_name},
+    ).fetchall()
+    for (idx_name,) in rows:
+        conn.execute(sa.text(f'DROP INDEX IF EXISTS "{idx_name}"'))
+
+
 def upgrade():
     bind = op.get_bind()
     if bind.dialect.name != "postgresql":
         return
 
-    # Drop wasteful low-cardinality boolean indexes
-    op.drop_index("ix_transactions_needs_review", table_name="transactions")
-    op.drop_index("ix_transactions_is_savings_related", table_name="transactions")
+    # Drop wasteful low-cardinality boolean indexes (handle pgloader prefix)
+    _drop_index_safe(bind, "ix_transactions_needs_review", "transactions")
+    _drop_index_safe(bind, "ix_transactions_is_savings_related", "transactions")
 
     # Drop the full deleted_at index, replace with partial index
-    op.drop_index("ix_transactions_deleted_at", table_name="transactions")
+    _drop_index_safe(bind, "ix_transactions_deleted_at", "transactions")
     op.create_index(
         "ix_transactions_trash",
         "transactions",
