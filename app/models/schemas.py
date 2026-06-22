@@ -407,6 +407,7 @@ class DashboardSummary(BaseModel):
     monthly_tiet_kiem: float = 0
     monthly_bds: float = 0
     cash_on_hand: float
+    operating_surplus: float = 0
     total_savings_active: float
     total_savings_target: float
     monthly_savings_deposits: float = 0

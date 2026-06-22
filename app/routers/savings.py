@@ -1,7 +1,11 @@
+"""Savings bundle HTTP routes."""
+
+import logging
+from typing import List, Optional
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
-from typing import List, Optional
 from datetime import datetime, timezone
 
 from app.models.database import (
@@ -21,6 +25,8 @@ from app.models.schemas import (
 )
 from app.services import savings_service
 from app.services.savings_service import _get_savings_deposit_category
+
+log = logging.getLogger("app.savings")
 
 router = APIRouter()
 
@@ -113,6 +119,20 @@ def create_savings_bundle(bundle: SavingsBundleCreate, db: Session = Depends(get
         project = db.query(FinancialProject).filter(FinancialProject.id == bundle.linked_project_id).first()
         if not project:
             raise HTTPException(status_code=404, detail="Linked project not found")
+
+    # Dedupe: if an ACTIVE bundle with the same case-insensitive name and
+    # bank already exists, return it instead of creating a duplicate (which
+    # would also create a duplicate initial-deposit expense that inflates
+    # cash_on_hand).
+    existing = savings_service.find_existing_savings_bundle(db, name=bundle.name, bank_name=bundle.bank_name)
+    if existing is not None:
+        log.info(
+            "create_savings_bundle: returning existing bundle id=%s for name=%r bank=%r",
+            existing.id,
+            bundle.name,
+            bundle.bank_name,
+        )
+        return existing
 
     bundle_data = bundle.model_dump()
     # Initialize current_amount with initial_deposit if not provided

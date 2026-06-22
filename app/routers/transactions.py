@@ -198,7 +198,12 @@ def create_transaction(transaction: TransactionCreate, force: bool = False, db: 
 
     if not force:
         similar = transaction_service.check_duplicate(
-            db, transaction.date, transaction.amount, transaction.type, transaction.category_id
+            db,
+            transaction.date,
+            transaction.amount,
+            transaction.type,
+            transaction.category_id,
+            savings_bundle_id=transaction.savings_bundle_id,
         )
         if similar:
             return JSONResponse(

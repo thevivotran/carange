@@ -3,5 +3,5 @@
   <span class="text-gray-500">Income <span class="font-semibold text-green-700">{{ data.income | currency }}</span></span>
   <span class="text-gray-500">Expense <span class="font-semibold text-red-600">{{ data.expense | currency }}</span></span>
   <span class="text-gray-500">Savings <span class="font-semibold text-indigo-600">{{ data.savings | currency }}</span></span>
-  <span class="text-gray-500">Cash on Hand <span class="font-semibold text-blue-600">{{ data.cash_on_hand | currency }}</span></span>
+  <span class="text-gray-500" title="Period net flow = income − expense − savings within the current fiscal period (or your active filters).">Net Flow <span class="font-semibold text-blue-600">{{ data.net | currency }}</span></span>
 </div>

@@ -52,6 +52,7 @@ def get_dashboard_summary(year: Optional[int] = None, month: Optional[int] = Non
         stress_test_cushion=s["stress_test_cushion"],
         net_worth=s["net_worth"],
         cash_on_hand=s["cash_on_hand"],
+        operating_surplus=s.get("operating_surplus", s["cash_on_hand"]),
         total_savings_active=s["total_savings"],
         total_savings_target=s["total_savings_initial"],
         total_assets_current=s["total_assets_current"],

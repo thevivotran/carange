@@ -294,6 +294,11 @@
       <div class="rounded-xl p-3" style="background: rgba(255,255,255,.14)">
         <p class="text-xs" style="color: rgba(255,255,255,.82)">Cash on Hand</p>
         <p class="text-sm font-semibold mt-0.5 amount tabular-nums">{{ summary.cash_on_hand | currency_abbrev }}</p>
+        {% if summary.operating_surplus is defined and summary.operating_surplus != summary.cash_on_hand %}
+        <p class="text-xs mt-0.5 leading-tight" style="color: rgba(255,255,255,.7)">
+          Op surplus: <span class="amount tabular-nums">{{ summary.operating_surplus | currency_abbrev }}</span>
+        </p>
+        {% endif %}
       </div>
       <div class="rounded-xl p-3" style="background: rgba(255,255,255,.14)">
         <p class="text-xs" style="color: rgba(255,255,255,.82)">Active Savings</p>

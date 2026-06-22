@@ -32,7 +32,7 @@ test: migrate-fresh
 	@echo "── schema sync: ORM vs migrations ───────────────────────────────"
 	DATABASE_URL=$(PG_TEST_URL) TEST_DATABASE_URL=$(PG_TEST_URL) $(PYTEST) tests/test_schema_sync.py -v
 	@echo "── pytest with coverage ────────────────────────────────────────────"
-	DATABASE_URL=$(PG_TEST_URL) TEST_DATABASE_URL=$(PG_TEST_URL) $(PYTEST) --cov=app --cov-report=term-missing --cov-fail-under=94
+	DATABASE_URL=$(PG_TEST_URL) TEST_DATABASE_URL=$(PG_TEST_URL) $(PYTEST) --cov=app --cov-report=term-missing --cov-fail-under=95
 
 .PHONY: test-fast
 test-fast:
