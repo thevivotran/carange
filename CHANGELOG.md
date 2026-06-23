@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.5.0](https://github.com/thevivotran/carange/compare/v0.4.0...v0.5.0) (2026-06-23)
+
+
+### Features
+
+* **savings:** add Trash button and modal for soft-deleted bundles ([78db06e](https://github.com/thevivotran/carange/commit/78db06e19e3fb879913d5e9eba540cb32c8b9408))
+
+
+### Bug Fixes
+
+* auto-load categories when opening Add Transaction modal ([#66](https://github.com/thevivotran/carange/issues/66)) ([dd1e210](https://github.com/thevivotran/carange/commit/dd1e210787111e0900b3bca33ed6c7264ea1d78b))
+* double /v1/ in Ollama chat endpoint URL ([#62](https://github.com/thevivotran/carange/issues/62)) ([b0b82f0](https://github.com/thevivotran/carange/commit/b0b82f0690caf09f5f77ec18c26b0ce24347c25f))
+* handle pgloader OID-prefixed index names in migration 0029 ([#64](https://github.com/thevivotran/carange/issues/64)) ([f57cfec](https://github.com/thevivotran/carange/commit/f57cfecc6de7807b91f7168fb3da2fc561efbacf))
+* resolve JS function naming collisions, remove flashy loading UX, sync summary with filters ([577b55c](https://github.com/thevivotran/carange/commit/577b55c131343a6ceff76bac0de2993936563ec5))
+* savings-bundle dedup + symmetric cash_on_hand + op-surplus ([#65](https://github.com/thevivotran/carange/issues/65)) ([9d092e3](https://github.com/thevivotran/carange/commit/9d092e36991da3aad2e6b79a96a0b40b3407c27d))
+* **savings:** remove Savings Goal monetary progress bar ([a50f869](https://github.com/thevivotran/carange/commit/a50f86941adc1f59f7c48272775c6937f2a0cff5))
+* use /chat/completions relative to the already-/v1 base URL. ([b0b82f0](https://github.com/thevivotran/carange/commit/b0b82f0690caf09f5f77ec18c26b0ce24347c25f))
+
+
+### Performance Improvements
+
+* comprehensive DB performance tuning ([#63](https://github.com/thevivotran/carange/issues/63)) ([3b03060](https://github.com/thevivotran/carange/commit/3b0306055e82a2490ce33b91eba78e3b8f3fed1b))
+
 ## [0.4.0](https://github.com/thevivotran/carange/compare/v0.3.1...v0.4.0) (2026-06-21)
 
 
