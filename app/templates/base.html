@@ -880,6 +880,11 @@
         var nrSection = document.getElementById('needs-review-section');
         if (nrSection) nrSection.classList.add('hidden');
         modal.classList.remove('hidden');
+        // Populate the category dropdown for the currently-selected type.
+        // The category <select> starts with only the placeholder option;
+        // without this, users saw an empty list until they toggled type.
+        // loadCategories() is cached at module level, so reopening is free.
+        loadCategories();
         setTimeout(function() { var el = document.getElementById('amount'); if (el) el.focus(); }, 50);
     }
 
