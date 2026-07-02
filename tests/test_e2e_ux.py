@@ -253,6 +253,34 @@ class TestSavingsTrashFlow:
         active = client.get("/api/savings/")
         assert any(s["id"] == sb_id for s in active.json()), "restored bundle missing from active list"
 
+    def test_update_soft_deleted_savings_returns_404(self, client, db_session):
+        """B1: PUT on a soft-deleted savings bundle must 404, not silently edit it."""
+        r = client.post(
+            "/api/savings/",
+            json={
+                "name": "Soft Deleted Bundle",
+                "bank_name": "VCB",
+                "type": "fixed_deposit",
+                "initial_deposit": 1_000_000,
+                "current_amount": 1_000_000,
+                "future_amount": 1_000_000,
+                "interest_rate": 0,
+                "start_date": date.today().isoformat(),
+                "maturity_date": (date.today() + timedelta(days=30)).isoformat(),
+                "status": "active",
+            },
+        )
+        assert r.status_code == 200, r.text
+        sb_id = r.json()["id"]
+
+        # Soft-delete
+        d = client.delete(f"/api/savings/{sb_id}")
+        assert d.status_code in (200, 204)
+
+        # Attempt to update — must 404
+        u = client.put(f"/api/savings/{sb_id}", json={"name": "Hacked"})
+        assert u.status_code == 404, f"soft-deleted bundle is editable: {u.status_code} {u.text[:200]}"
+
 
 # ── 5. Projects: render and settlement math ───────────────────────────────────
 
@@ -300,6 +328,32 @@ class TestProjectsPageRender:
         r = client.get("/fragments/projects/grid")
         assert r.status_code == 200
         assert "Future Trip" in r.text
+
+    def test_update_soft_deleted_project_returns_404(self, client, db_session):
+        """B2: PUT on a soft-deleted project must 404."""
+        from datetime import datetime, timezone
+        from app.models.database import FinancialProject, ProjectStatus, ProjectType
+
+        p = FinancialProject(
+            name="To Be Deleted Project",
+            target_amount=Decimal(10_000_000),
+            current_amount=Decimal(0),
+            priority="low",
+            status=ProjectStatus.PLANNING,
+            deadline=date.today() + timedelta(days=60),
+            type=ProjectType.VACATION,
+        )
+        db_session.add(p)
+        db_session.commit()
+        pid = p.id
+
+        # Soft-delete (set deleted_at directly to avoid going through the service)
+        p.deleted_at = datetime.now(timezone.utc)
+        db_session.commit()
+
+        # Attempt to update — must 404
+        u = client.put(f"/api/projects/{pid}", json={"name": "Hacked Project"})
+        assert u.status_code == 404, f"soft-deleted project is editable: {u.status_code} {u.text[:200]}"
 
 
 # ── 6. Forecast: VND currency format is human-readable ───────────────────────
@@ -653,6 +707,75 @@ class TestModalHygiene:
         assert count == 1, f"project-modal appears {count} times on /projects (should be 1)"
 
 
+# ── 16b. Modal hygiene: static-source guard (CI lint) ────────────────────────
+
+
+class TestModalHygieneLint:
+    """Static-source guard for skill gotcha #9: no modal partial may be included
+    in BOTH base.html AND a child template. The runtime test above checks
+    rendered HTML; this one fails the build if someone re-adds a double-include
+    at the template-source level. Cheap regex scan over app/templates/.
+    """
+
+    def test_no_modal_partial_in_base_plus_child(self):
+        from pathlib import Path
+
+        base = Path("app/templates/base.html").read_text()
+        # All `{% include "..." %}` directives in base.html
+        base_includes = set(re.findall(r'\{%\s*include\s+["\']([^"\']+)["\']\s*%\}', base))
+        # Look for modal partials
+        modal_partials = {inc for inc in base_includes if "modal" in inc.lower() or "_form" in inc.lower()}
+        assert modal_partials, f"base.html should include at least one modal partial. Includes found: {base_includes}"
+        # Walk every other template and ensure none of them also includes the same modal
+        offenders = []
+        for tpl in Path("app/templates").rglob("*.html"):
+            if tpl.name == "base.html":
+                continue
+            text = tpl.read_text()
+            child_includes = set(re.findall(r'\{%\s*include\s+["\']([^"\']+)["\']\s*%\}', text))
+            # Normalize: child may use "partials/transactions/_modal_form.html" or similar
+            double = modal_partials & child_includes
+            if double:
+                offenders.append((str(tpl), sorted(double)))
+        assert not offenders, f"Modal partial double-include detected (skill gotcha #9): {offenders}"
+
+
+# ── 16c. Dashboard stress-test cushion: documented inline comment ────────────
+
+
+class TestDashboardStressTestCushion:
+    """B15: the one-income stress test adds a 20M VND cushion to avg expenses.
+    The cushion is a magic number in dashboard_service.py; require an inline
+    comment explaining its purpose so future maintainers don't strip it as
+    dead/unused code. The actual constant value is verified separately.
+    """
+
+    def test_stress_test_documented_cushion_in_dashboard(self, client):
+        """B15: Stress-test calculation must have an inline comment explaining the
+        VND cushion. This is a documentation test — it just exercises the endpoint
+        to confirm the code path is reachable. The actual comment is verified
+        by checking that a cushion-explaining comment sits directly above the
+        line with the magic number.
+        """
+        r = client.get("/api/dashboard/summary")
+        assert r.status_code == 200
+        # The cushion constant lives in dashboard_service.py — confirm it's there
+        from pathlib import Path
+
+        src = Path("app/services/dashboard_service.py").read_text()
+        m = re.search(r"stress_test_required\s*=.*?20_000_000", src)
+        assert m, "stress_test_required no longer references the 20M cushion; review the file"
+        # The line(s) immediately above must include a comment explaining the cushion.
+        # We require the keyword "cushion" specifically so a generic section header
+        # (e.g. "# ── One-income stress test ──") doesn't accidentally satisfy this.
+        line_no = src[: m.start()].count("\n") + 1
+        lines = src.splitlines()
+        above = "\n".join(lines[max(0, line_no - 4) : line_no])
+        assert "cushion" in above.lower(), (
+            f"no comment explaining the 20M cushion directly above line {line_no}.\nLines above:\n{above}"
+        )
+
+
 # ── 17. Mobile: no horizontal overflow on Transactions at 390px ───────────────
 
 
@@ -762,3 +885,528 @@ class TestNotes:
 
         d = client.delete(f"/api/notes/{nid}")
         assert d.status_code in (200, 204)
+
+
+# ── 21. Review: malformed date must 400, not 500 ──────────────────────────────
+
+
+class TestReviewDateValidation:
+    """B10: review-approve with a malformed date must 400, not 500."""
+
+    def test_review_approve_invalid_date_returns_400(self, client, db_session):
+        """B10: malformed date must surface as 400/422, not 500."""
+        from app.models.database import Transaction, Category, TransactionType
+
+        cat = Category(name="X", type=TransactionType.EXPENSE, color="#000", icon="x")
+        db_session.add(cat)
+        db_session.commit()
+        tx = Transaction(
+            date=date.today(),
+            amount=100,
+            type=TransactionType.EXPENSE,
+            category_id=cat.id,
+            description="needs review",
+            needs_review=True,
+        )
+        db_session.add(tx)
+        db_session.commit()
+        tid = tx.id
+
+        # Malformed date
+        r = client.post(
+            f"/api/review/{tid}/approve",
+            json={"date": "2099-13-45"},  # invalid month/day
+        )
+        assert r.status_code in (400, 422), f"malformed date returned {r.status_code} (should be 400/422)"
+
+    def test_review_approve_valid_date_works(self, client, db_session):
+        """Sanity check: a valid date still succeeds."""
+        from app.models.database import Transaction, Category, TransactionType
+
+        cat = Category(name="Y", type=TransactionType.EXPENSE, color="#000", icon="x")
+        db_session.add(cat)
+        db_session.commit()
+        tx = Transaction(
+            date=date.today(),
+            amount=100,
+            type=TransactionType.EXPENSE,
+            category_id=cat.id,
+            description="review me",
+            needs_review=True,
+        )
+        db_session.add(tx)
+        db_session.commit()
+        r = client.post(f"/api/review/{tx.id}/approve", json={"date": "2026-04-01"})
+        assert r.status_code in (200, 204)
+
+
+# ── 22. Dashboard: empty install must not invent emergency fund months ───────
+
+
+class TestDashboardEmptyInstall:
+    """B11: With no transactions but a savings bundle, emergency_fund_months must be 0 or None.
+
+    The bug: `_ef_total / 3 if _ef_total > 0 else monthly_expense or 1` defaults to 1
+    when no expenses exist, so `total_savings / 1` shows the entire savings balance
+    as 'X months emergency fund'. The fix should make `emergency_fund_months` = 0
+    when there's no expense data on which to base a monthly average.
+    """
+
+    def test_emergency_fund_zero_with_savings_no_expenses(self, client, db_session):
+        """B11: savings balance with no expenses must not be shown as fake months of runway."""
+        from app.models.database import SavingsBundle, SavingsStatus, SavingsType
+
+        # Seed a savings bundle (50M VND), no transactions
+        bundle = SavingsBundle(
+            name="FD-Bug",
+            bank_name="ACB",
+            type=SavingsType.FIXED_DEPOSIT,
+            initial_deposit=50_000_000,
+            current_amount=50_000_000,
+            future_amount=50_000_000,
+            start_date=date(2026, 1, 1),
+            status=SavingsStatus.ACTIVE,
+        )
+        db_session.add(bundle)
+        db_session.commit()
+
+        r = client.get("/api/dashboard/summary")
+        assert r.status_code == 200
+        data = r.json()
+        ef = data.get("emergency_fund_months")
+        # The fake "X months" must NOT be the total_savings value (e.g. 50M / 1 = 50.0)
+        assert ef is None or ef == 0, (
+            f"empty install shows fake emergency_fund_months={ef} "
+            f"(should be 0 or None, not total_savings / 1). total_savings={data.get('total_savings')!r}"
+        )
+
+
+# ── 23. Mobile: amount input must have inputmode="decimal" ───────────────────
+
+
+class TestMobileAmountInput:
+    """B12: Amount input on /transactions must have inputmode='decimal' for mobile."""
+
+    def test_amount_input_has_inputmode_decimal(self, client):
+        """B12: Amount input must have inputmode='decimal' for mobile keyboard hint."""
+        r = client.get("/transactions")
+        assert r.status_code == 200
+        m = re.search(r'<input[^>]*name="amount"[^>]*>', r.text)
+        assert m, "amount input missing on /transactions"
+        assert 'inputmode="decimal"' in m.group(0) or "inputmode='decimal'" in m.group(0), (
+            f"amount input lacks inputmode='decimal' for mobile. Got: {m.group(0)[:300]}"
+        )
+
+
+# ── 24. Forecast: log silently-skipped templates / payments ─────────────────
+
+
+class TestForecastSkipsLogging:
+    """B13: Templates / payments with NULL schedule fields must be logged, not silently dropped."""
+
+    def test_forecast_logs_skipped_template(self, client, cat_ids, db_session, caplog):
+        """B13: A template with NULL next_run_at must produce a warning log."""
+        import logging
+
+        from app.models.database import TransactionTemplate, TransactionType
+
+        # Create a template WITHOUT setting next_run_at
+        tpl = TransactionTemplate(
+            name="NoDateTpl",
+            amount=1_000_000,
+            type=TransactionType.EXPENSE,
+            category_id=cat_ids["food"],
+            description="x",
+            is_active=True,
+            cadence="monthly",
+            # next_run_at is NULL by default
+        )
+        db_session.add(tpl)
+        db_session.commit()
+
+        with caplog.at_level(logging.WARNING, logger="app.services.forecast_service"):
+            r = client.get("/api/forecast/data?horizon=30")
+            assert r.status_code == 200
+
+        skipped = [
+            rec
+            for rec in caplog.records
+            if "next_run_at" in rec.message.lower()
+            or "skipped" in rec.message.lower()
+            or "no schedule" in rec.message.lower()
+        ]
+        assert skipped, (
+            f"no warning logged for skipped template. "
+            f"Records: {[(rec.message, rec.levelname) for rec in caplog.records]}"
+        )
+
+
+# ── 25. Transaction service: budget snapshot failure must be logged ─────────
+
+
+class TestBudgetSnapshotLogging:
+    """B14: When budget snapshot update fails, the exception must be logged, not swallowed."""
+
+    def test_budget_snapshot_failure_logs_warning(self, client, cat_ids, db_session, caplog, monkeypatch):
+        """B14: A failure inside the budget snapshot update must be logged as a warning."""
+        import logging
+
+        from app.services import budget_context
+
+        def _broken(*args, **kwargs):
+            raise RuntimeError("simulated budget snapshot failure")
+
+        # transaction_service imports the function from app.services.budget_context,
+        # so we patch it there (NOT in budget_service).
+        monkeypatch.setattr(budget_context, "budget_snapshot", _broken)
+
+        with caplog.at_level(logging.WARNING, logger="app.transaction_service"):
+            r = client.post(
+                "/api/transactions/",
+                json={
+                    "date": "2026-04-01",
+                    "amount": 10_000,
+                    "type": "expense",
+                    "category_id": cat_ids["food"],
+                    "description": "trigger budget snap",
+                },
+            )
+        assert r.status_code == 200, r.text  # tx should still create successfully
+
+        warns = [rec for rec in caplog.records if rec.levelname == "WARNING" and "budget" in rec.message.lower()]
+        assert warns, "budget snapshot failure not logged"
+        # Diagnostic dump if a CI run fails
+        if not warns:
+            print(f"Records: {[(rec.message, rec.levelname, rec.name) for rec in caplog.records]}")
+
+
+# ── 14. Rules: must not break the tx.type <-> category.type invariant ──────────
+
+
+class TestRuleTypeMismatch:
+    """apply_rules() must not override a transaction's category_id to one of the
+    wrong type. The router validates the user-supplied category matches the
+    transaction type (income vs expense); rules that override to the opposite
+    type break the invariant and corrupt aggregations.
+    """
+
+    def test_rule_cannot_override_to_wrong_type_category(self, client, cat_ids, db_session):
+        """B4: A rule that targets a wrong-type category must not break the
+        type invariant. After creating the matching transaction, the stored
+        category_id must still match the tx.type."""
+        # Create rule: when description contains "testrule123", set category to
+        # the INCOME category, regardless of the transaction's actual type.
+        r = client.post(
+            "/api/rules/",
+            json={
+                "name": "Force income category",
+                "match_field": "description",
+                "match_op": "contains",
+                "match_value": "testrule123",
+                "action_json": {"set_category_id": cat_ids["income"]},
+                "is_active": True,
+            },
+        )
+        assert r.status_code in (200, 201), r.text
+
+        # Create an EXPENSE transaction whose description matches the rule.
+        # The router-level check verifies the user-supplied category matches
+        # the tx type; the rule then fires inside create_transaction.
+        tx = client.post(
+            "/api/transactions/",
+            json={
+                "date": "2026-04-01",
+                "amount": 50_000,
+                "type": "expense",
+                "category_id": cat_ids["food"],
+                "description": "testrule123 expense",
+            },
+        )
+        assert tx.status_code == 200, tx.text
+        body = tx.json()
+        # The category_id must remain an EXPENSE category (not the rule's INCOME target).
+        assert body["category_id"] != cat_ids["income"], (
+            f"rule overrode category to wrong type: tx is 'expense' but "
+            f"category_id={body['category_id']} (income category id={cat_ids['income']})"
+        )
+
+
+# ── 21. Asset cache invalidation (B5) ───────────────────────────────────────
+
+
+class TestAssetCacheInvalidation:
+    """B5: Asset CRUD must call invalidate_dashboard_cache(db)."""
+
+    def test_create_asset_invalidates_dashboard_cache(self, client, monkeypatch):
+        from app.routers import assets as assets_router
+        from app.services import dashboard_service
+
+        calls = []
+        original = dashboard_service.invalidate_dashboard_cache
+
+        def spy(db=None):
+            calls.append(db)
+            return original(db)
+
+        monkeypatch.setattr(assets_router, "invalidate_dashboard_cache", spy)
+
+        r = client.post(
+            "/api/assets/",
+            json={
+                "name": "Test Asset",
+                "asset_type": "other",
+                "quantity": 1,
+                "unit": "piece",
+                "purchase_price_vnd": 10_000_000,
+                "current_value_vnd": 12_000_000,
+            },
+        )
+        assert r.status_code in (200, 201), r.text
+        assert len(calls) == 1, f"invalidate_dashboard_cache not called on asset create: {len(calls)}"
+        assert calls[0] is not None, "called WITHOUT db"
+
+    def test_update_asset_invalidates_dashboard_cache(self, client, monkeypatch):
+        from app.routers import assets as assets_router
+        from app.services import dashboard_service
+
+        calls = []
+        original = dashboard_service.invalidate_dashboard_cache
+
+        def spy(db=None):
+            calls.append(db)
+            return original(db)
+
+        monkeypatch.setattr(assets_router, "invalidate_dashboard_cache", spy)
+
+        r = client.post(
+            "/api/assets/",
+            json={
+                "name": "X",
+                "asset_type": "other",
+                "quantity": 1,
+                "unit": "piece",
+                "purchase_price_vnd": 1_000,
+                "current_value_vnd": 1_000,
+            },
+        )
+        assert r.status_code in (200, 201), r.text
+        aid = r.json()["id"]
+        calls.clear()
+        u = client.put(f"/api/assets/{aid}", json={"current_value_vnd": 2_000})
+        assert u.status_code == 200
+        assert len(calls) == 1
+        assert calls[0] is not None
+
+    def test_delete_asset_invalidates_dashboard_cache(self, client, monkeypatch):
+        from app.routers import assets as assets_router
+        from app.services import dashboard_service
+
+        calls = []
+        original = dashboard_service.invalidate_dashboard_cache
+
+        def spy(db=None):
+            calls.append(db)
+            return original(db)
+
+        monkeypatch.setattr(assets_router, "invalidate_dashboard_cache", spy)
+
+        r = client.post(
+            "/api/assets/",
+            json={
+                "name": "X",
+                "asset_type": "other",
+                "quantity": 1,
+                "unit": "piece",
+                "purchase_price_vnd": 1_000,
+                "current_value_vnd": 1_000,
+            },
+        )
+        aid = r.json()["id"]
+        calls.clear()
+        d = client.delete(f"/api/assets/{aid}")
+        assert d.status_code in (200, 204)
+        assert len(calls) == 1
+        assert calls[0] is not None
+
+
+# ── 22. Template cache invalidation (B6) ─────────────────────────────────────
+
+
+class TestTemplateCacheInvalidation:
+    """B6: Template CRUD must call invalidate_dashboard_cache(db)."""
+
+    def test_create_template_invalidates_dashboard_cache(self, client, cat_ids, monkeypatch):
+        from app.routers import templates as tpl_router
+        from app.services import dashboard_service
+
+        calls = []
+        original = dashboard_service.invalidate_dashboard_cache
+
+        def spy(db=None):
+            calls.append(db)
+            return original(db)
+
+        monkeypatch.setattr(tpl_router, "invalidate_dashboard_cache", spy)
+
+        r = client.post(
+            "/api/templates/",
+            json={
+                "name": "Tpl-B6",
+                "amount": 1_000_000,
+                "type": "expense",
+                "category_id": cat_ids["food"],
+                "description": "x",
+                "cadence": "monthly",
+                "is_active": True,
+            },
+        )
+        assert r.status_code == 200, r.text
+        assert len(calls) == 1
+        assert calls[0] is not None
+
+    def test_update_template_invalidates_dashboard_cache(self, client, cat_ids, monkeypatch):
+        r = client.post(
+            "/api/templates/",
+            json={
+                "name": "X",
+                "amount": 1,
+                "type": "expense",
+                "category_id": cat_ids["food"],
+                "description": "x",
+            },
+        )
+        assert r.status_code == 200
+        tid = r.json()["id"]
+        from app.routers import templates as tpl_router
+        from app.services import dashboard_service
+
+        calls = []
+        original = dashboard_service.invalidate_dashboard_cache
+
+        def spy(db=None):
+            calls.append(db)
+            return original(db)
+
+        monkeypatch.setattr(tpl_router, "invalidate_dashboard_cache", spy)
+        u = client.put(f"/api/templates/{tid}", json={"name": "Y"})
+        assert u.status_code == 200
+        assert len(calls) == 1
+
+    def test_delete_template_invalidates_dashboard_cache(self, client, cat_ids, monkeypatch):
+        r = client.post(
+            "/api/templates/",
+            json={
+                "name": "X",
+                "amount": 1,
+                "type": "expense",
+                "category_id": cat_ids["food"],
+                "description": "x",
+            },
+        )
+        tid = r.json()["id"]
+        from app.routers import templates as tpl_router
+        from app.services import dashboard_service
+
+        calls = []
+        original = dashboard_service.invalidate_dashboard_cache
+
+        def spy(db=None):
+            calls.append(db)
+            return original(db)
+
+        monkeypatch.setattr(tpl_router, "invalidate_dashboard_cache", spy)
+        d = client.delete(f"/api/templates/{tid}")
+        assert d.status_code in (200, 204)
+        assert len(calls) == 1
+
+
+# ── 23. CSV sign-flip (B7) ───────────────────────────────────────────────────
+
+
+class TestCSVEnglishImport:
+    """B7: parse_csv_english must NOT call abs() on the amount — refunds stay negative."""
+
+    def test_csv_english_negative_expense_kept_as_negative(self, client, db_session, tmp_path):
+        from app.services.transaction_service import parse_csv_english
+
+        csv = tmp_path / "refund.csv"
+        csv.write_text("date,amount,type,category,description\n2026-04-01,-5000,expense,Food,Refund from Vinmart\n")
+        content = csv.read_bytes()
+        stats = parse_csv_english(content, db_session)
+        # The created transactions list isn't directly returned in this signature,
+        # but stats["expense"] should be 1 and stats["errors"] empty.
+        assert stats["expense"] == 1, f"refund row not imported: {stats}"
+        assert stats["skipped"] == 0, f"refund row was skipped: {stats}"
+        assert not stats["errors"], f"errors: {stats['errors']}"
+        # The created transaction must have amount=-5000, NOT abs(-5000)=5000
+        from app.models.database import Transaction
+
+        tx = db_session.query(Transaction).filter(Transaction.description == "Refund from Vinmart").first()
+        assert tx is not None, "refund transaction not created"
+        assert float(tx.amount) == -5000, f"CSV sign was stripped: amount={tx.amount} (expected -5000)"
+
+    def test_csv_english_negative_income_rejected(self, client, db_session, tmp_path):
+        """A negative income row must be skipped with an error, not silently coerced."""
+        from app.services.transaction_service import parse_csv_english
+
+        csv = tmp_path / "neg_income.csv"
+        csv.write_text("date,amount,type,category,description\n2026-04-01,-100,Income,Salary,Salary refund\n")
+        stats = parse_csv_english(csv.read_bytes(), db_session)
+        # Should be skipped, not created
+        assert stats["income"] == 0, f"negative income was imported: {stats}"
+        assert stats["skipped"] == 1, f"negative income was not skipped: {stats}"
+        assert any("Income amount must be non-negative" in e for e in stats["errors"]), (
+            f"no error logged for negative income. Errors: {stats['errors']}"
+        )
+
+
+# ── 24. Category race-safety (B8) ────────────────────────────────────────────
+
+
+class TestCategoryRace:
+    """B8: get_or_create_category must be concurrent-safe (no duplicate rows)."""
+
+    def test_sequential_get_or_create_returns_same_id(self, db_session):
+        from app.services.transaction_service import get_or_create_category
+        from app.models.database import Category, TransactionType
+
+        cat1 = get_or_create_category(db_session, "Race-Test-001", TransactionType.EXPENSE)
+        db_session.commit()
+        cat2 = get_or_create_category(db_session, "Race-Test-001", TransactionType.EXPENSE)
+        db_session.commit()
+        assert cat1.id == cat2.id, f"two distinct categories with same name+type: {cat1.id} != {cat2.id}"
+        count = (
+            db_session.query(Category)
+            .filter(Category.name == "Race-Test-001", Category.type == TransactionType.EXPENSE)
+            .count()
+        )
+        assert count == 1, f"duplicate row created: {count}"
+
+    def test_integrity_error_handler_re_fetches_existing(self, db_session, monkeypatch):
+        """Force an IntegrityError on the first flush; the handler must re-fetch
+        the (now-existing) row instead of bubbling."""
+        from app.services import transaction_service
+        from app.models.database import TransactionType
+        from sqlalchemy.exc import IntegrityError
+
+        cat = transaction_service.get_or_create_category(db_session, "Race-Test-002", TransactionType.EXPENSE)
+        db_session.commit()
+        existing_id = cat.id
+
+        # Patch Category.__init__ (via session.flush) to raise on next call.
+        from sqlalchemy.orm import Session as _Session
+
+        original_flush = _Session.flush
+        call_count = {"n": 0}
+
+        def flaky_flush(self, *args, **kwargs):
+            call_count["n"] += 1
+            if call_count["n"] == 1:
+                raise IntegrityError("simulated", {}, Exception("dup key"))
+            return original_flush(self, *args, **kwargs)
+
+        monkeypatch.setattr(_Session, "flush", flaky_flush)
+
+        # Second call: should catch IntegrityError and re-fetch the existing row
+        cat2 = transaction_service.get_or_create_category(db_session, "Race-Test-002", TransactionType.EXPENSE)
+        assert cat2.id == existing_id, f"re-fetch failed: {cat2.id} != {existing_id}"
