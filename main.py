@@ -74,25 +74,11 @@ templates.env.filters["tojson"] = _decimal_safe_tojson
 register_currency_filters(templates.env)
 templates.context_processors.append(inject_currency)
 templates.context_processors.append(inject_nav_items)
+# Register the shared template globals (used by base.html's transaction modal
+# to pre-populate the category <select> on first paint).
+from app.services.template_globals import register_template_globals
 
-
-def get_all_active_categories():
-    """Jinja global: returns all active categories for the global transaction modal.
-
-    The modal is rendered from base.html on every page, so it has no per-route
-    context. This helper supplies the active categories for the <select> so the
-    dropdown is populated on first paint instead of after JS hydrates.
-    """
-    from app.models.database import Category, SessionLocal
-
-    session = SessionLocal()
-    try:
-        return session.query(Category).filter(Category.is_active.is_(True)).order_by(Category.name).all()
-    finally:
-        session.close()
-
-
-templates.env.globals["get_all_active_categories"] = get_all_active_categories
+register_template_globals(templates.env)
 
 
 def seed_default_categories():

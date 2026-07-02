@@ -33,6 +33,7 @@ from app.services.dashboard_layout import (
     set_user_nav_items,
     set_user_sections,
 )
+from app.services.template_globals import register_template_globals
 from app.services.sample_data_service import has_sample_data, load_sample_data, remove_sample_data
 from app.services.settings_service import get_settings_bulk, set_setting
 
@@ -42,6 +43,9 @@ templates = Jinja2Templates(directory="app/templates")
 register_currency_filters(templates.env)
 templates.context_processors.append(inject_currency)
 templates.context_processors.append(inject_nav_items)
+# Make the global available to base.html when it lives inside this router's
+# templates (the settings page renders base.html and uses the modal partial).
+register_template_globals(templates.env)
 
 
 def _layout_context(db: Session, user_id: int) -> dict:
@@ -257,10 +261,7 @@ async def save_pay_cycle(request: Request, db: Session = Depends(get_db)):
     try:
         day = int(raw)
     except ValueError:
-        msg = (
-            f"Pay-cycle day must be an integer between {MIN_DAY} and {MAX_DAY}, "
-            f"got {raw!r}."
-        )
+        msg = f"Pay-cycle day must be an integer between {MIN_DAY} and {MAX_DAY}, got {raw!r}."
         return HTMLResponse(
             f"<div class='text-red-600'>{msg}</div>",
             status_code=400,

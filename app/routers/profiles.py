@@ -19,6 +19,11 @@ router = APIRouter()
 # Standalone template env — the picker renders before a profile exists, so it
 # must not depend on the nav/currency context processors of the main env.
 templates = Jinja2Templates(directory="app/templates")
+# Register the shared template globals (the picker page renders base.html
+# which uses get_all_active_categories to pre-populate the transaction modal).
+from app.services.template_globals import register_template_globals  # noqa: E402
+
+register_template_globals(templates.env)
 
 
 def _render_picker(request: Request, db: Session, *, next_path: str = "/", error: str | None = None):
