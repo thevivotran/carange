@@ -178,7 +178,9 @@ def create_savings_bundle(bundle: SavingsBundleCreate, db: Session = Depends(get
 
 @router.put("/{bundle_id}", response_model=SavingsBundleSchema)
 def update_savings_bundle(bundle_id: int, bundle_update: SavingsBundleUpdate, db: Session = Depends(get_db)):
-    db_bundle = db.query(SavingsBundle).filter(SavingsBundle.id == bundle_id).first()
+    db_bundle = (
+        db.query(SavingsBundle).filter(SavingsBundle.id == bundle_id, SavingsBundle.deleted_at.is_(None)).first()
+    )
     if not db_bundle:
         raise HTTPException(status_code=404, detail="Savings bundle not found")
 
