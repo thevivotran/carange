@@ -4,6 +4,7 @@ from typing import List, Optional
 
 from app.models.database import get_db, OtherAsset
 from app.models.schemas import OtherAsset as OtherAssetSchema, OtherAssetCreate, OtherAssetUpdate
+from app.services.dashboard_service import invalidate_dashboard_cache
 
 router = APIRouter()
 
@@ -46,6 +47,7 @@ def create_asset(asset: OtherAssetCreate, db: Session = Depends(get_db)):
     db.add(db_asset)
     db.commit()
     db.refresh(db_asset)
+    invalidate_dashboard_cache(db)
     return db_asset
 
 
@@ -58,6 +60,7 @@ def update_asset(asset_id: int, asset_update: OtherAssetUpdate, db: Session = De
         setattr(db_asset, key, value)
     db.commit()
     db.refresh(db_asset)
+    invalidate_dashboard_cache(db)
     return db_asset
 
 
@@ -68,4 +71,5 @@ def delete_asset(asset_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Asset not found")
     db.delete(db_asset)
     db.commit()
-    return {"message": "Asset deleted successfully"}
+    invalidate_dashboard_cache(db)
+    return {"message": "Asset deleted"}
