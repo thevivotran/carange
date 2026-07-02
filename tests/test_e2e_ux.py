@@ -17,6 +17,7 @@ Coverage areas:
 
 TDD discipline: every test below is a regression test for a real dogfood finding.
 """
+
 import re
 from datetime import date, timedelta
 from decimal import Decimal
@@ -81,9 +82,18 @@ class TestTransactionsSearchFilter:
         """
         rent_id = cat_ids["rent"]
         food_id = cat_ids["food"]
-        r1 = _make_tx(client, date_str="2026-04-01", amount=300_000, type_="expense", category_id=rent_id, description="apartment rent")
+        r1 = _make_tx(
+            client,
+            date_str="2026-04-01",
+            amount=300_000,
+            type_="expense",
+            category_id=rent_id,
+            description="apartment rent",
+        )
         assert r1.status_code == 200, r1.text
-        r2 = _make_tx(client, date_str="2026-04-02", amount=500_000, type_="expense", category_id=food_id, description="groceries")
+        r2 = _make_tx(
+            client, date_str="2026-04-02", amount=500_000, type_="expense", category_id=food_id, description="groceries"
+        )
         assert r2.status_code == 200, r2.text
 
         r = client.get("/fragments/transactions/list?skip=0&limit=50&trash=false&search=rent")
@@ -135,7 +145,7 @@ class TestAddTransactionModal:
         modal_idx = page.text.find('id="transaction-modal"')
         assert modal_idx >= 0, "transaction-modal element missing on /transactions"
         # The modal markup is moderate; slice 12k chars (form is long)
-        chunk = page.text[modal_idx:modal_idx + 12000]
+        chunk = page.text[modal_idx : modal_idx + 12000]
         sel = re.search(
             r'<select[^>]*name="category_id"[^>]*>(.*?)</select>',
             chunk,
@@ -143,7 +153,7 @@ class TestAddTransactionModal:
         )
         assert sel, "category_id select missing inside transaction-modal"
         # The select must have populated options, not just the placeholder
-        option_count = len(re.findall(r'<option\b', sel.group(1)))
+        option_count = len(re.findall(r"<option\b", sel.group(1)))
         assert option_count > 1, (
             f"category_id <select> only has {option_count} option(s); the template "
             f"must pre-populate it with all active categories so first paint is correct."
@@ -174,9 +184,7 @@ class TestSavingsMaturityDate:
             },
         )
         # Should be 400/422, NOT 200 (silently accepting past dates is a UX bug)
-        assert r.status_code in (400, 422), (
-            f"past maturity_date was accepted: {r.status_code} {r.text[:200]}"
-        )
+        assert r.status_code in (400, 422), f"past maturity_date was accepted: {r.status_code} {r.text[:200]}"
 
     def test_create_savings_with_end_before_start_rejected(self, client, db_session):
         """maturity_date < start_date must be rejected."""
@@ -197,9 +205,7 @@ class TestSavingsMaturityDate:
                 "status": "active",
             },
         )
-        assert r.status_code in (400, 422), (
-            f"maturity_date < start_date was accepted: {r.status_code}"
-        )
+        assert r.status_code in (400, 422), f"maturity_date < start_date was accepted: {r.status_code}"
 
 
 # ── 4. Savings: Trash modal works end-to-end ──────────────────────────────────
@@ -256,6 +262,7 @@ class TestProjectsPageRender:
 
     def test_in_progress_project_visible(self, client, db_session):
         from app.models.database import FinancialProject, ProjectStatus, ProjectType
+
         p = FinancialProject(
             name="House Down Payment",
             description="HCMC apartment",
@@ -276,6 +283,7 @@ class TestProjectsPageRender:
 
     def test_planning_project_also_visible(self, client, db_session):
         from app.models.database import FinancialProject, ProjectStatus, ProjectType
+
         p = FinancialProject(
             name="Future Trip",
             target_amount=Decimal(20_000_000),
@@ -335,7 +343,14 @@ class TestDashboardWelcomeBanner:
 
     def test_welcome_banner_hidden_after_first_tx(self, client, cat_ids, db_session):
         # Add one transaction
-        r = _make_tx(client, date_str="2026-04-01", amount=100_000, type_="income", category_id=cat_ids["income"], description="seed")
+        r = _make_tx(
+            client,
+            date_str="2026-04-01",
+            amount=100_000,
+            type_="income",
+            category_id=cat_ids["income"],
+            description="seed",
+        )
         assert r.status_code == 200, r.text
 
         r = client.get("/")
@@ -420,25 +435,15 @@ class TestCategoryValidation:
     """Two categories of the same type with the same name must be rejected."""
 
     def test_duplicate_category_name_same_type_rejected(self, client, db_session):
-        r1 = client.post(
-            "/api/categories/", json={"name": "Food", "type": "expense", "color": "#000", "icon": "x"}
-        )
+        r1 = client.post("/api/categories/", json={"name": "Food", "type": "expense", "color": "#000", "icon": "x"})
         assert r1.status_code == 200
-        r2 = client.post(
-            "/api/categories/", json={"name": "Food", "type": "expense", "color": "#000", "icon": "x"}
-        )
-        assert r2.status_code in (400, 409, 422), (
-            f"duplicate category allowed: {r2.status_code} {r2.text[:200]}"
-        )
+        r2 = client.post("/api/categories/", json={"name": "Food", "type": "expense", "color": "#000", "icon": "x"})
+        assert r2.status_code in (400, 409, 422), f"duplicate category allowed: {r2.status_code} {r2.text[:200]}"
 
     def test_same_name_different_type_allowed(self, client, db_session):
         """'Others' can exist as both income and expense."""
-        r1 = client.post(
-            "/api/categories/", json={"name": "Others", "type": "expense", "color": "#000", "icon": "x"}
-        )
-        r2 = client.post(
-            "/api/categories/", json={"name": "Others", "type": "income", "color": "#000", "icon": "x"}
-        )
+        r1 = client.post("/api/categories/", json={"name": "Others", "type": "expense", "color": "#000", "icon": "x"})
+        r2 = client.post("/api/categories/", json={"name": "Others", "type": "income", "color": "#000", "icon": "x"})
         assert r1.status_code == 200
         assert r2.status_code == 200
 
@@ -459,11 +464,25 @@ class TestBudgetFiscalPeriod:
         )
 
         # Create a transaction on July 5 (before the 19th → belongs to fiscal June)
-        r = _make_tx(client, date_str="2026-07-05", amount=100_000, type_="expense", category_id=cat_ids["food"], description="early")
+        r = _make_tx(
+            client,
+            date_str="2026-07-05",
+            amount=100_000,
+            type_="expense",
+            category_id=cat_ids["food"],
+            description="early",
+        )
         assert r.status_code == 200
 
         # Create a transaction on July 25 (after the 19th → belongs to fiscal July)
-        r2 = _make_tx(client, date_str="2026-07-25", amount=200_000, type_="expense", category_id=cat_ids["food"], description="late")
+        r2 = _make_tx(
+            client,
+            date_str="2026-07-25",
+            amount=200_000,
+            type_="expense",
+            category_id=cat_ids["food"],
+            description="late",
+        )
         assert r2.status_code == 200
 
         # Fiscal July 2026 (start day 19) — query the budget rows endpoint
@@ -560,7 +579,14 @@ class TestTransactionsPagination:
 
     def test_pagination_skip_limit(self, client, cat_ids):
         for i in range(15):
-            _make_tx(client, date_str=f"2026-04-{(i % 28) + 1:02d}", amount=1000 * (i + 1), type_="expense", category_id=cat_ids["food"], description=f"item-{i}")
+            _make_tx(
+                client,
+                date_str=f"2026-04-{(i % 28) + 1:02d}",
+                amount=1000 * (i + 1),
+                type_="expense",
+                category_id=cat_ids["food"],
+                description=f"item-{i}",
+            )
 
         r1 = client.get("/fragments/transactions/list?skip=0&limit=5&trash=false")
         r2 = client.get("/fragments/transactions/list?skip=5&limit=5&trash=false")
@@ -582,12 +608,14 @@ class TestCurrencyFormatter:
 
     def test_format_amount_zero(self):
         from app.services.currency_format import format_amount
+
         assert format_amount(0) == "0 ₫"
         assert format_amount(0, "USD") == "$0"
         assert format_amount(0, "EUR") == "0 €"
 
     def test_format_amount_negative(self):
         from app.services.currency_format import format_amount
+
         # Negative amounts should be handled gracefully (no '-₫' or weirdness)
         out = format_amount(-500_000)
         # Either "-500,000 ₫" or "−500,000 ₫" (unicode minus) — both acceptable
@@ -595,6 +623,7 @@ class TestCurrencyFormatter:
 
     def test_format_amount_large(self):
         from app.services.currency_format import format_amount
+
         # No scientific notation for billion-scale numbers
         out = format_amount(1_234_567_890_000)
         assert "e+" not in out
@@ -643,9 +672,7 @@ class TestDashboardCacheInvalidation:
     the in-process dict, not the cross-pod sentinel or the MATVIEW refresh.
     """
 
-    def test_create_transaction_invalidates_dashboard_cache_with_db(
-        self, client, cat_ids, monkeypatch
-    ):
+    def test_create_transaction_invalidates_dashboard_cache_with_db(self, client, cat_ids, monkeypatch):
         """Mock invalidate_dashboard_cache and assert it was called WITH db.
 
         The router imports the function at module load, so we must patch the
@@ -668,11 +695,10 @@ class TestDashboardCacheInvalidation:
         assert len(calls) == 1, f"invalidate_dashboard_cache called {len(calls)} times, want 1"
         assert calls[0] is not None, "invalidate_dashboard_cache called WITHOUT db — gotcha in skill"
 
-    def test_delete_transaction_invalidates_dashboard_cache_with_db(
-        self, client, cat_ids, monkeypatch
-    ):
+    def test_delete_transaction_invalidates_dashboard_cache_with_db(self, client, cat_ids, monkeypatch):
         from app.routers import transactions as tx_router
         from app.services import dashboard_service
+
         calls = []
         original = dashboard_service.invalidate_dashboard_cache
 

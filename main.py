@@ -184,10 +184,7 @@ async def dashboard_page(request: Request, db: Session = Depends(get_db)):
     # "Got it" sets onboarding_complete=true, but we also hide it as soon as
     # there's at least one non-deleted transaction so first-time users don't
     # see a stale "everything below starts at zero" panel after they begin.
-    has_any_tx = (
-        db.query(Transaction).filter(Transaction.deleted_at.is_(None)).first()
-        is not None
-    )
+    has_any_tx = db.query(Transaction).filter(Transaction.deleted_at.is_(None)).first() is not None
     show_onboarding = (not onboarding_dismissed) and not has_any_tx
     month_start_day = get_month_start_day(db)
     return templates.TemplateResponse(
