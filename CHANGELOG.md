@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.1](https://github.com/thevivotran/carange/compare/v0.5.0...v0.5.1) (2026-07-02)
+
+
+### Bug Fixes
+
+* **qa:** 11 confirmed UX/data bugs from dogfood + Claude Code audit ([#68](https://github.com/thevivotran/carange/issues/68)) ([1759033](https://github.com/thevivotran/carange/commit/1759033e651f371841f8c9e8a28baae1b48aaf87))
+
 ## [0.5.0](https://github.com/thevivotran/carange/compare/v0.4.0...v0.5.0) (2026-06-23)
 
 
