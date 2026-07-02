@@ -33,6 +33,7 @@ from app.services.dashboard_layout import (
     set_user_nav_items,
     set_user_sections,
 )
+from app.services.template_globals import register_template_globals
 from app.services.sample_data_service import has_sample_data, load_sample_data, remove_sample_data
 from app.services.settings_service import get_settings_bulk, set_setting
 
@@ -42,6 +43,9 @@ templates = Jinja2Templates(directory="app/templates")
 register_currency_filters(templates.env)
 templates.context_processors.append(inject_currency)
 templates.context_processors.append(inject_nav_items)
+# Make the global available to base.html when it lives inside this router's
+# templates (the settings page renders base.html and uses the modal partial).
+register_template_globals(templates.env)
 
 
 def _layout_context(db: Session, user_id: int) -> dict:
@@ -253,11 +257,20 @@ async def save_pay_cycle(request: Request, db: Session = Depends(get_db)):
     old_day = get_month_start_day(db)
 
     form = await request.form()
+    raw = str(form.get("month_start_day", "1")).strip()
     try:
-        day = int(str(form.get("month_start_day", "1")).strip())
+        day = int(raw)
     except ValueError:
-        day = MIN_DAY
-    day = max(MIN_DAY, min(MAX_DAY, day))
+        msg = f"Pay-cycle day must be an integer between {MIN_DAY} and {MAX_DAY}, got {raw!r}."
+        return HTMLResponse(
+            f"<div class='text-red-600'>{msg}</div>",
+            status_code=400,
+        )
+    if not (MIN_DAY <= day <= MAX_DAY):
+        return HTMLResponse(
+            f"<div class='text-red-600'>Pay-cycle day must be between {MIN_DAY} and {MAX_DAY}, got {day}.</div>",
+            status_code=400,
+        )
     set_setting(db, "month_start_day", str(day))
     invalidate_dashboard_cache(db)
 

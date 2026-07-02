@@ -121,7 +121,11 @@ def create_project(project: FinancialProjectCreate, db: Session = Depends(get_db
 
 @router.put("/{project_id}", response_model=FinancialProjectSchema)
 def update_project(project_id: int, project_update: FinancialProjectUpdate, db: Session = Depends(get_db)):
-    db_project = db.query(FinancialProject).filter(FinancialProject.id == project_id).first()
+    db_project = (
+        db.query(FinancialProject)
+        .filter(FinancialProject.id == project_id, FinancialProject.deleted_at.is_(None))
+        .first()
+    )
     if not db_project:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -175,7 +179,11 @@ def delete_project(project_id: int, db: Session = Depends(get_db)):
 
 @router.get("/{project_id}/payments", response_model=List[ProjectPaymentSchema])
 def get_payments(project_id: int, db: Session = Depends(get_db)):
-    project = db.query(FinancialProject).filter(FinancialProject.id == project_id).first()
+    project = (
+        db.query(FinancialProject)
+        .filter(FinancialProject.id == project_id, FinancialProject.deleted_at.is_(None))
+        .first()
+    )
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -195,7 +203,11 @@ def get_payments(project_id: int, db: Session = Depends(get_db)):
 
 @router.post("/{project_id}/payments", response_model=ProjectPaymentSchema)
 def create_payment(project_id: int, payment: ProjectPaymentCreate, db: Session = Depends(get_db)):
-    project = db.query(FinancialProject).filter(FinancialProject.id == project_id).first()
+    project = (
+        db.query(FinancialProject)
+        .filter(FinancialProject.id == project_id, FinancialProject.deleted_at.is_(None))
+        .first()
+    )
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     try:
@@ -212,7 +224,11 @@ def match_payment(
     db: Session = Depends(get_db),
 ):
     """Find the nearest PENDING payment of this project matching amount (and date when given)."""
-    project = db.query(FinancialProject).filter(FinancialProject.id == project_id).first()
+    project = (
+        db.query(FinancialProject)
+        .filter(FinancialProject.id == project_id, FinancialProject.deleted_at.is_(None))
+        .first()
+    )
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -246,7 +262,11 @@ def match_payment(
 def update_payment(
     project_id: int, payment_id: int, payment_update: ProjectPaymentUpdate, db: Session = Depends(get_db)
 ):
-    project = db.query(FinancialProject).filter(FinancialProject.id == project_id).first()
+    project = (
+        db.query(FinancialProject)
+        .filter(FinancialProject.id == project_id, FinancialProject.deleted_at.is_(None))
+        .first()
+    )
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -269,7 +289,11 @@ def update_payment(
 
 @router.delete("/{project_id}/payments/{payment_id}")
 def delete_payment(project_id: int, payment_id: int, db: Session = Depends(get_db)):
-    project = db.query(FinancialProject).filter(FinancialProject.id == project_id).first()
+    project = (
+        db.query(FinancialProject)
+        .filter(FinancialProject.id == project_id, FinancialProject.deleted_at.is_(None))
+        .first()
+    )
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -303,7 +327,11 @@ class RecurringScheduleRequest(BaseModel):
 
 @router.post("/{project_id}/payments/bulk", response_model=List[ProjectPaymentSchema])
 def bulk_create_payments(project_id: int, req: RecurringScheduleRequest, db: Session = Depends(get_db)):
-    project = db.query(FinancialProject).filter(FinancialProject.id == project_id).first()
+    project = (
+        db.query(FinancialProject)
+        .filter(FinancialProject.id == project_id, FinancialProject.deleted_at.is_(None))
+        .first()
+    )
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     return project_service.bulk_create_payments(db, project, req)
@@ -316,7 +344,11 @@ def bulk_create_payments(project_id: int, req: RecurringScheduleRequest, db: Ses
 
 @router.post("/{project_id}/link-savings/{savings_id}")
 def link_savings_to_project(project_id: int, savings_id: int, db: Session = Depends(get_db)):
-    project = db.query(FinancialProject).filter(FinancialProject.id == project_id).first()
+    project = (
+        db.query(FinancialProject)
+        .filter(FinancialProject.id == project_id, FinancialProject.deleted_at.is_(None))
+        .first()
+    )
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
     savings = db.query(SavingsBundle).filter(SavingsBundle.id == savings_id).first()

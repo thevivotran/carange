@@ -49,12 +49,13 @@
             <div>
                 <label class="field-required block text-sm font-medium text-gray-700 mb-2">Amount (VND)</label>
                 <input type="number" id="amount" name="amount" required min="0" step="1"
+                       inputmode="decimal"
                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                        placeholder="Enter exact amount"
                        hx-get="/fragments/transactions/budget-preview"
                        hx-include="[name=category_id],[name=amount],[name=date]"
                        hx-target="#tx-budget-preview"
-                       hx-trigger="change, keyup changed delay:400ms">
+                       hx-trigger="keyup changed delay:400ms, focusout">
                 <div id="tx-budget-preview" class="mt-2"></div>
             </div>
 
@@ -76,6 +77,9 @@
                         hx-target="#tx-budget-preview"
                         hx-trigger="change">
                     <option value="">Select Category</option>
+                    {% for c in (_all_categories or []) %}
+                    <option value="{{ c.id }}" data-type="{{ c.type.value if c.type is defined and c.type.value is defined else c.type }}">{{ c.name }}</option>
+                    {% endfor %}
                 </select>
             </div>
 

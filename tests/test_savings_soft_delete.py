@@ -1,10 +1,13 @@
 """Tests for SavingsBundle soft-delete, restore, and hard-delete."""
 
 import pytest
+from datetime import date, timedelta
 from app.models.database import SavingsBundle
 
 
 def _bundle_payload(name="Test Bundle"):
+    # Use relative dates so the test isn't tied to "today"; we previously
+    # hard-coded 2026-01-01 -> 2026-07-01 but that has aged into the past.
     return {
         "name": name,
         "bank_name": "VCB",
@@ -13,8 +16,8 @@ def _bundle_payload(name="Test Bundle"):
         "current_amount": 10_000_000,
         "future_amount": 10_500_000,
         "interest_rate": 5.0,
-        "start_date": "2026-01-01",
-        "maturity_date": "2026-07-01",
+        "start_date": (date.today() - timedelta(days=30)).isoformat(),
+        "maturity_date": (date.today() + timedelta(days=180)).isoformat(),
     }
 
 

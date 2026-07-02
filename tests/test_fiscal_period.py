@@ -124,8 +124,10 @@ def test_get_month_start_day_clamps_zero_to_min(db_session):
 
 
 def test_get_month_start_day_clamps_forty_to_max(db_session):
+    # B5 fix: MAX_DAY is now 28 (was 31). Reading back a stored value of 40
+    # still clamps to the new max because the read path uses the same constant.
     set_setting(db_session, fp.SETTING_KEY, "40")
-    assert fp.get_month_start_day(db_session) == 31
+    assert fp.get_month_start_day(db_session) == 28
 
 
 def test_get_month_start_day_non_numeric_falls_back(db_session):
@@ -137,9 +139,11 @@ def test_fiscal_window_day31_clamps_in_short_months():
     assert fp.fiscal_window_ym(2026, 2, 31) == (date(2026, 2, 28), date(2026, 3, 30))
 
 
-def test_get_month_start_day_clamps_to_31_not_28(db_session):
+def test_get_month_start_day_clamps_to_28_not_30(db_session):
+    # B5 fix: 30 is no longer a valid value (Feb has 28-29 only). The read
+    # path clamps out-of-range values to MAX_DAY=28.
     set_setting(db_session, fp.SETTING_KEY, "30")
-    assert fp.get_month_start_day(db_session) == 30
+    assert fp.get_month_start_day(db_session) == 28
 
 
 def test_suggest_salary_day_none_without_templates(db_session):

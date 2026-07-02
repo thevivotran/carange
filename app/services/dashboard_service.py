@@ -639,7 +639,10 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
             .scalar()
             or 0
         )
-    avg_monthly_expense = _ef_total / 3 if _ef_total > 0 else monthly_expense or 1
+    # Use 3-month average when we have data; otherwise use current month only.
+    # Critical: do NOT default to 1 — that divides by 1 and inflates emergency_fund_months
+    # on a brand-new install (e.g. 50M savings / 1 = 50.0mo).
+    avg_monthly_expense = _ef_total / 3 if _ef_total > 0 else (monthly_expense or 0)
     emergency_fund_months = round(total_savings / avg_monthly_expense, 1) if avg_monthly_expense > 0 else 0
 
     # ── Active projects — list first, derive count from it ─────────────────────
@@ -796,6 +799,9 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
 
     # ── One-income stress test ────────────────────────────────────────────────
     bds_monthly_installment = float((bds_next_payment.amount if bds_next_payment else monthly_bds) or 0)
+    # VND inflation/buffer cushion for the one-income stress test: even if expenses
+    # stay flat, a single income must still cover 20M VND of unplanned costs
+    # (medical, urgent travel, etc.) per month without the family going negative.
     stress_test_required = avg_monthly_expense + 20_000_000 + bds_monthly_installment
     stress_test_cushion = monthly_income - stress_test_required
 

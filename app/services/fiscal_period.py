@@ -11,7 +11,7 @@ from datetime import date, timedelta
 
 SETTING_KEY = "month_start_day"
 MIN_DAY = 1
-MAX_DAY = 31
+MAX_DAY = 28  # 28 is the highest day that exists in every month (Feb has 28-29)
 
 
 def _clamp_day(day: int, year: int, month: int) -> int:

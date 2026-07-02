@@ -1257,6 +1257,7 @@
         <i class="fas fa-plus text-xl"></i>
     </button>
 
+    {% set _all_categories = get_all_active_categories() %}
     {% include "partials/transactions/_modal_form.html" %}
 
     <!-- Toast container — Alpine-driven, sits above bottom nav on mobile -->

@@ -4,10 +4,13 @@ templates, pending project payments, and maturing savings bundles.
 Pure read-only function: no writes, no commits.
 """
 
+import logging
 from datetime import date, timedelta
 from typing import Any
 
 from sqlalchemy.orm import Session
+
+log = logging.getLogger(__name__)
 
 from app.models.database import (
     FinancialProject,
@@ -46,6 +49,32 @@ def build_forecast(db: Session, horizon_days: int = 90, include_budget_estimate:
     events: list[dict[str, Any]] = []
 
     # ── Recurring templates ──────────────────────────────────────────────────
+    active_with_cadence = (
+        db.query(TransactionTemplate)
+        .filter(
+            TransactionTemplate.is_active.is_(True),
+            TransactionTemplate.cadence.isnot(None),
+        )
+        .count()
+    )
+    skipped_no_next_run = (
+        db.query(TransactionTemplate)
+        .filter(
+            TransactionTemplate.is_active.is_(True),
+            TransactionTemplate.cadence.isnot(None),
+            TransactionTemplate.next_run_at.is_(None),
+        )
+        .count()
+    )
+    if skipped_no_next_run:
+        log.warning(
+            "forecast: %d of %d active recurring template(s) skipped because "
+            "next_run_at is NULL — they will not appear in the forecast until "
+            "they are triggered at least once.",
+            skipped_no_next_run,
+            active_with_cadence,
+        )
+
     templates = (
         db.query(TransactionTemplate)
         .filter(
@@ -82,6 +111,14 @@ def build_forecast(db: Session, horizon_days: int = 90, include_budget_estimate:
 
     # ── Pending project payments ─────────────────────────────────────────────
     from sqlalchemy.orm import joinedload
+
+    pending_payments = db.query(ProjectPayment).filter(ProjectPayment.status == PaymentStatus.PENDING).all()
+    skipped_no_due_date = sum(1 for p in pending_payments if p.due_date is None)
+    if skipped_no_due_date:
+        log.warning(
+            "forecast: %d PENDING project payment(s) skipped because due_date is NULL.",
+            skipped_no_due_date,
+        )
 
     payments = (
         db.query(ProjectPayment)
