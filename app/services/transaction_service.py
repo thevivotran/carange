@@ -97,7 +97,13 @@ def snapshot_audit_fields(transaction: Transaction) -> dict:
 
 
 def get_or_create_category(db: Session, category_name: str, trans_type: TransactionType) -> Category:
-    """Return an existing category by name+type, or create one with a random colour."""
+    """Return an existing category by name+type, or create one with a random colour.
+
+    Concurrent-safe: catches IntegrityError on flush (e.g. a unique index added
+    later) and re-fetches the now-existing row.
+    """
+    from sqlalchemy.exc import IntegrityError
+
     if category_name.strip() == "Khác":
         category_name = _KHAC_NAME_MAP.get(trans_type.value, category_name)
 
@@ -108,7 +114,15 @@ def get_or_create_category(db: Session, category_name: str, trans_type: Transact
     colors = ["#EF4444", "#F59E0B", "#10B981", "#3B82F6", "#6366F1", "#8B5CF6", "#EC4899"]
     category = Category(name=category_name, type=trans_type, color=random.choice(colors), icon="circle", is_active=True)
     db.add(category)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError:
+        db.rollback()
+        # Another process/thread inserted the same (name, type) row between our
+        # SELECT and INSERT — re-fetch it.
+        category = db.query(Category).filter(Category.name == category_name, Category.type == trans_type).first()
+        if category is None:
+            raise  # Genuine integrity error, not a race
     return category
 
 
@@ -168,10 +182,23 @@ def create_transaction(db: Session, data: TransactionCreate) -> Transaction:
         db.add(db_tx)
         db.flush()
 
-        # Apply rules (may override category, set auto_approve)
+        # Apply rules (may override category, set auto_approve).
+        # Guard the tx.type <-> category.type invariant: if a rule overrides
+        # to a category of the OPPOSITE type, revert the override and log a
+        # warning instead of silently corrupting aggregations.
         action = apply_rules(db, db_tx, payee_id)
-        if action.category_id is not None:
-            db_tx.category_id = action.category_id
+        if action.category_id is not None and action.category_id != db_tx.category_id:
+            new_cat = db.query(Category).filter(Category.id == action.category_id).first()
+            if new_cat is not None and new_cat.type != db_tx.type:
+                log.warning(
+                    "Rule tried to set category_id=%s (type=%s) on tx.type=%s; "
+                    "ignoring override to preserve type invariant.",
+                    action.category_id,
+                    new_cat.type.value if new_cat.type else None,
+                    db_tx.type.value if db_tx.type else None,
+                )
+            else:
+                db_tx.category_id = action.category_id
         if action.force_needs_review:
             db_tx.needs_review = True
 
@@ -479,15 +506,15 @@ def parse_csv_english(content: bytes, db: Session) -> dict:
 
             amount_str = row.get(field_map["amount"], "0").strip().replace(",", "")
             try:
-                amount = abs(float(amount_str))
+                amount = float(amount_str)
                 if not math.isfinite(amount):
                     raise ValueError("non-finite")
             except Exception:
                 stats["errors"].append(f"Row {row_num}: Invalid amount '{amount_str}'")
                 stats["skipped"] += 1
                 continue
-            if amount <= 0:
-                stats["errors"].append(f"Row {row_num}: Amount must be greater than 0")
+            if amount == 0:
+                stats["errors"].append(f"Row {row_num}: Amount must be non-zero")
                 stats["skipped"] += 1
                 continue
 
@@ -498,6 +525,14 @@ def parse_csv_english(content: bytes, db: Session) -> dict:
                 trans_type = TransactionType.EXPENSE
             else:
                 stats["errors"].append(f"Row {row_num}: Invalid type '{type_str}'")
+                stats["skipped"] += 1
+                continue
+
+            # Income rows must not have negative amounts; expense rows may
+            # (refunds/credits). The sign on the persisted amount is the
+            # user's sign — we no longer force abs() on the amount.
+            if trans_type == TransactionType.INCOME and amount < 0:
+                stats["errors"].append(f"Row {row_num}: Income amount must be non-negative, got {amount}")
                 stats["skipped"] += 1
                 continue
 
