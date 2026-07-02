@@ -12,8 +12,8 @@ def _bundle(client, **overrides):
         "current_amount": 50_000_000,
         "future_amount": 53_000_000,
         "interest_rate": 6.0,
-        "start_date": "2026-01-01",
-        "maturity_date": "2026-07-01",
+        "start_date": "2030-01-01",
+        "maturity_date": "2030-07-01",
     }
     base.update(overrides)
     r = client.post("/api/savings/", json=base)
@@ -34,7 +34,7 @@ def test_list_savings_filter_by_status(client):
             "type": "fixed_deposit",
             "initial_deposit": 10_000_000,
             "future_amount": 10_500_000,
-            "start_date": "2026-01-01",
+            "start_date": "2030-01-01",
         },
     )
     client.post(f"/api/savings/{active_id}/mark-completed")
@@ -63,7 +63,7 @@ def test_create_bundle_with_linked_project(client):
             "type": "fixed_deposit",
             "initial_deposit": 50_000_000,
             "future_amount": 53_000_000,
-            "start_date": "2026-01-01",
+            "start_date": "2030-01-01",
             "linked_project_id": project_id,
         },
     )
@@ -80,7 +80,7 @@ def test_create_bundle_with_nonexistent_project_returns_404(client):
             "type": "fixed_deposit",
             "initial_deposit": 50_000_000,
             "future_amount": 53_000_000,
-            "start_date": "2026-01-01",
+            "start_date": "2030-01-01",
             "linked_project_id": 999999,
         },
     )
@@ -106,7 +106,7 @@ def test_create_bundle_without_current_amount_defaults_to_zero(client):
             "type": "fixed_deposit",
             "initial_deposit": 50_000_000,
             "future_amount": 53_000_000,
-            "start_date": "2026-01-01",
+            "start_date": "2030-01-01",
         },
     )
     assert r.status_code == 200
@@ -184,7 +184,7 @@ def test_create_bundle_with_explicit_current_amount(client):
             "initial_deposit": 50_000_000,
             "current_amount": 25_000_000,
             "future_amount": 53_000_000,
-            "start_date": "2026-01-01",
+            "start_date": "2030-01-01",
         },
     )
     assert r.status_code == 200

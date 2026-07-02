@@ -12,8 +12,8 @@ def _bundle_payload(name="Boundary Bundle"):
         "current_amount": 10_000_000,
         "future_amount": 10_500_000,
         "interest_rate": 5.0,
-        "start_date": "2026-01-01",
-        "maturity_date": "2026-07-01",
+        "start_date": "2030-01-01",
+        "maturity_date": "2030-07-01",
     }
 
 
@@ -41,7 +41,7 @@ def test_bulk_payments_creates_all_atomically(client, db_session):
         f"/api/projects/{project_id}/payments/bulk",
         json={
             "amount": 1_000_000,
-            "start_date": "2026-06-01",
+            "start_date": "2030-06-01",
             "interval": "monthly",
             "occurrences": 3,
         },
