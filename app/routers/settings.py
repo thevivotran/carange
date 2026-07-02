@@ -253,11 +253,19 @@ async def save_pay_cycle(request: Request, db: Session = Depends(get_db)):
     old_day = get_month_start_day(db)
 
     form = await request.form()
+    raw = str(form.get("month_start_day", "1")).strip()
     try:
-        day = int(str(form.get("month_start_day", "1")).strip())
+        day = int(raw)
     except ValueError:
-        day = MIN_DAY
-    day = max(MIN_DAY, min(MAX_DAY, day))
+        return HTMLResponse(
+            f"<div class='text-red-600'>Pay-cycle day must be an integer between {MIN_DAY} and {MAX_DAY}, got {raw!r}.</div>",
+            status_code=400,
+        )
+    if not (MIN_DAY <= day <= MAX_DAY):
+        return HTMLResponse(
+            f"<div class='text-red-600'>Pay-cycle day must be between {MIN_DAY} and {MAX_DAY}, got {day}.</div>",
+            status_code=400,
+        )
     set_setting(db, "month_start_day", str(day))
     invalidate_dashboard_cache(db)
 

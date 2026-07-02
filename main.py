@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.models.database import create_tables, get_db, SessionLocal
-from app.models.database import Category, TransactionType
+from app.models.database import Category, Transaction, TransactionType
 from app.routers import transactions, categories, savings, projects, dashboard, templates as templates_router
 from app.routers import assets
 from app.routers import notes
@@ -74,6 +74,25 @@ templates.env.filters["tojson"] = _decimal_safe_tojson
 register_currency_filters(templates.env)
 templates.context_processors.append(inject_currency)
 templates.context_processors.append(inject_nav_items)
+
+
+def get_all_active_categories():
+    """Jinja global: returns all active categories for the global transaction modal.
+
+    The modal is rendered from base.html on every page, so it has no per-route
+    context. This helper supplies the active categories for the <select> so the
+    dropdown is populated on first paint instead of after JS hydrates.
+    """
+    from app.models.database import Category, SessionLocal
+
+    session = SessionLocal()
+    try:
+        return session.query(Category).filter(Category.is_active.is_(True)).order_by(Category.name).all()
+    finally:
+        session.close()
+
+
+templates.env.globals["get_all_active_categories"] = get_all_active_categories
 
 
 def seed_default_categories():
@@ -160,7 +179,16 @@ async def dashboard_page(request: Request, db: Session = Depends(get_db)):
     from app.services.fiscal_period import get_month_start_day
 
     data = get_dashboard_page_data(db)
-    show_onboarding = get_setting(db, "onboarding_complete", "false") != "true"
+    onboarding_dismissed = get_setting(db, "onboarding_complete", "false") == "true"
+    # Auto-hide the welcome banner once the user has real data — clicking
+    # "Got it" sets onboarding_complete=true, but we also hide it as soon as
+    # there's at least one non-deleted transaction so first-time users don't
+    # see a stale "everything below starts at zero" panel after they begin.
+    has_any_tx = (
+        db.query(Transaction).filter(Transaction.deleted_at.is_(None)).first()
+        is not None
+    )
+    show_onboarding = (not onboarding_dismissed) and not has_any_tx
     month_start_day = get_month_start_day(db)
     return templates.TemplateResponse(
         request,

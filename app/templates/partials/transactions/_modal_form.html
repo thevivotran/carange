@@ -76,6 +76,9 @@
                         hx-target="#tx-budget-preview"
                         hx-trigger="change">
                     <option value="">Select Category</option>
+                    {% for c in (_all_categories or []) %}
+                    <option value="{{ c.id }}" data-type="{{ c.type.value if c.type is defined and c.type.value is defined else c.type }}">{{ c.name }}</option>
+                    {% endfor %}
                 </select>
             </div>
 
