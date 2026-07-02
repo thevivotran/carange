@@ -353,62 +353,6 @@
         }
     }
 
-    function showDuplicateWarning(matches, originalData) {
-        const list = document.getElementById('duplicate-matches-list');
-        while (list.firstChild) list.removeChild(list.firstChild);
-
-        matches.forEach(function(m) {
-            const item = document.createElement('div');
-            item.className = 'flex items-center gap-2 text-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2';
-            const dateSpan = document.createElement('span');
-            dateSpan.className = 'text-gray-500 flex-shrink-0';
-            dateSpan.textContent = m.date;
-            const amtSpan = document.createElement('span');
-            amtSpan.className = 'font-semibold text-gray-700 flex-shrink-0';
-            amtSpan.textContent = formatVND(m.amount);
-            const descSpan = document.createElement('span');
-            descSpan.className = 'text-gray-500 truncate flex-1';
-            descSpan.textContent = m.description || '—';
-            item.appendChild(dateSpan);
-            item.appendChild(amtSpan);
-            item.appendChild(descSpan);
-            list.appendChild(item);
-        });
-
-        document.getElementById('duplicate-modal').classList.remove('hidden');
-
-        const oldConfirm = document.getElementById('duplicate-confirm-btn');
-        const newConfirm = oldConfirm.cloneNode(true);
-        oldConfirm.replaceWith(newConfirm);
-        newConfirm.addEventListener('click', async function() {
-            document.getElementById('duplicate-modal').classList.add('hidden');
-            try {
-                const res = await fetch('/api/transactions/?force=true', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(originalData),
-                });
-                if (res.ok) {
-                    closeTransactionModal();
-                    saveFilters();
-                    loadTransactions();
-                    loadMonthlySummary();
-                } else {
-                    const err = await res.json();
-                    showToast('Error: ' + (err.detail || 'Failed'), 'error');
-                }
-            } catch(e) {
-                showToast('Failed to save transaction', 'error');
-            }
-        });
-
-        const oldCancel = document.getElementById('duplicate-cancel-btn');
-        const newCancel = oldCancel.cloneNode(true);
-        oldCancel.replaceWith(newCancel);
-        newCancel.addEventListener('click', function() {
-            document.getElementById('duplicate-modal').classList.add('hidden');
-        });
-    }
     // ─────────────────────────────────────────────────────────────────────────
 
     // ── Month pill helpers ────────────────────────────────────────────────────
@@ -1317,34 +1261,6 @@
         <div id="tx-drawer-body" class="overflow-y-auto overscroll-contain flex-1 p-4 space-y-3"></div>
         <div id="tx-budget-context" class="px-4 pb-2"></div>
         <div id="tx-drawer-footer" class="p-4 border-t flex flex-wrap gap-2"></div>
-    </div>
-</div>
-<!-- Duplicate Warning Modal -->
-<div id="duplicate-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
-    <div class="cg-card rounded-xl shadow-xl max-w-md w-full">
-        <div class="p-5 border-b flex items-start gap-3">
-            <div class="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <i class="fas fa-exclamation-triangle text-amber-600 text-sm"></i>
-            </div>
-            <div>
-                <h3 class="text-base font-semibold text-gray-800">Possible Duplicate</h3>
-                <p class="text-sm text-gray-500 mt-0.5">Similar transactions already exist within ±1 day:</p>
-            </div>
-        </div>
-        <div class="p-5">
-            <div id="duplicate-matches-list" class="space-y-2 mb-4 max-h-40 overflow-y-auto"></div>
-            <p class="text-xs text-gray-400 mb-4">Are you sure you want to add this transaction anyway?</p>
-            <div class="flex gap-3">
-                <button id="duplicate-cancel-btn"
-                        class="flex-1 px-4 py-2.5 border rounded-lg text-gray-700 hover:bg-gray-50 transition text-sm font-medium">
-                    Cancel
-                </button>
-                <button id="duplicate-confirm-btn"
-                        class="flex-1 px-4 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm font-medium">
-                    Save Anyway
-                </button>
-            </div>
-        </div>
     </div>
 </div>
 <!-- Cascade Warning Modal -->
