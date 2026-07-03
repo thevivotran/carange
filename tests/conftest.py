@@ -108,13 +108,15 @@ def profile_row(db_session):
 @pytest.fixture(autouse=True)
 def _clear_module_caches():
     """Reset in-process caches before each test to prevent cross-test contamination."""
-    from app.services import dashboard_service, rules_service
+    from app.services import dashboard_service, rules_service, template_globals
 
     dashboard_service.invalidate_dashboard_cache()
     rules_service.invalidate_payee_cache()
+    template_globals.invalidate_active_categories_cache()
     yield
     dashboard_service.invalidate_dashboard_cache()
     rules_service.invalidate_payee_cache()
+    template_globals.invalidate_active_categories_cache()
 
 
 @pytest.fixture()
