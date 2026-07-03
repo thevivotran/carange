@@ -25,6 +25,7 @@ from app.models.database import (
 from app.models.schemas import SavingsBundleCreate, TransactionCreate
 from app.services.fiscal_period import fiscal_window_ym, get_month_start_day
 from app.services.rules_service import apply_rules, normalize_description
+from app.services.template_globals import invalidate_active_categories_cache
 from app.services.savings_service import find_existing_savings_bundle as _find_existing_savings_bundle
 
 log = logging.getLogger("app.transaction_service")
@@ -96,33 +97,49 @@ def snapshot_audit_fields(transaction: Transaction) -> dict:
     return {f: getattr(transaction, f.value) for f in _AUDIT_FIELDS}
 
 
-def get_or_create_category(db: Session, category_name: str, trans_type: TransactionType) -> Category:
+def get_or_create_category(
+    db: Session,
+    category_name: str,
+    trans_type: TransactionType,
+    cache: dict[tuple[str, TransactionType], Category] | None = None,
+) -> Category:
     """Return an existing category by name+type, or create one with a random colour.
 
     Concurrent-safe: catches IntegrityError on flush (e.g. a unique index added
     later) and re-fetches the now-existing row.
+
+    An optional ``cache`` dict (keyed by ``(name, type)``) lets bulk-import loops
+    avoid a SELECT per row — pass the same dict across calls within one batch.
     """
     from sqlalchemy.exc import IntegrityError
 
     if category_name.strip() == "Khác":
         category_name = _KHAC_NAME_MAP.get(trans_type.value, category_name)
 
-    category = db.query(Category).filter(Category.name == category_name, Category.type == trans_type).first()
-    if category:
-        return category
+    cache_key = (category_name, trans_type)
+    if cache is not None and cache_key in cache:
+        return cache[cache_key]
 
-    colors = ["#EF4444", "#F59E0B", "#10B981", "#3B82F6", "#6366F1", "#8B5CF6", "#EC4899"]
-    category = Category(name=category_name, type=trans_type, color=random.choice(colors), icon="circle", is_active=True)
-    db.add(category)
-    try:
-        db.flush()
-    except IntegrityError:
-        db.rollback()
-        # Another process/thread inserted the same (name, type) row between our
-        # SELECT and INSERT — re-fetch it.
-        category = db.query(Category).filter(Category.name == category_name, Category.type == trans_type).first()
-        if category is None:
-            raise  # Genuine integrity error, not a race
+    category = db.query(Category).filter(Category.name == category_name, Category.type == trans_type).first()
+    if not category:
+        colors = ["#EF4444", "#F59E0B", "#10B981", "#3B82F6", "#6366F1", "#8B5CF6", "#EC4899"]
+        category = Category(
+            name=category_name, type=trans_type, color=random.choice(colors), icon="circle", is_active=True
+        )
+        db.add(category)
+        try:
+            db.flush()
+        except IntegrityError:
+            db.rollback()
+            # Another process/thread inserted the same (name, type) row between our
+            # SELECT and INSERT — re-fetch it.
+            category = db.query(Category).filter(Category.name == category_name, Category.type == trans_type).first()
+            if category is None:
+                raise  # Genuine integrity error, not a race
+        invalidate_active_categories_cache()
+
+    if cache is not None:
+        cache[cache_key] = category
     return category
 
 
@@ -370,6 +387,7 @@ def parse_csv_vietnamese(content: bytes, db: Session) -> dict:
     min_date: date | None = None
     max_date: date | None = None
 
+    category_cache: dict[tuple[str, TransactionType], Category] = {}
     rows = list(reader)
     for row_num, row in enumerate(rows, start=2):
         try:
@@ -407,11 +425,11 @@ def parse_csv_vietnamese(content: bytes, db: Session) -> dict:
                 max_date = transaction_date
 
             if thu > 0:
-                cat = get_or_create_category(db, category_name, TransactionType.INCOME)
+                cat = get_or_create_category(db, category_name, TransactionType.INCOME, category_cache)
                 pending.append((transaction_date, thu, TransactionType.INCOME, cat.id, description))
 
             if chi > 0:
-                cat = get_or_create_category(db, category_name, TransactionType.EXPENSE)
+                cat = get_or_create_category(db, category_name, TransactionType.EXPENSE, category_cache)
                 pending.append((transaction_date, chi, TransactionType.EXPENSE, cat.id, description))
 
             if thu == 0 and chi == 0:
@@ -493,6 +511,7 @@ def parse_csv_english(content: bytes, db: Session) -> dict:
     min_date: date | None = None
     max_date: date | None = None
 
+    category_cache: dict[tuple[str, TransactionType], Category] = {}
     rows = list(reader)
     for row_num, row in enumerate(rows, start=2):
         try:
@@ -542,7 +561,7 @@ def parse_csv_english(content: bytes, db: Session) -> dict:
                 stats["skipped"] += 1
                 continue
 
-            category = get_or_create_category(db, category_name, trans_type)
+            category = get_or_create_category(db, category_name, trans_type, category_cache)
             description = row.get(field_map.get("description", ""), "").strip() or None
             payment_method = row.get(field_map.get("payment_method", ""), "cash").strip().lower().replace(" ", "_")
             if payment_method not in valid_payments:

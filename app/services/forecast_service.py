@@ -8,6 +8,7 @@ import logging
 from datetime import date, timedelta
 from typing import Any
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 log = logging.getLogger(__name__)
@@ -112,8 +113,11 @@ def build_forecast(db: Session, horizon_days: int = 90, include_budget_estimate:
     # ── Pending project payments ─────────────────────────────────────────────
     from sqlalchemy.orm import joinedload
 
-    pending_payments = db.query(ProjectPayment).filter(ProjectPayment.status == PaymentStatus.PENDING).all()
-    skipped_no_due_date = sum(1 for p in pending_payments if p.due_date is None)
+    skipped_no_due_date = (
+        db.query(func.count(ProjectPayment.id))
+        .filter(ProjectPayment.status == PaymentStatus.PENDING, ProjectPayment.due_date.is_(None))
+        .scalar()
+    )
     if skipped_no_due_date:
         log.warning(
             "forecast: %d PENDING project payment(s) skipped because due_date is NULL.",
