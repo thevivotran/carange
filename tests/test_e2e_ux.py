@@ -740,6 +740,48 @@ class TestModalHygieneLint:
         assert not offenders, f"Modal partial double-include detected (skill gotcha #9): {offenders}"
 
 
+# ── 17. Duplicate-warning modal must ship with the shared partial ────────────
+
+
+class TestDuplicateWarningGlobal:
+    """Regression test: the duplicate-warning modal used to live only in
+    transactions/list.html, so on any of the other 15 pages that extend
+    base.html the "Add Transaction" form's duplicate check silently no-opped
+    (base.html's submit handler called showDuplicateWarning() behind a
+    `typeof fn === 'function'` guard, and then always `return`ed — so the
+    form looked inert). Fixed by moving the modal markup into the shared
+    partials/transactions/_modal_form.html and the JS into base.html so both
+    ship on every page.
+    """
+
+    def test_duplicate_modal_markup_present_on_non_transactions_page(self, client, cat_ids):
+        r = client.get("/")
+        assert r.status_code == 200
+        assert 'id="duplicate-modal"' in r.text
+        assert 'id="duplicate-matches-list"' in r.text
+        assert 'id="duplicate-confirm-btn"' in r.text
+        assert 'id="duplicate-cancel-btn"' in r.text
+
+    def test_duplicate_modal_appears_exactly_once(self, client, cat_ids):
+        r = client.get("/")
+        assert r.text.count('id="duplicate-modal"') == 1
+
+    def test_show_duplicate_warning_defined_globally_in_base_html(self):
+        from pathlib import Path
+
+        base = Path("app/templates/base.html").read_text()
+        assert re.search(r"function\s+showDuplicateWarning\s*\(", base), (
+            "showDuplicateWarning must be defined in base.html so it is available on every page"
+        )
+        # Must not remain duplicated anywhere else in the templates tree.
+        hits = []
+        for tpl in Path("app/templates").rglob("*.html"):
+            text = tpl.read_text()
+            if re.search(r"function\s+showDuplicateWarning\s*\(", text):
+                hits.append(str(tpl))
+        assert hits == ["app/templates/base.html"], f"showDuplicateWarning defined in: {hits}"
+
+
 # ── 16c. Dashboard stress-test cushion: documented inline comment ────────────
 
 
