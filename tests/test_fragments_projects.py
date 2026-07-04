@@ -1,66 +1,9 @@
-"""Tests for the payees and projects fragment endpoints.
+"""Tests for the projects fragment endpoints.
 
 Covers the previously-uncovered filter branches in
-- app/routers/fragments/payees.py:21-25 (JSON parse error path)
-- app/routers/fragments/projects.py:11-13, 27, 31 (status filter,
-  project_type filter, progress_pct calc)
+app/routers/fragments/projects.py:11-13, 27, 31 (status filter,
+project_type filter, progress_pct calc)
 """
-
-import json
-
-
-# ── Payees ────────────────────────────────────────────────────────────────
-
-
-def test_payees_list_handles_invalid_alias_patterns_json(client, db_session):
-    """A payee with malformed alias_patterns JSON should fall back to an
-    empty list rather than crash the fragment render."""
-    from app.models.database import Payee
-
-    p = Payee(
-        canonical_name="broken_payee",
-        alias_patterns="not valid json {{{",  # malformed
-    )
-    db_session.add(p)
-    db_session.commit()
-
-    r = client.get("/fragments/payees/list")
-    assert r.status_code == 200
-    # Payee name should still appear in the rendered HTML
-    assert "broken_payee" in r.text
-
-
-def test_payees_list_handles_null_alias_patterns(client, db_session):
-    """A payee with alias_patterns=None should also fall back to empty
-    list (covers the `or "[]"` branch)."""
-    from app.models.database import Payee
-
-    p = Payee(
-        canonical_name="null_patterns_payee",
-        alias_patterns=None,
-    )
-    db_session.add(p)
-    db_session.commit()
-
-    r = client.get("/fragments/payees/list")
-    assert r.status_code == 200
-    assert "null_patterns_payee" in r.text
-
-
-def test_payees_list_parses_valid_alias_patterns(client, db_session):
-    """A payee with valid JSON alias_patterns renders them correctly."""
-    from app.models.database import Payee
-
-    p = Payee(
-        canonical_name="valid_patterns_payee",
-        alias_patterns=json.dumps(["highlands", "hcm"]),
-    )
-    db_session.add(p)
-    db_session.commit()
-
-    r = client.get("/fragments/payees/list")
-    assert r.status_code == 200
-    assert "valid_patterns_payee" in r.text
 
 
 # ── Projects ──────────────────────────────────────────────────────────────

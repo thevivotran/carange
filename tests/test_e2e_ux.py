@@ -592,39 +592,6 @@ class TestTemplatesFlow:
         assert any(x["id"] == tid for x in inactive.json()), "inactive template missing from inactive list"
 
 
-# ── 13. Payees: payee extraction from description ─────────────────────────────
-
-
-class TestPayees:
-    """Payee list must be reachable; extraction may run via separate endpoint."""
-
-    def test_payee_list_endpoint_works(self, client):
-        """The /api/payees/ endpoint must return a JSON list (possibly empty)."""
-        r = client.get("/api/payees/")
-        assert r.status_code == 200
-        assert isinstance(r.json(), list)
-
-    def test_payee_create_endpoint_works(self, client):
-        """Users can manually create a payee."""
-        r = client.post(
-            "/api/payees/",
-            json={"canonical_name": "Vinmart District 1", "category_id": None},
-        )
-        # Either 200/201 (created) or 422 (needs category) — both prove the endpoint exists
-        assert r.status_code in (200, 201, 422), r.text
-
-    def test_payee_list_after_create(self, client):
-        """If payee creation succeeds, the new payee shows in the list."""
-        r = client.post(
-            "/api/payees/",
-            json={"canonical_name": "Test Cafe Unique", "category_id": None},
-        )
-        if r.status_code in (200, 201):
-            lst = client.get("/api/payees/")
-            names = [p.get("canonical_name") or p.get("name") for p in lst.json()]
-            assert "Test Cafe Unique" in names, f"created payee missing: {names}"
-
-
 # ── 14. Pagination on transactions list ──────────────────────────────────────
 
 

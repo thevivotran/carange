@@ -1,85 +1,19 @@
-"""Rules engine — normalize merchant names and apply transaction rules."""
+"""Rules engine — apply transaction rules."""
 
 import json
 import logging
 import re
-import threading
-import time
 from datetime import datetime, timezone
 from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.models.database import Payee, Transaction, TransactionRule
+from app.models.database import Transaction, TransactionRule
 
 log = logging.getLogger("app.rules_service")
 
-_VALID_FIELDS = {"description", "amount", "payment_method", "source", "payee_id", "type"}
+_VALID_FIELDS = {"description", "amount", "payment_method", "source", "type"}
 _VALID_OPS = {"equals", "contains", "regex", "range", "in", "gt", "lt"}
-
-# ── Payee pattern cache ───────────────────────────────────────────────────────
-# Stores list of (payee_id, canonical_name, [compiled_regex, ...]) tuples.
-_PAYEE_CACHE_TTL = 1800.0  # 30 minutes
-_payee_cache: list[tuple[int, str, list[re.Pattern]]] | None = None
-_payee_cache_ts: float = 0.0
-_payee_cache_lock = threading.Lock()
-
-
-def invalidate_payee_cache() -> None:
-    """Clear the compiled-pattern cache. Call after any payee write."""
-    global _payee_cache
-    with _payee_cache_lock:
-        _payee_cache = None
-
-
-def _load_payee_cache(db: Session) -> list[tuple[int, str, list[re.Pattern]]]:
-    global _payee_cache, _payee_cache_ts
-    with _payee_cache_lock:
-        if _payee_cache is not None and time.monotonic() - _payee_cache_ts <= _PAYEE_CACHE_TTL:
-            return _payee_cache
-        payees = db.query(Payee).filter(Payee.alias_patterns.isnot(None)).all()
-        compiled = []
-        for payee in payees:
-            try:
-                raw = payee.alias_patterns
-                # JSON column returns a Python list directly; TEXT fallback needs parsing
-                if isinstance(raw, str):
-                    patterns: list[str] = json.loads(raw)
-                elif isinstance(raw, list):
-                    patterns = raw
-                else:
-                    continue
-            except (json.JSONDecodeError, TypeError):
-                continue
-            rxs: list[re.Pattern] = []
-            for p in patterns:
-                try:
-                    rxs.append(re.compile(p, re.IGNORECASE))
-                except re.error:
-                    log.warning("Bad regex in payee %d: %r", payee.id, p)
-            if rxs:
-                compiled.append((payee.id, payee.canonical_name, rxs))
-        _payee_cache = compiled
-        _payee_cache_ts = time.monotonic()
-        return _payee_cache
-
-
-def normalize_description(db: Session, raw: str) -> tuple[str, Optional[int]]:
-    """Match raw description against payee alias_patterns.
-
-    Returns (raw, payee_id) when a payee matches — description is intentionally
-    kept verbatim so detail information is not lost.
-    Returns (raw, None) when nothing matches.
-    Patterns are pre-compiled and cached; invalidated on payee writes.
-    """
-    if not raw:
-        return raw, None
-
-    for payee_id, canonical_name, rxs in _load_payee_cache(db):
-        for rx in rxs:
-            if rx.search(raw):
-                return raw, payee_id
-    return raw, None
 
 
 class RuleAction:
@@ -102,7 +36,6 @@ def load_active_rules(db: Session) -> list[TransactionRule]:
 def apply_rules(
     db: Session,
     tx: Transaction,
-    payee_id: Optional[int] = None,
     rules: Optional[list[TransactionRule]] = None,
 ) -> RuleAction:
     """Apply the first matching active rule (ordered by priority asc) to tx.
@@ -118,7 +51,7 @@ def apply_rules(
         rules = load_active_rules(db)
 
     for rule in rules:
-        if _matches(rule, tx, payee_id):
+        if _matches(rule, tx):
             raw = rule.action_json
             try:
                 if isinstance(raw, str):
@@ -146,7 +79,7 @@ def apply_rules(
     return action
 
 
-def _matches(rule: TransactionRule, tx: Transaction, payee_id: Optional[int]) -> bool:
+def _matches(rule: TransactionRule, tx: Transaction) -> bool:
     field = rule.match_field
     op = rule.match_op
     pattern = rule.match_value or ""
@@ -162,8 +95,6 @@ def _matches(rule: TransactionRule, tx: Transaction, payee_id: Optional[int]) ->
         val = tx.payment_method or ""
     elif field == "source":
         val = tx.source or ""
-    elif field == "payee_id":
-        val = str(payee_id) if payee_id is not None else ""
     elif field == "type":
         val = tx.type.value if tx.type else ""
 

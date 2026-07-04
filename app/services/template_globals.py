@@ -13,9 +13,8 @@ from app.models.database import Category, SessionLocal
 
 # Every full-page render (16+ templates extend base.html) calls this global,
 # each previously opening its own SessionLocal() just to list active
-# categories for the quick-add modal. Cache with a short TTL — same pattern
-# as rules_service._load_payee_cache — and invalidate explicitly on writes
-# so category edits still show up promptly.
+# categories for the quick-add modal. Cache with a short TTL and invalidate
+# explicitly on writes so category edits still show up promptly.
 _CACHE_TTL = 60.0  # seconds
 _cache: list[Category] | None = None
 _cache_ts: float = 0.0

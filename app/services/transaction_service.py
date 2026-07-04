@@ -24,7 +24,7 @@ from app.models.database import (
 )
 from app.models.schemas import SavingsBundleCreate, TransactionCreate
 from app.services.fiscal_period import fiscal_window_ym, get_month_start_day
-from app.services.rules_service import apply_rules, normalize_description
+from app.services.rules_service import apply_rules
 from app.services.template_globals import invalidate_active_categories_cache
 from app.services.savings_service import find_existing_savings_bundle as _find_existing_savings_bundle
 
@@ -191,10 +191,6 @@ def create_transaction(db: Session, data: TransactionCreate) -> Transaction:
 
         transaction_data["savings_bundle_id"] = savings_bundle_id
 
-        # Resolve payee_id without touching the description
-        _, payee_id = normalize_description(db, transaction_data.get("description") or "")
-        transaction_data["payee_id"] = payee_id
-
         db_tx = Transaction(**transaction_data)
         db.add(db_tx)
         db.flush()
@@ -203,7 +199,7 @@ def create_transaction(db: Session, data: TransactionCreate) -> Transaction:
         # Guard the tx.type <-> category.type invariant: if a rule overrides
         # to a category of the OPPOSITE type, revert the override and log a
         # warning instead of silently corrupting aggregations.
-        action = apply_rules(db, db_tx, payee_id)
+        action = apply_rules(db, db_tx)
         if action.category_id is not None and action.category_id != db_tx.category_id:
             new_cat = db.query(Category).filter(Category.id == action.category_id).first()
             if new_cat is not None and new_cat.type != db_tx.type:
@@ -216,6 +212,7 @@ def create_transaction(db: Session, data: TransactionCreate) -> Transaction:
                 )
             else:
                 db_tx.category_id = action.category_id
+
         if action.force_needs_review:
             db_tx.needs_review = True
 
