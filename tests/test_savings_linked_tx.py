@@ -21,8 +21,8 @@ def test_create_bundle_auto_creates_linked_transaction(client):
             "initial_deposit": 10_000_000,
             "future_amount": 10_500_000,
             "interest_rate": 5.0,
-            "start_date": "2026-01-15",
-            "maturity_date": "2026-07-15",
+            "start_date": "2030-01-15",
+            "maturity_date": "2030-07-15",
         },
     )
     assert r.status_code == 200
@@ -51,8 +51,8 @@ def test_update_bundle_syncs_linked_tx_amount(client):
             "initial_deposit": 20_000_000,
             "future_amount": 21_000_000,
             "interest_rate": 5.0,
-            "start_date": "2026-02-01",
-            "maturity_date": "2026-08-01",
+            "start_date": "2030-02-01",
+            "maturity_date": "2030-08-01",
         },
     )
     assert r.status_code == 200
@@ -86,8 +86,8 @@ def test_update_bundle_initial_deposit_does_not_duplicate_linked_tx(client):
             "initial_deposit": 5_000_000,
             "future_amount": 5_250_000,
             "interest_rate": 5.0,
-            "start_date": "2026-03-01",
-            "maturity_date": "2026-09-01",
+            "start_date": "2030-03-01",
+            "maturity_date": "2030-09-01",
         },
     )
     assert r.status_code == 200
@@ -115,8 +115,8 @@ def test_rollover_creates_linked_tx_for_new_bundle(client):
             "initial_deposit": 30_000_000,
             "future_amount": 31_500_000,
             "interest_rate": 5.0,
-            "start_date": "2024-01-01",
-            "maturity_date": "2024-07-01",
+            "start_date": "2030-01-01",
+            "maturity_date": "2030-07-01",
         },
     )
     assert r.status_code == 200
@@ -149,8 +149,8 @@ def test_delete_linked_tx_does_not_affect_bundle(client):
             "initial_deposit": 15_000_000,
             "future_amount": 15_750_000,
             "interest_rate": 5.0,
-            "start_date": "2026-04-01",
-            "maturity_date": "2026-10-01",
+            "start_date": "2030-04-01",
+            "maturity_date": "2030-10-01",
         },
     )
     assert r.status_code == 200
@@ -186,8 +186,8 @@ def test_add_deposit_to_active_bundle(client):
             "initial_deposit": 10_000_000,
             "future_amount": 10_500_000,
             "interest_rate": 5.0,
-            "start_date": "2026-01-15",
-            "maturity_date": "2026-07-15",
+            "start_date": "2030-01-15",
+            "maturity_date": "2030-07-15",
         },
     )
     assert r.status_code == 200
@@ -198,7 +198,7 @@ def test_add_deposit_to_active_bundle(client):
     r = client.post(
         f"/api/savings/{bundle_id}/deposit",
         json={
-            "date": "2026-03-01",
+            "date": "2030-03-01",
             "amount": 2_000_000,
             "description": "Additional deposit",
         },
@@ -226,8 +226,8 @@ def test_add_deposit_to_inactive_bundle_fails(client):
             "type": "fixed_deposit",
             "initial_deposit": 5_000_000,
             "future_amount": 5_250_000,
-            "start_date": "2026-01-01",
-            "maturity_date": "2026-02-01",
+            "start_date": "2030-01-01",
+            "maturity_date": "2030-02-01",
         },
     )
     assert r.status_code == 200
@@ -240,7 +240,7 @@ def test_add_deposit_to_inactive_bundle_fails(client):
     # Try to deposit
     r = client.post(
         f"/api/savings/{bundle_id}/deposit",
-        json={"date": "2026-03-01", "amount": 1_000_000},
+        json={"date": "2030-03-01", "amount": 1_000_000},
     )
     assert r.status_code == 400
 
@@ -249,7 +249,7 @@ def test_add_deposit_to_nonexistent_bundle_fails(client):
     """Adding a deposit to a non-existent bundle should return 404."""
     r = client.post(
         "/api/savings/99999/deposit",
-        json={"date": "2026-03-01", "amount": 1_000_000},
+        json={"date": "2030-03-01", "amount": 1_000_000},
     )
     assert r.status_code == 404
 
@@ -266,8 +266,8 @@ def test_create_bundle_uses_configured_deposit_category(client):
             "initial_deposit": 1_000_000,
             "future_amount": 1_050_000,
             "interest_rate": 5.0,
-            "start_date": "2026-01-01",
-            "maturity_date": "2026-07-01",
+            "start_date": "2030-01-01",
+            "maturity_date": "2030-07-01",
         },
     )
     assert r.status_code == 200
@@ -293,8 +293,8 @@ def test_create_bundle_uses_configured_deposit_category(client):
             "initial_deposit": 10_000_000,
             "future_amount": 10_500_000,
             "interest_rate": 5.0,
-            "start_date": "2026-05-01",
-            "maturity_date": "2026-11-01",
+            "start_date": "2030-05-01",
+            "maturity_date": "2030-11-01",
         },
     )
     assert r.status_code == 200
@@ -318,8 +318,8 @@ def test_transaction_derives_is_savings_related_from_category(client):
             "initial_deposit": 1_000_000,
             "future_amount": 1_050_000,
             "interest_rate": 5.0,
-            "start_date": "2026-01-01",
-            "maturity_date": "2026-07-01",
+            "start_date": "2030-01-01",
+            "maturity_date": "2030-07-01",
         },
     )
     assert r.status_code == 200
@@ -335,7 +335,7 @@ def test_transaction_derives_is_savings_related_from_category(client):
     r = client.post(
         "/api/transactions/",
         json={
-            "date": "2026-06-01",
+            "date": "2030-06-01",
             "amount": 3_000_000,
             "type": "expense",
             "category_id": savings_cat["id"],
@@ -354,7 +354,7 @@ def test_transaction_derives_is_savings_related_from_category(client):
         r = client.post(
             "/api/transactions/",
             json={
-                "date": "2026-06-01",
+                "date": "2030-06-01",
                 "amount": 500_000,
                 "type": "expense",
                 "category_id": regular_cat["id"],
@@ -382,8 +382,8 @@ def test_configured_deposit_category_fallback_on_invalid_id(client):
             "initial_deposit": 5_000_000,
             "future_amount": 5_250_000,
             "interest_rate": 5.0,
-            "start_date": "2026-01-01",
-            "maturity_date": "2026-07-01",
+            "start_date": "2030-01-01",
+            "maturity_date": "2030-07-01",
         },
     )
     assert r.status_code == 200

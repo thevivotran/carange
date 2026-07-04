@@ -49,12 +49,13 @@
             <div>
                 <label class="field-required block text-sm font-medium text-gray-700 mb-2">Amount (VND)</label>
                 <input type="number" id="amount" name="amount" required min="0" step="1"
+                       inputmode="decimal"
                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                        placeholder="Enter exact amount"
                        hx-get="/fragments/transactions/budget-preview"
                        hx-include="[name=category_id],[name=amount],[name=date]"
                        hx-target="#tx-budget-preview"
-                       hx-trigger="change, keyup changed delay:400ms">
+                       hx-trigger="keyup changed delay:400ms, focusout">
                 <div id="tx-budget-preview" class="mt-2"></div>
             </div>
 
@@ -76,6 +77,9 @@
                         hx-target="#tx-budget-preview"
                         hx-trigger="change">
                     <option value="">Select Category</option>
+                    {% for c in (_all_categories or []) %}
+                    <option value="{{ c.id }}" data-type="{{ c.type.value if c.type is defined and c.type.value is defined else c.type }}">{{ c.name }}</option>
+                    {% endfor %}
                 </select>
             </div>
 
@@ -183,6 +187,34 @@
                 </button>
             </div>
         </form>
+        </div>
+    </div>
+</div>
+<!-- Duplicate Warning Modal -->
+<div id="duplicate-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
+    <div class="cg-card rounded-xl shadow-xl max-w-md w-full">
+        <div class="p-5 border-b flex items-start gap-3">
+            <div class="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <i class="fas fa-exclamation-triangle text-amber-600 text-sm"></i>
+            </div>
+            <div>
+                <h3 class="text-base font-semibold text-gray-800">Possible Duplicate</h3>
+                <p class="text-sm text-gray-500 mt-0.5">Similar transactions already exist within ±1 day:</p>
+            </div>
+        </div>
+        <div class="p-5">
+            <div id="duplicate-matches-list" class="space-y-2 mb-4 max-h-40 overflow-y-auto"></div>
+            <p class="text-xs text-gray-400 mb-4">Are you sure you want to add this transaction anyway?</p>
+            <div class="flex gap-3">
+                <button id="duplicate-cancel-btn"
+                        class="flex-1 px-4 py-2.5 border rounded-lg text-gray-700 hover:bg-gray-50 transition text-sm font-medium">
+                    Cancel
+                </button>
+                <button id="duplicate-confirm-btn"
+                        class="flex-1 px-4 py-2.5 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition text-sm font-medium">
+                    Save Anyway
+                </button>
+            </div>
         </div>
     </div>
 </div>

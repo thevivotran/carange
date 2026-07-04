@@ -517,36 +517,31 @@ def test_update_payment_route_returns_500_on_service_error(client):
 
 def test_create_bundle_null_current_amount_defaults_to_initial_deposit(db_session):
     """Covers the current_amount default branch. Called directly because
-    sending current_amount=null via API hits a validator TypeError.
-
-    The mock must also expose ``name`` and ``bank_name`` (real strings, not
-    MagicMock children) because the dedup check at the top of
-    create_savings_bundle passes them straight into the SQLAlchemy query.
+    sending current_amount=None via the API is normalized to 0 by Pydantic
+    before reaching the router; we use model_construct() to bypass the
+    Field(default=0) and exercise the router's own fallback.
     """
-    from unittest.mock import MagicMock
-
+    from app.models.schemas import SavingsBundleCreate
     from app.routers.savings import create_savings_bundle
+    from datetime import timedelta
 
-    mock_bundle = MagicMock()
-    mock_bundle.linked_project_id = None
-    mock_bundle.name = "Auto Amount Bundle"
-    mock_bundle.bank_name = "VCB"
-    mock_bundle.model_dump.return_value = {
-        "name": "Auto Amount Bundle",
-        "bank_name": "VCB",
-        "type": "fixed_deposit",
-        "initial_deposit": 10_000_000,
-        "current_amount": None,
-        "future_amount": 11_000_000,
-        "interest_rate": None,
-        "start_date": date(2026, 1, 1),
-        "maturity_date": date(2027, 1, 1),
-        "notes": None,
-        "linked_project_id": None,
-        "status": None,
-    }
+    today = date.today()
+    bundle = SavingsBundleCreate.model_construct(
+        name="Auto Amount Bundle",
+        bank_name="VCB",
+        type="fixed_deposit",
+        initial_deposit=10_000_000,
+        current_amount=None,  # exercises the router's `or initial_deposit` fallback
+        future_amount=11_000_000,
+        interest_rate=None,
+        start_date=today,
+        maturity_date=today + timedelta(days=365),
+        notes=None,
+        linked_project_id=None,
+        status=None,
+    )
 
-    result = create_savings_bundle(mock_bundle, db_session)
+    result = create_savings_bundle(bundle, db_session)
     assert result.current_amount == 10_000_000
 
 

@@ -6,7 +6,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from app.models.database import (
     get_db,
@@ -114,6 +114,21 @@ def get_savings_bundle(bundle_id: int, db: Session = Depends(get_db)):
 
 @router.post("/", response_model=SavingsBundleSchema)
 def create_savings_bundle(bundle: SavingsBundleCreate, db: Session = Depends(get_db)):
+    # Validate date ordering — these are silent otherwise and produce nonsense
+    # bundles (e.g. maturity before start, or in the past). Date-only check
+    # is intentional: same-day start and maturity is allowed for short bundles.
+    if bundle.maturity_date is not None and bundle.start_date is not None:
+        if bundle.maturity_date < bundle.start_date:
+            raise HTTPException(
+                status_code=422,
+                detail=f"maturity_date ({bundle.maturity_date}) must be on or after start_date ({bundle.start_date}).",
+            )
+    if bundle.maturity_date is not None and bundle.maturity_date < date.today():
+        raise HTTPException(
+            status_code=422,
+            detail=f"maturity_date ({bundle.maturity_date}) must be today or later.",
+        )
+
     # If linked to project, verify project exists
     if bundle.linked_project_id:
         project = db.query(FinancialProject).filter(FinancialProject.id == bundle.linked_project_id).first()
@@ -163,7 +178,9 @@ def create_savings_bundle(bundle: SavingsBundleCreate, db: Session = Depends(get
 
 @router.put("/{bundle_id}", response_model=SavingsBundleSchema)
 def update_savings_bundle(bundle_id: int, bundle_update: SavingsBundleUpdate, db: Session = Depends(get_db)):
-    db_bundle = db.query(SavingsBundle).filter(SavingsBundle.id == bundle_id).first()
+    db_bundle = (
+        db.query(SavingsBundle).filter(SavingsBundle.id == bundle_id, SavingsBundle.deleted_at.is_(None)).first()
+    )
     if not db_bundle:
         raise HTTPException(status_code=404, detail="Savings bundle not found")
 

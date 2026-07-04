@@ -6,6 +6,7 @@ from typing import List
 from app.models.database import get_db, Category, Transaction
 from app.models.schemas import Category as CategorySchema, CategoryCreate, CategoryUpdate
 from app.services.dashboard_service import VALID_KPI_ROLES, invalidate_dashboard_cache
+from app.services.template_globals import invalidate_active_categories_cache
 
 router = APIRouter()
 
@@ -69,6 +70,7 @@ def create_category(category: CategoryCreate, db: Session = Depends(get_db)):
     db.add(db_category)
     db.commit()
     db.refresh(db_category)
+    invalidate_active_categories_cache()
     if db_category.kpi_role:
         invalidate_dashboard_cache(db)
     return db_category
@@ -102,6 +104,7 @@ def update_category(category_id: int, category: CategoryUpdate, db: Session = De
 
     db.commit()
     db.refresh(db_category)
+    invalidate_active_categories_cache()
     if kpi_role_changed:
         invalidate_dashboard_cache(db)
     return db_category
@@ -137,6 +140,7 @@ def delete_category(category_id: int, db: Session = Depends(get_db)):
 
     db.delete(category)
     db.commit()
+    invalidate_active_categories_cache()
     return {"message": "Category deleted successfully"}
 
 
@@ -153,6 +157,7 @@ def merge_category(category_id: int, target_id: int, db: Session = Depends(get_d
     count = db.query(Transaction).filter(Transaction.category_id == category_id).update({"category_id": target_id})
     db.delete(source)
     db.commit()
+    invalidate_active_categories_cache()
     return {"message": f"Merged {count} transactions into {target.name}", "moved": count}
 
 
@@ -164,6 +169,7 @@ def toggle_category_active(category_id: int, db: Session = Depends(get_db)):
 
     category.is_active = not category.is_active
     db.commit()
+    invalidate_active_categories_cache()
 
     return {
         "message": f"Category {'activated' if category.is_active else 'deactivated'}",

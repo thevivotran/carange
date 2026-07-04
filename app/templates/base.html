@@ -1176,6 +1176,63 @@
         });
     });
 
+    function showDuplicateWarning(matches, originalData) {
+        const list = document.getElementById('duplicate-matches-list');
+        while (list.firstChild) list.removeChild(list.firstChild);
+
+        matches.forEach(function(m) {
+            const item = document.createElement('div');
+            item.className = 'flex items-center gap-2 text-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2';
+            const dateSpan = document.createElement('span');
+            dateSpan.className = 'text-gray-500 flex-shrink-0';
+            dateSpan.textContent = m.date;
+            const amtSpan = document.createElement('span');
+            amtSpan.className = 'font-semibold text-gray-700 flex-shrink-0';
+            amtSpan.textContent = formatVND(m.amount);
+            const descSpan = document.createElement('span');
+            descSpan.className = 'text-gray-500 truncate flex-1';
+            descSpan.textContent = m.description || '—';
+            item.appendChild(dateSpan);
+            item.appendChild(amtSpan);
+            item.appendChild(descSpan);
+            list.appendChild(item);
+        });
+
+        document.getElementById('duplicate-modal').classList.remove('hidden');
+
+        const oldConfirm = document.getElementById('duplicate-confirm-btn');
+        const newConfirm = oldConfirm.cloneNode(true);
+        oldConfirm.replaceWith(newConfirm);
+        newConfirm.addEventListener('click', async function() {
+            document.getElementById('duplicate-modal').classList.add('hidden');
+            try {
+                const res = await fetch('/api/transactions/?force=true', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(originalData),
+                });
+                if (res.ok) {
+                    closeTransactionModal();
+                    if (typeof saveFilters === 'function') saveFilters();
+                    if (typeof loadTransactions === 'function') loadTransactions();
+                    if (typeof loadMonthlySummary === 'function') loadMonthlySummary();
+                } else {
+                    const err = await res.json();
+                    showToast('Error: ' + (err.detail || 'Failed'), 'error');
+                }
+            } catch(e) {
+                showToast('Failed to save transaction', 'error');
+            }
+        });
+
+        const oldCancel = document.getElementById('duplicate-cancel-btn');
+        const newCancel = oldCancel.cloneNode(true);
+        oldCancel.replaceWith(newCancel);
+        newCancel.addEventListener('click', function() {
+            document.getElementById('duplicate-modal').classList.add('hidden');
+        });
+    }
+
     async function editTransaction(id) {
         try {
             var response = await fetch('/api/transactions/' + id);
@@ -1256,6 +1313,7 @@
         <i class="fas fa-plus text-xl"></i>
     </button>
 
+    {% set _all_categories = get_all_active_categories() %}
     {% include "partials/transactions/_modal_form.html" %}
 
     <!-- Toast container — Alpine-driven, sits above bottom nav on mobile -->

@@ -172,11 +172,10 @@ def bulk_create_payments(db: Session, project: FinancialProject, req) -> list[Pr
             created.append(p)
             current = next_date(current, req.interval)
         db.flush()
+        ids = [p.id for p in created]
         recompute_project_totals(db, project)
         db.commit()
-        for p in created:
-            db.refresh(p)
-        return created
+        return db.query(ProjectPayment).filter(ProjectPayment.id.in_(ids)).order_by(ProjectPayment.due_date).all()
     except Exception:
         db.rollback()
         raise

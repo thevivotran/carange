@@ -23,19 +23,32 @@ class RuleAction:
         self.force_needs_review: bool = False
 
 
-def apply_rules(db: Session, tx: Transaction) -> RuleAction:
-    """Apply the first matching active rule (ordered by priority asc) to tx.
-
-    Mutates rule stats (match_count, last_matched_at) but does NOT commit.
-    Returns a RuleAction describing what should change on the transaction.
-    """
-    action = RuleAction()
-    rules = (
+def load_active_rules(db: Session) -> list[TransactionRule]:
+    """Fetch active rules ordered by priority, for reuse across a batch of calls to apply_rules()."""
+    return (
         db.query(TransactionRule)
         .filter(TransactionRule.is_active == True)
         .order_by(TransactionRule.priority.asc(), TransactionRule.id.asc())
         .all()
     )
+
+
+def apply_rules(
+    db: Session,
+    tx: Transaction,
+    rules: Optional[list[TransactionRule]] = None,
+) -> RuleAction:
+    """Apply the first matching active rule (ordered by priority asc) to tx.
+
+    Mutates rule stats (match_count, last_matched_at) but does NOT commit.
+    Returns a RuleAction describing what should change on the transaction.
+
+    Pass ``rules`` (e.g. from :func:`load_active_rules`) to skip the query when
+    applying rules to many transactions in one batch.
+    """
+    action = RuleAction()
+    if rules is None:
+        rules = load_active_rules(db)
 
     for rule in rules:
         if _matches(rule, tx):

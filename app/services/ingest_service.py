@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.models.database import Category, Transaction, TransactionType
 from app.services import ollama as _ollama
-from app.services.rules_service import RuleAction, apply_rules
+from app.services.rules_service import RuleAction, apply_rules, load_active_rules
 
 log = logging.getLogger("app.ingest_service")
 
@@ -50,13 +50,15 @@ def commit_ingest_batch(
     Returns the list of Transaction objects that were created.
     """
     committed: list[Transaction] = []
+    active_rules = load_active_rules(db)
+    category_cache: dict[TransactionType, list[Category]] = {}
 
     for item in items:
         if _is_duplicate(db, item):
             log.debug("Duplicate skipped: %s %s %.0f", item.date, item.description, item.amount)
             continue
 
-        category_id = _resolve_category(db, item)
+        category_id = _resolve_category(db, item, category_cache)
         if category_id is None:
             log.warning("No category for '%s' — skipping", item.description)
             continue
@@ -77,7 +79,7 @@ def commit_ingest_batch(
         db.add(tx)
         db.flush()  # populate tx.id so apply_rules can reference it
 
-        action: RuleAction = apply_rules(db, tx)
+        action: RuleAction = apply_rules(db, tx, rules=active_rules)
         if action.category_id is not None:
             tx.category_id = action.category_id
         if action.auto_approve:
@@ -173,10 +175,21 @@ def _is_anomaly(db: Session, item: IngestItem, category_id: int) -> bool:
     return item.amount > float(row.avg) * ANOMALY_MULTIPLIER
 
 
-def _resolve_category(db: Session, item: IngestItem) -> Optional[int]:
-    """Resolve category: hint match → Ollama LLM → keyword fallback → first active."""
+def _resolve_category(
+    db: Session, item: IngestItem, cache: Optional[dict[TransactionType, list[Category]]] = None
+) -> Optional[int]:
+    """Resolve category: hint match → Ollama LLM → keyword fallback → first active.
+
+    ``cache`` (keyed by tx_type) lets callers batching many items reuse one
+    active-categories query per type instead of one per item.
+    """
     tx_type = TransactionType(item.tx_type)
-    active = db.query(Category).filter(Category.type == tx_type, Category.is_active == True).all()
+    if cache is not None and tx_type in cache:
+        active = cache[tx_type]
+    else:
+        active = db.query(Category).filter(Category.type == tx_type, Category.is_active == True).all()
+        if cache is not None:
+            cache[tx_type] = active
     if not active:
         return None
 

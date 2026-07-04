@@ -10,26 +10,33 @@ class TestSavePayCycle:
         assert get_setting(db_session, "month_start_day") == "19"
 
     def test_clamps_below_min(self, client, db_session):
+        # 0 is invalid; the handler must reject it with 400 (not silently clamp).
         r = client.post("/settings/pay-cycle", data={"month_start_day": "0"})
-        assert r.status_code == 200
-        assert get_setting(db_session, "month_start_day") == "1"
+        assert r.status_code == 400
 
     def test_clamps_above_max(self, client, db_session):
+        # 40 is invalid; the handler must reject it with 400 (not silently clamp).
         r = client.post("/settings/pay-cycle", data={"month_start_day": "40"})
-        assert r.status_code == 200
-        assert get_setting(db_session, "month_start_day") == "31"
+        assert r.status_code == 400
 
-    def test_pay_cycle_accepts_30(self, client, db_session):
+    def test_pay_cycle_accepts_28(self, client, db_session):
+        # 28 is the new max (every month has at least 28 days).
         from app.services.fiscal_period import get_month_start_day
 
-        r = client.post("/settings/pay-cycle", data={"month_start_day": "30"})
+        r = client.post("/settings/pay-cycle", data={"month_start_day": "28"})
         assert r.status_code == 200
-        assert get_month_start_day(db_session) == 30
+        assert get_month_start_day(db_session) == 28
+
+    def test_pay_cycle_rejects_29(self, client, db_session):
+        # 29 is invalid (Feb has 28-29 in non-leap years; 28 is the safe max).
+        r = client.post("/settings/pay-cycle", data={"month_start_day": "29"})
+        assert r.status_code == 400
 
     def test_defaults_on_non_numeric(self, client, db_session):
+        # Non-numeric input is invalid; the handler must reject it with 400
+        # (the previous silent fallback to "1" hid user typos).
         r = client.post("/settings/pay-cycle", data={"month_start_day": "x"})
-        assert r.status_code == 200
-        assert get_setting(db_session, "month_start_day") == "1"
+        assert r.status_code == 400
 
     def test_settings_page_renders_pay_cycle_card(self, client, db_session):
         r = client.get("/settings")

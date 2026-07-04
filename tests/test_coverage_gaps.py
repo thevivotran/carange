@@ -93,7 +93,11 @@ def test_create_bundle_maturity_before_start_rejected(client):
 
 def test_create_bundle_maturity_same_as_start_is_allowed(client):
     # Validator only rejects maturity < start, not equal
-    r = client.post("/api/savings/", json=_bundle(start_date="2026-01-01", maturity_date="2026-01-01"))
+    from datetime import date, timedelta
+
+    today = date.today()
+    sd = (today + timedelta(days=10)).isoformat()
+    r = client.post("/api/savings/", json=_bundle(start_date=sd, maturity_date=sd))
     assert r.status_code == 200
 
 

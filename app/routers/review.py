@@ -40,7 +40,13 @@ def approve(tx_id: int, payload: ApprovePayload = ApprovePayload(), db: Session 
     if payload.date is not None:
         from datetime import date
 
-        tx.date = date.fromisoformat(payload.date)
+        try:
+            tx.date = date.fromisoformat(payload.date)
+        except (ValueError, TypeError) as exc:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid date '{payload.date}': must be ISO format YYYY-MM-DD. ({exc})",
+            ) from exc
     if payload.payment_method is not None:
         tx.payment_method = payload.payment_method
     tx.needs_review = False

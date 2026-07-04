@@ -8,6 +8,7 @@ from app.models.schemas import (
     TransactionTemplateCreate,
     TransactionTemplateUpdate,
 )
+from app.services.dashboard_service import invalidate_dashboard_cache
 
 router = APIRouter()
 
@@ -52,6 +53,7 @@ def create_template(template: TransactionTemplateCreate, db: Session = Depends(g
     db.add(db_template)
     db.commit()
     db.refresh(db_template)
+    invalidate_dashboard_cache(db)
     return db_template
 
 
@@ -73,6 +75,7 @@ def update_template(template_id: int, template: TransactionTemplateUpdate, db: S
 
     db.commit()
     db.refresh(db_template)
+    invalidate_dashboard_cache(db)
     return db_template
 
 
@@ -84,4 +87,5 @@ def delete_template(template_id: int, db: Session = Depends(get_db)):
 
     db.delete(template)
     db.commit()
+    invalidate_dashboard_cache(db)
     return {"message": "Template deleted successfully"}

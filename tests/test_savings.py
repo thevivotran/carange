@@ -19,8 +19,8 @@ def _bundle_payload(**overrides):
         "current_amount": 50_000_000,
         "future_amount": 53_000_000,
         "interest_rate": 6.0,
-        "start_date": "2026-01-01",
-        "maturity_date": "2026-07-01",
+        "start_date": "2030-01-01",
+        "maturity_date": "2030-07-01",
     }
     base.update(overrides)
     return base
@@ -124,8 +124,8 @@ def test_rollover_creates_new_active_bundle(client):
         "/api/savings/",
         json=_bundle_payload(
             future_amount=53_000_000,
-            start_date="2026-01-01",
-            maturity_date="2026-07-01",
+            start_date="2030-01-01",
+            maturity_date="2030-07-01",
         ),
     ).json()["id"]
     r = client.post(f"/api/savings/{bundle_id}/rollover")
