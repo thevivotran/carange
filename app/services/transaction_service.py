@@ -4,10 +4,12 @@ import csv
 import logging
 import io
 import math
+import os
 import random
 import threading
 from datetime import date, datetime, timedelta, timezone
 
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.database import (
@@ -32,6 +34,47 @@ log = logging.getLogger("app.transaction_service")
 
 _KHAC_NAME_MAP = {"income": "Thu nhập khác", "expense": "Chi phí khác"}
 _AUDIT_FIELDS = list(AuditField)
+
+# Shared with ingest_service._is_anomaly (ingest-time review flag) and reused
+# here as a reporting-time outlier filter — same thresholds, same env vars.
+ANOMALY_MULTIPLIER = float(os.getenv("ANOMALY_MULTIPLIER", "3.0"))
+ANOMALY_MIN_SAMPLES = int(os.getenv("ANOMALY_MIN_SAMPLES", "3"))
+ANOMALY_WINDOW_DAYS = int(os.getenv("ANOMALY_WINDOW_DAYS", "90"))
+
+
+def is_statistical_outlier(
+    db: Session,
+    category_id: int,
+    tx_type: TransactionType,
+    amount: float,
+    as_of_date: date,
+    exclude_tx_id: int | None = None,
+) -> bool:
+    """True if amount exceeds ANOMALY_MULTIPLIER x the category's trailing
+    ANOMALY_WINDOW_DAYS-day average (requires >=ANOMALY_MIN_SAMPLES prior transactions).
+
+    The baseline only looks at transactions strictly before as_of_date, so a
+    transaction never inflates its own baseline. exclude_tx_id additionally
+    excludes a specific row (e.g. the transaction under evaluation, if it has
+    already been flushed with the same date).
+    """
+    cutoff = as_of_date - timedelta(days=ANOMALY_WINDOW_DAYS)
+    query = db.query(
+        func.count(Transaction.id).label("n"),
+        func.avg(Transaction.amount).label("avg"),
+    ).filter(
+        Transaction.category_id == category_id,
+        Transaction.type == tx_type,
+        Transaction.date >= cutoff,
+        Transaction.date < as_of_date,
+        Transaction.deleted_at.is_(None),
+    )
+    if exclude_tx_id is not None:
+        query = query.filter(Transaction.id != exclude_tx_id)
+    row = query.first()
+    if not row or row.n < ANOMALY_MIN_SAMPLES or not row.avg:
+        return False
+    return float(amount) > float(row.avg) * ANOMALY_MULTIPLIER
 
 
 def check_duplicate(

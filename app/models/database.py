@@ -89,6 +89,12 @@ class Priority(str, enum.Enum):
     LOW = "low"
 
 
+class SpendNature(str, enum.Enum):
+    RECURRING = "recurring"
+    DISCRETIONARY = "discretionary"
+    MIXED = "mixed"
+
+
 class PaymentStatus(str, enum.Enum):
     PENDING = "pending"
     PAID = "paid"
@@ -200,6 +206,7 @@ class Category(Base):
     is_passive_income = Column(Boolean, default=False, nullable=False, server_default="0")
     kpi_role = Column(String(20), nullable=True)  # "liquid_savings" | "real_estate"
     is_savings_category = Column(Boolean, default=False, nullable=False, server_default="0")
+    spend_nature = Column(CIEnum(SpendNature), default=SpendNature.MIXED, nullable=False, server_default="mixed")
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     transactions = relationship("Transaction", back_populates="category")
