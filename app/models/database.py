@@ -224,7 +224,6 @@ class Transaction(Base):
     project_id = Column(Integer, ForeignKey("financial_projects.id"), nullable=True)
     import_job_id = Column(Integer, ForeignKey("import_jobs.id"), nullable=True)
     email_ingest_log_id = Column(Integer, ForeignKey("email_ingest_log.id"), nullable=True)
-    payee_id = Column(Integer, ForeignKey("payees.id"), nullable=True)
     confidence_score = Column(Float, nullable=True)
     needs_review = Column(Boolean, default=False)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
@@ -240,7 +239,6 @@ class Transaction(Base):
     project = relationship("FinancialProject", back_populates="transactions")
     import_job = relationship("ImportJob", back_populates="transactions")
     email_ingest_log = relationship("EmailIngestLog", back_populates="transactions")
-    payee = relationship("Payee")
     audit_logs = relationship("TransactionAuditLog", back_populates="transaction", cascade="all, delete-orphan")
 
     __table_args__ = (
@@ -420,7 +418,7 @@ class TransactionRule(Base):
     priority = Column(Integer, default=0, nullable=False)  # lower number = higher priority
 
     # Matcher
-    match_field = Column(String(50), nullable=False)  # description|amount|payment_method|source|payee_id|type
+    match_field = Column(String(50), nullable=False)  # description|amount|payment_method|source|type
     match_op = Column(String(20), nullable=False)  # equals|contains|regex|range|in
     match_value = Column(Text, nullable=False)
 
@@ -437,25 +435,6 @@ class TransactionRule(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
-
-
-class Payee(Base):
-    __tablename__ = "payees"
-
-    id = Column(Integer, primary_key=True, index=True)
-    canonical_name = Column(String(200), nullable=False, unique=True)
-    default_category_id = Column(Integer, ForeignKey("categories.id"), nullable=True)
-    alias_patterns = Column(JSON, nullable=True)  # list[str] — JSONB in PostgreSQL via migration 0014
-    source = Column(String(20), default="manual")  # manual|learned|bootstrap
-
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(
-        DateTime(timezone=True),
-        default=lambda: datetime.now(timezone.utc),
-        onupdate=lambda: datetime.now(timezone.utc),
-    )
-
-    default_category = relationship("Category")
 
 
 class EmailIngestLog(Base):

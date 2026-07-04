@@ -1,4 +1,4 @@
-"""Phase 1 feature tests: rules engine, payees, review inbox, ingest pipeline, Telegram."""
+"""Phase 1 feature tests: rules engine, review inbox, ingest pipeline, Telegram."""
 
 import json
 from datetime import date
@@ -10,7 +10,6 @@ from app.models.database import (
     Category,
     EmailIngestLog,
     NotificationEvent,
-    Payee,
     Transaction,
     TransactionRule,
     TransactionType,
@@ -22,7 +21,7 @@ from app.services.ingest_service import (
     _is_duplicate,
     commit_ingest_batch,
 )
-from app.services.rules_service import _matches, apply_rules, normalize_description
+from app.services.rules_service import _matches, apply_rules
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -77,62 +76,6 @@ def _make_rule(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Rules engine — normalize_description
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-def test_normalize_description_no_payees(db_session):
-    canonical, pid = normalize_description(db_session, "Grab Food")
-    assert canonical == "Grab Food"
-    assert pid is None
-
-
-def test_normalize_description_matches_alias(db_session):
-    payee = Payee(canonical_name="Grab", alias_patterns=json.dumps([r"grab\s*food", r"grab"]))
-    db_session.add(payee)
-    db_session.commit()
-    db_session.refresh(payee)
-
-    canonical, pid = normalize_description(db_session, "Grab Food delivery")
-    assert canonical == "Grab Food delivery"
-    assert pid == payee.id
-
-
-def test_normalize_description_no_match(db_session):
-    payee = Payee(canonical_name="Shopee", alias_patterns=json.dumps([r"shopee"]))
-    db_session.add(payee)
-    db_session.commit()
-
-    canonical, pid = normalize_description(db_session, "Grab Bike")
-    assert canonical == "Grab Bike"
-    assert pid is None
-
-
-def test_normalize_description_bad_json_pattern_skipped(db_session):
-    payee = Payee(canonical_name="Bad", alias_patterns="not-json")
-    db_session.add(payee)
-    db_session.commit()
-
-    canonical, pid = normalize_description(db_session, "anything")
-    assert pid is None
-
-
-def test_normalize_description_bad_regex_skipped(db_session):
-    payee = Payee(canonical_name="Bad", alias_patterns=json.dumps(["[invalid(regex"]))
-    db_session.add(payee)
-    db_session.commit()
-
-    canonical, pid = normalize_description(db_session, "anything")
-    assert pid is None
-
-
-def test_normalize_description_empty_string(db_session):
-    canonical, pid = normalize_description(db_session, "")
-    assert canonical == ""
-    assert pid is None
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 # Rules engine — apply_rules / _matches
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -180,7 +123,7 @@ def test_apply_rules_action_json_dict_column(db_session):
     db_session.commit()
     db_session.refresh(rule)
 
-    action = apply_rules(db_session, tx, None)
+    action = apply_rules(db_session, tx)
     assert action.category_id == cat2.id
     assert action.auto_approve is True
 
@@ -200,7 +143,7 @@ def test_apply_rules_action_json_invalid_type_returns_empty(db_session):
     db_session.commit()
     db_session.refresh(rule)
 
-    action = apply_rules(db_session, tx, None)
+    action = apply_rules(db_session, tx)
     assert action.category_id is None
     assert action.auto_approve is False
 
@@ -240,9 +183,9 @@ def test_matches_equals(db_session):
     cat = _make_cat(db_session)
     tx = _make_tx(db_session, cat, desc="grab")
     rule = TransactionRule(name="r", match_field="description", match_op="equals", match_value="grab", action_json="{}")
-    assert _matches(rule, tx, None) is True
+    assert _matches(rule, tx) is True
     tx.description = "GRAB"
-    assert _matches(rule, tx, None) is True
+    assert _matches(rule, tx) is True
 
 
 def test_matches_regex(db_session):
@@ -251,7 +194,7 @@ def test_matches_regex(db_session):
     rule = TransactionRule(
         name="r", match_field="description", match_op="regex", match_value=r"shopee.*#\d+", action_json="{}"
     )
-    assert _matches(rule, tx, None) is True
+    assert _matches(rule, tx) is True
 
 
 def test_matches_invalid_regex_returns_false(db_session):
@@ -260,7 +203,7 @@ def test_matches_invalid_regex_returns_false(db_session):
     rule = TransactionRule(
         name="r", match_field="description", match_op="regex", match_value="[bad(regex", action_json="{}"
     )
-    assert _matches(rule, tx, None) is False
+    assert _matches(rule, tx) is False
 
 
 def test_matches_range(db_session):
@@ -269,12 +212,12 @@ def test_matches_range(db_session):
     rule = TransactionRule(
         name="r", match_field="amount", match_op="range", match_value="100000,900000", action_json="{}"
     )
-    assert _matches(rule, tx, None) is True
+    assert _matches(rule, tx) is True
 
     rule2 = TransactionRule(
         name="r2", match_field="amount", match_op="range", match_value="600000,900000", action_json="{}"
     )
-    assert _matches(rule2, tx, None) is False
+    assert _matches(rule2, tx) is False
 
 
 def test_matches_range_bad_value(db_session):
@@ -283,7 +226,7 @@ def test_matches_range_bad_value(db_session):
     rule = TransactionRule(
         name="r", match_field="amount", match_op="range", match_value="not,numbers", action_json="{}"
     )
-    assert _matches(rule, tx, None) is False
+    assert _matches(rule, tx) is False
 
 
 def test_matches_in_operator(db_session):
@@ -293,27 +236,27 @@ def test_matches_in_operator(db_session):
     rule = TransactionRule(
         name="r", match_field="payment_method", match_op="in", match_value="cash, card, bank_transfer", action_json="{}"
     )
-    assert _matches(rule, tx, None) is True
+    assert _matches(rule, tx) is True
 
 
 def test_matches_gt_operator(db_session):
     cat = _make_cat(db_session)
     tx = _make_tx(db_session, cat, amount=600_000)
     rule = TransactionRule(name="r", match_field="amount", match_op="gt", match_value="500000", action_json="{}")
-    assert _matches(rule, tx, None) is True
+    assert _matches(rule, tx) is True
 
     rule2 = TransactionRule(name="r2", match_field="amount", match_op="gt", match_value="600000", action_json="{}")
-    assert _matches(rule2, tx, None) is False
+    assert _matches(rule2, tx) is False
 
 
 def test_matches_lt_operator(db_session):
     cat = _make_cat(db_session)
     tx = _make_tx(db_session, cat, amount=50_000)
     rule = TransactionRule(name="r", match_field="amount", match_op="lt", match_value="100000", action_json="{}")
-    assert _matches(rule, tx, None) is True
+    assert _matches(rule, tx) is True
 
     rule2 = TransactionRule(name="r2", match_field="amount", match_op="lt", match_value="50000", action_json="{}")
-    assert _matches(rule2, tx, None) is False
+    assert _matches(rule2, tx) is False
 
 
 def test_matches_gt_lt_bad_value(db_session):
@@ -323,7 +266,7 @@ def test_matches_gt_lt_bad_value(db_session):
         rule = TransactionRule(
             name="r", match_field="amount", match_op=op, match_value="not_a_number", action_json="{}"
         )
-        assert _matches(rule, tx, None) is False
+        assert _matches(rule, tx) is False
 
 
 def test_matches_unknown_field_returns_false(db_session):
@@ -333,7 +276,7 @@ def test_matches_unknown_field_returns_false(db_session):
     rule = TransactionRule(
         name="r", match_field="nonexistent_field", match_op="equals", match_value="x", action_json="{}"
     )
-    assert _matches(rule, tx, None) is False
+    assert _matches(rule, tx) is False
 
 
 def test_matches_unknown_op_returns_false(db_session):
@@ -343,27 +286,7 @@ def test_matches_unknown_op_returns_false(db_session):
     rule = TransactionRule(
         name="r", match_field="description", match_op="not_an_op", match_value="hello", action_json="{}"
     )
-    assert _matches(rule, tx, None) is False
-
-
-def test_normalize_description_list_alias_patterns(db_session):
-    """alias_patterns stored as a Python list (JSON column path) is matched correctly."""
-    from app.models.database import Payee
-
-    payee = Payee(canonical_name="Grab", alias_patterns=["grab food", "grab\\s"])
-    db_session.add(payee)
-    db_session.commit()
-
-    canonical, pid = normalize_description(db_session, "Grab Food delivery")
-    assert pid == payee.id
-
-
-def test_matches_payee_id_field(db_session):
-    cat = _make_cat(db_session)
-    tx = _make_tx(db_session, cat)
-    rule = TransactionRule(name="r", match_field="payee_id", match_op="equals", match_value="42", action_json="{}")
-    assert _matches(rule, tx, 42) is True
-    assert _matches(rule, tx, None) is False
+    assert _matches(rule, tx) is False
 
 
 def test_matches_source_field(db_session):
@@ -371,28 +294,28 @@ def test_matches_source_field(db_session):
     tx = _make_tx(db_session, cat)
     tx.source = "email"
     rule = TransactionRule(name="r", match_field="source", match_op="equals", match_value="email", action_json="{}")
-    assert _matches(rule, tx, None) is True
+    assert _matches(rule, tx) is True
 
 
 def test_matches_type_field(db_session):
     cat = _make_cat(db_session)
     tx = _make_tx(db_session, cat)
     rule = TransactionRule(name="r", match_field="type", match_op="equals", match_value="expense", action_json="{}")
-    assert _matches(rule, tx, None) is True
+    assert _matches(rule, tx) is True
 
 
 def test_matches_invalid_field_returns_false(db_session):
     cat = _make_cat(db_session)
     tx = _make_tx(db_session, cat)
     rule = TransactionRule(name="r", match_field="nonexistent", match_op="equals", match_value="x", action_json="{}")
-    assert _matches(rule, tx, None) is False
+    assert _matches(rule, tx) is False
 
 
 def test_matches_invalid_op_returns_false(db_session):
     cat = _make_cat(db_session)
     tx = _make_tx(db_session, cat)
     rule = TransactionRule(name="r", match_field="description", match_op="fuzzy", match_value="x", action_json="{}")
-    assert _matches(rule, tx, None) is False
+    assert _matches(rule, tx) is False
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -650,58 +573,6 @@ def test_delete_rule_not_found(client):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Payees API router
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-def test_list_payees_empty(client):
-    assert client.get("/api/payees/").json() == []
-
-
-def test_create_payee(client):
-    r = client.post(
-        "/api/payees/",
-        json={
-            "canonical_name": "Grab",
-            "alias_patterns": [r"grab\s*food", r"grab\s*bike"],
-        },
-    )
-    assert r.status_code == 201
-    data = r.json()
-    assert data["canonical_name"] == "Grab"
-    assert len(data["alias_patterns"]) == 2
-
-
-def test_create_payee_duplicate_name(client):
-    client.post("/api/payees/", json={"canonical_name": "Shopee"})
-    r = client.post("/api/payees/", json={"canonical_name": "Shopee"})
-    assert r.status_code == 409
-
-
-def test_update_payee(client):
-    r = client.post("/api/payees/", json={"canonical_name": "Old"})
-    pid = r.json()["id"]
-    upd = client.put(f"/api/payees/{pid}", json={"canonical_name": "New", "alias_patterns": ["new.*"]})
-    assert upd.status_code == 200
-    assert upd.json()["canonical_name"] == "New"
-
-
-def test_update_payee_not_found(client):
-    assert client.put("/api/payees/9999", json={"canonical_name": "x"}).status_code == 404
-
-
-def test_delete_payee(client):
-    r = client.post("/api/payees/", json={"canonical_name": "ToDelete"})
-    pid = r.json()["id"]
-    assert client.delete(f"/api/payees/{pid}").status_code == 204
-    assert client.get("/api/payees/").json() == []
-
-
-def test_delete_payee_not_found(client):
-    assert client.delete("/api/payees/9999").status_code == 404
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 # Review inbox router
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -816,11 +687,6 @@ def test_fragment_review_list(client, db_session):
 
 def test_fragment_rules_list(client):
     r = client.get("/fragments/rules/list")
-    assert r.status_code == 200
-
-
-def test_fragment_payees_list(client):
-    r = client.get("/fragments/payees/list")
     assert r.status_code == 200
 
 
@@ -997,45 +863,6 @@ def test_update_rule_action_json(client):
     )
     assert upd.status_code == 200
     assert upd.json()["action_json"]["auto_approve"] is True
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Payees router — update with category_id + source
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-def test_update_payee_category_id(client, db_session):
-    cat = _make_cat(db_session)
-    r = client.post("/api/payees/", json={"canonical_name": "VCB"})
-    pid = r.json()["id"]
-
-    upd = client.put(
-        f"/api/payees/{pid}",
-        json={
-            "default_category_id": cat.id,
-            "source": "import",
-        },
-    )
-    assert upd.status_code == 200
-    assert upd.json()["source"] == "import"
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Review router — approve with description triggers normalize_description
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-def test_approve_with_description_normalizes(client, db_session):
-    cat = _make_cat(db_session)
-    payee = Payee(canonical_name="Grab", alias_patterns=json.dumps([r"grab"]))
-    db_session.add(payee)
-    tx = _make_tx(db_session, cat, amount=50_000, date_val=date(2026, 3, 1))
-    tx.needs_review = True
-    db_session.commit()
-    db_session.refresh(payee)
-
-    r = client.post(f"/api/review/{tx.id}/approve", json={"description": "Grab Bike"})
-    assert r.status_code == 200
 
 
 # ─────────────────────────────────────────────────────────────────────────────

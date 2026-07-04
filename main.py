@@ -21,7 +21,6 @@ from app.routers import budget
 from app.routers import import_jobs
 from app.routers import review as review_router
 from app.routers import rules as rules_router
-from app.routers import payees as payees_router
 from app.routers import settings as settings_router
 from app.routers import profiles as profiles_router
 from app.routers import forecast as forecast_router
@@ -41,7 +40,6 @@ from app.routers.fragments import import_page as frag_import
 from app.routers.fragments import pulse as frag_pulse
 from app.routers.fragments import review as frag_review
 from app.routers.fragments import rules as frag_rules
-from app.routers.fragments import payees as frag_payees
 
 
 @asynccontextmanager
@@ -126,7 +124,6 @@ app.include_router(budget.router, prefix="/api/budget")
 app.include_router(import_jobs.router, prefix="/api/import")
 app.include_router(review_router.router, prefix="/api/review")
 app.include_router(rules_router.router, prefix="/api/rules")
-app.include_router(payees_router.router, prefix="/api/payees")
 app.include_router(settings_router.router, prefix="/settings")
 app.include_router(profiles_router.router, prefix="/profiles")
 app.include_router(forecast_router.router, prefix="/api/forecast")
@@ -145,7 +142,6 @@ app.include_router(frag_import.router, prefix="/fragments/import", tags=["fragme
 app.include_router(frag_pulse.router, prefix="/fragments/pulse", tags=["fragments"])
 app.include_router(frag_review.router, prefix="/fragments/review", tags=["fragments"])
 app.include_router(frag_rules.router, prefix="/fragments/rules", tags=["fragments"])
-app.include_router(frag_payees.router, prefix="/fragments/payees", tags=["fragments"])
 
 
 @app.get("/health")
@@ -256,14 +252,6 @@ async def rules_page(request: Request, db: Session = Depends(get_db)):
 
     categories = db.query(Category).filter(Category.is_active == True).order_by(Category.name).all()
     return templates.TemplateResponse(request, "rules/index.html", {"active_menu": "rules", "categories": categories})
-
-
-@app.get("/payees", response_class=HTMLResponse)
-async def payees_page(request: Request, db: Session = Depends(get_db)):
-    from app.models.database import Category
-
-    categories = db.query(Category).filter(Category.is_active == True).order_by(Category.name).all()
-    return templates.TemplateResponse(request, "payees/index.html", {"active_menu": "payees", "categories": categories})
 
 
 @app.get("/pulse", response_class=HTMLResponse)

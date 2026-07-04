@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.models.database import Category, Transaction, TransactionType
 from app.services import ollama as _ollama
-from app.services.rules_service import RuleAction, apply_rules, normalize_description
+from app.services.rules_service import RuleAction, apply_rules
 
 log = logging.getLogger("app.ingest_service")
 
@@ -61,9 +61,6 @@ def commit_ingest_batch(
             log.warning("No category for '%s' — skipping", item.description)
             continue
 
-        # Resolve payee_id without touching the description
-        _, payee_id = normalize_description(db, item.description or "")
-
         tx = Transaction(
             date=item.date,
             amount=item.amount,
@@ -74,14 +71,13 @@ def commit_ingest_batch(
             source=source_tag,
             import_job_id=import_job_id,
             email_ingest_log_id=email_ingest_log_id,
-            payee_id=payee_id,
             confidence_score=item.confidence,
             needs_review=item.confidence < REVIEW_THRESHOLD,
         )
         db.add(tx)
         db.flush()  # populate tx.id so apply_rules can reference it
 
-        action: RuleAction = apply_rules(db, tx, payee_id)
+        action: RuleAction = apply_rules(db, tx)
         if action.category_id is not None:
             tx.category_id = action.category_id
         if action.auto_approve:

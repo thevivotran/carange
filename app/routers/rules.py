@@ -11,7 +11,7 @@ from app.models.database import TransactionRule, get_db
 
 router = APIRouter()
 
-VALID_FIELDS = {"description", "amount", "payment_method", "source", "payee_id", "type"}
+VALID_FIELDS = {"description", "amount", "payment_method", "source", "type"}
 VALID_OPS = {"equals", "contains", "regex", "range", "in", "gt", "lt"}
 
 
