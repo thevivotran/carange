@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.6.0](https://github.com/thevivotran/carange/compare/v0.5.1...v0.6.0) (2026-07-04)
+
+
+### Features
+
+* add category spend_nature and reporting-time outlier filter ([#75](https://github.com/thevivotran/carange/issues/75)) ([85d5a9b](https://github.com/thevivotran/carange/commit/85d5a9bacfa4b2e236815ce3ed5b449ac1a6aacc))
+
+
+### Bug Fixes
+
+* **tx:** make duplicate-warning modal ship on all pages ([#71](https://github.com/thevivotran/carange/issues/71)) ([baad7b4](https://github.com/thevivotran/carange/commit/baad7b469208fc1a2efe0064321b58040699f9bb))
+
+
+### Performance Improvements
+
+* eliminate N+1 queries in CSV import, ingest batch, forecast, and per-page category cache ([#72](https://github.com/thevivotran/carange/issues/72)) ([023d45e](https://github.com/thevivotran/carange/commit/023d45e69ea7dab8c609fc218219988e856a351d))
+
 ## [0.5.1](https://github.com/thevivotran/carange/compare/v0.5.0...v0.5.1) (2026-07-02)
 
 
