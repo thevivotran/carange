@@ -8,21 +8,23 @@ are consistent regardless of source.
 import logging
 import os
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date
 from typing import Optional
 
-from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.database import Category, Transaction, TransactionType
 from app.services import ollama as _ollama
 from app.services.rules_service import RuleAction, apply_rules, load_active_rules
+from app.services.transaction_service import (
+    ANOMALY_MIN_SAMPLES,  # noqa: F401 -- re-exported for existing test imports
+    ANOMALY_MULTIPLIER,  # noqa: F401 -- re-exported for existing test imports
+    is_statistical_outlier,
+)
 
 log = logging.getLogger("app.ingest_service")
 
 REVIEW_THRESHOLD = float(os.getenv("REVIEW_THRESHOLD", "0.95"))
-ANOMALY_MULTIPLIER = float(os.getenv("ANOMALY_MULTIPLIER", "3.0"))
-ANOMALY_MIN_SAMPLES = int(os.getenv("ANOMALY_MIN_SAMPLES", "3"))
 
 
 @dataclass
@@ -154,25 +156,11 @@ def _is_duplicate(db: Session, item: IngestItem) -> bool:
 def _is_anomaly(db: Session, item: IngestItem, category_id: int) -> bool:
     """True if amount exceeds ANOMALY_MULTIPLIER × 90-day category average.
 
-    Requires ANOMALY_MIN_SAMPLES prior rows to establish a baseline.
+    Requires ANOMALY_MIN_SAMPLES prior rows to establish a baseline. Thin
+    wrapper around the shared transaction_service.is_statistical_outlier(),
+    which is also reused as a reporting-time outlier filter.
     """
-    cutoff = item.date - timedelta(days=90)
-    row = (
-        db.query(
-            func.count(Transaction.id).label("n"),
-            func.avg(Transaction.amount).label("avg"),
-        )
-        .filter(
-            Transaction.category_id == category_id,
-            Transaction.type == TransactionType(item.tx_type),
-            Transaction.date >= cutoff,
-            Transaction.deleted_at.is_(None),
-        )
-        .first()
-    )
-    if not row or row.n < ANOMALY_MIN_SAMPLES or not row.avg:
-        return False
-    return item.amount > float(row.avg) * ANOMALY_MULTIPLIER
+    return is_statistical_outlier(db, category_id, TransactionType(item.tx_type), item.amount, item.date)
 
 
 def _resolve_category(

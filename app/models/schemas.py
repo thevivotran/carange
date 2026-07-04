@@ -17,6 +17,7 @@ from app.models.database import (
     AssetType,
     ImportJobStatus,
     ImportSource,
+    SpendNature,
 )
 
 
@@ -31,6 +32,7 @@ class CategoryBase(BaseModel):
     is_passive_income: bool = False
     kpi_role: Optional[str] = None
     is_savings_category: bool = False
+    spend_nature: SpendNature = SpendNature.MIXED
 
 
 class CategoryCreate(CategoryBase):

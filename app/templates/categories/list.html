@@ -176,6 +176,17 @@
                 </label>
             </div>
 
+            <!-- Spend Nature (expense categories only) -->
+            <div id="spend-nature-row" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Spend Nature</label>
+                <select id="spend-nature" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <option value="mixed">Mixed</option>
+                    <option value="recurring">Recurring</option>
+                    <option value="discretionary">Discretionary</option>
+                </select>
+                <p class="text-xs text-gray-400 mt-1">Recurring = routine spend; Discretionary = lumpy one-offs. Used to filter statistical outliers out of reports.</p>
+            </div>
+
             <!-- Submit -->
             <div class="flex gap-4 pt-4">
                 <button type="button" onclick="closeCategoryModal()"
@@ -241,7 +252,9 @@
         document.getElementById('passive-income-row').classList.toggle('hidden', currentTab !== 'income');
         document.getElementById('kpi-role-row').classList.toggle('hidden', currentTab !== 'expense');
         document.getElementById('savings-category-row').classList.toggle('hidden', currentTab !== 'expense');
+        document.getElementById('spend-nature-row').classList.toggle('hidden', currentTab !== 'expense');
         document.getElementById('kpi-role').value = '';
+        document.getElementById('spend-nature').value = 'mixed';
         document.getElementById('category-modal').classList.remove('hidden');
         setTimeout(function() { document.getElementById('name').focus(); }, 50);
     }
@@ -250,6 +263,7 @@
         document.getElementById('passive-income-row').classList.toggle('hidden', this.value !== 'income');
         document.getElementById('kpi-role-row').classList.toggle('hidden', this.value !== 'expense');
         document.getElementById('savings-category-row').classList.toggle('hidden', this.value !== 'expense');
+        document.getElementById('spend-nature-row').classList.toggle('hidden', this.value !== 'expense');
     });
 
     function closeCategoryModal() {
@@ -269,6 +283,7 @@
             is_passive_income: catType === 'income' && document.getElementById('is-passive-income').checked,
             kpi_role: catType === 'expense' ? (document.getElementById('kpi-role').value || null) : null,
             is_savings_category: catType === 'expense' && document.getElementById('is-savings-category').checked,
+            spend_nature: catType === 'expense' ? document.getElementById('spend-nature').value : 'mixed',
         };
         try {
             const url = categoryId ? '/api/categories/' + categoryId : '/api/categories/';
@@ -308,6 +323,8 @@
             document.getElementById('kpi-role').value = cat.kpi_role || '';
             document.getElementById('is-savings-category').checked = !!cat.is_savings_category;
             document.getElementById('savings-category-row').classList.toggle('hidden', cat.type !== 'expense');
+            document.getElementById('spend-nature').value = cat.spend_nature || 'mixed';
+            document.getElementById('spend-nature-row').classList.toggle('hidden', cat.type !== 'expense');
             document.getElementById('category-modal').classList.remove('hidden');
         } catch(e) {
             showToast('Failed to load category', 'error');

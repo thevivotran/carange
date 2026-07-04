@@ -467,21 +467,35 @@ def get_transactions_by_category(
     month = month or _cur_month
 
     month_start, month_end = fiscal_window_ym(year, month, day)
+    tx_type = TransactionType(type)
 
-    results = (
-        db.query(Category.name, Category.color, func.sum(Transaction.amount).label("total"))
-        .join(Transaction)
+    rows = (
+        db.query(Transaction.id, Transaction.amount, Transaction.date, Category.id, Category.name, Category.color)
+        .join(Category)
         .filter(
             Transaction.date >= month_start,
             Transaction.date <= month_end,
-            Transaction.type == type,
+            Transaction.type == tx_type,
             Transaction.deleted_at.is_(None),
         )
-        .group_by(Category.id)
         .all()
     )
 
-    return [{"category": name, "color": color, "total": total} for name, color, total in results]
+    # total_excluding_outliers strips transactions that are statistical outliers
+    # for their category (same 3x-trailing-average check used at ingest time),
+    # so lumpy one-offs (e.g. a big-ticket purchase) don't distort the totals
+    # used for week-over-week / month-over-month category comparisons.
+    totals: dict[int, dict] = {}
+    for tx_id, amount, tx_date, cat_id, cat_name, cat_color in rows:
+        entry = totals.setdefault(
+            cat_id, {"category": cat_name, "color": cat_color, "total": 0.0, "total_excluding_outliers": 0.0}
+        )
+        amount_f = float(amount)
+        entry["total"] += amount_f
+        if not transaction_service.is_statistical_outlier(db, cat_id, tx_type, amount_f, tx_date, exclude_tx_id=tx_id):
+            entry["total_excluding_outliers"] += amount_f
+
+    return list(totals.values())
 
 
 @router.post("/bulk-upload")
