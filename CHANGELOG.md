@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.7.0](https://github.com/thevivotran/carange/compare/v0.6.0...v0.7.0) (2026-07-05)
+
+
+### Features
+
+* add income sources tracking with comp event timeline ([b34c43b](https://github.com/thevivotran/carange/commit/b34c43b7cdacb68803522a3a0134239a56b81a43))
+
+
+### Bug Fixes
+
+* renumber income_sources migration to 0034 ([6eaba3d](https://github.com/thevivotran/carange/commit/6eaba3d6e58e56f48881f6ff1f6df0961b36a1d2))
+* **security:** bump pydantic-settings to 2.14.2 in uv.lock ([44cca5f](https://github.com/thevivotran/carange/commit/44cca5f4f6c28e02b5255cd35b50c91b7a51923c))
+* serialize first-boot schema creation across uvicorn workers ([95b830a](https://github.com/thevivotran/carange/commit/95b830a3e180a503af4fc8717ddd33125a33e032))
+
 ## [0.6.0](https://github.com/thevivotran/carange/compare/v0.5.1...v0.6.0) (2026-07-04)
 
 
