@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from app.models.database import create_tables, get_db, SessionLocal
-from app.models.database import Category, Transaction, TransactionType
+from app.models.database import Category, Transaction, TransactionType, User
 from app.routers import transactions, categories, savings, projects, dashboard, templates as templates_router
 from app.routers import assets
 from app.routers import notes
@@ -25,6 +25,7 @@ from app.routers import settings as settings_router
 from app.routers import profiles as profiles_router
 from app.routers import forecast as forecast_router
 from app.routers import learned_parsers as learned_parsers_router
+from app.routers import income as income_router
 from app.routers.dashboard import get_dashboard_page_data
 from app.middleware import ProfileMiddleware
 from app.services.settings_service import get_setting
@@ -39,6 +40,7 @@ from app.routers.fragments import templates_page as frag_templates
 from app.routers.fragments import import_page as frag_import
 from app.routers.fragments import review as frag_review
 from app.routers.fragments import rules as frag_rules
+from app.routers.fragments import income as frag_income
 
 
 @asynccontextmanager
@@ -132,6 +134,7 @@ app.include_router(settings_router.router, prefix="/settings")
 app.include_router(profiles_router.router, prefix="/profiles")
 app.include_router(forecast_router.router, prefix="/api/forecast")
 app.include_router(learned_parsers_router.router, prefix="/api")
+app.include_router(income_router.router, prefix="/api/income")
 
 # Fragment routers (HTML partials for HTMX)
 app.include_router(frag_transactions.router, prefix="/fragments/transactions", tags=["fragments"])
@@ -145,6 +148,7 @@ app.include_router(frag_templates.router, prefix="/fragments/templates", tags=["
 app.include_router(frag_import.router, prefix="/fragments/import", tags=["fragments"])
 app.include_router(frag_review.router, prefix="/fragments/review", tags=["fragments"])
 app.include_router(frag_rules.router, prefix="/fragments/rules", tags=["fragments"])
+app.include_router(frag_income.router, prefix="/fragments/income", tags=["fragments"])
 
 
 @app.get("/health")
@@ -210,6 +214,12 @@ async def assets_page(request: Request, db: Session = Depends(get_db)):
 @app.get("/projects", response_class=HTMLResponse)
 async def projects_page(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request, "projects/list.html", {"active_menu": "projects"})
+
+
+@app.get("/income", response_class=HTMLResponse)
+async def income_page(request: Request, db: Session = Depends(get_db)):
+    users = db.query(User).order_by(User.created_at, User.id).all()
+    return templates.TemplateResponse(request, "income/list.html", {"active_menu": "income", "users": users})
 
 
 @app.get("/forecast", response_class=HTMLResponse)

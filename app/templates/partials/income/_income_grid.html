@@ -1,0 +1,158 @@
+<div id="income-grid-region"
+     hx-get="/fragments/income/grid"
+     hx-trigger="income-updated from:body"
+     hx-target="this"
+     hx-swap="outerHTML">
+
+  <!-- Summary Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+    <div class="cg-card rounded-xl p-4 text-center">
+      <p class="text-sm text-muted mb-1">Income Sources</p>
+      <p class="text-2xl font-bold text-accent amount tabular-nums">{{ total_count }}</p>
+    </div>
+    <div class="cg-card rounded-xl p-4 text-center">
+      <p class="text-sm text-muted mb-1">Active</p>
+      <p class="text-2xl font-bold text-success amount tabular-nums">{{ active_count }}</p>
+    </div>
+    <div class="cg-card rounded-xl p-4 text-center">
+      <p class="text-sm text-muted mb-1">Review Overdue</p>
+      <p class="text-2xl font-bold {{ 'text-danger' if review_overdue_count else 'text-muted' }} amount tabular-nums">{{ review_overdue_count }}</p>
+    </div>
+  </div>
+
+  {% if total_count == 0 %}
+  <div class="col-span-full flex flex-col items-center justify-center py-20 text-center">
+    <div class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style="background: var(--surface-sunken)">
+      <i class="fas fa-sack-dollar text-5xl text-muted"></i>
+    </div>
+    <p class="text-xl font-medium mb-2">No income sources yet</p>
+    <p class="text-sm text-muted mb-6">Track each income stream's contract terms, comp reviews, and trajectory over time.</p>
+    <button onclick="openIncomeModal()" class="bg-brand text-white px-6 py-3 rounded-lg hover:bg-brand-hover transition flex items-center gap-2 text-sm mx-auto">
+      <i class="fas fa-plus"></i> Add your first income source
+    </button>
+  </div>
+  {% else %}
+  {% for group in groups %}
+  {% if group.sources %}
+  <div class="mb-8">
+    <div class="flex items-center gap-2 mb-3">
+      <span class="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold" style="background-color: {{ group.user.color }}">{{ group.user.name[0] | upper }}</span>
+      <h3 class="text-lg font-semibold text-gray-800">{{ group.user.name }}</h3>
+    </div>
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {% for source in group.sources %}
+      <div id="income-card-{{ source.id }}" class="cg-card rounded-xl p-6 hover:shadow-md transition-shadow {{ '' if source.is_active else 'opacity-60' }}">
+
+        <!-- Header -->
+        <div class="flex justify-between items-start mb-3">
+          <div>
+            <h4 class="text-lg font-semibold text-gray-800">{{ source.employer or 'Unnamed Employer' }}</h4>
+            {% if source.role %}<p class="text-sm text-muted">{{ source.role }}</p>{% endif %}
+            {% if source.contract_type %}<p class="text-xs text-muted capitalize mt-0.5">{{ source.contract_type.replace('_', ' ') }}</p>{% endif %}
+          </div>
+          <div class="flex gap-2 flex-wrap justify-end">
+            <span class="cg-badge cg-badge--brand">{{ source.income_type.value }}</span>
+            <span class="cg-badge {{ 'cg-badge--success' if source.is_active else 'cg-badge--warning' }}">{{ 'active' if source.is_active else 'ended' }}</span>
+            {% if source.review_overdue %}
+            <span class="cg-badge cg-badge--danger" title="No review-type event in the last 365 days">
+              <i class="fas fa-triangle-exclamation"></i> review overdue
+            </span>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Base amount -->
+        {% if source.base_amount_monthly %}
+        <div class="flex justify-between items-center p-3 rounded-lg mb-3" style="background: var(--accent-subtle)">
+          <p class="text-xs text-muted">Base Amount (monthly)</p>
+          <p class="font-semibold text-accent amount tabular-nums">{{ source.base_amount_monthly | currency }}{{ ' ' + source.currency if source.currency else '' }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Dates -->
+        <div class="text-sm text-muted mb-3 space-y-1">
+          <div><i class="fas fa-calendar-alt mr-2 w-4"></i>Started: {{ source.started_at or '—' }}</div>
+          {% if source.ended_at %}
+          <div><i class="fas fa-flag-checkered mr-2 w-4"></i>Ended: {{ source.ended_at }}</div>
+          {% endif %}
+        </div>
+
+        <!-- Notes -->
+        {% if source.market_rate_notes %}
+        <p class="text-sm mb-2 italic" style="color: var(--text-secondary)">Market rate: "{{ source.market_rate_notes }}"</p>
+        {% endif %}
+        {% if source.replaceability_notes %}
+        <p class="text-sm mb-3 italic" style="color: var(--text-secondary)">Replaceability: "{{ source.replaceability_notes }}"</p>
+        {% endif %}
+
+        <!-- Compensation Event Timeline -->
+        <div class="border-t pt-3 mb-3" style="border-color: var(--border-subtle)">
+          <div class="flex justify-between items-center mb-2">
+            <h5 class="text-sm font-semibold text-gray-700">Comp Timeline</h5>
+            <button onclick="openEventModal({{ source.id }})" class="text-xs text-accent hover:text-accent-hover font-medium">
+              <i class="fas fa-plus mr-1"></i>Add Event
+            </button>
+          </div>
+          {% set sorted_events = source.events | sort(attribute='event_date', reverse=true) %}
+          {% if not sorted_events %}
+          <p class="text-xs text-muted">No comp events recorded yet.</p>
+          {% else %}
+          <div class="space-y-2">
+            {% for event in sorted_events %}
+            {% set event_dict = {
+              'id': event.id,
+              'event_date': event.event_date.isoformat(),
+              'event_type': event.event_type.value,
+              'amount_delta': event.amount_delta,
+              'new_base_amount': event.new_base_amount,
+              'notes': event.notes,
+            } %}
+            <div class="flex items-center justify-between text-sm gap-2">
+              <div class="flex items-center gap-2 min-w-0">
+                <span class="cg-badge cg-badge--accent">{{ event.event_type.value.replace('_', ' ') }}</span>
+                <span class="text-muted text-xs">{{ event.event_date }}</span>
+                {% if event.amount_delta %}
+                <span class="amount tabular-nums font-medium {{ 'text-success' if event.amount_delta > 0 else 'text-danger' }}">{{ event.amount_delta | currency(signed=true) }}</span>
+                {% endif %}
+              </div>
+              <div class="flex gap-1 flex-shrink-0">
+                <button data-event='{{ event_dict | tojson }}'
+                        onclick="editEvent({{ source.id }}, JSON.parse(this.getAttribute('data-event')))"
+                        class="p-2 text-gray-400 hover:text-accent rounded-lg hover:bg-gray-100" title="Edit event" aria-label="Edit compensation event">
+                  <i class="fas fa-edit text-xs"></i>
+                </button>
+                <button onclick="deleteEvent({{ source.id }}, {{ event.id }})"
+                        class="p-2 text-gray-400 hover:text-danger rounded-lg hover:bg-gray-100" title="Delete event" aria-label="Delete compensation event">
+                  <i class="fas fa-trash text-xs"></i>
+                </button>
+              </div>
+            </div>
+            {% if event.notes %}
+            <p class="text-xs text-muted pl-1">{{ event.notes }}</p>
+            {% endif %}
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Actions -->
+        <div class="flex gap-2 pt-3 border-t" style="border-color: var(--border-subtle)">
+          <button onclick="editIncomeSource({{ source.id }})"
+                  class="flex-1 bg-accent-subtle text-accent-text py-2 rounded-lg hover:bg-accent-hover transition text-sm font-medium">
+            <i class="fas fa-edit mr-1"></i>Edit
+          </button>
+          <button onclick="deleteIncomeSource({{ source.id }}, '{{ (source.employer or 'this income source') | e }}')"
+                  class="px-3 py-2 text-danger hover:bg-danger-subtle rounded-lg transition"
+                  title="Delete" aria-label="Delete income source">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% endfor %}
+  {% endif %}
+
+</div>

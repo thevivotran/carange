@@ -529,6 +529,12 @@
                     <span class="sidebar-label">Projects</span>
                 </a>
                 {% endif %}
+                {% if 'income' in visible_nav_items %}
+                <a href="/income" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'income' %}active font-semibold{% endif %}" title="Income Sources">
+                    <i class="fas fa-sack-dollar w-6 flex-shrink-0"></i>
+                    <span class="sidebar-label">Income Sources</span>
+                </a>
+                {% endif %}
                 {% if 'forecast' in visible_nav_items %}
                 <a href="/forecast" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == 'forecast' %}active font-semibold{% endif %}" title="Forecast">
                     <i class="fas fa-chart-line w-6 flex-shrink-0"></i>
@@ -669,6 +675,12 @@
                     <a href="/projects" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'projects' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
                         <i class="fas fa-bullseye text-xl"></i>
                         <span class="text-xs font-medium">Projects</span>
+                    </a>
+                    {% endif %}
+                    {% if 'income' in visible_nav_items %}
+                    <a href="/income" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'income' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
+                        <i class="fas fa-sack-dollar text-xl"></i>
+                        <span class="text-xs font-medium">Income</span>
                     </a>
                     {% endif %}
                     {% if 'forecast' in visible_nav_items %}
