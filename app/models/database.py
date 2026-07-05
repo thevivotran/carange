@@ -570,21 +570,6 @@ class UserSetting(Base):
     )
 
 
-class InsightType(str, enum.Enum):
-    WEEKLY_DIGEST = "weekly_digest"
-    BUDGET_ADVISOR = "budget_advisor"
-
-
-class AIInsight(Base):
-    __tablename__ = "ai_insights"
-
-    id = Column(Integer, primary_key=True, index=True)
-    insight_type = Column(CIEnum(InsightType), unique=True, nullable=False)
-    content = Column(Text, nullable=False)
-    generated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
-    trigger_transaction_id = Column(Integer, ForeignKey("transactions.id"), nullable=True)
-
-
 class PeriodRollup(Base):
     """Pre-computed period metrics. Used as a cross-pod cache invalidation signal
     (horizon='__inv__', period_key='global') and for future materialized rollups."""

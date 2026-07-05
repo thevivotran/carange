@@ -166,24 +166,6 @@
   </div>
   {% endif %}
 
-  <!-- ── AI Weekly Digest (lazy-loaded) ── -->
-  <div hx-get="/fragments/pulse/digest"
-       hx-trigger="load"
-       hx-swap="outerHTML">
-    <div class="bg-white rounded-2xl border border-dashed border-gray-200 p-4 text-center">
-      <p class="text-xs text-gray-400 animate-pulse">Loading AI summary…</p>
-    </div>
-  </div>
-
-  <!-- ── AI Budget Advisor (lazy-loaded) ── -->
-  <div hx-get="/fragments/pulse/budget-advisor"
-       hx-trigger="load"
-       hx-swap="outerHTML">
-    <div class="bg-white rounded-2xl border border-dashed border-gray-200 p-4 text-center">
-      <p class="text-xs text-gray-400 animate-pulse">Loading budget analysis…</p>
-    </div>
-  </div>
-
   <!-- ── Recent Transactions ── -->
   {% if recent_transactions %}
   <div class="bg-white rounded-2xl border border-gray-100 p-4">

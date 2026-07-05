@@ -169,11 +169,19 @@ def _process_row(db, row: EmailIngestLog, raw: bytes) -> None:
     """Run the processing pipeline for one row, handling retry bookkeeping.
 
     Failure semantics:
-      • LLMUnavailableError → stay pending, retry in LLM_RETRY_MIN minutes without
-        consuming a retry attempt (the GPU node may simply be powered off).
+      • LLMUnavailableError while the LLM is *configured but unreachable*
+        (OLLAMA_URL set, request failed) → stay pending, retry in LLM_RETRY_MIN
+        minutes without consuming a retry attempt (the GPU node may simply be
+        powered off).
+      • LLMUnavailableError while the LLM is *not configured* (OLLAMA_URL
+        unset — the fallback is intentionally disabled, not down) → fail
+        immediately. Retrying forever would never succeed since there's no
+        backend to come back online; the row needs a human to enter the
+        transaction manually.
       • Any other exception → exponential backoff (1, 2, 4 min …); after
         MAX_EMAIL_RETRIES the row is marked failed (raw copy kept for replay).
     """
+    from app.services import ollama as _ollama
     from email_worker.parsers.base import LLMUnavailableError
     from email_worker.processor import process_email
 
@@ -186,11 +194,18 @@ def _process_row(db, row: EmailIngestLog, raw: bytes) -> None:
         process_email(row, raw, db)
     except LLMUnavailableError as exc:
         db.rollback()
-        row.status = "pending"
-        row.retry_after = now + timedelta(minutes=LLM_RETRY_MIN)
-        row.error_message = f"LLM unavailable — retrying every {LLM_RETRY_MIN} min: {exc}"
-        db.commit()
-        log.warning("Email %s → LLM unavailable, retry at %s", row.message_id, row.retry_after)
+        if _ollama.is_enabled():
+            row.status = "pending"
+            row.retry_after = now + timedelta(minutes=LLM_RETRY_MIN)
+            row.error_message = f"LLM unavailable — retrying every {LLM_RETRY_MIN} min: {exc}"
+            db.commit()
+            log.warning("Email %s → LLM unavailable, retry at %s", row.message_id, row.retry_after)
+        else:
+            row.status = "failed"
+            row.error_message = f"No parser matched and AI fallback is disabled — needs manual entry: {exc}"
+            row.processed_at = now
+            db.commit()
+            log.warning("Email %s → no parser matched, AI fallback disabled, marked failed", row.message_id)
     except Exception as exc:
         db.rollback()
         log.exception("Error processing email %s: %s", row.message_id, exc)

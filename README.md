@@ -40,9 +40,9 @@ and AI-powered budget digests — all optional, all self-contained.
 - **Custom fiscal month** — configure your pay-cycle start day (1–28). Monthly KPIs and
   budgets run from that day to the day before it in the next month.
 
-- **Push notifications via Telegram** — real-time alerts on new transactions, budget
-  warnings, and a daily Pulse AI digest. Amounts can be spoiler-hidden. Inline buttons
-  link directly to the transaction detail.
+- **Push notifications via Telegram** — real-time alerts on new transactions and budget
+  warnings. Amounts can be spoiler-hidden. Inline buttons link directly to the transaction
+  detail.
 
 - **Looks great everywhere** — a responsive shell that's a collapsible sidebar on desktop and
   a bottom nav bar on mobile, with dark mode and HTMX-powered interactions that feel instant
@@ -57,8 +57,8 @@ and AI-powered budget digests — all optional, all self-contained.
 | ![Transactions](docs/images/transactions-desktop-light.png) | ![Review Inbox](docs/images/review-inbox-desktop-light.png) |
 
 See [`docs/FEATURES.md`](docs/FEATURES.md) for the full feature reference (Dashboard,
-Transactions, Budget, Savings Bundles, Financial Projects, Pulse AI digest, Telegram
-notifications, Cash-flow Forecast, and more).
+Transactions, Budget, Savings Bundles, Financial Projects, Telegram notifications,
+Cash-flow Forecast, and more).
 
 ---
 
@@ -117,7 +117,7 @@ The compose file ships with the extras commented out — uncomment what you need
 |---------|-------------------|
 | Screenshot import (OCR) | Uncomment the `ocr_worker` service |
 | Bank email import | Uncomment the `email_worker` service + set `IMAP_*` variables |
-| AI budget insights (Pulse) | Set `OLLAMA_URL` (and optionally `OLLAMA_MODEL`) to your self-hosted LLM server |
+| LLM fallback for OCR/email parsing of unrecognized formats | Set `OLLAMA_URL` (and optionally `OLLAMA_MODEL`) to an OpenAI-compatible endpoint — optional, both pipelines fall back to regex/PaddleOCR parsing without it |
 | Push notifications | Set `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` (and `APP_URL` for deep links) |
 
 After install, open **Settings** in the app to pick a **display currency** (VND/USD/EUR)
@@ -163,7 +163,7 @@ python main.py               # → http://localhost:6868
 | `TELEGRAM_HIDE_AMOUNTS` | `false` | Spoiler‑hide amounts in notifications |
 | `APP_URL` | — | Public URL for Telegram deep‑links (e.g. `https://carange.example.com`) |
 | `OLLAMA_URL` | — | Ollama endpoint (e.g. `http://localhost:11434`) |
-| `OLLAMA_MODEL` | `llama3.1` | LLM model for Pulse / AI parser fallback |
+| `OLLAMA_MODEL` | `llama3.1` | LLM model for OCR vision / email parser fallback |
 | `REVIEW_THRESHOLD` | `0.95` | Confidence below which a tx enters the Review Inbox |
 
 ```bash
