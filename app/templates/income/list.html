@@ -1,0 +1,341 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="p-6 pb-28 max-w-7xl mx-auto">
+    <!-- Page Header -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <div>
+            <h2 class="text-3xl font-bold text-gray-800">Income Sources</h2>
+            <p class="text-muted mt-1">Track each income stream's contract terms, comp reviews, and trajectory</p>
+        </div>
+        <button onclick="openIncomeModal()" class="bg-brand text-white px-6 py-3 rounded-lg hover:bg-brand-hover transition flex items-center">
+            <i class="fas fa-plus mr-2"></i>Add Income Source
+        </button>
+    </div>
+
+    <!-- Filters -->
+    <div class="cg-card rounded-xl p-4 mb-6">
+        <div class="flex flex-wrap gap-4">
+            <select id="filter-income-type" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
+                    onchange="document.body.dispatchEvent(new CustomEvent('income-updated'))">
+                <option value="">All Types</option>
+                <option value="salary">Salary</option>
+                <option value="equity">Equity</option>
+                <option value="bonus">Bonus</option>
+                <option value="freelance">Freelance</option>
+                <option value="rental">Rental</option>
+                <option value="other">Other</option>
+            </select>
+            <label class="flex items-center gap-2 text-sm text-gray-700">
+                <input type="checkbox" id="filter-active-only" class="border rounded w-4 h-4"
+                       onchange="document.body.dispatchEvent(new CustomEvent('income-updated'))">
+                Active only
+            </label>
+        </div>
+    </div>
+
+    <!-- HTMX region: summary cards + income grid grouped by person -->
+    <div id="income-grid-region"
+         hx-get="/fragments/income/grid"
+         hx-trigger="load, income-updated from:body"
+         hx-target="this"
+         hx-swap="outerHTML">
+    </div>
+</div>
+
+<!-- ===== Add/Edit Income Source Modal ===== -->
+<div id="income-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
+    <div class="cg-card rounded-xl shadow-xl max-w-lg w-full max-h-[90dvh] flex flex-col">
+        <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
+            <h3 class="text-xl font-bold text-gray-800" id="income-modal-title">Add Income Source</h3>
+            <button onclick="closeIncomeModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close"><i class="fas fa-times text-xl"></i></button>
+        </div>
+        <form id="income-form" class="flex-1 flex flex-col min-h-0">
+        <div class="flex-1 overflow-y-auto overscroll-contain p-6 space-y-4">
+            <input type="hidden" id="income-id">
+            <div>
+                <label class="field-required block text-sm font-medium text-gray-700 mb-2">Household Member</label>
+                <select id="income-user-id" required class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                    {% for user in users %}
+                    <option value="{{ user.id }}">{{ user.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Employer</label>
+                    <input type="text" id="income-employer" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="e.g., Acme Corp">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                    <input type="text" id="income-role" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="e.g., Senior Engineer">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="field-required block text-sm font-medium text-gray-700 mb-2">Income Type</label>
+                    <select id="income-type" required class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <option value="salary">Salary</option>
+                        <option value="equity">Equity</option>
+                        <option value="bonus">Bonus</option>
+                        <option value="freelance">Freelance</option>
+                        <option value="rental">Rental</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Contract Type</label>
+                    <input type="text" id="income-contract-type" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="e.g., full_time">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Base Amount (monthly)</label>
+                    <input type="number" id="income-base-amount" min="0" step="1" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Informational only">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Currency</label>
+                    <input type="text" id="income-currency" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="e.g., VND, USD">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Started</label>
+                    <input type="date" id="income-started-at" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Ended (optional)</label>
+                    <input type="date" id="income-ended-at" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+            </div>
+            <label class="flex items-center gap-2 text-sm text-gray-700">
+                <input type="checkbox" id="income-is-active" checked class="border rounded w-4 h-4">
+                Active
+            </label>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Market Rate Notes</label>
+                <textarea id="income-market-rate-notes" rows="2" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Periodic market-rate benchmarking notes..."></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Replaceability Notes</label>
+                <textarea id="income-replaceability-notes" rows="2" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="How easily could this role/income be replaced?"></textarea>
+            </div>
+        </div>
+        <div class="p-6 border-t flex gap-4 flex-shrink-0">
+            <button type="button" onclick="closeIncomeModal()" class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition text-sm font-medium">Cancel</button>
+            <button type="submit" class="flex-1 px-4 py-3 bg-brand text-white rounded-lg hover:bg-brand-hover transition text-sm font-medium">Save Income Source</button>
+        </div>
+        </form>
+    </div>
+</div>
+
+<!-- ===== Add/Edit Compensation Event Modal ===== -->
+<div id="event-modal" class="hidden fixed inset-0 z-[105] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
+    <div class="cg-card rounded-xl shadow-xl max-w-md w-full max-h-[90dvh] flex flex-col">
+        <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
+            <h3 class="text-xl font-bold text-gray-800" id="event-modal-title">Add Compensation Event</h3>
+            <button onclick="closeEventModal()" class="text-gray-500 hover:text-gray-700" aria-label="Close"><i class="fas fa-times text-xl"></i></button>
+        </div>
+        <form id="event-form" class="flex-1 flex flex-col min-h-0">
+        <div class="flex-1 overflow-y-auto overscroll-contain p-6 space-y-4">
+            <input type="hidden" id="event-income-source-id">
+            <input type="hidden" id="event-id">
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="field-required block text-sm font-medium text-gray-700 mb-2">Date</label>
+                    <input type="date" id="event-date" required class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                </div>
+                <div>
+                    <label class="field-required block text-sm font-medium text-gray-700 mb-2">Type</label>
+                    <select id="event-type" required class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <option value="raise">Raise</option>
+                        <option value="bonus">Bonus</option>
+                        <option value="vesting">Vesting</option>
+                        <option value="review">Review</option>
+                        <option value="job_change">Job Change</option>
+                        <option value="market_check">Market Check</option>
+                    </select>
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Amount Delta</label>
+                    <input type="number" id="event-amount-delta" step="1" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="e.g., +2000000">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">New Base Amount</label>
+                    <input type="number" id="event-new-base-amount" min="0" step="1" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Optional">
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                <textarea id="event-notes" rows="2" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Optional notes..."></textarea>
+            </div>
+        </div>
+        <div class="p-6 border-t flex gap-4 flex-shrink-0">
+            <button type="button" onclick="closeEventModal()" class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition text-sm font-medium">Cancel</button>
+            <button type="submit" class="flex-1 px-4 py-3 bg-brand text-white rounded-lg hover:bg-brand-hover transition text-sm font-medium">Save Event</button>
+        </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('income-started-at').valueAsDate = new Date();
+        document.getElementById('event-date').valueAsDate = new Date();
+    });
+
+    // Inject filters into HTMX income grid request
+    document.addEventListener('htmx:configRequest', function(evt) {
+        if (evt.target && evt.target.id === 'income-grid-region') {
+            evt.detail.parameters.income_type = document.getElementById('filter-income-type').value;
+            evt.detail.parameters.active_only = document.getElementById('filter-active-only').checked;
+        }
+    });
+
+    function _reloadIncome() {
+        document.body.dispatchEvent(new CustomEvent('income-updated'));
+    }
+
+    // ---- Income Source modal ----
+    function openIncomeModal() {
+        document.getElementById('income-modal-title').textContent = 'Add Income Source';
+        document.getElementById('income-form').reset();
+        document.getElementById('income-id').value = '';
+        document.getElementById('income-is-active').checked = true;
+        document.getElementById('income-started-at').valueAsDate = new Date();
+        document.getElementById('income-modal').classList.remove('hidden');
+    }
+
+    function closeIncomeModal() {
+        document.getElementById('income-modal').classList.add('hidden');
+    }
+
+    async function editIncomeSource(id) {
+        try {
+            const res = await fetch('/api/income/' + id);
+            const source = await res.json();
+            document.getElementById('income-modal-title').textContent = 'Edit Income Source';
+            document.getElementById('income-id').value = source.id;
+            document.getElementById('income-user-id').value = source.user_id;
+            document.getElementById('income-employer').value = source.employer || '';
+            document.getElementById('income-role').value = source.role || '';
+            document.getElementById('income-type').value = source.income_type;
+            document.getElementById('income-contract-type').value = source.contract_type || '';
+            document.getElementById('income-base-amount').value = source.base_amount_monthly != null ? source.base_amount_monthly : '';
+            document.getElementById('income-currency').value = source.currency || '';
+            document.getElementById('income-started-at').value = source.started_at || '';
+            document.getElementById('income-ended-at').value = source.ended_at || '';
+            document.getElementById('income-is-active').checked = source.is_active;
+            document.getElementById('income-market-rate-notes').value = source.market_rate_notes || '';
+            document.getElementById('income-replaceability-notes').value = source.replaceability_notes || '';
+            document.getElementById('income-modal').classList.remove('hidden');
+        } catch(e) { showToast('Failed to load income source', 'error'); }
+    }
+
+    document.getElementById('income-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const incomeId = document.getElementById('income-id').value;
+        const baseAmt = document.getElementById('income-base-amount').value;
+        const data = {
+            user_id: parseInt(document.getElementById('income-user-id').value),
+            employer: document.getElementById('income-employer').value || null,
+            role: document.getElementById('income-role').value || null,
+            income_type: document.getElementById('income-type').value,
+            contract_type: document.getElementById('income-contract-type').value || null,
+            base_amount_monthly: baseAmt ? parseFloat(baseAmt) : null,
+            currency: document.getElementById('income-currency').value || null,
+            is_active: document.getElementById('income-is-active').checked,
+            started_at: document.getElementById('income-started-at').value || null,
+            ended_at: document.getElementById('income-ended-at').value || null,
+            market_rate_notes: document.getElementById('income-market-rate-notes').value || null,
+            replaceability_notes: document.getElementById('income-replaceability-notes').value || null,
+        };
+        try {
+            const url = incomeId ? '/api/income/' + incomeId : '/api/income/';
+            const method = incomeId ? 'PUT' : 'POST';
+            const res = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            if (res.ok) {
+                closeIncomeModal();
+                _reloadIncome();
+                showToast(incomeId ? 'Income source updated' : 'Income source added', 'success');
+            } else {
+                const err = await res.json();
+                showToast('Error: ' + (typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail), 'error');
+            }
+        } catch(e) { console.error(e); showToast('Failed to save income source', 'error'); }
+    });
+
+    function deleteIncomeSource(id, name) {
+        const card = document.getElementById('income-card-' + id);
+        deleteWithUndo(card, '/api/income/' + id, _reloadIncome, name);
+    }
+
+    // ---- Compensation Event modal ----
+    function openEventModal(incomeSourceId) {
+        document.getElementById('event-modal-title').textContent = 'Add Compensation Event';
+        document.getElementById('event-form').reset();
+        document.getElementById('event-income-source-id').value = incomeSourceId;
+        document.getElementById('event-id').value = '';
+        document.getElementById('event-date').valueAsDate = new Date();
+        document.getElementById('event-modal').classList.remove('hidden');
+    }
+
+    function editEvent(incomeSourceId, event) {
+        document.getElementById('event-modal-title').textContent = 'Edit Compensation Event';
+        document.getElementById('event-income-source-id').value = incomeSourceId;
+        document.getElementById('event-id').value = event.id;
+        document.getElementById('event-date').value = event.event_date;
+        document.getElementById('event-type').value = event.event_type;
+        document.getElementById('event-amount-delta').value = event.amount_delta != null ? event.amount_delta : '';
+        document.getElementById('event-new-base-amount').value = event.new_base_amount != null ? event.new_base_amount : '';
+        document.getElementById('event-notes').value = event.notes || '';
+        document.getElementById('event-modal').classList.remove('hidden');
+    }
+
+    function closeEventModal() {
+        document.getElementById('event-modal').classList.add('hidden');
+    }
+
+    document.getElementById('event-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const sourceId = document.getElementById('event-income-source-id').value;
+        const eventId = document.getElementById('event-id').value;
+        const amtDelta = document.getElementById('event-amount-delta').value;
+        const newBase = document.getElementById('event-new-base-amount').value;
+        const data = {
+            event_date: document.getElementById('event-date').value,
+            event_type: document.getElementById('event-type').value,
+            amount_delta: amtDelta ? parseFloat(amtDelta) : null,
+            new_base_amount: newBase ? parseFloat(newBase) : null,
+            notes: document.getElementById('event-notes').value || null,
+        };
+        try {
+            const url = eventId
+                ? '/api/income/' + sourceId + '/events/' + eventId
+                : '/api/income/' + sourceId + '/events';
+            const method = eventId ? 'PATCH' : 'POST';
+            const res = await fetch(url, { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data) });
+            if (res.ok) {
+                closeEventModal();
+                _reloadIncome();
+                showToast(eventId ? 'Event updated' : 'Event added', 'success');
+            } else {
+                const err = await res.json();
+                showToast('Error: ' + (typeof err.detail === 'object' ? JSON.stringify(err.detail) : err.detail), 'error');
+            }
+        } catch(e) { console.error(e); showToast('Failed to save event', 'error'); }
+    });
+
+    function deleteEvent(sourceId, eventId) {
+        showConfirm('Delete this compensation event?', async function() {
+            try {
+                const res = await fetch('/api/income/' + sourceId + '/events/' + eventId, { method: 'DELETE' });
+                if (res.ok) { _reloadIncome(); showToast('Event deleted', 'success'); }
+                else { showToast('Failed to delete event', 'error'); }
+            } catch(e) { console.error(e); showToast('Failed to delete event', 'error'); }
+        }, 'Delete', 'bg-red-600 hover:bg-red-700');
+    }
+</script>
+{% endblock %}

@@ -104,8 +104,8 @@ NAV_CORE = frozenset({"dashboard", "transactions", "budget", "savings", "setting
 # wants a clutter-free dashboard may still want quick nav access to Projects).
 NAV_PRESETS: dict[str, frozenset[str]] = {
     "simple": frozenset(),
-    "standard": frozenset({"import", "pulse", "review", "projects", "forecast"}),
-    "full": frozenset({"import", "pulse", "review", "projects", "assets", "notes", "forecast"}),
+    "standard": frozenset({"import", "pulse", "review", "projects", "income", "forecast"}),
+    "full": frozenset({"import", "pulse", "review", "projects", "income", "assets", "notes", "forecast"}),
 }
 
 NAV_PRESET_LABELS = {
@@ -122,13 +122,23 @@ NAV_PRESET_DESCRIPTIONS = {
 
 # Canonical, ordered list of nav items a profile can toggle. Must stay in sync
 # with the {% if '<key>' in visible_nav_items %} blocks in base.html.
-TOGGLEABLE_NAV_ITEMS: tuple[str, ...] = ("import", "pulse", "review", "projects", "assets", "notes", "forecast")
+TOGGLEABLE_NAV_ITEMS: tuple[str, ...] = (
+    "import",
+    "pulse",
+    "review",
+    "projects",
+    "income",
+    "assets",
+    "notes",
+    "forecast",
+)
 
 NAV_ITEM_LABELS = {
     "import": "Import",
     "pulse": "Daily Pulse",
     "review": "Review Inbox",
     "projects": "Projects",
+    "income": "Income Sources",
     "assets": "Assets",
     "notes": "IOUs & Notes",
     "forecast": "Forecast",
@@ -139,6 +149,7 @@ NAV_ITEM_DESCRIPTIONS = {
     "pulse": "Single-screen daily check-in on monthly health.",
     "review": "Inbox of auto-imported transactions awaiting approval.",
     "projects": "Financial projects with payment schedules.",
+    "income": "Track income streams, comp reviews, and raises.",
     "assets": "Gold, currency, and other non-cash holdings.",
     "notes": "IOUs and freeform money notes.",
     "forecast": "Projected cash balance over the next 90 days.",

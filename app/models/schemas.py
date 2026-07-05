@@ -18,6 +18,8 @@ from app.models.database import (
     ImportJobStatus,
     ImportSource,
     SpendNature,
+    IncomeType,
+    CompensationEventType,
 )
 
 
@@ -272,6 +274,78 @@ class FinancialProject(FinancialProjectBase):
     progress_percentage: float = 0.0
     linked_savings: List[SavingsBundle] = []
     payments: List[ProjectPayment] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+# Compensation Event Schemas
+class CompensationEventBase(BaseModel):
+    event_date: _Date
+    event_type: CompensationEventType
+    amount_delta: Optional[float] = None
+    new_base_amount: Optional[float] = Field(None, ge=0)
+    notes: Optional[str] = None
+
+
+class CompensationEventCreate(CompensationEventBase):
+    pass  # income_source_id from URL path
+
+
+class CompensationEventUpdate(BaseModel):
+    event_date: Optional[_Date] = None
+    event_type: Optional[CompensationEventType] = None
+    amount_delta: Optional[float] = None
+    new_base_amount: Optional[float] = Field(None, ge=0)
+    notes: Optional[str] = None
+
+
+class CompensationEvent(CompensationEventBase):
+    id: int
+    income_source_id: int
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class IncomeSourceBase(BaseModel):
+    user_id: int
+    employer: Optional[str] = None
+    role: Optional[str] = None
+    income_type: IncomeType
+    contract_type: Optional[str] = None
+    base_amount_monthly: Optional[float] = Field(None, ge=0)
+    currency: Optional[str] = None
+    is_active: bool = True
+    started_at: Optional[_Date] = None
+    ended_at: Optional[_Date] = None
+    market_rate_notes: Optional[str] = None
+    replaceability_notes: Optional[str] = None
+
+
+class IncomeSourceCreate(IncomeSourceBase):
+    pass
+
+
+class IncomeSourceUpdate(BaseModel):
+    employer: Optional[str] = None
+    role: Optional[str] = None
+    income_type: Optional[IncomeType] = None
+    contract_type: Optional[str] = None
+    base_amount_monthly: Optional[float] = Field(None, ge=0)
+    currency: Optional[str] = None
+    is_active: Optional[bool] = None
+    started_at: Optional[_Date] = None
+    ended_at: Optional[_Date] = None
+    market_rate_notes: Optional[str] = None
+    replaceability_notes: Optional[str] = None
+
+
+class IncomeSource(IncomeSourceBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    events: List[CompensationEvent] = []
+    review_overdue: bool = False
 
     model_config = ConfigDict(from_attributes=True)
 

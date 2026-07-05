@@ -100,6 +100,24 @@ class PaymentStatus(str, enum.Enum):
     PAID = "paid"
 
 
+class IncomeType(str, enum.Enum):
+    SALARY = "salary"
+    EQUITY = "equity"
+    BONUS = "bonus"
+    FREELANCE = "freelance"
+    RENTAL = "rental"
+    OTHER = "other"
+
+
+class CompensationEventType(str, enum.Enum):
+    RAISE = "raise"
+    BONUS = "bonus"
+    VESTING = "vesting"
+    REVIEW = "review"
+    JOB_CHANGE = "job_change"
+    MARKET_CHECK = "market_check"
+
+
 class AssetType(str, enum.Enum):
     CURRENCY = "currency"
     GOLD = "gold"
@@ -348,6 +366,52 @@ class ProjectPayment(Base):
     transaction = relationship("Transaction")
 
     __table_args__ = (Index("ix_project_payments_project_status", "project_id", "status"),)
+
+
+class IncomeSource(Base):
+    __tablename__ = "income_sources"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    employer = Column(String(200), nullable=True)
+    role = Column(String(200), nullable=True)
+    income_type = Column(CIEnum(IncomeType), nullable=False)
+    contract_type = Column(String(50), nullable=True)
+    base_amount_monthly = Column(Numeric(18, 0), nullable=True)
+    currency = Column(String(10), nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
+    started_at = Column(Date, nullable=True)
+    ended_at = Column(Date, nullable=True)
+    market_rate_notes = Column(Text, nullable=True)
+    replaceability_notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    user = relationship("User")
+    events = relationship("CompensationEvent", back_populates="income_source", cascade="all, delete-orphan")
+
+    __table_args__ = (Index("ix_income_sources_user_id", "user_id"),)
+
+
+class CompensationEvent(Base):
+    __tablename__ = "compensation_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    income_source_id = Column(Integer, ForeignKey("income_sources.id"), nullable=False)
+    event_date = Column(Date, nullable=False)
+    event_type = Column(CIEnum(CompensationEventType), nullable=False)
+    amount_delta = Column(Numeric(18, 0), nullable=True)
+    new_base_amount = Column(Numeric(18, 0), nullable=True)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    income_source = relationship("IncomeSource", back_populates="events")
+
+    __table_args__ = (Index("ix_compensation_events_source_date", "income_source_id", "event_date"),)
 
 
 class OtherAsset(Base):
