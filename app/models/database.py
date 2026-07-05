@@ -19,6 +19,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import declarative_base, deferred, sessionmaker, relationship
 from sqlalchemy import types as sa_types
+from contextlib import contextmanager
 from datetime import datetime, timezone
 import enum
 
@@ -673,6 +674,33 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 def create_tables():
     Base.metadata.create_all(bind=engine)
+
+
+# Arbitrary constant, namespaced to this app — used as the advisory lock key below.
+_STARTUP_LOCK_KEY = 8825711
+
+
+@contextmanager
+def startup_lock():
+    """Serialize first-boot schema creation/seeding across processes.
+
+    The container CMD runs uvicorn with multiple workers, which each execute
+    the FastAPI lifespan independently. Against a fresh database they'd race
+    to CREATE TABLE / insert default rows at the same time — Postgres has no
+    "IF NOT EXISTS" race protection at the catalog level, so the loser fails
+    with a duplicate-key error on pg_type. No-op on SQLite (no advisory locks,
+    and the sqlite deployment path runs a single process).
+    """
+    if engine.dialect.name != "postgresql":
+        yield
+        return
+    conn = engine.connect()
+    try:
+        conn.execute(text("SELECT pg_advisory_lock(:k)"), {"k": _STARTUP_LOCK_KEY})
+        yield
+    finally:
+        conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": _STARTUP_LOCK_KEY})
+        conn.close()
 
 
 def get_db():
