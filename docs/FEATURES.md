@@ -157,12 +157,13 @@ See [`email_worker/README.md`](../email_worker/README.md) for the worker's inter
 - **Rules** — ordered auto-categorisation rules on description, amount, payment method,
   source, or payee; supports auto-approve and force-review actions
 
-## Pulse (Daily Digest)
+## Pulse (Daily Status)
 
-- AI-generated morning briefing on yesterday's transactions, week-over-week spend changes,
-  budget status, and savings/yield comparisons
-- Health score (0–4) with green/amber/red level based on income, savings, and budget
-- LLM-powered budget commentary via Ollama (degrades gracefully when offline)
+- At-a-glance status card (green/amber/red) with budget adherence, driven by income,
+  savings, and budget-vs-spend rules — not LLM-generated
+- Month-to-date income/expense/savings, fiscal month progress, and a Family Safety
+  score (0–4) based on income, real-estate payments, savings target, and net position
+- Over-budget category alerts and a recent transactions list
 
 ## Telegram Notifications
 

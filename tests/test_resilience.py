@@ -193,7 +193,10 @@ def test_process_row_marks_failed_after_max_retries(db_session, monkeypatch):
 
 
 def test_process_row_llm_unavailable_does_not_consume_retries(db_session, monkeypatch):
+    """LLM configured (OLLAMA_URL set) but transiently unreachable → retry
+    without consuming a retry attempt (the GPU node may simply be off)."""
     import email_worker.processor as proc
+    from app.services import ollama as _ollama
     from email_worker.parsers.base import LLMUnavailableError
     from email_worker.worker import _process_row
 
@@ -201,6 +204,7 @@ def test_process_row_llm_unavailable_does_not_consume_retries(db_session, monkey
         raise LLMUnavailableError("vLLM unreachable")
 
     monkeypatch.setattr(proc, "process_email", _llm_down)
+    monkeypatch.setattr(_ollama, "is_enabled", lambda: True)
     row = _make_email_log(db_session, "llm-down-msg", "pending", raw=_RAW_EMAIL)
     _process_row(db_session, row, _RAW_EMAIL)
 
@@ -208,6 +212,27 @@ def test_process_row_llm_unavailable_does_not_consume_retries(db_session, monkey
     assert row.retry_count == 0  # GPU node off ≠ a failed attempt
     assert row.retry_after is not None
     assert "LLM unavailable" in row.error_message
+
+
+def test_process_row_llm_disabled_fails_immediately(db_session, monkeypatch):
+    """LLM not configured at all (OLLAMA_URL unset) → fail immediately instead
+    of retrying forever, since there's no backend that will ever come back."""
+    import email_worker.processor as proc
+    from app.services import ollama as _ollama
+    from email_worker.parsers.base import LLMUnavailableError
+    from email_worker.worker import _process_row
+
+    def _llm_down(row, raw, db):
+        raise LLMUnavailableError("LLM fallback disabled (OLLAMA_URL not set)")
+
+    monkeypatch.setattr(proc, "process_email", _llm_down)
+    monkeypatch.setattr(_ollama, "is_enabled", lambda: False)
+    row = _make_email_log(db_session, "llm-disabled-msg", "pending", raw=_RAW_EMAIL)
+    _process_row(db_session, row, _RAW_EMAIL)
+
+    assert row.status == "failed"
+    assert "needs manual entry" in row.error_message
+    assert row.raw_size  # raw copy kept in case AI fallback is re-enabled later
 
 
 # ── email worker: _process_due_retries ────────────────────────────────────────
