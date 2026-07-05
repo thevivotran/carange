@@ -6,16 +6,16 @@ existing recurring cash-flow forecast (transaction_templates) has no room
 for. One row per income stream per person, plus a timeline of comp events
 against each, mirroring the financial_projects / project_payments shape.
 
-Revision ID: 0033
-Revises: 0032
+Revision ID: 0034
+Revises: 0033
 Create Date: 2026-07-05
 """
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "0033"
-down_revision = "0032"
+revision = "0034"
+down_revision = "0033"
 branch_labels = None
 depends_on = None
 
