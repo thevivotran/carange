@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from app.models.database import create_tables, get_db, SessionLocal
+from app.models.database import create_tables, get_db, SessionLocal, startup_lock
 from app.models.database import Category, Transaction, TransactionType, User
 from app.routers import transactions, categories, savings, projects, dashboard, templates as templates_router
 from app.routers import assets
@@ -45,8 +45,9 @@ from app.routers.fragments import income as frag_income
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    create_tables()
-    seed_default_categories()
+    with startup_lock():
+        create_tables()
+        seed_default_categories()
     from app.services.scheduler import start_scheduler
 
     start_scheduler()
