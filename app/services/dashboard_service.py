@@ -212,7 +212,7 @@ def _mv_sum(
     return total
 
 
-VALID_KPI_ROLES = ("liquid_savings", "real_estate")
+VALID_KPI_ROLES = ("liquid_savings", "real_estate", "investment")
 
 
 def get_kpi_role_category_ids(db: Session) -> dict[str, list[int]]:
@@ -574,8 +574,12 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     ]
 
     # ── Static / current-state figures ───────────────────────────────────────
+    # total_savings uses current_amount (actual balance) — NOT future_amount
+    # (projected maturity, which folds in unearned interest). This keeps the
+    # displayed Active Savings, runway, emergency-fund and the net-worth hero
+    # breakdown all on the same basis as ledger.net_worth (Phase-4 Tier-2).
     savings_data = (
-        db.query(func.sum(SavingsBundle.future_amount), func.sum(SavingsBundle.initial_deposit))
+        db.query(func.sum(SavingsBundle.current_amount), func.sum(SavingsBundle.initial_deposit))
         .filter(SavingsBundle.status == SavingsStatus.ACTIVE, SavingsBundle.deleted_at.is_(None))
         .first()
     )
@@ -895,8 +899,10 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
             .scalar()
             or 0
         )
+    # current_amount (actual balance), matching the current net_worth basis so
+    # the 1-month-ago net worth is computed on the same footing (Phase-4 Tier-2).
     _prev_savings_total = float(
-        db.query(func.sum(SavingsBundle.future_amount))
+        db.query(func.sum(SavingsBundle.current_amount))
         .filter(SavingsBundle.status == SavingsStatus.ACTIVE, SavingsBundle.deleted_at.is_(None))
         .scalar()
         or 0

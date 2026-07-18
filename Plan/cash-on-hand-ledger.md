@@ -129,21 +129,45 @@ net_family_surplus  ==  external_income − external_expense
 - Net "Tiết kiệm" drag on cash_on_hand = 426.15M − 101.26M = **324.90M** (dominant
   part of the −69M).
 
-**Backfill tasks:**
-1. Tag every "Tiết kiệm" expense/income (both eras) as a savings transfer.
-2. Backfill the 9 missing early bundles (Carange 1–7,9,11) as completed bundles, or
-   at minimum ensure each deposit AND return is tagged so they net out.
-3. Fix Carange 8's missing deposit; link Carange 10/12 orphan payouts.
-4. Derive bundle current balance from linked txns + earned interest; switch
-   net_worth off `future_amount` onto actual current balance.
-5. Same treatment for RE/investment transfers.
-- Deliverable: a **per-bundle reconciliation script** (Excel Saving ↔ fin bundle ↔
-  tagged txns) that flags every mismatch → becomes the backfill + the permanent
-  reconciliation test.
-- Also: investigate remaining Liquid-cash negativity after savings fixed (missing
-  opening balance? — Excel `Tracker!J1` context).
-- **Done when:** reconciliation test passes on production data; discrepancy
-  documented.
+**Reconciliation findings (2026-07-18, verified vs production):**
+- ROOT of surplus overstatement: there are TWO "Tiết kiệm" categories — expense
+  (id 28, `kpi_role='liquid_savings'`) and income (id 38, `kpi_role=None`). The
+  income one lacking the role lets non-bundle-linked savings RETURNS leak into
+  EXTERNAL income. Exactly 2 txns leak: id 323 (25,642,740, "Carange 10") + id 457
+  (10,254,301, "Carange 12") = 35,897,041. Fixing → `net_family_surplus`
+  +342,307,614 → **+306,410,573**.
+- `net_worth` savings term uses `future_amount` (296.1M incl ~21M unearned
+  interest) → switch to `current_amount` (275M). net_worth −21.1M.
+- Carange 8 (bundle id 23): 35M DEPOSIT is unrecorded (its 35M return IS booked)
+  → `liquid_cash` currently ~35M too HIGH.
+- 9 un-migrated early bundles (Carange 1–7,9,11): deposits sit in legacy monthly
+  Tiết kiệm expenses, returns appear UNRECORDED → `liquid_cash` ~124M too LOW.
+- Bundle ids: Carange 10=2, Carange 12=3, Carange 8=23.
+
+**KEY INSIGHT:** `net_family_surplus` (who-owes-whom) is immune to bundle recording
+gaps (all savings flows excluded once classified). `liquid_cash` (raw spendable) is
+highly sensitive to them. So the surplus is cleanly fixable; liquid_cash needs a
+per-bundle leg reconciliation.
+
+**Split decision (user, 2026-07-18): apply clean fixes now, review liquid_cash next.**
+
+CLEAN FIXES — IN PROGRESS on Sonnet worker (code + Alembic rev 0035, not committed):
+1. income "Tiết kiệm" (id 38) → `kpi_role='liquid_savings'` (match by name+type).
+2. "Đầu tư" (id 36/37) → `kpi_role='investment'`; ledger uses role as primary,
+   name-match kept as fallback; 'investment' added to VALID_KPI_ROLES.
+3. link orphan payouts id 323→bundle 2, id 457→bundle 3 (+ is_savings_related).
+4. net_worth savings term `future_amount` → `current_amount` (active).
+5. `transactions.py:447` inline cash_on_hand → `ledger.liquid_cash` (Phase-5 loose
+   end folded in).
+Update reconciliation test identity (B) for current_amount.
+
+DEFERRED — liquid_cash leg reconciliation (needs per-bundle review with user):
+- record Carange 8's missing 35M deposit; create/relink the 9 early bundles' legs
+  without double-counting the legacy monthly Tiết kiệm expenses. Materially moves
+  liquid_cash (Carange 8 −35M; early-bundle returns +~124M). Build the full 19-row
+  Excel↔fin↔txn recording-state table first.
+- **Done when:** clean-fix migration applied + surplus/net_worth verified on prod;
+  liquid_cash reconciliation separately reviewed & applied.
 
 ### Phase 5 — Guardrails for future features
 - CLAUDE.md gotcha: "Adding a new money pot" checklist (register in `Pot`, tag
