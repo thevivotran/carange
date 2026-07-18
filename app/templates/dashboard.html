@@ -1103,6 +1103,28 @@ const KPI_INFO = {
             'Not affected by the month selector — always compares to one month ago',
         ],
     },
+    'net-family-surplus': {
+        title: 'Family Surplus',
+        formula: 'External Income − External Expense (all-time, transfers excluded)',
+        target: 'Positive = the family holds surplus that touched the spendable account',
+        notes: [
+            'The "who owes whom" number — internal transfers (savings, real estate, projects) are netted out',
+            'Unaffected by moving money between pots; only real external income/spend move it',
+            'Positive means surplus is held; negative means the family is owed',
+            'All-time figure — not affected by the month selector',
+        ],
+    },
+    'liquid-cash': {
+        title: 'Liquid Cash',
+        formula: 'Σ Income − Σ Expense (all transactions, every pot)',
+        target: 'The true spendable balance; can be negative as a data signal',
+        notes: [
+            'Raw cash position — includes savings/real-estate deposits that really left the account',
+            'Can be legitimately negative when deposits outpaced cash inflow',
+            'A negative value is NOT the family surplus — see Family Surplus for that',
+            'Matches the cash-flow forecast\'s starting balance',
+        ],
+    },
 };
 
 let _activePopover = null;
