@@ -56,7 +56,7 @@ link: `https://github.com/thevivotran/carange/compare/main...<branch>?expand=1`
   `savings_bundle_id` / `project_id` — category role outranks FK links); add its
   current-balance source to `net_worth()` if it is held on the balance sheet; then run
   `tests/test_ledger_reconciliation.py` — the reconciliation and classifier-completeness
-  guards fail if a pot is left unwired. Design notes: `Plan/cash-on-hand-ledger.md`.
+  guards fail if a pot is left unwired.
 - **Notifications** — Telegram message formatting helpers live in `app/notify/telegram.py`.
   The notify worker (`notify_worker/worker.py`) processes the `notification_events` queue
   via PostgreSQL LISTEN/NOTIFY.
