@@ -161,13 +161,29 @@ CLEAN FIXES — IN PROGRESS on Sonnet worker (code + Alembic rev 0035, not commi
    end folded in).
 Update reconciliation test identity (B) for current_amount.
 
-DEFERRED — liquid_cash leg reconciliation (needs per-bundle review with user):
-- record Carange 8's missing 35M deposit; create/relink the 9 early bundles' legs
-  without double-counting the legacy monthly Tiết kiệm expenses. Materially moves
-  liquid_cash (Carange 8 −35M; early-bundle returns +~124M). Build the full 19-row
-  Excel↔fin↔txn recording-state table first.
-- **Done when:** clean-fix migration applied + surplus/net_worth verified on prod;
-  liquid_cash reconciliation separately reviewed & applied.
+liquid_cash reconciliation — REVIEWED & CLOSED (user decision 2026-07-18): DO NOT FIX.
+Full 23-bundle recording-state table built. Findings:
+- Group A (active C13-15,19-23, 275M) + Group B (completed C10,16,17,18): correctly
+  recorded, no action.
+- Group C (deposit missing): C8 (35M deposit unrecorded, return booked) + C12
+  (~8.2M partial) → liquid_cash ~+43M too HIGH. EXACT/fixable.
+- Group D (un-migrated early bundles C1-7,9,11): pre-Nov-2025 "cutover" era recorded
+  savings as MONTHLY AGGREGATE Tiết kiệm expenses (odd amounts, don't map 1:1 to
+  round bundle deposits); returns never booked → liquid_cash ~−90-125M too LOW.
+  UNTRACEABLE (user: legacy txns merged multiple prior savings + top-ups).
+- Net: true liquid_cash ≈ −20M to +15M vs displayed −69M, but not precisely
+  recoverable.
+DECISION: book nothing. Fixing Group C alone would push liquid_cash to ~−112M
+(further from truth) while Group D stays unbooked. Accept liquid_cash as approximate
+for the legacy era; rely on `net_family_surplus` (+306,410,573) as the trustworthy
+"who owes whom" KPI. `liquid_cash` is immune... no — SURPLUS is immune to these gaps;
+liquid_cash is not, hence it stays approximate. Phase 3 guard tests protect FUTURE
+data regardless.
+
+**Phase 5 DONE (2026-07-18):** "adding a new money pot" contract added to CONTRIBUTING.md
+(commit d78922a) + the loaded monorepo CLAUDE.md gotchas (untracked, not a git repo).
+
+**STATUS: COMPLETE.** PR #82 (Phases 1-5). Only remaining optional polish: none required.
 
 ### Phase 5 — Guardrails for future features
 - CLAUDE.md gotcha: "Adding a new money pot" checklist (register in `Pot`, tag
