@@ -25,6 +25,7 @@ from app.models.database import (
     Transaction,
     TransactionType,
 )
+from app.services import ledger
 from app.services.budget_service import compute_budget_rows
 from app.services.fiscal_period import (
     current_period_ym,
@@ -349,36 +350,11 @@ def _txn_ns(t) -> SimpleNamespace:
 def get_cash_on_hand(db: Session) -> float:
     """All-time income minus all-time expense (soft-deleted excluded).
 
-    The single figure the cash-flow forecast needs as its starting balance,
-    computed with one aggregate query instead of the full dashboard pass.
+    Backward-compat shim: delegates to `ledger.liquid_cash`, the single source
+    of truth for this figure (Phase 2). Kept so existing importers of this name
+    keep working; the arithmetic itself now lives only in ledger.py.
     """
-    row = db.query(
-        func.sum(
-            case(
-                (
-                    and_(
-                        Transaction.type == TransactionType.INCOME,
-                        Transaction.deleted_at.is_(None),
-                    ),
-                    Transaction.amount,
-                ),
-                else_=0,
-            )
-        ).label("inc"),
-        func.sum(
-            case(
-                (
-                    and_(
-                        Transaction.type == TransactionType.EXPENSE,
-                        Transaction.deleted_at.is_(None),
-                    ),
-                    Transaction.amount,
-                ),
-                else_=0,
-            )
-        ).label("exp"),
-    ).first()
-    return float(row.inc or 0) - float(row.exp or 0)
+    return ledger.liquid_cash(db)
 
 
 def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict:
@@ -442,11 +418,6 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         )
         total_income_all = _sum_from_index(mv_index, type_val="income", savings=False)
         total_expense_all = _sum_from_index(mv_index, type_val="expense")
-        # Symmetric "true liquid" cash on hand: includes savings-related legs on BOTH
-        # sides so the headline number isn't distorted by bundle deposits. This is
-        # the canonical cash_on_hand — also computed by get_cash_on_hand() for the
-        # forecast, and the only way the dashboard and forecast can agree.
-        total_income_all_sym = _sum_from_index(mv_index, type_val="income")
     else:
         tk_filter = (
             Transaction.category_id.in_(kpi_ids["liquid_savings"]) if kpi_ids["liquid_savings"] else sqla_false()
@@ -482,7 +453,6 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
             _month_case(TransactionType.EXPENSE, None, bds_filter).label("monthly_bds"),
             _alltime_case(TransactionType.INCOME, False).label("total_income"),
             _alltime_case(TransactionType.EXPENSE).label("total_expense"),
-            _alltime_case(TransactionType.INCOME).label("total_income_sym"),
         ).first()
         monthly_income = float(_agg.monthly_income or 0)
         monthly_expense = float(_agg.monthly_expense or 0)
@@ -504,7 +474,6 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         )
         total_income_all = float(_agg.total_income or 0)
         total_expense_all = float(_agg.total_expense or 0)
-        total_income_all_sym = float(_agg.total_income_sym or 0)
 
     monthly_wealth_building = monthly_tiet_kiem + monthly_bds
 
@@ -669,11 +638,17 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
     # via `future_amount`, so removing it from the income leg avoids double-
     # counting it here AND in net worth.
     operating_surplus = total_income_all - total_expense_all
-    # cash_on_hand is the symmetric view: ALL income − ALL expense. This is the
-    # actual liquid position — including bundle deposits which really did leave
-    # the spendable account. This matches get_cash_on_hand() and the forecast
-    # starting balance so all three numbers agree.
-    cash_on_hand = total_income_all_sym - total_expense_all
+    # ── Canonical cash / surplus figures — single source of truth in ledger.py ──
+    # liquid_cash is the symmetric view: raw ALL income − ALL expense. It's the
+    # actual spendable position (bundle deposits really did leave the account),
+    # and matches the forecast starting balance. net_family_surplus is the
+    # transfer-excluded "who owes whom" number (external_income −
+    # external_expense). The two are co-equal KPIs: a deeply-negative liquid_cash
+    # must never be mistaken for the family surplus.
+    liquid_cash = ledger.liquid_cash(db)
+    net_family_surplus = ledger.net_family_surplus(db)
+    # Backward-compat alias for existing templates/callers that read cash_on_hand.
+    cash_on_hand = liquid_cash
 
     _assets_agg = db.query(
         func.coalesce(func.sum(OtherAsset.current_value_vnd), 0).label("cur"),
@@ -688,7 +663,11 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
         db.query(func.sum(ProjectPayment.amount)).filter(ProjectPayment.status == PaymentStatus.PAID).scalar() or 0
     )
 
-    net_worth = cash_on_hand + total_savings + total_assets_current + total_projects_paid
+    # net_worth via the ledger — reproduces the exact same value as the inline
+    # assembly (liquid_cash + active-bundle future_amount + asset current value +
+    # PAID project payments). Phase 1 constraint: value is unchanged; switching
+    # the savings component off future_amount is deferred to Phase 4.
+    net_worth = ledger.net_worth(db)
 
     # ── Budget adherence ──────────────────────────────────────────────────────
     # Use the resolved fiscal period (not the raw calendar month) so these counts
@@ -1015,6 +994,8 @@ def get_dashboard_data(db: Session, year: int = None, month: int = None) -> dict
             "stress_test_cushion": stress_test_cushion,
             "net_worth": net_worth,
             "cash_on_hand": cash_on_hand,
+            "liquid_cash": liquid_cash,
+            "net_family_surplus": net_family_surplus,
             "operating_surplus": operating_surplus,
             "total_savings": total_savings,
             "total_savings_initial": total_savings_initial,

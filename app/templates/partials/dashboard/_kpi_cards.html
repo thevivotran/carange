@@ -7,6 +7,47 @@
   <!-- ── Row 1: KPI Cards ─────────────────────────────────────────── -->
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
 
+    <!-- Family Surplus — the transfer-excluded "who owes whom" number.
+         Kept visually distinct from Liquid Cash so a deeply-negative Liquid
+         Cash is never mistaken for the family's true surplus. -->
+    <div class="cg-card p-5 hover:shadow-md transition-shadow">
+      <div class="flex justify-between items-center mb-1">
+        <p class="eyebrow">Family Surplus</p>
+        <button onclick="showKpiInfo('net-family-surplus', this)" class="w-6 h-6 flex items-center justify-center rounded-md text-muted hover:text-secondary hover:bg-surface-sunken focus:outline-none transition" title="About this metric"><i class="fas fa-info-circle text-xs"></i></button>
+      </div>
+      <p class="text-3xl font-bold leading-tight amount tabular-nums {{ 'text-success' if summary.net_family_surplus >= 0 else 'text-danger' }}">
+        {{ summary.net_family_surplus | currency_abbrev(signed=true) }}
+      </p>
+      <p class="text-xs text-muted mt-1">External income − external expense</p>
+      <div class="mt-3 flex items-center justify-between">
+        <span class="text-xs text-muted">Transfers excluded</span>
+        <span class="cg-badge {{ 'cg-badge--success' if summary.net_family_surplus >= 0 else 'cg-badge--danger' }}">
+          {{ 'Surplus held' if summary.net_family_surplus >= 0 else 'Family owed' }}
+        </span>
+      </div>
+    </div>
+
+    <!-- Liquid Cash — the raw spendable balance (Σincome − Σexpense across all
+         pots). Can be legitimately negative when deposits into savings/RE/
+         projects have outpaced cash inflow; that negativity is a data signal,
+         not the family surplus. -->
+    <div class="cg-card p-5 hover:shadow-md transition-shadow">
+      <div class="flex justify-between items-center mb-1">
+        <p class="eyebrow">Liquid Cash</p>
+        <button onclick="showKpiInfo('liquid-cash', this)" class="w-6 h-6 flex items-center justify-center rounded-md text-muted hover:text-secondary hover:bg-surface-sunken focus:outline-none transition" title="About this metric"><i class="fas fa-info-circle text-xs"></i></button>
+      </div>
+      <p class="text-3xl font-bold leading-tight amount tabular-nums {{ 'text-success' if summary.liquid_cash >= 0 else 'text-danger' }}">
+        {{ summary.liquid_cash | currency_abbrev(signed=true) }}
+      </p>
+      <p class="text-xs text-muted mt-1">Raw income − expense (all pots)</p>
+      <div class="mt-3 flex items-center justify-between">
+        <span class="text-xs text-muted">Spendable balance</span>
+        <span class="cg-badge {{ 'cg-badge--success' if summary.liquid_cash >= 0 else 'cg-badge--warning' }}">
+          {{ 'Positive' if summary.liquid_cash >= 0 else 'Drawn down' }}
+        </span>
+      </div>
+    </div>
+
     <!-- Liquid Savings Rate -->
     <div class="cg-card p-5 hover:shadow-md transition-shadow">
       <div class="flex justify-between items-center mb-1">
