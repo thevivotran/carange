@@ -26,7 +26,7 @@ from app.models.schemas import (
     TransactionAuditLogEntry,
     ProjectPayment as ProjectPaymentSchema,
 )
-from app.services import transaction_service, project_service
+from app.services import ledger, transaction_service, project_service
 from app.services.dashboard_service import invalidate_dashboard_cache
 from app.services.fiscal_period import current_period_ym, fiscal_window_ym, get_month_start_day
 from app.services.notification_service import publish_notification
@@ -421,30 +421,14 @@ def get_monthly_summary(year: Optional[int] = None, month: Optional[int] = None,
                 else_=0,
             )
         ).label("savings"),
-        func.sum(
-            case(
-                (
-                    and_(Transaction.type == TransactionType.INCOME, Transaction.deleted_at.is_(None)),
-                    Transaction.amount,
-                ),
-                else_=0,
-            )
-        ).label("total_income"),
-        func.sum(
-            case(
-                (
-                    and_(Transaction.type == TransactionType.EXPENSE, Transaction.deleted_at.is_(None)),
-                    Transaction.amount,
-                ),
-                else_=0,
-            )
-        ).label("total_expense"),
     ).first()
 
     income = float(row.income or 0)
     expense = float(row.expense or 0)
     savings = float(row.savings or 0)
-    cash_on_hand = float((row.total_income or 0) - (row.total_expense or 0))
+    # All-time liquid cash — single source of truth in ledger.py (Phase 4:
+    # closes the last income−expense-outside-ledger site).
+    cash_on_hand = ledger.liquid_cash(db)
 
     return {
         "year": year,

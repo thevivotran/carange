@@ -45,15 +45,12 @@ from app.models.database import (
     TransactionType,
 )
 
-# Vietnamese name for the household's investment-outflow category. There is no
-# formal flag for "this category funds the investment pot" yet (unlike
-# liquid_savings/real_estate, which have `category.kpi_role`), so we key off
-# the category name as a stopgap.
-#
-# TODO(ledger, Phase 4+): add "investment" as a third `category.kpi_role`
-# value (alongside "liquid_savings"/"real_estate") and drop this name-based
-# lookup — see Plan/cash-on-hand-ledger.md. Formalizing it as a role would
-# also let it survive a category rename, which this string match cannot.
+# Vietnamese name for the household's investment category. As of Phase 4 the
+# PRIMARY investment signal is `category.kpi_role == 'investment'` (formalized
+# alongside liquid_savings/real_estate — see migration 0035). This name match
+# is retained only as a SECONDARY fallback so any pre-migration or un-tagged
+# "Đầu tư" rows still classify correctly; a category rename would break the
+# fallback but not the role, which is why the role is now primary.
 INVESTMENT_CATEGORY_NAME = "Đầu tư"
 
 
@@ -144,14 +141,16 @@ def classify(txn) -> tuple[Direction, Pot]:
       4. `category.is_savings_category`
          OR `transaction.is_savings_related`     -> LIQUID_SAVINGS
          Generic savings flags — no role, no bundle FK.
-      5. `category.name == 'Đầu tư'`             -> INVESTMENT
-         Name-based fallback (no dedicated flag yet — see
-         INVESTMENT_CATEGORY_NAME TODO).
-      6. `project_id IS NOT NULL`                -> PROJECT
+      5. `category.kpi_role == 'investment'`     -> INVESTMENT
+         PRIMARY investment signal (Phase 4 role, migration 0035).
+      6. `category.name == 'Đầu tư'`             -> INVESTMENT
+         SECONDARY fallback for pre-migration / un-tagged rows (see
+         INVESTMENT_CATEGORY_NAME).
+      7. `project_id IS NOT NULL`                -> PROJECT
          FK to a FinancialProject. Ranks LAST among internal signals: a
-         category-nature classification (rules 1-5) always wins over the bare
+         category-nature classification (rules 1-6) always wins over the bare
          project link, so only projects with no more specific signal land here.
-      7. else                                    -> EXTERNAL
+      8. else                                    -> EXTERNAL
     """
     direction = _direction_of(txn.type)
     kpi_role, is_savings_category, category_name = _category_signals(txn)
@@ -168,7 +167,10 @@ def classify(txn) -> tuple[Direction, Pot]:
     if is_savings_category or bool(getattr(txn, "is_savings_related", False)):
         return direction, Pot.LIQUID_SAVINGS
 
-    if category_name == INVESTMENT_CATEGORY_NAME:
+    if kpi_role == "investment":  # PRIMARY investment signal
+        return direction, Pot.INVESTMENT
+
+    if category_name == INVESTMENT_CATEGORY_NAME:  # SECONDARY fallback
         return direction, Pot.INVESTMENT
 
     if getattr(txn, "project_id", None) is not None:
@@ -200,7 +202,8 @@ def _pot_case_expr():
             ),
             Pot.LIQUID_SAVINGS.value,
         ),
-        (Category.name == INVESTMENT_CATEGORY_NAME, Pot.INVESTMENT.value),
+        (Category.kpi_role == "investment", Pot.INVESTMENT.value),  # PRIMARY
+        (Category.name == INVESTMENT_CATEGORY_NAME, Pot.INVESTMENT.value),  # SECONDARY fallback
         (Transaction.project_id.isnot(None), Pot.PROJECT.value),
         else_=Pot.EXTERNAL.value,
     )
@@ -320,16 +323,20 @@ def pot_balance(db: Session, pot: Pot) -> float:
 def net_worth(db: Session) -> float:
     """liquid_cash + total_savings + total_assets_current + total_projects_paid.
 
-    Phase 1 constraint: this reproduces dashboard_service.get_dashboard_data's
-    current net_worth VALUE exactly (same four sources, same aggregation) —
-    it does NOT switch the savings component off `SavingsBundle.future_amount`
-    onto an actual-balance/pot_balance figure yet. That fix (and the
-    future_amount-vs-actual-deposit reconciliation) is Phase 4.
+    Phase 4 correction (savings component): the savings term is now
+    `SavingsBundle.current_amount` (actual current balance) instead of
+    `future_amount` (projected maturity value, which folded in ~21M of
+    UNEARNED interest). Same filter as before: status ACTIVE, deleted_at IS
+    NULL. This lowers net_worth by the unearned-interest delta versus Phase 1.
+
+    Still deferred (later): dedicated REAL_ESTATE / INVESTMENT stock sources —
+    those pots have no net_worth stock term yet, only transaction-derived
+    pot_balance flows.
     """
     cash = liquid_cash(db)
 
     total_savings = float(
-        db.query(func.coalesce(func.sum(SavingsBundle.future_amount), 0))
+        db.query(func.coalesce(func.sum(SavingsBundle.current_amount), 0))
         .filter(SavingsBundle.status == SavingsStatus.ACTIVE, SavingsBundle.deleted_at.is_(None))
         .scalar()
         or 0

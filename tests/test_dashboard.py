@@ -252,7 +252,14 @@ def test_monthly_bds_zero_when_no_transaction(db_session):
 
 
 def test_net_worth_components(db_session, income_cat, expense_cat):
-    """Net worth = cash_on_hand + active savings (future) + other assets + projects paid."""
+    """Net worth = cash_on_hand + active savings (CURRENT balance) + other assets + projects paid.
+
+    Phase-4: both net_worth AND the displayed total_savings use
+    `SavingsBundle.current_amount` (actual balance), not `future_amount`
+    (projected maturity, which folds in unearned interest). The bundle below
+    has current_amount=50M, future_amount=53M — both figures resolve to 50M, so
+    the net-worth hero breakdown (Cash + Active Savings + Assets + Projects)
+    sums to the net-worth total."""
     # Cash on hand: all-time income minus all-time expenses
     make_transaction(
         db_session,
@@ -270,7 +277,8 @@ def test_net_worth_components(db_session, income_cat, expense_cat):
     )
     # cash_on_hand = 80_000_000
 
-    # Active savings bundle (future_amount counts)
+    # Active savings bundle — both net_worth and total_savings count
+    # current_amount (50M); future_amount (53M) is ignored by both.
     bundle = SavingsBundle(
         name="Test Bundle",
         bank_name="VCB",
@@ -297,10 +305,11 @@ def test_net_worth_components(db_session, income_cat, expense_cat):
     db_session.commit()
 
     s = _summary(db_session)
-    expected = 80_000_000 + 53_000_000 + 9_000_000
+    # net_worth and total_savings both use current_amount (50M); future_amount ignored.
+    expected = 80_000_000 + 50_000_000 + 9_000_000
     assert s["net_worth"] == pytest.approx(expected)
     assert s["cash_on_hand"] == pytest.approx(80_000_000)
-    assert s["total_savings"] == pytest.approx(53_000_000)
+    assert s["total_savings"] == pytest.approx(50_000_000)
     assert s["total_assets_current"] == pytest.approx(9_000_000)
 
 

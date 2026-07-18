@@ -163,10 +163,20 @@ def test_classify_real_estate_via_kpi_role(db_session, bds_cat):
     assert pot is Pot.REAL_ESTATE
 
 
-def test_classify_investment_via_category_name(db_session):
-    """No formal flag for investment yet — derived from the Vietnamese category
-    name "Đầu tư" (see ledger.INVESTMENT_CATEGORY_NAME TODO)."""
+def test_classify_investment_via_kpi_role(db_session):
+    """PRIMARY investment signal (Phase 4): kpi_role='investment'. Category name
+    is deliberately NOT "Đầu tư" to prove the role alone classifies it."""
+    cat = _cat(db_session, "Stocks", kpi_role="investment")
+    t = _txn(db_session, category_id=cat.id, amount=1_000)
+    _, pot = classify(_load(db_session, t.id))
+    assert pot is Pot.INVESTMENT
+
+
+def test_classify_investment_via_category_name_fallback(db_session):
+    """SECONDARY fallback: an un-tagged (kpi_role=None) "Đầu tư" category still
+    classifies as INVESTMENT via the name match, so pre-migration rows work."""
     cat = _cat(db_session, ledger.INVESTMENT_CATEGORY_NAME)
+    assert cat.kpi_role is None
     t = _txn(db_session, category_id=cat.id, amount=1_000)
     _, pot = classify(_load(db_session, t.id))
     assert pot is Pot.INVESTMENT
@@ -179,6 +189,25 @@ def test_classify_investment_name_match_is_exact(db_session):
     t = _txn(db_session, category_id=cat.id, amount=1_000)
     _, pot = classify(_load(db_session, t.id))
     assert pot is Pot.EXTERNAL
+
+
+def test_precedence_savings_flag_beats_investment_role(db_session):
+    """A category with kpi_role='investment' whose transaction is also
+    is_savings_related=True -> LIQUID_SAVINGS wins (rule 4 > 5): the savings
+    flag ranks above the investment role, matching the documented order."""
+    cat = _cat(db_session, "Stocks", kpi_role="investment")
+    t = _txn(db_session, category_id=cat.id, amount=1_000, is_savings_related=True)
+    _, pot = classify(_load(db_session, t.id))
+    assert pot is Pot.LIQUID_SAVINGS
+
+
+def test_precedence_investment_role_beats_project_fk(db_session):
+    """kpi_role='investment' plus a project_id -> INVESTMENT (rule 5 > 7)."""
+    cat = _cat(db_session, "Stocks", kpi_role="investment")
+    project = _project(db_session)
+    t = _txn(db_session, category_id=cat.id, amount=1_000, project_id=project.id)
+    _, pot = classify(_load(db_session, t.id))
+    assert pot is Pot.INVESTMENT
 
 
 def test_classify_project_via_project_id(db_session, expense_cat):
@@ -349,14 +378,16 @@ def test_classify_matches_sql_pot_expression(db_session, income_cat, expense_cat
     edits one without the other, this test catches the drift."""
     bundle = _bundle(db_session)
     project = _project(db_session)
-    investment_cat = _cat(db_session, ledger.INVESTMENT_CATEGORY_NAME)
+    investment_name_cat = _cat(db_session, ledger.INVESTMENT_CATEGORY_NAME)  # name fallback
+    investment_role_cat = _cat(db_session, "Stocks", kpi_role="investment")  # primary role
 
     ids = [
         _txn(db_session, category_id=income_cat.id, type_=TransactionType.INCOME, amount=100).id,
         _txn(db_session, category_id=expense_cat.id, amount=100).id,
         _txn(db_session, category_id=tiet_kiem_cat.id, amount=100).id,
         _txn(db_session, category_id=bds_cat.id, amount=100).id,
-        _txn(db_session, category_id=investment_cat.id, amount=100).id,
+        _txn(db_session, category_id=investment_role_cat.id, amount=100).id,
+        _txn(db_session, category_id=investment_name_cat.id, amount=100).id,
         _txn(db_session, category_id=expense_cat.id, amount=100, project_id=project.id).id,
         _txn(db_session, category_id=expense_cat.id, amount=100, savings_bundle_id=bundle.id).id,
     ]

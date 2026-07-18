@@ -16,22 +16,23 @@ Phase 4 can tighten identity (B) without touching (A):
         liquid_cash == external_income − external_expense
                        − Σ pot_balance(internal pots)
 
-  (B) STOCK reconciliation — the CURRENT (Phase-1) net_worth definition:
+  (B) STOCK reconciliation — the CURRENT (Phase-4) net_worth definition:
         net_worth == liquid_cash
-                     + Σ active-bundle future_amount        (LIQUID_SAVINGS stock)
+                     + Σ active-bundle current_amount       (LIQUID_SAVINGS stock)
                      + Σ other-asset current_value          (non-pot asset stock)
                      + Σ PAID project-payment amounts        (PROJECT stock)
-      These three stock terms are NOT transaction-derived (future_amount is a
-      projected maturity value; project payments and asset values are entered
+      Phase-4 correction: the savings term is `current_amount` (actual balance),
+      not `future_amount` (projected maturity, includes unearned interest).
+      These three stock terms are NOT transaction-derived (current_amount is a
+      stored balance; project payments and asset values are entered
       independently of transactions), so (B) is NOT the same as (A) plus a
       constant on arbitrary data.
 
-  Phase-4 tightening (documented, not asserted here): the LIQUID_SAVINGS stock
-  term moves off `future_amount` onto pot_balance(LIQUID_SAVINGS)+earned
-  interest, and REAL_ESTATE/INVESTMENT gain their own stock sources, at which
-  point (B) collapses toward "liquid_cash + Σ pot_balance(internal) + non-pot
-  asset stock". This file's identity (B) is written so that change is a
-  localized edit here.
+  Still deferred (documented, not asserted here): the LIQUID_SAVINGS stock term
+  moving onto pot_balance(LIQUID_SAVINGS)+earned interest, and dedicated
+  REAL_ESTATE/INVESTMENT stock sources, at which point (B) collapses toward
+  "liquid_cash + Σ pot_balance(internal) + non-pot asset stock". This file's
+  identity (B) is written so that change is a localized edit here.
 """
 
 from datetime import date
@@ -167,15 +168,21 @@ def test_identity_A_flow_reconciliation(db_session, income_cat, expense_cat, tie
     assert lc == ext_in - ext_out - internal_total
 
 
-def test_identity_B_stock_reconciliation_matches_phase1_net_worth(
-    db_session, income_cat, expense_cat, tiet_kiem_cat, bds_cat
-):
-    """(B) net_worth == liquid_cash + active-bundle future_amount + asset
-    current_value + PAID project payments — the exact Phase-1 definition."""
+def test_identity_B_stock_reconciliation_matches_net_worth(db_session, income_cat, expense_cat, tiet_kiem_cat, bds_cat):
+    """(B) net_worth == liquid_cash + active-bundle CURRENT_amount + asset
+    current_value + PAID project payments.
+
+    Phase-4 correction: the savings term is `SavingsBundle.current_amount`
+    (actual balance), NOT `future_amount` (projected maturity, includes
+    unearned interest). This test sets the two to DIFFERENT values and asserts
+    net_worth follows current_amount, proving the switch."""
     bundle, project = _seed_diverse_dataset(db_session, income_cat, expense_cat, tiet_kiem_cat, bds_cat)
 
-    # Give the stock tables non-trivial, independent values.
-    bundle.future_amount = 3_333_000
+    # Give the stock tables non-trivial, independent values. future_amount is
+    # deliberately different from current_amount to catch a regression back to
+    # future_amount.
+    bundle.current_amount = 3_333_000
+    bundle.future_amount = 3_900_000  # unearned interest — must be IGNORED by net_worth
     db_session.add(bundle)
     db_session.add(
         OtherAsset(
@@ -199,7 +206,11 @@ def test_identity_B_stock_reconciliation_matches_phase1_net_worth(
 
 # ── Classifier-completeness (anti-drift tripwire) ────────────────────────────
 
-KNOWN_INTERNAL_KPI_ROLES = {"liquid_savings": Pot.LIQUID_SAVINGS, "real_estate": Pot.REAL_ESTATE}
+KNOWN_INTERNAL_KPI_ROLES = {
+    "liquid_savings": Pot.LIQUID_SAVINGS,
+    "real_estate": Pot.REAL_ESTATE,
+    "investment": Pot.INVESTMENT,
+}
 
 
 def assert_classifier_covers_db(db):
