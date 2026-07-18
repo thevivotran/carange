@@ -25,8 +25,8 @@ from app.models.database import (
 from app.services.budget_service import compute_budget_rows
 from app.services.cadence import iter_occurrences
 from app.services.currency_format import get_current_currency
-from app.services.dashboard_service import get_cash_on_hand
 from app.services.fiscal_period import current_period_label, fiscal_window, get_month_start_day
+from app.services.ledger import liquid_cash
 from app.services.settings_service import get_setting
 
 
@@ -40,7 +40,7 @@ def build_forecast(db: Session, horizon_days: int = 90, include_budget_estimate:
     smeared evenly across the remaining days of the period that fall within
     the forecast window, emitting one estimated event per applicable day.
     """
-    start_balance = get_cash_on_hand(db)
+    start_balance = liquid_cash(db)
     currency = get_current_currency(db)
     buffer = float(get_setting(db, "forecast_buffer", "0") or 0)
 

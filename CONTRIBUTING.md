@@ -46,6 +46,17 @@ link: `https://github.com/thevivotran/carange/compare/main...<branch>?expand=1`
   `test_schema_sync.py` to keep the ORM and migration chain in sync.
 - **Templates** — Jinja2 + HTMX + Tailwind. Never use `innerHTML` with dynamic content
   (a git hook blocks it). Use `createElement` / `textContent` / `appendChild` exclusively.
+- **Money figures** — `liquid_cash` / `cash_on_hand`, `net_family_surplus`, `net_worth`,
+  and per-pot balances come **only** from `app/services/ledger.py`; never compute
+  `income − expense` anywhere else. Every transaction is classified as an edge between
+  cash and one `Pot` (external / liquid_savings / real_estate / investment / project).
+  **Adding a new money pot** (a new asset/savings/goal type): add it to the `Pot` enum
+  and to *both* `classify()` and `_pot_case_expr()` (keep them in sync); tag its funding
+  transactions so they classify into it (a `category.kpi_role` value, or an FK such as
+  `savings_bundle_id` / `project_id` — category role outranks FK links); add its
+  current-balance source to `net_worth()` if it is held on the balance sheet; then run
+  `tests/test_ledger_reconciliation.py` — the reconciliation and classifier-completeness
+  guards fail if a pot is left unwired.
 - **Notifications** — Telegram message formatting helpers live in `app/notify/telegram.py`.
   The notify worker (`notify_worker/worker.py`) processes the `notification_events` queue
   via PostgreSQL LISTEN/NOTIFY.
