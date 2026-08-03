@@ -352,6 +352,55 @@ class TestGrabTip:
         results = self.parser._parse_transport(_GRAB_BIKE_BODY, _GRAB_RIDE_HTML)
         assert results[0].amount == 28_000
 
+    def test_transport_amount_parsed_with_dong_suffix_no_vnd_prefix(self):
+        # Grab dropped the "VND" prefix in favor of a trailing "₫" symbol
+        # for transport receipts starting ~2026-07-31 (e.g. "61.000 ₫").
+        body = (
+            "Bike\n"
+            "Hy vọng bạn đã có một chuyến đi vui vẻ!\n"
+            "Ngày đi 01 August 2026\n"
+            "Tổng đã thanh toán\n61.000 ₫\n"
+            "Profile\nFAMILY\n"
+        )
+        results = self.parser._parse_transport(body, "")
+        assert len(results) == 1
+        assert results[0].amount == 61_000
+
+    def test_transport_en_amount_parsed_with_dong_suffix_no_vnd_prefix(self):
+        # Same template change as above, for English-language receipts:
+        # "Total Paid\n89.000 ₫" instead of "Total Paid\nVND 89.000".
+        body = "Car\nHope you enjoyed your ride!\nPicked up on 01 August 2026\nTotal Paid\n89.000 ₫\nProfile\nFAMILY\n"
+        results = self.parser._parse_transport(body, "")
+        assert len(results) == 1
+        assert results[0].amount == 89_000
+
+
+# ── GrabParser: express receipts ────────────────────────────────────────────
+
+_GRAB_EXPRESS_BODY = "Express\nHàng đã được giao!\nTổng cộng\n₫ 119000\nNgày\n03 Aug 26\nHồ sơ\nPERSONAL\n"
+
+
+class TestGrabExpress:
+    def setup_method(self):
+        from email_worker.parsers.grab import GrabParser
+
+        self.parser = GrabParser()
+
+    def test_express_parsed_via_parse(self):
+        results = self.parser.parse("no-reply@grab.com", "Your GrabExpress E-Receipt", _GRAB_EXPRESS_BODY, "")
+        assert len(results) == 1
+        assert results[0].amount == 119_000
+        assert results[0].description == "Grab Express"
+        assert results[0].category_hint == "Chi phí khác"
+        assert results[0].tx_type == "expense"
+
+    def test_express_amount_with_currency_prefix_no_thousands_separator(self):
+        # Grab's current GrabExpress template prints "₫ 119000" — the currency
+        # symbol precedes the amount and there's no thousands separator.
+        results = self.parser._parse_express(_GRAB_EXPRESS_BODY)
+        assert len(results) == 1
+        assert results[0].amount == 119_000
+
 
 # ── extract_email_parts: malformed multipart/alternative (Payoo-style) ────────
 #
