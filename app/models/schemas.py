@@ -172,6 +172,7 @@ class TransactionCreate(TransactionBase):
     advance_settled: bool = False
     savings_bundle_id: Optional[int] = None
     project_id: Optional[int] = None
+    spender_user_id: Optional[int] = None
     savings_bundle: Optional[SavingsBundleCreate] = None  # For creating new savings bundle with transaction
 
 
@@ -189,6 +190,7 @@ class TransactionUpdate(BaseModel):
     savings_bundle_id: Optional[int] = None
     savings_bundle: Optional[SavingsBundleCreate] = None
     project_id: Optional[int] = None
+    spender_user_id: Optional[int] = None
     needs_review: Optional[bool] = None  # human clears the review flag after correction
 
 
@@ -199,6 +201,7 @@ class Transaction(TransactionBase):
     advance_settled: bool = False
     savings_bundle_id: Optional[int]
     project_id: Optional[int]
+    spender_user_id: Optional[int] = None
     import_job_id: Optional[int] = None
     confidence_score: Optional[float] = None
     needs_review: bool = False

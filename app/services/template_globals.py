@@ -9,7 +9,7 @@ from __future__ import annotations
 import threading
 import time
 
-from app.models.database import Category, SessionLocal
+from app.models.database import Category, SessionLocal, User
 
 # Every full-page render (16+ templates extend base.html) calls this global,
 # each previously opening its own SessionLocal() just to list active
@@ -54,6 +54,24 @@ def get_all_active_categories() -> list[Category]:
         return _cache
 
 
+def get_all_users() -> list[User]:
+    """Return all household profiles, ordered by name.
+
+    Used to populate the spender <select> in the transaction modal and list
+    filters. The users table has only a handful of rows (one per household
+    member), so no caching — a fresh query per render is cheap.
+    """
+    session = SessionLocal()
+    try:
+        users = session.query(User).order_by(User.name).all()
+        for u in users:
+            session.expunge(u)
+        return users
+    finally:
+        session.close()
+
+
 def register_template_globals(env) -> None:
     """Register all Jinja globals on a Starlette `Jinja2Templates` env."""
     env.globals["get_all_active_categories"] = get_all_active_categories
+    env.globals["get_all_users"] = get_all_users

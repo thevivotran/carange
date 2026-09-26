@@ -29,6 +29,8 @@
       'needs_review': t.needs_review,
       'import_job_id': t.import_job_id,
       'is_edited': t.id in edited_ids,
+      'spender_user_id': t.spender_user_id,
+      'spender_name': t.spender.name if t.spender else None,
       'category': {'name': t.category.name if t.category else '', 'color': t.category.color if t.category else '#6B7280'}
     } %}
     <div class="flex items-stretch gap-3 border-b transition-colors cursor-pointer select-none

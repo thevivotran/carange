@@ -1090,6 +1090,7 @@
                 payment_method: 'cash',
                 is_savings_related: isSavingsRelated,
                 is_advance: document.getElementById('is-advance').checked,
+                spender_user_id: document.getElementById('spender-user').value ? parseInt(document.getElementById('spender-user').value) : null,
             };
             if (!transactionId) {
                 data.advance_settled = false;
@@ -1279,6 +1280,7 @@
             }, 100);
             document.getElementById('description').value = transaction.description || '';
             document.getElementById('is-advance').checked = transaction.is_advance || false;
+            document.getElementById('spender-user').value = transaction.spender_user_id || '';
 
             var nrSection = document.getElementById('needs-review-section');
             if (transaction.needs_review) {
@@ -1326,6 +1328,7 @@
     </button>
 
     {% set _all_categories = get_all_active_categories() %}
+    {% set _all_users = get_all_users() %}
     {% include "partials/transactions/_modal_form.html" %}
 
     <!-- Toast container — Alpine-driven, sits above bottom nav on mobile -->

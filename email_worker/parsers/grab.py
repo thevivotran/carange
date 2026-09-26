@@ -76,15 +76,23 @@ _FOOD_AMT_TOTAL = re.compile(
     r"Tổng cộng\s*\n\s*([0-9][0-9,.]*)\s*(?:₫|đ|VND|VNĐ)",
     re.IGNORECASE | re.MULTILINE,
 )
-# Transport EN: "Total Paid\nVND 70.000"  or inline "VND 70.000"
+# Transport EN: "Total Paid\nVND 70.000" (older) or "Total Paid\n89.000 ₫" (current) or inline "VND 70.000"
 _TRANSPORT_AMT_EN = re.compile(
-    r"(?:Total Paid)\s*\n\s*VND\s+([0-9][0-9.]*)|VND\s+([0-9][0-9.]*)",
+    r"Total Paid\s*\n\s*(?:VND\s+)?([0-9][0-9.,]*)\s*(?:₫|đ|VND|VNĐ)?|VND\s+([0-9][0-9.]*)",
     re.IGNORECASE,
 )
-# Transport VN: "Tổng đã thanh toán VND 69.000"
-_TRANSPORT_AMT_VN = re.compile(r"Tổng đã thanh toán\s+VND\s+([0-9][0-9.]*)", re.IGNORECASE)
+# Transport VN: "Tổng đã thanh toán VND 69.000" (older) or "Tổng đã thanh toán\n61.000 ₫" (current)
+_TRANSPORT_AMT_VN = re.compile(
+    r"Tổng đã thanh toán\s+(?:VND\s+)?([0-9][0-9.,]*)\s*(?:₫|đ|VNĐ)?",
+    re.IGNORECASE,
+)
 # Tip: "Tổng cộng\nVND 30000" — VND prefix, no thousands separators
 _TIP_AMT_RE = re.compile(r"Tổng cộng\s+VND\s+([0-9][0-9.,]*)", re.IGNORECASE)
+# Express: "Tổng cộng\n₫ 119000" — currency precedes the amount, no thousands separator
+_EXPRESS_AMT_RE = re.compile(
+    r"Tổng cộng\s*\n\s*(?:₫|đ|VND|VNĐ)\s*([0-9][0-9.,]*)",
+    re.IGNORECASE,
+)
 
 # ─── Date patterns ────────────────────────────────────────────────────────────
 # Food / short: "17 May 26 18:19" or "30 May 26 18:26"
@@ -211,7 +219,7 @@ class GrabParser(BaseEmailParser):
     def _parse_express(self, text: str) -> list[ParsedEmailTransaction]:
         # Express receipts share the same amount layout as transport
         amount = None
-        for pat in (_TRANSPORT_AMT_VN, _TRANSPORT_AMT_EN, _FOOD_AMT_PAY):
+        for pat in (_EXPRESS_AMT_RE, _TRANSPORT_AMT_VN, _TRANSPORT_AMT_EN, _FOOD_AMT_PAY):
             m = pat.search(text)
             if m:
                 raw = m.group(1) or (m.lastindex >= 2 and m.group(2))
