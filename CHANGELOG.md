@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.8.0](https://github.com/thevivotran/carange/compare/v0.7.0...v0.8.0) (2026-09-26)
+
+
+### Features
+
+* **dashboard:** unify money-flow classification in a ledger module ([702e68f](https://github.com/thevivotran/carange/commit/702e68f096abb23a7c8f4d623d76d6fc6c0ca243))
+* **transactions:** attribute transactions to a household spender ([ce6d31a](https://github.com/thevivotran/carange/commit/ce6d31a8310ca89172a5d2e5d9c0cf812793160c))
+
+
+### Bug Fixes
+
+* **deps:** patch anyio and soupsieve advisories ([163cc8b](https://github.com/thevivotran/carange/commit/163cc8b705105dbd38d01888e5646e427712a045))
+* **email-worker:** handle Grab's new currency-symbol receipt format ([668be18](https://github.com/thevivotran/carange/commit/668be1840f161fb713aa8820768f9cb87e3b8dba))
+* **ledger:** Phase 4 clean corrections — savings/investment roles + net worth ([b43bdcb](https://github.com/thevivotran/carange/commit/b43bdcbf2921ff81608ae05827bf1cb3b055dd29))
+
+
+### Documentation
+
+* **ledger:** document the "adding a new money pot" contract ([2955737](https://github.com/thevivotran/carange/commit/2955737b9b50f2be369036ec34ef579425ae2c74))
+
 ## [0.7.0](https://github.com/thevivotran/carange/compare/v0.6.0...v0.7.0) (2026-07-05)
 
 
