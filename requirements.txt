@@ -14,6 +14,7 @@ pydantic-settings==2.14.2
 python-dotenv==1.2.2
 requests==2.34.2
 beautifulsoup4==4.15.0
+soupsieve==2.10  # transitive dep of beautifulsoup4 — pinned to patch a ReDoS advisory (GHSA fixed in 2.9.0)
 lxml==6.1.1
 imapclient==3.1.0
 
@@ -21,3 +22,4 @@ imapclient==3.1.0
 pytest==9.1.1
 pytest-cov==7.1.0
 httpx==0.28.1
+anyio==4.15.1  # transitive dep of httpx/starlette — pinned to patch a TLS cert spoofing advisory (fixed in 4.14.2)
