@@ -98,6 +98,14 @@
                     <option value="">All Projects</option>
                 </select>
 
+                <select id="filter-spender" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary min-w-[120px]">
+                    <option value="">All Spenders</option>
+                    <option value="unassigned">Unassigned</option>
+                    {% for u in get_all_users() %}
+                    <option value="{{ u.id }}">{{ u.name }}</option>
+                    {% endfor %}
+                </select>
+
                 <select id="filter-advance" class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
                     <option value="">All Advances</option>
                     <option value="unsettled">Open Advances</option>
@@ -564,6 +572,7 @@
         const type = document.getElementById('filter-type')?.value || '';
         const categoryId = document.getElementById('filter-category')?.value || '';
         const projectId = document.getElementById('filter-project')?.value || '';
+        const spenderId = document.getElementById('filter-spender')?.value || '';
         const startDate = document.getElementById('filter-start-date')?.value || '';
         const endDate = document.getElementById('filter-end-date')?.value || '';
         const search = document.getElementById('filter-search')?.value || '';
@@ -580,6 +589,7 @@
         if (type) params.type = type;
         if (categoryId) params.category_id = categoryId;
         if (projectId) params.project_id = projectId;
+        if (spenderId) params.spender_user_id = spenderId;
         if (startDate) params.start_date = startDate;
         if (endDate) params.end_date = endDate;
         if (search) params.search = search;
@@ -917,6 +927,7 @@
 
         addField('Date', t.date);
         addField('Category', t.category.name || 'Uncategorized');
+        addField('Spender', t.spender_name || 'Unassigned');
         addField('Payment', (t.payment_method || 'cash').charAt(0).toUpperCase() + (t.payment_method || 'cash').slice(1));
 
         let sourceLabel = 'Manual';
@@ -1089,10 +1100,11 @@
         const hasStart    = !!document.getElementById('filter-start-date').value;
         const hasEnd      = !!document.getElementById('filter-end-date').value;
         const hasProject  = !!document.getElementById('filter-project').value;
+        const hasSpender  = !!document.getElementById('filter-spender').value;
         const hasAdvance  = !!document.getElementById('filter-advance').value;
         const hasSource   = !!document.getElementById('filter-source').value;
         const hasReview   = document.getElementById('filter-review-btn').dataset.active === 'true';
-        const count = [hasType, hasCat, hasStart, hasEnd, hasProject, hasAdvance, hasSource, hasReview].filter(Boolean).length;
+        const count = [hasType, hasCat, hasStart, hasEnd, hasProject, hasSpender, hasAdvance, hasSource, hasReview].filter(Boolean).length;
         const badge = document.getElementById('active-filter-count');
         if (count > 0) {
             badge.textContent = count;
@@ -1110,6 +1122,7 @@
         document.getElementById('filter-start-date').value = '';
         document.getElementById('filter-end-date').value   = '';
         document.getElementById('filter-project').value    = '';
+        document.getElementById('filter-spender').value    = '';
         document.getElementById('filter-search').value     = '';
         document.getElementById('filter-advance').value    = '';
         document.getElementById('filter-source').value     = '';
@@ -1134,6 +1147,7 @@
             type: document.getElementById('filter-type').value,
             category_id: document.getElementById('filter-category').value,
             project_id: document.getElementById('filter-project').value,
+            spender_user_id: document.getElementById('filter-spender').value,
             start_date: document.getElementById('filter-start-date').value,
             end_date: document.getElementById('filter-end-date').value,
             search: document.getElementById('filter-search').value,
@@ -1155,6 +1169,7 @@
             document.getElementById('filter-type').value = filters.type || '';
             document.getElementById('filter-category').value = filters.category_id || '';
             document.getElementById('filter-project').value = filters.project_id || '';
+            document.getElementById('filter-spender').value = filters.spender_user_id || '';
             document.getElementById('filter-start-date').value = filters.start_date || '';
             document.getElementById('filter-end-date').value = filters.end_date || '';
             document.getElementById('filter-search').value = filters.search || '';

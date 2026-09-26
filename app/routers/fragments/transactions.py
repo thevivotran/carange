@@ -35,9 +35,14 @@ def _build_tx_query(
     source: Optional[str] = None,
     needs_review: Optional[bool] = None,
     import_job_id: Optional[int] = None,
+    spender_user_id: Optional[str] = None,
     trash: bool = False,
 ):
-    join_opts = [joinedload(Transaction.category), joinedload(Transaction.savings_bundle)]
+    join_opts = [
+        joinedload(Transaction.category),
+        joinedload(Transaction.savings_bundle),
+        joinedload(Transaction.spender),
+    ]
     if trash:
         query = db.query(Transaction).options(*join_opts).filter(Transaction.deleted_at.isnot(None))
         return query.order_by(Transaction.deleted_at.desc()).offset(skip).limit(limit).all()
@@ -69,6 +74,10 @@ def _build_tx_query(
         query = query.filter(Transaction.needs_review == needs_review)
     if import_job_id is not None:
         query = query.filter(Transaction.import_job_id == import_job_id)
+    if spender_user_id == "unassigned":
+        query = query.filter(Transaction.spender_user_id.is_(None))
+    elif spender_user_id:
+        query = query.filter(Transaction.spender_user_id == int(spender_user_id))
 
     return query.order_by(Transaction.date.desc()).offset(skip).limit(limit).all()
 
@@ -89,6 +98,7 @@ def fragment_transaction_list(
     source: Optional[str] = None,
     needs_review: Optional[bool] = None,
     import_job_id: Optional[int] = None,
+    spender_user_id: Optional[str] = None,
     trash: bool = False,
     db: Session = Depends(get_db),
 ):
@@ -107,6 +117,7 @@ def fragment_transaction_list(
         source=source,
         needs_review=needs_review,
         import_job_id=import_job_id,
+        spender_user_id=spender_user_id,
         trash=trash,
     )
 

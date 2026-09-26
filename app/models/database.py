@@ -250,6 +250,7 @@ class Transaction(Base):
     project_id = Column(Integer, ForeignKey("financial_projects.id"), nullable=True)
     import_job_id = Column(Integer, ForeignKey("import_jobs.id"), nullable=True)
     email_ingest_log_id = Column(Integer, ForeignKey("email_ingest_log.id"), nullable=True)
+    spender_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     confidence_score = Column(Float, nullable=True)
     needs_review = Column(Boolean, default=False)
     deleted_at = Column(DateTime(timezone=True), nullable=True)
@@ -266,6 +267,7 @@ class Transaction(Base):
     import_job = relationship("ImportJob", back_populates="transactions")
     email_ingest_log = relationship("EmailIngestLog", back_populates="transactions")
     audit_logs = relationship("TransactionAuditLog", back_populates="transaction", cascade="all, delete-orphan")
+    spender = relationship("User")
 
     __table_args__ = (
         Index("ix_transactions_type_date", "type", "date"),
@@ -274,6 +276,7 @@ class Transaction(Base):
         Index("ix_transactions_import_job_id", "import_job_id"),
         Index("ix_transactions_project_id", "project_id"),
         Index("ix_transactions_savings_bundle_id", "savings_bundle_id"),
+        Index("ix_transactions_spender_user_id", "spender_user_id"),
         Index(
             "ix_transactions_date_type_savings_category",
             "date",

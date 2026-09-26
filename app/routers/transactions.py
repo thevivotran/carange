@@ -53,6 +53,7 @@ def get_transactions(
     source: Optional[str] = None,
     needs_review: Optional[bool] = None,
     import_job_id: Optional[int] = None,
+    spender_user_id: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
     # Validate date range
@@ -83,6 +84,10 @@ def get_transactions(
         query = query.filter(Transaction.needs_review == needs_review)
     if import_job_id is not None:
         query = query.filter(Transaction.import_job_id == import_job_id)
+    if spender_user_id == "unassigned":
+        query = query.filter(Transaction.spender_user_id.is_(None))
+    elif spender_user_id:
+        query = query.filter(Transaction.spender_user_id == int(spender_user_id))
 
     return query.order_by(Transaction.date.desc(), Transaction.id.desc()).offset(skip).limit(limit).all()
 
