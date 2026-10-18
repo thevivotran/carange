@@ -487,10 +487,15 @@ def get_transactions_by_category(
     return list(totals.values())
 
 
+MAX_CSV_SIZE = 10 * 1024 * 1024  # 10 MB
+
+
 @router.post("/bulk-upload")
 def bulk_upload_transactions(file: UploadFile = File(...), db: Session = Depends(get_db)):
     """Bulk upload transactions from CSV (Vietnamese or English format)."""
-    content = file.file.read()
+    content = file.file.read(MAX_CSV_SIZE + 1)
+    if len(content) > MAX_CSV_SIZE:
+        return JSONResponse(status_code=413, content={"error": "CSV file exceeds 10 MB limit"})
     try:
         decoded_check = content.decode("utf-8-sig")
     except UnicodeDecodeError:

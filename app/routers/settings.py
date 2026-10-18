@@ -1,3 +1,4 @@
+import html
 import os
 from datetime import date
 
@@ -263,7 +264,7 @@ async def save_pay_cycle(request: Request, db: Session = Depends(get_db)):
     except ValueError:
         msg = f"Pay-cycle day must be an integer between {MIN_DAY} and {MAX_DAY}, got {raw!r}."
         return HTMLResponse(
-            f"<div class='text-red-600'>{msg}</div>",
+            f"<div class='text-red-600'>{html.escape(msg)}</div>",
             status_code=400,
         )
     if not (MIN_DAY <= day <= MAX_DAY):

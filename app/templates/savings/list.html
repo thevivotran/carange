@@ -355,33 +355,70 @@
         var modal = document.getElementById('trash-modal');
         var content = document.getElementById('trash-content');
         modal.classList.remove('hidden');
-        content.innerHTML = '<div class="flex justify-center py-12"><i class="fas fa-spinner fa-spin text-2xl text-muted"></i></div>';
+        var spinner = _el('div', 'flex justify-center py-12');
+        spinner.appendChild(_el('i', 'fas fa-spinner fa-spin text-2xl text-muted'));
+        content.replaceChildren(spinner);
 
         fetch('/api/savings/trash')
             .then(function(r) { return r.json(); })
             .then(function(bundles) {
                 if (!bundles || bundles.length === 0) {
-                    content.innerHTML = '<div class="flex flex-col items-center py-16 text-center"><div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style="background: var(--surface-sunken)"><i class="fas fa-trash-alt text-3xl text-muted"></i></div><p class="text-lg font-medium mb-1">Trash is empty</p><p class="text-sm text-muted">Deleted bundles appear here until permanently removed.</p></div>';
+                    _showTrashEmpty(content);
                     return;
                 }
-                var html = '<div class="space-y-3">';
+                var list = _el('div', 'space-y-3');
                 bundles.forEach(function(b) {
                     var amount = (b.current_amount || b.initial_deposit || 0).toLocaleString();
-                    html += '<div id="trash-item-' + b.id + '" class="flex items-center justify-between p-4 border rounded-lg">' +
-                        '<div><p class="font-semibold">' + escapeHtml(b.name) + '</p>' +
-                        '<p class="text-sm text-muted">' + escapeHtml(b.bank_name || '') + ' \u2014 ' + amount + ' VND' +
-                        (b.deleted_at ? ' \u00b7 deleted ' + new Date(b.deleted_at).toLocaleDateString() : '') + '</p></div>' +
-                        '<div class="flex gap-2 flex-shrink-0">' +
-                        '<button onclick="restoreBundle(' + b.id + ')" class="px-3 py-2 text-sm font-medium bg-accent-subtle text-accent rounded-lg hover:bg-accent-hover transition"><i class="fas fa-undo mr-1"></i>Restore</button>' +
-                        '<button onclick="hardDeleteBundle(' + b.id + ')" class="px-3 py-2 text-sm font-medium bg-danger-subtle text-danger rounded-lg hover:bg-danger-hover transition"><i class="fas fa-times mr-1"></i>Delete</button>' +
-                        '</div></div>';
+                    var row = _el('div', 'flex items-center justify-between p-4 border rounded-lg');
+                    row.id = 'trash-item-' + b.id;
+                    var info = _el('div');
+                    info.appendChild(_el('p', 'font-semibold', b.name));
+                    info.appendChild(_el('p', 'text-sm text-muted',
+                        (b.bank_name || '') + ' \u2014 ' + amount + ' VND' +
+                        (b.deleted_at ? ' \u00b7 deleted ' + new Date(b.deleted_at).toLocaleDateString() : '')));
+                    var actions = _el('div', 'flex gap-2 flex-shrink-0');
+                    actions.appendChild(_trashButton('fas fa-undo mr-1', 'Restore',
+                        'bg-accent-subtle text-accent hover:bg-accent-hover', function() { restoreBundle(b.id); }));
+                    actions.appendChild(_trashButton('fas fa-times mr-1', 'Delete',
+                        'bg-danger-subtle text-danger hover:bg-danger-hover', function() { hardDeleteBundle(b.id); }));
+                    row.appendChild(info);
+                    row.appendChild(actions);
+                    list.appendChild(row);
                 });
-                html += '</div>';
-                content.innerHTML = html;
+                content.replaceChildren(list);
             })
             .catch(function(e) {
-                content.innerHTML = '<div class="flex flex-col items-center py-16 text-center"><p class="text-danger">Failed to load trash</p><p class="text-sm text-muted mt-1">' + e.message + '</p></div>';
+                var box = _el('div', 'flex flex-col items-center py-16 text-center');
+                box.appendChild(_el('p', 'text-danger', 'Failed to load trash'));
+                box.appendChild(_el('p', 'text-sm text-muted mt-1', e.message));
+                content.replaceChildren(box);
             });
+    }
+
+    function _el(tag, className, text) {
+        var node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text != null) node.textContent = text;
+        return node;
+    }
+
+    function _trashButton(iconClass, label, colorClass, onClick) {
+        var btn = _el('button', 'px-3 py-2 text-sm font-medium rounded-lg transition ' + colorClass);
+        btn.appendChild(_el('i', iconClass));
+        btn.appendChild(document.createTextNode(label));
+        btn.addEventListener('click', onClick);
+        return btn;
+    }
+
+    function _showTrashEmpty(content) {
+        var box = _el('div', 'flex flex-col items-center py-16 text-center');
+        var badge = _el('div', 'w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4');
+        badge.style.background = 'var(--surface-sunken)';
+        badge.appendChild(_el('i', 'fas fa-trash-alt text-3xl text-muted'));
+        box.appendChild(badge);
+        box.appendChild(_el('p', 'text-lg font-medium mb-1', 'Trash is empty'));
+        box.appendChild(_el('p', 'text-sm text-muted', 'Deleted bundles appear here until permanently removed.'));
+        content.replaceChildren(box);
     }
 
     function closeTrashModal() {
@@ -398,7 +435,7 @@
                 _reloadSavings();
                 var content = document.getElementById('trash-content');
                 if (content && content.querySelectorAll('[id^="trash-item-"]').length === 0) {
-                    content.innerHTML = '<div class="flex flex-col items-center py-16 text-center"><div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style="background: var(--surface-sunken)"><i class="fas fa-trash-alt text-3xl text-muted"></i></div><p class="text-lg font-medium mb-1">Trash is empty</p><p class="text-sm text-muted">Deleted bundles appear here until permanently removed.</p></div>';
+                    _showTrashEmpty(content);
                 }
             })
             .catch(function(e) { showToast('Error: ' + e.message, 'error'); });
@@ -415,7 +452,7 @@
                     _reloadSavings();
                     var content = document.getElementById('trash-content');
                     if (content && content.querySelectorAll('[id^="trash-item-"]').length === 0) {
-                        content.innerHTML = '<div class="flex flex-col items-center py-16 text-center"><div class="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4" style="background: var(--surface-sunken)"><i class="fas fa-trash-alt text-3xl text-muted"></i></div><p class="text-lg font-medium mb-1">Trash is empty</p><p class="text-sm text-muted">Deleted bundles appear here until permanently removed.</p></div>';
+                        _showTrashEmpty(content);
                     }
                 })
                 .catch(function(e) { showToast('Error: ' + e.message, 'error'); });

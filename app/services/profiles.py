@@ -60,7 +60,17 @@ def touch_last_seen(db, user: User) -> None:
 
 
 def safe_next_path(raw: str | None) -> str:
-    """Only allow same-origin absolute paths as post-select redirect targets."""
-    if raw and raw.startswith("/") and not raw.startswith("//"):
+    """Only allow same-origin absolute paths as post-select redirect targets.
+
+    Browsers normalise backslashes to slashes and strip tab/newline characters,
+    so a backslash-prefixed path or one with an embedded tab would be followed
+    as a protocol-relative `//evil.com` — reject both outright."""
+    if (
+        raw
+        and raw.startswith("/")
+        and not raw.startswith("//")
+        and "\\" not in raw
+        and not any(ord(c) < 0x20 or ord(c) == 0x7F for c in raw)
+    ):
         return raw
     return "/"
