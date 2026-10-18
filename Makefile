@@ -44,6 +44,8 @@ test-fast:
 audit:
 	@echo "── pip-audit ─────────────────────────────────────────────────────"
 	$(PYTHON) -m pip_audit -r requirements.txt
+	@echo "── pip-audit: uv.lock (what Dependabot scans) ─────────────────────"
+	uv export --frozen --no-hashes --no-emit-project --format requirements-txt | $(PYTHON) -m pip_audit -r /dev/stdin --no-deps --disable-pip
 
 # ── Local PostgreSQL (podman) ─────────────────────────────────────────────────
 # Force Podman to use the canonical XDG data dir so the storage DB is always
