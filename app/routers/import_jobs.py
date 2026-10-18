@@ -23,6 +23,7 @@ def _resolve_path(stored: str) -> str:
 router = APIRouter()
 
 ALLOWED_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"}
+ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
 MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
 
 
@@ -56,7 +57,8 @@ async def create_import_jobs(
                 detail=f"{upload.filename}: unsupported file type '{upload.content_type}'",
             )
 
-        raw = await upload.read()
+        # Read at most one byte past the cap so an oversized upload isn't buffered whole
+        raw = await upload.read(MAX_FILE_SIZE + 1)
         if len(raw) > MAX_FILE_SIZE:
             raise HTTPException(status_code=413, detail=f"{upload.filename}: file exceeds 20 MB limit")
 
@@ -71,7 +73,10 @@ async def create_import_jobs(
         # Persist file — store only the bare filename so the path is
         # portable across environments (dev vs prod UPLOAD_DIR differ).
         os.makedirs(UPLOAD_DIR, exist_ok=True)
-        ext = os.path.splitext(upload.filename or "image")[1] or ".jpg"
+        # The extension is client-controlled — never let it pick the stored file type
+        ext = os.path.splitext(upload.filename or "image")[1].lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            ext = ".jpg"
         stored_filename = f"{digest}{ext}"
         full_path = os.path.join(UPLOAD_DIR, stored_filename)
         with open(full_path, "wb") as fh:

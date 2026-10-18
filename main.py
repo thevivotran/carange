@@ -27,7 +27,7 @@ from app.routers import forecast as forecast_router
 from app.routers import learned_parsers as learned_parsers_router
 from app.routers import income as income_router
 from app.routers.dashboard import get_dashboard_page_data
-from app.middleware import ProfileMiddleware
+from app.middleware import ProfileMiddleware, SameOriginMiddleware
 from app.services.settings_service import get_setting
 from app.routers.fragments import transactions as frag_transactions
 from app.routers.fragments import dashboard as frag_dashboard
@@ -60,6 +60,8 @@ app = FastAPI(title="Carange - Family Finance Tracker", lifespan=lifespan)
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 # Resolves the household profile cookie and gates non-public routes
 app.add_middleware(ProfileMiddleware)
+# Added last so it runs first: reject cross-site writes before anything else
+app.add_middleware(SameOriginMiddleware)
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="app/static"), name="static")

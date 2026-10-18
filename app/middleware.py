@@ -4,14 +4,28 @@ Fail-closed by default: any route not on the public allowlist requires a
 resolved profile, so future routers are covered automatically. The resolved
 context is placed on request.state where both handlers and the Jinja context
 processors (inject_nav_items) read it.
+
+SameOriginMiddleware is the CSRF guard. The app has no login, so a cross-site
+form POST (e.g. to the public /profiles/{id}/delete) would otherwise succeed
+from any page a household member visits. Unsafe methods whose Origin/Referer
+names a different host are rejected; requests carrying neither header
+(curl, workers, TestClient) are allowed through.
 """
 
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.services import profiles as profiles_service
+
+SAFE_METHODS = {"GET", "HEAD", "OPTIONS", "TRACE"}
+
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "same-origin",
+}
 
 PUBLIC_EXACT = {"/health", "/sw.js", "/favicon.ico"}
 PUBLIC_PREFIXES = ("/static/", "/profiles")
@@ -37,3 +51,30 @@ class ProfileMiddleware(BaseHTTPMiddleware):
                 return RedirectResponse(f"/profiles?next={quote(request.url.path)}", status_code=302)
             return JSONResponse({"detail": "No profile selected"}, status_code=401)
         return await call_next(request)
+
+
+def _request_hosts(request) -> set[str]:
+    hosts = {request.headers.get("host", "")}
+    forwarded = request.headers.get("x-forwarded-host")
+    if forwarded:
+        hosts.add(forwarded.split(",")[0].strip())
+    return {h.lower() for h in hosts if h}
+
+
+def _is_cross_origin(request) -> bool:
+    source = request.headers.get("origin") or request.headers.get("referer")
+    if source is None:
+        return False
+    if source == "null":  # sandboxed iframe / privacy-redirected form
+        return True
+    return urlsplit(source).netloc.lower() not in _request_hosts(request)
+
+
+class SameOriginMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        if request.method not in SAFE_METHODS and _is_cross_origin(request):
+            return JSONResponse({"detail": "Cross-origin request blocked"}, status_code=403)
+        response = await call_next(request)
+        for name, value in SECURITY_HEADERS.items():
+            response.headers.setdefault(name, value)
+        return response
