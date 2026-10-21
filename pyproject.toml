@@ -19,7 +19,7 @@ dependencies = [
     "python-dotenv==1.2.4",
     "python-multipart==0.0.32",
     "requests==2.34.2",
-    "sqlalchemy==2.1.4",
+    "sqlalchemy==2.0.54",
     "starlette==1.8.0",
     "uvicorn[standard]==0.54.0",
     "idna>=3.15",
