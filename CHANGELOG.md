@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.8.1](https://github.com/thevivotran/carange/compare/v0.8.0...v0.8.1) (2026-10-21)
+
+
+### Bug Fixes
+
+* **deps:** sync uv.lock with patched anyio/soupsieve/urllib3 ([a087060](https://github.com/thevivotran/carange/commit/a087060fcb691f39cb8ee6b690a562031ab58669))
+* **security:** block CSRF, reflected XSS, and open redirects ([f551f24](https://github.com/thevivotran/carange/commit/f551f241ca5da5013b24367e280f0ef02a9a4731))
+
 ## [0.8.0](https://github.com/thevivotran/carange/compare/v0.7.0...v0.8.0) (2026-09-26)
 
 
