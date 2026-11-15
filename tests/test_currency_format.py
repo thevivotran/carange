@@ -117,3 +117,9 @@ def test_inject_currency_returns_display_currency(db_session):
     cf.invalidate_cache()
     with patch("app.services.currency_format.SessionLocal", return_value=db_session):
         assert cf.inject_currency(request=None) == {"display_currency": "EUR"}
+
+
+def test_signed_zero_has_no_sign():
+    assert cf.format_amount(0, "VND", signed=True) == "0 ₫"
+    assert cf.format_amount_abbrev(0, "VND", signed=True) == "0 ₫"
+    assert cf.format_amount(0, "USD", signed=True) == "$0"

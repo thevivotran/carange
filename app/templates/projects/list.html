@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block title %}Projects — Carange{% endblock %}
 
 {% block content %}
 <div class="p-6 pb-28 max-w-7xl mx-auto">
@@ -8,7 +9,7 @@
             <h2 class="text-3xl font-bold text-gray-800">Financial Projects</h2>
             <p class="text-gray-600 mt-1">Track your family's financial goals and projects</p>
         </div>
-        <button onclick="openProjectModal()" class="bg-primary text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition flex items-center">
+        <button onclick="openProjectModal()" class="bg-brand text-white px-6 py-3 rounded-lg hover:bg-brand-hover transition flex items-center">
             <i class="fas fa-plus mr-2"></i>Add Project
         </button>
     </div>
@@ -96,7 +97,7 @@
             </div>
             <div class="flex gap-4 pt-4">
                 <button type="button" onclick="closeProjectModal()" class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition text-sm font-medium">Cancel</button>
-                <button type="submit" class="flex-1 px-4 py-3 bg-primary text-white rounded-lg hover:bg-blue-600 transition text-sm font-medium">Save Project</button>
+                <button type="submit" class="flex-1 px-4 py-3 bg-brand text-white rounded-lg hover:bg-brand-hover transition text-sm font-medium">Save Project</button>
             </div>
         </form>
         </div>
@@ -166,7 +167,7 @@
                         <input type="text" id="new-payment-notes" placeholder="Optional notes" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
                     </div>
                     <div>
-                        <button type="submit" class="w-full bg-primary text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition text-sm">
+                        <button type="submit" class="w-full bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand-hover transition text-sm">
                             <i class="fas fa-plus mr-1"></i>Add Payment
                         </button>
                     </div>
@@ -238,7 +239,7 @@
         </div>
         <div class="flex gap-3 mt-5">
             <button onclick="closeEditPaymentModal()" class="flex-1 px-4 py-2.5 border rounded-lg hover:bg-gray-50 text-sm font-medium">Cancel</button>
-            <button onclick="saveEditPayment()" class="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">Save Changes</button>
+            <button onclick="saveEditPayment()" class="flex-1 px-4 py-2.5 bg-brand text-white rounded-lg hover:bg-brand-hover text-sm font-medium">Save Changes</button>
         </div>
     </div>
 </div>

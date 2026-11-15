@@ -58,7 +58,8 @@ def format_amount(amount, currency: Optional[str] = None, *, signed: bool = Fals
     value = float(amount or 0)
     sign = ""
     if signed:
-        sign = "+" if value >= 0 else "-"
+        # Zero carries no sign — "+0" reads as a gain when there is simply no data.
+        sign = "+" if value > 0 else ("-" if value < 0 else "")
         value = abs(value)
     number = f"{value:,.0f}"
     symbol = cfg["symbol"]
@@ -83,7 +84,8 @@ def format_amount_abbrev(amount, currency: Optional[str] = None, *, signed: bool
     value = float(amount or 0)
     sign = ""
     if signed:
-        sign = "+" if value >= 0 else "-"
+        # Zero carries no sign — "+0" reads as a gain when there is simply no data.
+        sign = "+" if value > 0 else ("-" if value < 0 else "")
         value = abs(value)
     magnitude = abs(value)
     if magnitude >= 1_000_000_000:

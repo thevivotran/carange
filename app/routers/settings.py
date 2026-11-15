@@ -35,7 +35,12 @@ from app.services.dashboard_layout import (
     set_user_sections,
 )
 from app.services.template_globals import register_template_globals
-from app.services.sample_data_service import has_sample_data, load_sample_data, remove_sample_data
+from app.services.sample_data_service import (
+    SampleDataUnavailable,
+    has_sample_data,
+    load_sample_data,
+    remove_sample_data,
+)
 from app.services.settings_service import get_settings_bulk, set_setting
 
 router = APIRouter()
@@ -332,7 +337,20 @@ async def save_navigation(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/sample-data/load")
 def load_sample_data_route(request: Request, db: Session = Depends(get_db)):
-    count = load_sample_data(db)
+    from app.services.dashboard_service import invalidate_dashboard_cache
+
+    try:
+        count = load_sample_data(db)
+    except SampleDataUnavailable as exc:
+        return render_fragment(
+            request,
+            "settings/_sample_data_card.html",
+            {"sample_data_loaded": False},
+            toast=str(exc),
+            toast_type="error",
+        )
+    if count:
+        invalidate_dashboard_cache(db)
     toast = (
         f"Loaded {count} sample records — explore the dashboard, then remove them anytime from here."
         if count
@@ -343,7 +361,11 @@ def load_sample_data_route(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/sample-data/remove")
 def remove_sample_data_route(request: Request, db: Session = Depends(get_db)):
+    from app.services.dashboard_service import invalidate_dashboard_cache
+
     removed = remove_sample_data(db)
+    if removed:
+        invalidate_dashboard_cache(db)
     toast = f"Removed {removed} sample records." if removed else "No sample data to remove."
     return render_fragment(request, "settings/_sample_data_card.html", {"sample_data_loaded": False}, toast=toast)
 

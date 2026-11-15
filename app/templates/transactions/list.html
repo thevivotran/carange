@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% block title %}Transactions — Carange{% endblock %}
 
 {% block content %}
 <div class="p-6 pb-28 max-w-7xl mx-auto">
@@ -28,7 +29,7 @@
                 <span class="hidden sm:inline">Filters</span>
                 <span id="active-filter-count" class="hidden bg-accent text-white text-xs rounded-full w-5 h-5 items-center justify-center font-semibold">0</span>
             </button>
-            <button onclick="openAddModal()" class="hidden md:flex bg-accent text-white px-6 py-3 rounded-lg hover:bg-accent-hover transition items-center">
+            <button onclick="openAddModal()" class="hidden md:flex bg-brand text-white px-6 py-3 rounded-lg hover:bg-brand-hover transition items-center">
                 <i class="fas fa-plus mr-2"></i>Add Transaction
             </button>
         </div>

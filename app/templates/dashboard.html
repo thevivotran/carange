@@ -569,7 +569,7 @@
       <p class="text-sm font-semibold mb-1">No transactions yet</p>
       <p class="text-xs text-muted max-w-xs mx-auto">Log your first income or expense to start seeing your activity here.</p>
       <button onclick="openAddModal()"
-              class="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg text-white text-xs font-medium transition-colors" style="background: var(--accent)">
+              class="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white text-xs font-medium transition-colors">
         Add a transaction
       </button>
     </div>
@@ -635,8 +635,10 @@ function _updateMonthRangeDisplay(ym, elementId) {
 
 (function initMonthSelector() {
     const urlParam = new URLSearchParams(window.location.search).get('month');
-    const stored   = urlParam || localStorage.getItem('carange-active-month');
-    if (stored && /^\d{4}-\d{2}$/.test(stored)) {
+    let saved = null;
+    try { saved = localStorage.getItem('carange-active-month'); } catch (e) {}
+    const stored   = urlParam || saved;
+    if (stored && /^\d{4}-(0[1-9]|1[0-2])$/.test(stored)) {
         const [y, m] = stored.split('-').map(Number);
         _curYear  = y;
         _curMonth = m;
@@ -646,7 +648,13 @@ function _updateMonthRangeDisplay(ym, elementId) {
         _curMonth = m;
     }
     const ym = `${_curYear}-${String(_curMonth).padStart(2,'0')}`;
-    localStorage.setItem('carange-active-month', ym);
+    try { localStorage.setItem('carange-active-month', ym); } catch (e) {}
+    // The server renders the period it was asked for (?month=) — if the remembered month
+    // differs, reload onto it so the picker label never disagrees with the numbers below.
+    if (!urlParam && ym !== '{{ period_label }}') {
+        window.location.replace('?month=' + ym);
+        return;
+    }
     history.replaceState(null, '', '?month=' + ym);
     _updateMonthDisplay();
 })();
@@ -730,7 +738,6 @@ new MutationObserver(_refreshChartColors).observe(
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 function fmtVND(v) { return window.formatAmount(v); }
-function fmtSigned(v) { return (v >= 0 ? '+' : '') + fmtVND(Math.abs(v)); }
 function fmtM(v) {
     const abs = Math.abs(v);
     if (abs >= 1e9) return (v / 1e9).toFixed(2) + 'B';
