@@ -140,3 +140,33 @@ def test_kpi_extra_cards_shown_in_standard_preset(client, set_profile_ctx):
     assert "showKpiInfo('bds-rate'" in r.text
     assert "showKpiInfo('emergency-fund'" in r.text
     assert "showKpiInfo('fi-progress'" in r.text
+
+
+def test_sidebar_renders_grouped_navigation(client):
+    r = client.get("/budget")
+    assert r.status_code == 200
+    for label in ("Today", "Plan", "Wealth"):
+        assert f'sidebar-section-label">{label}</div>' in r.text
+    # the active page is marked for assistive tech
+    assert (
+        'href="/budget" class="sidebar-link flex items-center px-6 py-3 text-gray-700 active font-semibold"' in r.text
+    )
+    assert 'aria-current="page"' in r.text
+
+
+def test_full_nav_exposes_tools(client):
+    # The stub profile (conftest._bypass_profile) sees every nav item.
+    r = client.get("/budget")
+    assert 'sidebar-section-label">Tools</div>' in r.text
+    for href in ("/categories", "/rules", "/templates"):
+        assert f'href="{href}" class="sidebar-link' in r.text
+
+
+def test_nav_hides_groups_with_no_visible_items(client, set_profile_ctx):
+    from app.services.dashboard_layout import NAV_CORE
+
+    set_profile_ctx(nav_items=NAV_CORE)
+    r = client.get("/budget")
+    assert 'sidebar-section-label">Tools</div>' not in r.text
+    assert 'href="/categories" class="sidebar-link' not in r.text
+    assert 'sidebar-section-label">Wealth</div>' in r.text  # Savings is always shown

@@ -164,7 +164,7 @@ def _check_img_alt(line: str, loc: str) -> list[str]:
 # ── File-level rules (elements spanning several lines) ───────────────────────
 
 _PRIMARY_ACTION_TEXT = re.compile(r"^(Add|Save|Create|New|Edit Budgets)\b")
-_BLUE_PRIMARY_BG = {"bg-blue-500", "bg-blue-600", "bg-primary", "bg-accent"}
+_BLUE_PRIMARY_BG = {"bg-blue-500", "bg-blue-600", "bg-primary", "bg-accent", "bg-indigo-500", "bg-indigo-600"}
 _ELEMENT = re.compile(r"<(button|a)\b([^>]*)>(.*?)</\1>", re.DOTALL)
 
 
@@ -181,7 +181,7 @@ def _check_primary_action_brand(text: str, path: Path) -> list[str]:
         if classes & _BLUE_PRIMARY_BG:
             lineno = text.count("\n", 0, m.start()) + 1
             violations.append(
-                f"{path}:{lineno}: [primary-action-brand] '{label[:30]}' uses a blue background"
+                f"{path}:{lineno}: [primary-action-brand] '{label[:30]}' uses a blue/indigo background"
                 " — use bg-brand hover:bg-brand-hover"
             )
     return violations

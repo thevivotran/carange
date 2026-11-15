@@ -553,3 +553,26 @@ def test_pulse_with_activity_shows_safety(client, db_session, income_cat):
     assert r.status_code == 200
     assert "Family Safety</p>" in r.text
     assert "Nothing logged yet" not in r.text
+
+
+def test_dashboard_review_banner_only_when_items_pending(client, db_session, income_cat):
+    from datetime import date
+    from decimal import Decimal
+
+    from app.models.database import Transaction, TransactionType
+
+    r = client.get("/")
+    assert "need review" not in r.text and "needs review" not in r.text
+
+    db_session.add(
+        Transaction(
+            date=date.today(),
+            amount=Decimal(50_000),
+            type=TransactionType.INCOME,
+            category_id=income_cat.id,
+            needs_review=True,
+        )
+    )
+    db_session.commit()
+    r = client.get("/")
+    assert "1 transaction needs review" in r.text
