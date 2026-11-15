@@ -527,3 +527,29 @@ def test_dashboard_page_ignores_malformed_month(client):
     assert r.status_code == 200
     r = client.get("/?month=abc")
     assert r.status_code == 200
+
+
+def test_pulse_empty_month_is_neutral(client):
+    r = client.get("/pulse")
+    assert r.status_code == 200
+    assert "Nothing logged yet" in r.text
+    assert "Nothing logged for" in r.text  # neutral card replaces the 0/4 safety score
+    assert "Family Safety</p>" not in r.text
+
+
+def test_pulse_with_activity_shows_safety(client, db_session, income_cat):
+    from datetime import date
+    from decimal import Decimal
+
+    from app.models.database import Transaction, TransactionType
+
+    db_session.add(
+        Transaction(
+            date=date.today(), amount=Decimal(1_000_000), type=TransactionType.INCOME, category_id=income_cat.id
+        )
+    )
+    db_session.commit()
+    r = client.get("/pulse")
+    assert r.status_code == 200
+    assert "Family Safety</p>" in r.text
+    assert "Nothing logged yet" not in r.text

@@ -168,3 +168,47 @@ def test_link_nonexistent_project_returns_404(client):
     bundle_id = client.post("/api/savings/", json=_bundle_payload()).json()["id"]
     r = client.put(f"/api/savings/{bundle_id}", json={"linked_project_id": 999999})
     assert r.status_code == 404
+
+
+def test_grid_goal_card_shows_progress_not_interest(client, db_session):
+    from datetime import date
+    from decimal import Decimal
+
+    from app.models.database import SavingsBundle, SavingsStatus, SavingsType
+
+    db_session.add_all(
+        [
+            SavingsBundle(
+                name="Goal",
+                bank_name="B",
+                type=SavingsType.SAVINGS_GOAL,
+                initial_deposit=Decimal(20_000_000),
+                current_amount=Decimal(35_000_000),
+                future_amount=Decimal(100_000_000),
+                interest_rate=4.5,
+                start_date=date(2026, 1, 1),
+                status=SavingsStatus.ACTIVE,
+            ),
+            SavingsBundle(
+                name="FD",
+                bank_name="B",
+                type=SavingsType.FIXED_DEPOSIT,
+                initial_deposit=Decimal(10_000_000),
+                current_amount=Decimal(10_000_000),
+                future_amount=Decimal(10_500_000),
+                interest_rate=5.0,
+                start_date=date(2026, 1, 1),
+                status=SavingsStatus.ACTIVE,
+            ),
+        ]
+    )
+    db_session.commit()
+    r = client.get("/fragments/savings/grid", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "Remaining to goal" in r.text
+    assert "65,000,000" in r.text  # 100M goal − 35M saved
+    assert "Goal progress" in r.text
+    assert "Interest at maturity" in r.text  # the fixed deposit keeps its interest row
+    assert "Interest Earned" not in r.text
+    # Expected interest only counts the deposit (500k), not the goal's 80M gap
+    assert "500,000" in r.text

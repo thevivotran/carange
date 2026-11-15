@@ -994,17 +994,19 @@ class TestDashboardEmptyInstall:
 
 
 class TestMobileAmountInput:
-    """B12: Amount input on /transactions must have inputmode='decimal' for mobile."""
+    """B12: The visible amount input on /transactions must request a numeric mobile keypad."""
 
-    def test_amount_input_has_inputmode_decimal(self, client):
-        """B12: Amount input must have inputmode='decimal' for mobile keyboard hint."""
+    def test_amount_input_has_numeric_inputmode(self, client):
+        """B12: The typed amount field (#tx-amount — the hidden name="amount" carries the raw
+        value) must hint a numeric keypad on mobile."""
         r = client.get("/transactions")
         assert r.status_code == 200
-        m = re.search(r'<input[^>]*name="amount"[^>]*>', r.text)
+        m = re.search(r'<input[^>]*id="tx-amount"[^>]*>', r.text)
         assert m, "amount input missing on /transactions"
-        assert 'inputmode="decimal"' in m.group(0) or "inputmode='decimal'" in m.group(0), (
-            f"amount input lacks inputmode='decimal' for mobile. Got: {m.group(0)[:300]}"
+        assert re.search(r'inputmode="(numeric|decimal)"', m.group(0)), (
+            f"amount input lacks a numeric inputmode for mobile. Got: {m.group(0)[:300]}"
         )
+        assert re.search(r'<input[^>]*name="amount"[^>]*>', r.text), "raw amount field missing"
 
 
 # ── 24. Forecast: log silently-skipped templates / payments ─────────────────

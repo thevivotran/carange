@@ -3,6 +3,11 @@
      hx-trigger="dashboard-month-changed from:body"
      hx-target="this"
      hx-swap="outerHTML">
+{% if not summary.total_income and not summary.total_expense and not summary.total_savings_expense %}
+{% set _months = ['January','February','March','April','May','June','July','August','September','October','November','December'] %}
+{% set no_activity_label = (_months[(period_label[5:7] | int) - 1] ~ ' ' ~ period_label[:4]) if period_label else 'this month' %}
+{% include "partials/_no_activity_card.html" %}
+{% else %}
 <div id="safety-score-card" class="rounded-2xl border p-5 mb-6
   {% if ss_score == 4 %}bg-green-50 border-green-200
   {% elif ss_score >= 2 %}bg-amber-50 border-amber-200
@@ -72,4 +77,5 @@
 
   </div>
 </div>
+{% endif %}
 </div>

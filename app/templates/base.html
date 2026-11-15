@@ -178,6 +178,9 @@
         /* Scaffold */
         .dark body { background-color: #0F172A; }
 
+        /* Money never wraps mid-figure ("8,149,000 / ₫") */
+        .amount { white-space: nowrap; }
+
         /* Month-scoped KPI cards for a month with no data: neutral zeros, no verdicts
            (all-time cards — surplus, liquid cash, net worth — stay as they are) */
         .kpi-no-data .kpi-month-card .amount { color: var(--text-muted, #64748b) !important; }
@@ -602,12 +605,14 @@
             'projects':     'Projects',
             'categories':   'Categories',
             'templates':    'Templates',
-            'notes':        'Notes',
+            'notes':        'IOUs & Notes',
             'import':       'Import',
             'pulse':        'Daily Pulse',
             'review':       'Review Inbox',
             'rules':        'Rules',
             'settings':     'Settings',
+            'income':       'Income Sources',
+            'forecast':     'Forecast',
         } %}
         <div class="md:hidden fixed top-0 left-0 right-0 bg-white shadow-md z-50" style="padding-top:env(safe-area-inset-top)">
             <div class="flex items-center px-4 py-3 gap-2">
@@ -888,10 +893,70 @@
     let categories = [];
     let _txTemplates = [];
 
+    // ── Amount field: thousands separators while typing ───────────────────
+    // The visible #tx-amount shows "1,250,000"; #tx-amount-raw (name="amount") holds
+    // the plain integer that HTMX's budget preview and the API receive.
+    function _txAmount() {
+        var raw = document.getElementById('tx-amount-raw');
+        var n = raw ? parseInt(raw.value, 10) : NaN;
+        return isNaN(n) ? 0 : n;
+    }
+
+    function _setTxAmount(value) {
+        var el = document.getElementById('tx-amount');
+        var raw = document.getElementById('tx-amount-raw');
+        if (!el || !raw) return;
+        var n = Math.round(Math.abs(Number(value) || 0));
+        raw.value = n ? String(n) : '';
+        el.value = n ? window._groupDigits(n) : '';
+    }
+
+    function _onTxAmountInput(e) {
+        var el = e.target;
+        var digitsBeforeCaret = el.value.slice(0, el.selectionStart || 0).replace(/\D/g, '').length;
+        var digits = el.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 15);
+        document.getElementById('tx-amount-raw').value = digits;
+        el.value = digits ? window._groupDigits(Number(digits)) : '';
+        // Keep the caret after the same number of digits it was after before regrouping
+        var pos = 0, seen = 0;
+        while (pos < el.value.length && seen < digitsBeforeCaret) {
+            if (/\d/.test(el.value[pos])) seen++;
+            pos++;
+        }
+        el.setSelectionRange(pos, pos);
+    }
+
+    // ── Remembered defaults for quick entry (per-browser convenience only) ──
+    function _rememberTxDefaults(type, categoryId, spenderId) {
+        try {
+            localStorage.setItem('carange-last-cat-' + type, String(categoryId));
+            localStorage.setItem('carange-last-spender', spenderId ? String(spenderId) : '');
+        } catch (e) {}
+    }
+
+    function _applyRememberedCategory(type) {
+        var sel = document.getElementById('tx-category');
+        if (!sel || sel.value || document.getElementById('transaction-id').value) return;
+        var last = null;
+        try { last = localStorage.getItem('carange-last-cat-' + type); } catch (e) {}
+        if (last && Array.prototype.some.call(sel.options, function(o) { return o.value === last; })) {
+            sel.value = last;
+            onCategoryChange();
+        }
+    }
+
+    function _applyRememberedSpender() {
+        var sel = document.getElementById('spender-user');
+        if (!sel) return;
+        var last = '';
+        try { last = localStorage.getItem('carange-last-spender') || ''; } catch (e) {}
+        if (last && Array.prototype.some.call(sel.options, function(o) { return o.value === last; })) sel.value = last;
+    }
+
     function openAddModal() {
         var modal = document.getElementById('transaction-modal');
         if (!modal) return;
-        document.getElementById('modal-title').textContent = 'Add Transaction';
+        document.getElementById('tx-modal-title').textContent = 'Add Transaction';
         document.getElementById('transaction-form').reset();
         document.getElementById('transaction-id').value = '';
         document.getElementById('existing-savings-bundle-id').value = '';
@@ -900,20 +965,24 @@
             savingsSection.classList.remove('opacity-50', 'pointer-events-none');
             savingsSection.title = '';
         }
-        document.getElementById('date').valueAsDate = new Date();
+        document.getElementById('tx-date').valueAsDate = new Date();
         var tplList = document.getElementById('template-picker-list');
         if (tplList) tplList.classList.add('hidden');
         var tplArrow = document.getElementById('template-picker-arrow');
         if (tplArrow) tplArrow.className = 'fas fa-chevron-down text-gray-400 text-xs';
         var nrSection = document.getElementById('needs-review-section');
         if (nrSection) nrSection.classList.add('hidden');
+        _setTxAmount(0);
+        _applyRememberedSpender();
+        var more = document.getElementById('tx-more-details');
+        if (more) more.open = false;
         modal.classList.remove('hidden');
         // Populate the category dropdown for the currently-selected type.
         // The category <select> starts with only the placeholder option;
         // without this, users saw an empty list until they toggled type.
         // loadCategories() is cached at module level, so reopening is free.
         loadCategories();
-        setTimeout(function() { var el = document.getElementById('amount'); if (el) el.focus(); }, 50);
+        setTimeout(function() { var el = document.getElementById('tx-amount'); if (el) el.focus(); }, 50);
     }
 
     function closeTransactionModal() {
@@ -924,7 +993,7 @@
     }
 
     function onCategoryChange() {
-        var categoryId = document.getElementById('category').value;
+        var categoryId = document.getElementById('tx-category').value;
         var savingsSection = document.getElementById('savings-section');
         if (!savingsSection) return;
         if (!categoryId) {
@@ -945,7 +1014,7 @@
     }
 
     function updateSavingsFutureAmount() {
-        var amount = parseFloat(document.getElementById('amount').value) || 0;
+        var amount = _txAmount() || 0;
         var futureAmountInput = document.getElementById('savings-future-amount');
         if (futureAmountInput && !futureAmountInput.value) {
             futureAmountInput.value = amount;
@@ -961,7 +1030,7 @@
 
             var type = document.querySelector('input[name="type"]:checked');
             type = type ? type.value : 'expense';
-            var categorySelect = document.getElementById('category');
+            var categorySelect = document.getElementById('tx-category');
             if (!categorySelect) return;
 
             categorySelect.replaceChildren();
@@ -975,6 +1044,7 @@
                 opt.textContent = cat.name;
                 categorySelect.appendChild(opt);
             });
+            _applyRememberedCategory(type);
 
             // Also populate filter category select if present on the page
             var filterCategorySelect = document.getElementById('filter-category');
@@ -1062,13 +1132,13 @@
         }
         var typeRadio = document.querySelector('input[name="type"][value="' + t.type + '"]');
         if (typeRadio) typeRadio.checked = true;
-        var amountEl = document.getElementById('amount');
-        if (amountEl) amountEl.value = t.amount;
-        var descEl = document.getElementById('description');
+        var amountEl = document.getElementById('tx-amount');
+        if (amountEl) _setTxAmount(t.amount);
+        var descEl = document.getElementById('tx-description');
         if (descEl) descEl.value = t.description || '';
         loadCategories();
         setTimeout(function() {
-            var catSel = document.getElementById('category');
+            var catSel = document.getElementById('tx-category');
             if (catSel) catSel.value = t.category_id;
         }, 100);
     }
@@ -1081,7 +1151,8 @@
             e.preventDefault();
 
             var transactionId = document.getElementById('transaction-id').value;
-            var categoryId = document.getElementById('category').value;
+            var categoryId = document.getElementById('tx-category').value;
+            if (!_txAmount()) { showToast('Please enter an amount', 'error'); document.getElementById('tx-amount').focus(); return; }
             if (!categoryId) { showToast('Please select a category', 'error'); return; }
 
             var selectedCat = categories.find(function(c) { return c.id === parseInt(categoryId); });
@@ -1099,11 +1170,11 @@
             }
 
             var data = {
-                date: document.getElementById('date').value,
-                amount: parseFloat(document.getElementById('amount').value),
+                date: document.getElementById('tx-date').value,
+                amount: _txAmount(),
                 type: document.querySelector('input[name="type"]:checked').value,
                 category_id: parseInt(categoryId),
-                description: document.getElementById('description').value,
+                description: document.getElementById('tx-description').value,
                 payment_method: 'cash',
                 is_savings_related: isSavingsRelated,
                 is_advance: document.getElementById('is-advance').checked,
@@ -1122,7 +1193,7 @@
             }
 
             if (needsNewBundle) {
-                var amount = parseFloat(document.getElementById('amount').value) || 0;
+                var amount = _txAmount() || 0;
                 var futureAmount = parseFloat(document.getElementById('savings-future-amount').value) || amount;
                 data.savings_bundle = {
                     name: document.getElementById('savings-name').value.trim(),
@@ -1131,7 +1202,7 @@
                     initial_deposit: amount,
                     future_amount: futureAmount,
                     interest_rate: parseFloat(document.getElementById('savings-interest-rate').value) || null,
-                    start_date: document.getElementById('date').value,
+                    start_date: document.getElementById('tx-date').value,
                     maturity_date: document.getElementById('savings-maturity-date').value || null,
                     notes: document.getElementById('savings-notes').value.trim() || null
                 };
@@ -1153,7 +1224,7 @@
                     if (bBank) bundleUpdateData.bank_name = bBank;
                     if (bInterest) bundleUpdateData.interest_rate = parseFloat(bInterest);
                     if (bMaturity) bundleUpdateData.maturity_date = bMaturity;
-                    var amt = parseFloat(document.getElementById('amount').value) || 0;
+                    var amt = _txAmount() || 0;
                     bundleUpdateData.future_amount = bFuture ? parseFloat(bFuture) : amt;
                     if (bNotes) bundleUpdateData.notes = bNotes;
                 }
@@ -1189,6 +1260,7 @@
                             console.error('Error updating savings bundle:', e);
                         }
                     }
+                    if (!transactionId) _rememberTxDefaults(data.type, data.category_id, data.spender_user_id);
                     closeTransactionModal();
                     // Guarded page-specific actions
                     if (typeof saveFilters === 'function') saveFilters();
@@ -1242,6 +1314,7 @@
                     body: JSON.stringify(originalData),
                 });
                 if (res.ok) {
+                    _rememberTxDefaults(originalData.type, originalData.category_id, originalData.spender_user_id);
                     closeTransactionModal();
                     if (typeof saveFilters === 'function') saveFilters();
                     if (typeof loadTransactions === 'function') loadTransactions();
@@ -1268,15 +1341,15 @@
             var response = await fetch('/api/transactions/' + id);
             var transaction = await response.json();
 
-            document.getElementById('modal-title').textContent = 'Edit Transaction';
+            document.getElementById('tx-modal-title').textContent = 'Edit Transaction';
             document.getElementById('transaction-id').value = transaction.id;
-            document.getElementById('date').value = transaction.date;
-            document.getElementById('amount').value = transaction.amount;
+            document.getElementById('tx-date').value = transaction.date;
+            _setTxAmount(transaction.amount);
             var typeRadio = document.querySelector('input[name="type"][value="' + transaction.type + '"]');
             if (typeRadio) typeRadio.checked = true;
             loadCategories();
             setTimeout(function() {
-                var catSel = document.getElementById('category');
+                var catSel = document.getElementById('tx-category');
                 if (catSel) catSel.value = transaction.category_id;
                 // Trigger category-driven savings detection
                 onCategoryChange();
@@ -1295,9 +1368,11 @@
                     }
                 }
             }, 100);
-            document.getElementById('description').value = transaction.description || '';
+            document.getElementById('tx-description').value = transaction.description || '';
             document.getElementById('is-advance').checked = transaction.is_advance || false;
             document.getElementById('spender-user').value = transaction.spender_user_id || '';
+            var moreDetails = document.getElementById('tx-more-details');
+            if (moreDetails) moreDetails.open = !!(transaction.spender_user_id || transaction.is_advance);
 
             var nrSection = document.getElementById('needs-review-section');
             if (transaction.needs_review) {
@@ -1326,30 +1401,42 @@
 
     // ── Wire amount input to update savings future amount ──────────────
     document.addEventListener('DOMContentLoaded', function() {
-        var amountInput = document.getElementById('amount');
+        var amountInput = document.getElementById('tx-amount');
         if (amountInput) {
-            amountInput.addEventListener('input', function() {
+            amountInput.addEventListener('input', function(e) {
+                _onTxAmountInput(e);
                 updateSavingsFutureAmount();
             });
         }
+        // Esc closes the transaction / duplicate dialogs
+        document.addEventListener('keydown', function(e) {
+            if (e.key !== 'Escape') return;
+            var dup = document.getElementById('duplicate-modal');
+            if (dup && !dup.classList.contains('hidden')) { dup.classList.add('hidden'); return; }
+            var tx = document.getElementById('transaction-modal');
+            if (tx && !tx.classList.contains('hidden')) closeTransactionModal();
+        });
     });
     </script>
 
     {% block extra_js %}{% endblock %}
 
-    <!-- FAB: global quick-add transaction (desktop only — mobile uses bottom nav) -->
-    <button onclick="openAddModal()"
+    <!-- FAB: global quick-add transaction (desktop only — mobile uses bottom nav).
+         Skipped on Transactions, whose header "Add Transaction" is the same action. -->
+    {% if active_menu != 'transactions' %}
+    <button onclick="openAddModal()" aria-label="Add transaction" title="Add transaction"
             class="hidden md:flex fixed bottom-6 right-6 z-[100] w-14 h-14 bg-brand text-white rounded-full shadow-brand hover:bg-brand-hover active:scale-95 transition-all items-center justify-center"
             style="bottom:calc(1.5rem + env(safe-area-inset-bottom))">
         <i class="fas fa-plus text-xl"></i>
     </button>
+    {% endif %}
 
     {% set _all_categories = get_all_active_categories() %}
     {% set _all_users = get_all_users() %}
     {% include "partials/transactions/_modal_form.html" %}
 
     <!-- Toast container — Alpine-driven, sits above bottom nav on mobile -->
-    <div x-data class="fixed bottom-20 right-4 md:bottom-4 z-[200] space-y-2">
+    <div x-data class="fixed bottom-20 right-4 md:bottom-24 md:right-6 z-[200] space-y-2">
         <template x-for="toast in $store.toasts.items" :key="toast.id">
             <div class="text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 min-w-64"
                  :class="{
