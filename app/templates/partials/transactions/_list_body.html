@@ -54,8 +54,8 @@
       <!-- Inner content row -->
       <div class="flex items-center gap-3 flex-1 min-w-0 py-3 pr-4">
         <!-- Category badge (desktop only) -->
-        <span class="hidden md:inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 w-24 truncate"
-              style="background-color: {{ (t.category.color if t.category else '#6B7280') }}20; color: {{ t.category.color if t.category else '#6B7280' }}">
+        <span class="cat-pill hidden md:inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 w-24 truncate"
+              style="--pill: {{ t.category.color if t.category else '#6B7280' }}">
           {% if t.is_savings_related %}<i class="fas fa-piggy-bank text-purple-600 mr-1"></i>{% endif %}
           {{ t.category.name if t.category else 'Uncategorized' }}
         </span>

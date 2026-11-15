@@ -36,7 +36,7 @@
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
 
     <div class="rounded-xl p-3 flex items-start gap-2.5 bg-white">
-      <span class="text-base leading-none mt-0.5 flex-shrink-0">{{ '✅' if check_income else '❌' }}</span>
+      <span class="text-base leading-none mt-0.5 flex-shrink-0">{% if check_income %}<i class="fas fa-circle-check text-green-600" aria-hidden="true"></i><span class="sr-only">Met:</span>{% else %}<i class="fas fa-circle-xmark text-red-500" aria-hidden="true"></i><span class="sr-only">Not met:</span>{% endif %}</span>
       <div class="min-w-0">
         <p class="text-xs font-semibold {{ 'text-green-800' if check_income else 'text-red-800' }}">Salary Received</p>
         <p class="text-xs mt-0.5 {{ 'text-green-600' if check_income else 'text-red-500' }}">
@@ -46,7 +46,7 @@
     </div>
 
     <div class="rounded-xl p-3 flex items-start gap-2.5 bg-white">
-      <span class="text-base leading-none mt-0.5 flex-shrink-0">{{ '✅' if check_bds else '❌' }}</span>
+      <span class="text-base leading-none mt-0.5 flex-shrink-0">{% if check_bds %}<i class="fas fa-circle-check text-green-600" aria-hidden="true"></i><span class="sr-only">Met:</span>{% else %}<i class="fas fa-circle-xmark text-red-500" aria-hidden="true"></i><span class="sr-only">Not met:</span>{% endif %}</span>
       <div class="min-w-0">
         <p class="text-xs font-semibold {{ 'text-green-800' if check_bds else 'text-red-800' }}">Property Payment</p>
         <p class="text-xs mt-0.5 {{ 'text-green-600' if check_bds else 'text-red-500' }}">
@@ -56,7 +56,7 @@
     </div>
 
     <div class="rounded-xl p-3 flex items-start gap-2.5 bg-white">
-      <span class="text-base leading-none mt-0.5 flex-shrink-0">{{ '✅' if check_tk else '❌' }}</span>
+      <span class="text-base leading-none mt-0.5 flex-shrink-0">{% if check_tk %}<i class="fas fa-circle-check text-green-600" aria-hidden="true"></i><span class="sr-only">Met:</span>{% else %}<i class="fas fa-circle-xmark text-red-500" aria-hidden="true"></i><span class="sr-only">Not met:</span>{% endif %}</span>
       <div class="min-w-0">
         <p class="text-xs font-semibold {{ 'text-green-800' if check_tk else 'text-red-800' }}">Savings ≥ {{ summary.savings_target_pct | int }}%</p>
         <p class="text-xs mt-0.5 {{ 'text-green-600' if check_tk else 'text-red-500' }}">
@@ -66,7 +66,7 @@
     </div>
 
     <div class="rounded-xl p-3 flex items-start gap-2.5 bg-white">
-      <span class="text-base leading-none mt-0.5 flex-shrink-0">{{ '✅' if check_net else '❌' }}</span>
+      <span class="text-base leading-none mt-0.5 flex-shrink-0">{% if check_net %}<i class="fas fa-circle-check text-green-600" aria-hidden="true"></i><span class="sr-only">Met:</span>{% else %}<i class="fas fa-circle-xmark text-red-500" aria-hidden="true"></i><span class="sr-only">Not met:</span>{% endif %}</span>
       <div class="min-w-0">
         <p class="text-xs font-semibold {{ 'text-green-800' if check_net else 'text-red-800' }}">Net Cash &gt; 0</p>
         <p class="text-xs mt-0.5 {{ 'text-green-600' if check_net else 'text-red-500' }}">

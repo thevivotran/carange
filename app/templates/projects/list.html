@@ -47,7 +47,7 @@
 </div>
 
 <!-- ===== Add/Edit Project Modal ===== -->
-<div id="project-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
+<div id="project-modal" role="dialog" aria-modal="true" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90dvh] flex flex-col">
         <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
             <h3 class="text-xl font-bold text-gray-800" id="modal-title">Add Financial Project</h3>
@@ -57,11 +57,11 @@
         <form id="project-form" class="p-6 space-y-4">
             <input type="hidden" id="project-id">
             <div>
-                <label class="field-required block text-sm font-medium text-gray-700 mb-2">Project Name</label>
+                <label for="name" class="field-required block text-sm font-medium text-gray-700 mb-2">Project Name</label>
                 <input type="text" id="name" required class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="e.g., Buy an Apartment">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Project Type</label>
+                <label for="project-type" class="block text-sm font-medium text-gray-700 mb-2">Project Type</label>
                 <select id="project-type" required class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
                     <option value="real_estate">Real Estate</option>
                     <option value="investment">Investment (DCA, Stocks, etc.)</option>
@@ -72,12 +72,12 @@
                 </select>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                <label for="description" class="block text-sm font-medium text-gray-700 mb-2">Description</label>
                 <textarea id="description" rows="2" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Brief description..."></textarea>
             </div>
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
+                    <label for="priority" class="block text-sm font-medium text-gray-700 mb-2">Priority</label>
                     <select id="priority" required class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
                         <option value="high">High</option>
                         <option value="medium" selected>Medium</option>
@@ -85,12 +85,12 @@
                     </select>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Deadline (Optional)</label>
+                    <label for="deadline" class="block text-sm font-medium text-gray-700 mb-2">Deadline (Optional)</label>
                     <input type="date" id="deadline" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
                 </div>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Default Category (for auto-transaction)</label>
+                <label for="default-category-id" class="block text-sm font-medium text-gray-700 mb-2">Default Category (for auto-transaction)</label>
                 <select id="default-category-id" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
                     <option value="">None (skip auto-transaction)</option>
                 </select>
@@ -105,7 +105,7 @@
 </div>
 
 <!-- ===== Payment Timeline Modal ===== -->
-<div id="timeline-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-2 md:p-4">
+<div id="timeline-modal" role="dialog" aria-modal="true" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-2 md:p-4">
     <div class="bg-white rounded-xl shadow-xl w-full max-w-5xl max-h-[95dvh] flex flex-col">
         <div class="p-4 md:p-6 border-b flex justify-between items-center shrink-0">
             <h3 class="text-lg md:text-xl font-bold text-gray-800" id="timeline-title">Payment Timeline</h3>
@@ -155,15 +155,15 @@
                 <h4 class="font-semibold text-gray-700 mb-3">Add Single Payment</h4>
                 <form id="add-payment-form" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 items-end">
                     <div>
-                        <label class="block text-xs text-gray-600 mb-1">Due Date (optional)</label>
+                        <label for="new-payment-date" class="block text-xs text-gray-600 mb-1">Due Date (optional)</label>
                         <input type="date" id="new-payment-date" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
                     </div>
                     <div>
-                        <label class="block text-xs text-gray-600 mb-1">Amount (VND) *</label>
+                        <label for="new-payment-amount" class="block text-xs text-gray-600 mb-1">Amount (VND) *</label>
                         <input type="number" id="new-payment-amount" required min="1" step="1" placeholder="Amount" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
                     </div>
                     <div>
-                        <label class="block text-xs text-gray-600 mb-1">Notes</label>
+                        <label for="new-payment-notes" class="block text-xs text-gray-600 mb-1">Notes</label>
                         <input type="text" id="new-payment-notes" placeholder="Optional notes" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
                     </div>
                     <div>
@@ -183,15 +183,15 @@
                 <div id="recurring-section" class="hidden mt-4">
                     <form id="recurring-form" class="grid grid-cols-2 md:grid-cols-3 gap-3 items-end">
                         <div>
-                            <label class="block text-xs text-gray-600 mb-1">Amount per installment *</label>
+                            <label for="rec-amount" class="block text-xs text-gray-600 mb-1">Amount per installment *</label>
                             <input type="number" id="rec-amount" required min="1" step="1" placeholder="Amount" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
                         </div>
                         <div>
-                            <label class="block text-xs text-gray-600 mb-1">Start Date *</label>
+                            <label for="rec-start-date" class="block text-xs text-gray-600 mb-1">Start Date *</label>
                             <input type="date" id="rec-start-date" required class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
                         </div>
                         <div>
-                            <label class="block text-xs text-gray-600 mb-1">Interval *</label>
+                            <label for="rec-interval" class="block text-xs text-gray-600 mb-1">Interval *</label>
                             <select id="rec-interval" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
                                 <option value="weekly">Weekly</option>
                                 <option value="biweekly">Biweekly</option>
@@ -199,11 +199,11 @@
                             </select>
                         </div>
                         <div>
-                            <label class="block text-xs text-gray-600 mb-1">Number of installments *</label>
+                            <label for="rec-occurrences" class="block text-xs text-gray-600 mb-1">Number of installments *</label>
                             <input type="number" id="rec-occurrences" required min="1" max="120" placeholder="e.g. 12" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
                         </div>
                         <div>
-                            <label class="block text-xs text-gray-600 mb-1">Notes (all rows)</label>
+                            <label for="rec-notes" class="block text-xs text-gray-600 mb-1">Notes (all rows)</label>
                             <input type="text" id="rec-notes" placeholder="Optional" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
                         </div>
                         <div>
@@ -219,21 +219,21 @@
 </div>
 
 <!-- ===== Edit Payment Modal ===== -->
-<div id="edit-payment-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-30 z-[105] flex items-center justify-center p-4">
+<div id="edit-payment-modal" role="dialog" aria-modal="true" class="hidden fixed inset-0 bg-gray-900 bg-opacity-30 z-[105] flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
         <h4 class="font-semibold text-gray-800 mb-4">Edit Payment</h4>
         <input type="hidden" id="edit-payment-id">
         <div class="space-y-3">
             <div>
-                <label class="block text-xs text-gray-600 mb-1">Due Date (optional)</label>
+                <label for="edit-payment-date" class="block text-xs text-gray-600 mb-1">Due Date (optional)</label>
                 <input type="date" id="edit-payment-date" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
             </div>
             <div>
-                <label class="block text-xs text-gray-600 mb-1">Amount (VND) *</label>
+                <label for="edit-payment-amount" class="block text-xs text-gray-600 mb-1">Amount (VND) *</label>
                 <input type="number" id="edit-payment-amount" required min="1" step="1" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
             </div>
             <div>
-                <label class="block text-xs text-gray-600 mb-1">Notes</label>
+                <label for="edit-payment-notes" class="block text-xs text-gray-600 mb-1">Notes</label>
                 <input type="text" id="edit-payment-notes" placeholder="Optional notes" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
             </div>
         </div>
@@ -245,19 +245,19 @@
 </div>
 
 <!-- ===== Mark Paid Pop-over ===== -->
-<div id="mark-paid-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-30 z-[105] flex items-center justify-center p-4">
+<div id="mark-paid-modal" role="dialog" aria-modal="true" class="hidden fixed inset-0 bg-gray-900 bg-opacity-30 z-[105] flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6">
         <h4 class="font-semibold text-gray-800 mb-4">Mark as Paid</h4>
         <input type="hidden" id="mark-paid-payment-id">
         <div class="space-y-3">
             <div>
-                <label class="block text-xs text-gray-600 mb-1">Category (required for auto-transaction)</label>
+                <label for="mark-paid-category" class="block text-xs text-gray-600 mb-1">Category (required for auto-transaction)</label>
                 <select id="mark-paid-category" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
                     <option value="">— skip transaction —</option>
                 </select>
             </div>
             <div>
-                <label class="block text-xs text-gray-600 mb-1">Date Paid</label>
+                <label for="mark-paid-date" class="block text-xs text-gray-600 mb-1">Date Paid</label>
                 <input type="date" id="mark-paid-date" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
             </div>
         </div>
@@ -767,9 +767,8 @@
                 dateSpan.textContent = formatDate(t.date);
 
                 const catSpan = document.createElement('span');
-                catSpan.className = 'text-xs px-1.5 py-0.5 rounded flex-shrink-0';
-                catSpan.style.backgroundColor = (t.category.color || '#ccc') + '20';
-                catSpan.style.color = t.category.color || '#666';
+                catSpan.className = 'cat-pill text-xs px-1.5 py-0.5 rounded flex-shrink-0';
+                catSpan.style.setProperty('--pill', t.category.color || '#6B7280');
                 catSpan.textContent = t.category.name;
 
                 left.appendChild(dateSpan);

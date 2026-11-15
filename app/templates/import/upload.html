@@ -36,7 +36,7 @@
                 <span class="hidden md:inline">or click to browse &nbsp;·&nbsp; JPEG, PNG, WebP, HEIC &nbsp;·&nbsp; max 20 MB each</span>
             </p>
             <div class="mt-4">
-                <label class="block text-xs font-medium text-gray-500 mb-1">Source (optional — helps OCR accuracy)</label>
+                <label for="source-hint" class="block text-xs font-medium text-gray-500 mb-1">Source (optional — helps OCR accuracy)</label>
                 <select id="source-hint"
                         class="border rounded-lg px-3 py-2 text-sm text-gray-700 bg-white focus:ring-2 focus:ring-primary">
                     <option value="">Auto-detect</option>
@@ -187,7 +187,7 @@
                 <p class="text-xs text-purple-600 mt-1">N&#259;m (Year), Th&#225;ng (Month), Thu (Income), Chi (Expense), Lo&#7841;i (Category), Ghi ch&#250; (Description)</p>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Select CSV File</label>
+                <label for="csv-file" class="block text-sm font-medium text-gray-700 mb-2">Select CSV File</label>
                 <input type="file" id="csv-file" accept=".csv"
                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent">
             </div>
@@ -208,7 +208,7 @@
 </div>
 
 <!-- Post-import Summary Modal -->
-<div id="import-summary-modal" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
+<div id="import-summary-modal" role="dialog" aria-modal="true" class="hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[100] flex items-center justify-center p-4">
     <div class="bg-white rounded-xl shadow-xl max-w-sm w-full">
         <div class="p-5 border-b flex items-center gap-3">
             <div class="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">

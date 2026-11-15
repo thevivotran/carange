@@ -34,8 +34,8 @@
         </td>
         <td class="px-4 py-3">
             {% if t.category %}
-            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
-                  style="background-color: {{ t.category.color }}20; color: {{ t.category.color }}">
+            <span class="cat-pill inline-flex items-center px-2 py-1 rounded-full text-xs font-medium"
+                  style="--pill: {{ t.category.color }}">
                 {{ t.category.name }}
             </span>
             {% endif %}
@@ -93,8 +93,8 @@
             {% endif %}
             <div class="mt-1.5 flex flex-wrap gap-1">
                 {% if t.category %}
-                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
-                      style="background-color: {{ t.category.color }}20; color: {{ t.category.color }}">
+                <span class="cat-pill inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
+                      style="--pill: {{ t.category.color }}">
                     {{ t.category.name }}
                 </span>
                 {% endif %}

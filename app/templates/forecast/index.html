@@ -42,8 +42,25 @@
     </div>
   </div>
 
+  <!-- Empty state: nothing scheduled, so a flat line would tell the user nothing -->
+  <div id="forecast-empty" class="hidden cg-card p-8 mb-6 text-center">
+    <div class="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+      <i class="fas fa-chart-area text-gray-500" aria-hidden="true"></i>
+    </div>
+    <p class="font-semibold text-gray-800">Nothing scheduled to forecast yet</p>
+    <p class="text-sm text-muted mt-1 max-w-md mx-auto">The forecast projects your balance from recurring templates, project payments, savings maturities and budgets. Add one to see where your cash is heading.</p>
+    <div class="mt-4 flex flex-wrap justify-center gap-2">
+      <a href="/templates" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white text-sm font-medium transition">
+        <i class="fas fa-repeat" aria-hidden="true"></i> Set up a recurring bill
+      </a>
+      <a href="/budget" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+        <i class="fas fa-wallet" aria-hidden="true"></i> Set a budget
+      </a>
+    </div>
+  </div>
+
   <!-- Chart -->
-  <div class="cg-card p-6 mb-6">
+  <div id="forecast-chart-card" class="cg-card p-6 mb-6">
     <div class="flex justify-between items-center mb-4">
       <h3 class="font-semibold">Running Balance</h3>
       <span class="text-xs text-muted">― Buffer line</span>
@@ -133,7 +150,8 @@ function _renderSummary(data) {
     const lowDateEl = document.getElementById('forecast-low-point-date');
     if (data.low_point) {
         lowEl.textContent = _fmtCurrency(data.low_point.balance);
-        lowDateEl.textContent = _fmtDate(data.low_point.date);
+        const isToday = data.low_point.date === new Date().toLocaleDateString('en-CA');
+        lowDateEl.textContent = isToday ? 'Today' : _fmtDate(data.low_point.date);
     } else {
         lowEl.textContent = '—';
         lowDateEl.textContent = '';
@@ -317,7 +335,10 @@ function loadForecast(horizon) {
         .then(r => r.json())
         .then(data => {
             _renderSummary(data);
-            _renderChart(data);
+            const nothingScheduled = (!data.events || data.events.length === 0) && !data.horizon_net;
+            document.getElementById('forecast-empty').classList.toggle('hidden', !nothingScheduled);
+            document.getElementById('forecast-chart-card').classList.toggle('hidden', nothingScheduled);
+            if (!nothingScheduled) _renderChart(data);
             _renderEvents(data);
         })
         .catch(() => {

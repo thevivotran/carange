@@ -1,6 +1,6 @@
 """ui_lint — HTML template design-token linter, plus its tests.
 
-Seven rules enforced across all templates:
+Rules enforced across all templates:
 
 Visual consistency (prevent drift from the design system):
   badge-font-medium    rounded-full + text-xs + tint bg → must have font-medium/semibold
@@ -12,6 +12,11 @@ Accessibility (prevent silent a11y regressions):
   icon-btn-label       single-line icon-only buttons need title= or aria-label=
   input-focus-ring     inputs/selects with border class must have focus:ring-2
   img-alt              every <img> must carry an alt= attribute
+  dialog-role          fixed inset-0 overlays with a modal/drawer id need role="dialog"
+  label-for            every <label> has for= or wraps its control (file-level)
+
+Brand:
+  primary-action-brand Add/Save/Create/New/Edit Budgets buttons use bg-brand, not blue/indigo (file-level)
 
 Two test layers below:
   1. Unit tests — verify each rule fires/passes on synthetic HTML snippets.
@@ -161,6 +166,19 @@ def _check_img_alt(line: str, loc: str) -> list[str]:
     return violations
 
 
+def _check_dialog_role(line: str, loc: str) -> list[str]:
+    """Overlay modals/drawers (fixed inset-0 with a *modal*/*drawer* id) must declare
+    role="dialog" so the shared dialog controller (base.html) manages focus and Esc."""
+    if "<div" not in line or "fixed inset-0" not in line:
+        return []
+    el_id = _attr(line, "id") or ""
+    if not re.search(r"modal|drawer", el_id):
+        return []
+    if 'role="dialog"' in line or 'role="alertdialog"' in line:
+        return []
+    return [f'{loc}: [dialog-role] overlay #{el_id} is missing role="dialog" aria-modal="true"']
+
+
 # ── File-level rules (elements spanning several lines) ───────────────────────
 
 _PRIMARY_ACTION_TEXT = re.compile(r"^(Add|Save|Create|New|Edit Budgets)\b")
@@ -187,7 +205,22 @@ def _check_primary_action_brand(text: str, path: Path) -> list[str]:
     return violations
 
 
-_FILE_RULES = [_check_primary_action_brand]
+_LABEL = re.compile(r"<label\b([^>]*)>(.*?)</label>", re.DOTALL)
+
+
+def _check_label_association(text: str, path: Path) -> list[str]:
+    """Every <label> names a control: either for="id" or by wrapping the input/select/textarea.
+    (Group captions for radio sets use <p id> + role="radiogroup" aria-labelledby instead.)"""
+    violations = []
+    for m in _LABEL.finditer(text):
+        if "for=" in m.group(1) or re.search(r"<(input|select|textarea)\b", m.group(2)):
+            continue
+        lineno = text.count("\n", 0, m.start()) + 1
+        violations.append(f'{path}:{lineno}: [label-for] <label> has no for="…" and wraps no control')
+    return violations
+
+
+_FILE_RULES = [_check_primary_action_brand, _check_label_association]
 
 
 # ── Dispatcher ────────────────────────────────────────────────────────────────
@@ -200,6 +233,7 @@ _RULES = [
     _check_icon_btn_label,
     _check_input_focus_ring,
     _check_img_alt,
+    _check_dialog_role,
 ]
 
 
@@ -507,3 +541,37 @@ def test_primary_action_brand_passes():
 def test_blue_non_action_button_not_flagged():
     html = '<a href="/x" class="bg-blue-600 text-white">View all</a>'
     assert not _check_primary_action_brand(html, Path("x.html"))
+
+
+# ── dialog-role ───────────────────────────────────────────────────────────────
+
+
+def test_dialog_without_role_flagged():
+    line = '<div id="asset-modal" class="hidden fixed inset-0 z-[100] flex">'
+    assert _check_dialog_role(line, "x:1")
+
+
+def test_dialog_with_role_passes():
+    line = '<div id="asset-modal" role="dialog" aria-modal="true" class="hidden fixed inset-0 z-[100] flex">'
+    assert not _check_dialog_role(line, "x:1")
+
+
+def test_non_dialog_overlay_not_flagged():
+    line = '<div id="toast-layer" class="fixed inset-0 pointer-events-none">'
+    assert not _check_dialog_role(line, "x:1")
+
+
+# ── label-for ─────────────────────────────────────────────────────────────────
+
+
+def test_label_without_for_flagged():
+    html = '<label class="block">Amount</label>\n<input id="amt" class="border focus:ring-2">'
+    assert _check_label_association(html, Path("x.html"))
+
+
+def test_label_with_for_passes():
+    assert not _check_label_association('<label for="amt">Amount</label>', Path("x.html"))
+
+
+def test_wrapping_label_passes():
+    assert not _check_label_association('<label><input type="checkbox"> Remember</label>', Path("x.html"))
