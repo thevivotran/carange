@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.9.0](https://github.com/thevivotran/carange/compare/v0.8.0...v0.9.0) (2026-11-15)
+
+
+### Features
+
+* **ux:** faster quick-add and calmer first-run states ([#103](https://github.com/thevivotran/carange/issues/103)) ([3192cf5](https://github.com/thevivotran/carange/commit/3192cf5059bb33f893cde069f82acfc8d811c6b7))
+* **ux:** regroup navigation and split Settings into tabs ([#104](https://github.com/thevivotran/carange/issues/104)) ([764e811](https://github.com/thevivotran/carange/commit/764e811f599b1b8db081881a69dc9c552822f733))
+
+
+### Bug Fixes
+
+* **deps:** bump mako to 1.4.3 (GHSA-5639-2j2p-m4mx) ([#107](https://github.com/thevivotran/carange/issues/107)) ([305b138](https://github.com/thevivotran/carange/commit/305b138a6e47d740dfa3883bf4ecfecc9e7bc7ba))
+* **deps:** patch soupsieve and opentelemetry-api advisories ([3d0d5ac](https://github.com/thevivotran/carange/commit/3d0d5acd39e540b201d3f593818487eac5371240))
+* **deps:** sync uv.lock with patched anyio/soupsieve/urllib3 ([a087060](https://github.com/thevivotran/carange/commit/a087060fcb691f39cb8ee6b690a562031ab58669))
+* **security:** block CSRF, reflected XSS, and open redirects ([f551f24](https://github.com/thevivotran/carange/commit/f551f241ca5da5013b24367e280f0ef02a9a4731))
+* **ux:** accessibility and visual polish pass ([#105](https://github.com/thevivotran/carange/issues/105)) ([dd887a6](https://github.com/thevivotran/carange/commit/dd887a6aee75093b79436bebdaa7ebf600121384))
+* **ux:** trust & correctness pass from the UX review ([8995ada](https://github.com/thevivotran/carange/commit/8995ada8409fd8e5575501ed6f9dbdf898df43e0))
+
 ## [0.8.0](https://github.com/thevivotran/carange/compare/v0.7.0...v0.8.0) (2026-09-26)
 
 
