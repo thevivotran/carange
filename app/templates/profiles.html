@@ -25,7 +25,8 @@
     <script>
         tailwind.config = {
             darkMode: 'class',
-            theme: { extend: { colors: { primary: '#2563EB', secondary: '#059669', danger: '#EF4444' } } }
+            theme: { extend: { colors: { primary: '#2563EB', secondary: '#059669', danger: '#EF4444',
+                brand: { DEFAULT: '#F97316', hover: '#EA5A0B', press: '#C2440A' } } } }
         }
     </script>
 
@@ -47,8 +48,8 @@
         <div class="w-full max-w-md">
 
             <div class="text-center mb-8">
-                <i class="fas fa-wallet text-primary text-4xl"></i>
-                <h1 class="text-2xl font-bold text-gray-800 mt-3">Carange</h1>
+                <img src="/static/images/carange-icon.png" alt="" class="w-14 h-14 rounded-2xl mx-auto">
+                <h1 class="text-2xl font-extrabold mt-3"><span style="color:#2363E0">ca</span><span style="color:#F2730F">range</span></h1>
                 <p class="text-sm text-gray-500 mt-1">Who's tracking today?</p>
             </div>
 
@@ -67,7 +68,7 @@
                             <input type="hidden" name="user_id" value="{{ u.id }}">
                             <input type="hidden" name="next" value="{{ next_path }}">
                             <button type="submit"
-                                    class="w-full flex items-center gap-3 p-3 border rounded-xl hover:bg-gray-50 transition text-left {% if u.id == current_user_id %}border-indigo-300{% endif %}">
+                                    class="w-full flex items-center gap-3 p-3 border rounded-xl hover:bg-gray-50 transition text-left {% if u.id == current_user_id %}border-orange-300{% endif %}">
                                 <span class="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0"
                                       style="background-color: {{ u.color }}">{{ u.name[0] | upper }}</span>
                                 <span class="min-w-0">
@@ -104,16 +105,17 @@
                     <input type="hidden" name="next" value="{{ next_path }}">
                     <label class="block text-xs font-medium text-gray-600 mb-1" for="profile-name">Name</label>
                     <input id="profile-name" name="name" type="text" required maxlength="50"
-                           class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+                           class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
                            placeholder="e.g. Vi">
                     <div class="mt-4">
                         <span class="block text-xs font-medium text-gray-600 mb-2">Color</span>
                         <div class="flex items-center gap-3">
+                            {% set color_names = {'#EF4444': 'Red', '#F59E0B': 'Amber', '#10B981': 'Green', '#3B82F6': 'Blue', '#6366F1': 'Indigo', '#8B5CF6': 'Purple', '#EC4899': 'Pink', '#78350F': 'Brown', '#6B7280': 'Grey', '#2563EB': 'Blue', '#059669': 'Green', '#D97706': 'Amber', '#DC2626': 'Red', '#7C3AED': 'Purple', '#DB2777': 'Pink'} %}
                             {% for c in colors %}
                             <label class="cursor-pointer">
-                                <input type="radio" name="color" value="{{ c }}" class="sr-only peer"
+                                <input type="radio" name="color" value="{{ c }}" class="sr-only peer" aria-label="{{ color_names.get(c, c) }}"
                                        {% if loop.first %}checked{% endif %}>
-                                <span class="block w-8 h-8 rounded-full ring-offset-2 peer-checked:ring-2 peer-checked:ring-gray-500 transition"
+                                <span class="block w-8 h-8 rounded-full ring-offset-2 peer-checked:ring-2 peer-checked:ring-gray-500 peer-focus-visible:ring-2 peer-focus-visible:ring-brand transition"
                                       style="background-color: {{ c }}"></span>
                             </label>
                             {% endfor %}

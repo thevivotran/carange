@@ -178,6 +178,15 @@
         /* Scaffold */
         .dark body { background-color: #0F172A; }
 
+        /* Category pills: one colour per category, contrast-safe in both themes.
+           Text is the category colour pulled toward black (light) or white (dark),
+           so even dark hues like Housing #78350F stay readable on navy. */
+        .cat-pill {
+            background-color: color-mix(in srgb, var(--pill, #6B7280) 16%, transparent);
+            color: color-mix(in srgb, var(--pill, #6B7280) 60%, black);
+        }
+        .dark .cat-pill { color: color-mix(in srgb, var(--pill, #6B7280) 50%, white); }
+
         /* Money never wraps mid-figure ("8,149,000 / ₫") */
         .amount { white-space: nowrap; }
 
@@ -604,7 +613,7 @@
         </div>
         
         <!-- Mobile More Sheet (bottom sheet) -->
-        <div id="mobile-menu" class="hidden md:hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[110] flex items-end">
+        <div id="mobile-menu" role="dialog" aria-modal="true" class="hidden md:hidden fixed inset-0 bg-gray-900 bg-opacity-50 z-[110] flex items-end">
             <div class="w-full bg-white rounded-t-2xl shadow-xl max-h-[80dvh] overflow-y-auto"
                  style="padding-bottom:env(safe-area-inset-bottom)">
                 <!-- Drag handle -->
@@ -1334,14 +1343,7 @@
                 updateSavingsFutureAmount();
             });
         }
-        // Esc closes the transaction / duplicate dialogs
-        document.addEventListener('keydown', function(e) {
-            if (e.key !== 'Escape') return;
-            var dup = document.getElementById('duplicate-modal');
-            if (dup && !dup.classList.contains('hidden')) { dup.classList.add('hidden'); return; }
-            var tx = document.getElementById('transaction-modal');
-            if (tx && !tx.classList.contains('hidden')) closeTransactionModal();
-        });
+
     });
     </script>
 
@@ -1415,13 +1417,13 @@
     </nav>
 
     <!-- Confirm dialog — Alpine store-driven -->
-    <div x-data x-show="$store.confirm.open" x-cloak
+    <div x-data x-show="$store.confirm.open" x-cloak role="alertdialog" aria-modal="true" aria-labelledby="confirm-dialog-message"
          @click="$store.confirm.cancel()"
          class="fixed inset-0 bg-gray-900 bg-opacity-50 z-[210] flex items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-xl max-w-sm w-full p-6" @click.stop>
-            <p x-text="$store.confirm.message" class="text-gray-800 mb-6 text-center font-medium"></p>
+            <p id="confirm-dialog-message" x-text="$store.confirm.message" class="text-gray-800 mb-6 text-center font-medium"></p>
             <div class="flex gap-3">
-                <button @click="$store.confirm.cancel()"
+                <button @click="$store.confirm.cancel()" data-dialog-close
                         class="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50 transition">Cancel</button>
                 <button @click="$store.confirm.ok()"
                         :class="$store.confirm.confirmClass"
@@ -1444,6 +1446,108 @@
                 if (mainEl) mainEl.style.overflow = anyOpen ? 'hidden' : '';
             });
             observer.observe(document.body, { subtree: true, attributes: true, attributeFilter: ['class', 'style'] });
+        })();
+
+        // ── Dialog behaviour shared by every role="dialog" overlay ──────────
+        // On open: label it by its heading, remember what opened it, move focus
+        // inside. While open: Tab cycles within it, Esc closes it through its own
+        // close/Cancel control (so page cleanup runs). On close: focus returns.
+        (function() {
+            var FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
+            var openSet = new Set();
+
+            function isOpen(el) {
+                return el.isConnected && !el.classList.contains('hidden') && getComputedStyle(el).display !== 'none';
+            }
+            function visibleFocusables(el) {
+                return Array.from(el.querySelectorAll(FOCUSABLE)).filter(function(n) {
+                    return n.offsetParent !== null || n === document.activeElement;
+                });
+            }
+            function topmost() {
+                var list = Array.from(openSet).filter(isOpen);
+                list.sort(function(a, b) {
+                    return (parseInt(getComputedStyle(a).zIndex, 10) || 0) - (parseInt(getComputedStyle(b).zIndex, 10) || 0);
+                });
+                return list[list.length - 1] || null;
+            }
+            function label(el) {
+                if (el.hasAttribute('aria-labelledby') || el.hasAttribute('aria-label')) return;
+                var h = el.querySelector('h1, h2, h3, h4');
+                if (!h) return;
+                if (!h.id) h.id = (el.id || 'dialog') + '-title';
+                el.setAttribute('aria-labelledby', h.id);
+            }
+            // Native date inputs render in the browser's locale (e.g. 11/15/2026); show
+            // the app's own format underneath so dates read the same everywhere.
+            var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+            var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            function dateHint(input) {
+                var hint = input.nextElementSibling;
+                if (!hint || !hint.classList.contains('date-hint')) {
+                    hint = document.createElement('p');
+                    hint.className = 'date-hint text-xs text-muted mt-1';
+                    hint.setAttribute('aria-hidden', 'true');
+                    input.insertAdjacentElement('afterend', hint);
+                    input.addEventListener('input', function() { dateHint(input); });
+                    input.addEventListener('change', function() { dateHint(input); });
+                }
+                var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(input.value || '');
+                if (!m) { hint.textContent = ''; return; }
+                var d = new Date(+m[1], +m[2] - 1, +m[3]);
+                hint.textContent = DAYS[d.getDay()] + ', ' + d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear();
+            }
+            window.refreshDateHints = function(root) {
+                (root || document).querySelectorAll('input[type="date"]').forEach(dateHint);
+            };
+            function onOpen(el) {
+                label(el);
+                setTimeout(function() { window.refreshDateHints(el); }, 150);
+                el._returnFocus = document.activeElement;
+                setTimeout(function() {
+                    if (!isOpen(el) || el.contains(document.activeElement)) return;
+                    var target = el.querySelector('[autofocus]') ||
+                                 visibleFocusables(el).find(function(n) { return /INPUT|SELECT|TEXTAREA/.test(n.tagName); }) ||
+                                 visibleFocusables(el)[0];
+                    if (target) target.focus();
+                }, 60);
+            }
+            function onClose(el) {
+                var back = el._returnFocus;
+                el._returnFocus = null;
+                if (back && back.isConnected && typeof back.focus === 'function') back.focus();
+            }
+            function sync() {
+                document.querySelectorAll('[role="dialog"], [role="alertdialog"]').forEach(function(el) {
+                    var open = isOpen(el);
+                    if (open && !openSet.has(el)) { openSet.add(el); onOpen(el); }
+                    else if (!open && openSet.has(el)) { openSet.delete(el); onClose(el); }
+                });
+                openSet.forEach(function(el) { if (!el.isConnected) openSet.delete(el); });
+            }
+            new MutationObserver(sync).observe(document.body, {
+                subtree: true, childList: true, attributes: true, attributeFilter: ['class', 'style'],
+            });
+
+            document.addEventListener('keydown', function(e) {
+                var dlg = topmost();
+                if (!dlg) return;
+                if (e.key === 'Escape') {
+                    var close = dlg.querySelector('[data-dialog-close], button[aria-label="Close"], button[onclick*="close"], button[onclick*="Close"]') ||
+                                Array.from(dlg.querySelectorAll('button')).find(function(b) { return b.textContent.trim() === 'Cancel'; });
+                    e.preventDefault();
+                    if (close) close.click(); else dlg.classList.add('hidden');
+                    return;
+                }
+                if (e.key !== 'Tab') return;
+                var items = visibleFocusables(dlg);
+                if (!items.length) { e.preventDefault(); return; }
+                var first = items[0], last = items[items.length - 1];
+                if (!dlg.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+                else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+                else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+            });
+            document.addEventListener('DOMContentLoaded', sync);
         })();
 
         // Tap on modal backdrop (outside the card) closes it.

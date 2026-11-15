@@ -50,7 +50,7 @@
 </div>
 
 <!-- ── Edit budgets modal ── -->
-<div id="edit-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
+<div id="edit-modal" role="dialog" aria-modal="true" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
   <div class="cg-card rounded-xl shadow-xl w-full max-w-lg max-h-[85dvh] flex flex-col">
     <div class="p-6 border-b flex items-center justify-between">
       <h3 class="font-bold text-gray-800">Edit Budgets</h3>
@@ -68,7 +68,7 @@
 </div>
 
 <!-- ── Add category modal ── -->
-<div id="add-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
+<div id="add-modal" role="dialog" aria-modal="true" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
   <div class="cg-card rounded-xl shadow-xl w-full max-w-sm">
     <div class="p-6 border-b flex items-center justify-between">
       <h3 class="font-bold text-gray-800">Add Category to Budget</h3>
@@ -76,13 +76,13 @@
     </div>
     <div class="px-6 py-4 space-y-4">
       <div>
-        <label class="text-sm font-medium text-gray-700 mb-1 block">Category</label>
+        <label for="add-cat-select" class="text-sm font-medium text-gray-700 mb-1 block">Category</label>
         <select id="add-cat-select" class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
           <option value="">Select category…</option>
         </select>
       </div>
       <div>
-        <label class="text-sm font-medium text-gray-700 mb-1 block">Monthly Budget (VND)</label>
+        <label for="add-amount" class="text-sm font-medium text-gray-700 mb-1 block">Monthly Budget (VND)</label>
         <input id="add-amount" type="number" min="0" step="10000" placeholder="0"
           class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
       </div>
@@ -95,7 +95,7 @@
 </div>
 
 <!-- ── History modal ── -->
-<div id="history-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
+<div id="history-modal" role="dialog" aria-modal="true" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
   <div class="cg-card rounded-xl shadow-xl w-full max-w-5xl max-h-[90dvh] flex flex-col">
     <div class="p-6 border-b flex items-center justify-between">
       <h3 class="font-bold text-gray-800">Budget History — Last 6 Months</h3>

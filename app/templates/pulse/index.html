@@ -144,7 +144,7 @@
           (check_net, 'Net Positive', 'Income > expenses')
       ] %}
       <div class="flex items-center gap-2 bg-white rounded-xl px-3 py-2">
-        <span class="text-sm">{{ '✅' if ok else '❌' }}</span>
+        <span class="text-sm">{% if ok %}<i class="fas fa-circle-check text-green-600" aria-hidden="true"></i><span class="sr-only">Met:</span>{% else %}<i class="fas fa-circle-xmark text-red-500" aria-hidden="true"></i><span class="sr-only">Not met:</span>{% endif %}</span>
         <div>
           <p class="text-xs font-semibold {{ 'text-green-800' if ok else 'text-red-700' }}">{{ label }}</p>
           <p class="text-xs {{ 'text-green-600' if ok else 'text-red-500' }} opacity-80">{{ detail }}</p>

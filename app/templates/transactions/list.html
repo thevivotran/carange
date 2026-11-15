@@ -716,9 +716,8 @@
                 row.addEventListener('click', function() { toggleRowActions(row, t); });
 
                 const catBadge = document.createElement('span');
-                catBadge.className = 'inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 w-24 truncate';
-                catBadge.style.backgroundColor = t.category.color + '20';
-                catBadge.style.color = t.category.color;
+                catBadge.className = 'cat-pill inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 w-24 truncate';
+                catBadge.style.setProperty('--pill', t.category.color);
                 catBadge.textContent = t.category.name;
                 row.appendChild(catBadge);
 
@@ -1312,7 +1311,7 @@
 </script>
 
 <!-- History Modal -->
-<div id="history-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
+<div id="history-modal" role="dialog" aria-modal="true" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
     <div class="cg-card rounded-xl shadow-xl max-w-md w-full max-h-[80dvh] flex flex-col">
         <div class="p-4 border-b flex justify-between items-center flex-shrink-0">
             <h3 class="text-base font-bold text-gray-800 flex items-center gap-2">
@@ -1327,7 +1326,7 @@
     </div>
 </div>
 <!-- Transaction Detail Drawer -->
-<div id="tx-drawer" class="hidden fixed inset-0 z-[95] flex items-end md:items-center justify-center">
+<div id="tx-drawer" role="dialog" aria-modal="true" class="hidden fixed inset-0 z-[95] flex items-end md:items-center justify-center">
     <div class="absolute inset-0" onclick="closeTxDrawer()" style="background: rgba(15,23,42,.5)"></div>
     <div class="relative w-full md:max-w-md md:rounded-xl shadow-xl max-h-[85dvh] md:max-h-[80dvh] flex flex-col rounded-t-2xl cg-card">
         <div id="tx-drawer-banner" class="hidden rounded-t-2xl md:rounded-t-xl"></div>
@@ -1343,7 +1342,7 @@
     </div>
 </div>
 <!-- Cascade Warning Modal -->
-<div id="cascade-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
+<div id="cascade-modal" role="dialog" aria-modal="true" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
     <div class="cg-card rounded-xl shadow-xl max-w-md w-full">
         <div class="p-5 border-b flex items-start gap-3">
             <div class="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">

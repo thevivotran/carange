@@ -63,9 +63,9 @@
           <div class="space-y-5">
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Display Currency</label>
+              <label for="setting-display-currency" class="block text-sm font-medium text-gray-700 mb-1">Display Currency</label>
               <p class="text-xs text-gray-400 mb-2">Changes the symbol shown for amounts across the app. Stored values are not converted.</p>
-              <select name="display_currency"
+              <select id="setting-display-currency" name="display_currency"
                       class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
                 {% for c in currencies %}
                 <option value="{{ c.code }}" {% if c.code == display_currency %}selected{% endif %}>{{ c.label }}</option>
@@ -89,9 +89,9 @@
         <p class="text-xs text-muted mb-5">When your salary lands. Monthly KPIs run from this day to the day before it next month.</p>
         <form hx-post="/settings/pay-cycle" hx-target="#pay-cycle-status" hx-swap="innerHTML">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Salary day / pay-cycle start</label>
+            <label for="setting-month-start-day" class="block text-sm font-medium text-gray-700 mb-1">Salary day / pay-cycle start</label>
             <p class="text-xs text-gray-400 mb-2">Day of month (1–31). 1 = calendar month. 29–31 act as "last day of month" in shorter months.</p>
-            <input name="month_start_day" type="number" min="1" max="31" step="1"
+            <input id="setting-month-start-day" name="month_start_day" type="number" min="1" max="31" step="1"
                    value="{{ month_start_day }}"
                    class="w-24 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
           </div>
@@ -124,10 +124,10 @@
           <div class="space-y-5">
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Monthly Savings Target</label>
+              <label for="setting-savings-target-pct" class="block text-sm font-medium text-gray-700 mb-1">Monthly Savings Target</label>
               <p class="text-xs text-gray-400 mb-2">Your target savings rate as a percentage of monthly income.</p>
               <div class="flex items-center gap-2">
-                <input name="savings_target_pct" type="number" min="5" max="80" step="1"
+                <input id="setting-savings-target-pct" name="savings_target_pct" type="number" min="5" max="80" step="1"
                        value="{{ savings_target_pct }}"
                        class="w-24 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
                 <span class="text-sm text-gray-500">%</span>
@@ -135,18 +135,18 @@
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Financial Independence Target (₫)</label>
+              <label for="setting-fi-target-vnd" class="block text-sm font-medium text-gray-700 mb-1">Financial Independence Target (₫)</label>
               <p class="text-xs text-gray-400 mb-2">Net worth goal powering the FI Progress card on your dashboard.</p>
-              <input name="fi_target_vnd" type="number" min="0" step="1000000"
+              <input id="setting-fi-target-vnd" name="fi_target_vnd" type="number" min="0" step="1000000"
                      value="{{ fi_target_vnd }}"
                      class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                      placeholder="e.g. 10000000000">
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Baby Fund Bundle</label>
+              <label for="setting-baby-fund-bundle-id" class="block text-sm font-medium text-gray-700 mb-1">Baby Fund Bundle</label>
               <p class="text-xs text-gray-400 mb-2">Pin a savings bundle as the Baby Fund goal on your dashboard.</p>
-              <select name="baby_fund_bundle_id"
+              <select id="setting-baby-fund-bundle-id" name="baby_fund_bundle_id"
                       class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
                 <option value="">— None —</option>
                 {% for b in savings_bundles %}
@@ -173,9 +173,9 @@
               hx-target="#savings-deposit-status"
               hx-swap="innerHTML">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Savings Deposit Category</label>
+            <label for="setting-savings-deposit-category-id" class="block text-sm font-medium text-gray-700 mb-1">Savings Deposit Category</label>
             <p class="text-xs text-gray-400 mb-2">Transactions created when you add or roll over a savings bundle use this category.</p>
-            <select name="savings_deposit_category_id"
+            <select id="setting-savings-deposit-category-id" name="savings_deposit_category_id"
                     class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
               <option value="">— Auto-create (Tiết kiệm) —</option>
               {% for c in expense_categories %}
@@ -198,8 +198,8 @@
         <p class="text-xs text-muted mb-5">The forecast warns of a shortfall when your projected balance dips below this amount.</p>
         <form hx-post="/settings/forecast-buffer" hx-target="#forecast-buffer-status" hx-swap="innerHTML">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Minimum balance</label>
-            <input name="forecast_buffer" type="number" min="0" step="any"
+            <label for="setting-forecast-buffer" class="block text-sm font-medium text-gray-700 mb-1">Minimum balance</label>
+            <input id="setting-forecast-buffer" name="forecast_buffer" type="number" min="0" step="any"
                    value="{{ forecast_buffer }}"
                    class="w-32 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
           </div>
@@ -250,34 +250,34 @@
           <div class="space-y-4">
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">IMAP Host</label>
-                <input name="imap_host" type="text" value="{{ imap_host }}"
+                <label for="setting-imap-host" class="block text-xs font-medium text-gray-600 mb-1">IMAP Host</label>
+                <input id="setting-imap-host" name="imap_host" type="text" value="{{ imap_host }}"
                        class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                        placeholder="imap.gmail.com">
               </div>
               <div>
-                <label class="block text-xs font-medium text-gray-600 mb-1">Inbox Folder</label>
-                <input name="imap_folder" type="text" value="{{ imap_folder }}"
+                <label for="setting-imap-folder" class="block text-xs font-medium text-gray-600 mb-1">Inbox Folder</label>
+                <input id="setting-imap-folder" name="imap_folder" type="text" value="{{ imap_folder }}"
                        class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                        placeholder="INBOX">
               </div>
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Email Address</label>
-              <input name="imap_user" type="email" value="{{ imap_user }}"
+              <label for="setting-imap-user" class="block text-xs font-medium text-gray-600 mb-1">Email Address</label>
+              <input id="setting-imap-user" name="imap_user" type="email" value="{{ imap_user }}"
                      class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                      placeholder="you@gmail.com">
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">App Password</label>
+              <label for="setting-imap-password" class="block text-xs font-medium text-gray-600 mb-1">App Password</label>
               <p class="text-xs text-gray-400 mb-1">Gmail App Password (not your account password). Requires 2FA.</p>
-              <input name="imap_password" type="password"
+              <input id="setting-imap-password" name="imap_password" type="password"
                      class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                      {% if imap_password_set %}placeholder="••••••••••••••• (set — leave blank to keep)"{% else %}placeholder="Enter app password"{% endif %}>
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Poll Interval (seconds)</label>
-              <input name="email_poll_interval" type="number" min="60" max="3600" step="30"
+              <label for="setting-email-poll-interval" class="block text-xs font-medium text-gray-600 mb-1">Poll Interval (seconds)</label>
+              <input id="setting-email-poll-interval" name="email_poll_interval" type="number" min="60" max="3600" step="30"
                      value="{{ email_poll_interval }}"
                      class="w-32 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
             </div>
@@ -307,20 +307,20 @@
               hx-swap="innerHTML">
           <div class="space-y-4">
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Bot Token</label>
-              <input name="telegram_bot_token" type="password"
+              <label for="setting-telegram-bot-token" class="block text-xs font-medium text-gray-600 mb-1">Bot Token</label>
+              <input id="setting-telegram-bot-token" name="telegram_bot_token" type="password"
                      class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                      {% if telegram_bot_token_set %}placeholder="••••••••••••••• (set — leave blank to keep)"{% else %}placeholder="From @BotFather"{% endif %}>
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Chat ID</label>
-              <input name="telegram_chat_id" type="text" value="{{ telegram_chat_id }}"
+              <label for="setting-telegram-chat-id" class="block text-xs font-medium text-gray-600 mb-1">Chat ID</label>
+              <input id="setting-telegram-chat-id" name="telegram_chat_id" type="text" value="{{ telegram_chat_id }}"
                      class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                      placeholder="Numeric chat or group ID">
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">App URL</label>
-              <input name="app_url" type="text" value="{{ app_url }}"
+              <label for="setting-app-url" class="block text-xs font-medium text-gray-600 mb-1">App URL</label>
+              <input id="setting-app-url" name="app_url" type="text" value="{{ app_url }}"
                      class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                      placeholder="http://your-server:6868">
               <p class="text-xs text-muted mt-1">Optional — if set, notifications include clickable links back to this app.</p>
@@ -374,14 +374,14 @@
               hx-swap="innerHTML">
           <div class="space-y-4">
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Ollama URL</label>
-              <input name="ollama_url" type="url" value="{{ ollama_url }}"
+              <label for="setting-ollama-url" class="block text-xs font-medium text-gray-600 mb-1">Ollama URL</label>
+              <input id="setting-ollama-url" name="ollama_url" type="url" value="{{ ollama_url }}"
                      class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                      placeholder="http://ollama.svc:8000">
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Model Name</label>
-              <input name="ollama_model" type="text" value="{{ ollama_model }}"
+              <label for="setting-ollama-model" class="block text-xs font-medium text-gray-600 mb-1">Model Name</label>
+              <input id="setting-ollama-model" name="ollama_model" type="text" value="{{ ollama_model }}"
                      class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand"
                      placeholder="Qwen3.6-35B-A3B">
             </div>
@@ -411,37 +411,37 @@
               hx-swap="innerHTML">
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Review Confidence</label>
+              <label for="setting-review-threshold" class="block text-xs font-medium text-gray-600 mb-1">Review Confidence</label>
               <p class="text-xs text-gray-400 mb-1">Transactions below this are flagged for review (0–1).</p>
-              <input name="review_threshold" type="number" min="0" max="1" step="0.01"
+              <input id="setting-review-threshold" name="review_threshold" type="number" min="0" max="1" step="0.01"
                      value="{{ review_threshold }}"
                      class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Anomaly Multiplier</label>
+              <label for="setting-anomaly-multiplier" class="block text-xs font-medium text-gray-600 mb-1">Anomaly Multiplier</label>
               <p class="text-xs text-gray-400 mb-1">Std dev multiplier for unusual amount detection.</p>
-              <input name="anomaly_multiplier" type="number" min="1" max="10" step="0.5"
+              <input id="setting-anomaly-multiplier" name="anomaly_multiplier" type="number" min="1" max="10" step="0.5"
                      value="{{ anomaly_multiplier }}"
                      class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Anomaly Min Samples</label>
+              <label for="setting-anomaly-min-samples" class="block text-xs font-medium text-gray-600 mb-1">Anomaly Min Samples</label>
               <p class="text-xs text-gray-400 mb-1">History needed before anomaly detection activates.</p>
-              <input name="anomaly_min_samples" type="number" min="1" max="20" step="1"
+              <input id="setting-anomaly-min-samples" name="anomaly_min_samples" type="number" min="1" max="20" step="1"
                      value="{{ anomaly_min_samples }}"
                      class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Stuck Timeout (minutes)</label>
+              <label for="setting-stuck-timeout-min" class="block text-xs font-medium text-gray-600 mb-1">Stuck Timeout (minutes)</label>
               <p class="text-xs text-gray-400 mb-1">Minutes before a stuck job is reclaimed and retried.</p>
-              <input name="stuck_timeout_min" type="number" min="5" max="120" step="5"
+              <input id="setting-stuck-timeout-min" name="stuck_timeout_min" type="number" min="5" max="120" step="5"
                      value="{{ stuck_timeout_min }}"
                      class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
             </div>
             <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Max Retries</label>
+              <label for="setting-max-retries" class="block text-xs font-medium text-gray-600 mb-1">Max Retries</label>
               <p class="text-xs text-gray-400 mb-1">Max attempts before an email is marked permanently failed.</p>
-              <input name="max_retries" type="number" min="1" max="10" step="1"
+              <input id="setting-max-retries" name="max_retries" type="number" min="1" max="10" step="1"
                      value="{{ max_retries }}"
                      class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand">
             </div>

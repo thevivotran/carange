@@ -26,8 +26,8 @@
 
             <!-- Type -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Type</label>
-                <div class="flex gap-4">
+                <p id="tx-type-label" class="block text-sm font-medium text-gray-700 mb-2">Type</p>
+                <div class="flex gap-4" role="radiogroup" aria-labelledby="tx-type-label">
                     <label class="flex-1 cursor-pointer">
                         <input type="radio" name="type" value="income" class="sr-only peer" onchange="loadCategories()">
                         <div class="text-center py-3 border-2 rounded-lg peer-checked:border-green-500 peer-checked:bg-green-50 peer-checked:text-green-700 peer-checked:font-semibold transition peer-focus-visible:ring-2 peer-focus-visible:ring-brand">
@@ -142,7 +142,7 @@
 
                 <!-- Bundle Name -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Bundle Name <span class="text-red-500">*</span></label>
+                    <label for="savings-name" class="block text-sm font-medium text-gray-700 mb-2">Bundle Name <span class="text-red-500">*</span></label>
                     <input type="text" id="savings-name"
                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                            placeholder="e.g., Techcombank Fixed Deposit">
@@ -150,7 +150,7 @@
 
                 <!-- Bank Name -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Bank Name <span class="text-red-500">*</span></label>
+                    <label for="savings-bank-name" class="block text-sm font-medium text-gray-700 mb-2">Bank Name <span class="text-red-500">*</span></label>
                     <input type="text" id="savings-bank-name"
                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                            placeholder="e.g., Techcombank">
@@ -158,7 +158,7 @@
 
                 <!-- Interest Rate -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Annual Interest Rate (%)</label>
+                    <label for="savings-interest-rate" class="block text-sm font-medium text-gray-700 mb-2">Annual Interest Rate (%)</label>
                     <input type="number" id="savings-interest-rate" step="0.01" min="0"
                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                            placeholder="e.g., 6.5">
@@ -166,14 +166,14 @@
 
                 <!-- Maturity Date -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Maturity Date</label>
+                    <label for="savings-maturity-date" class="block text-sm font-medium text-gray-700 mb-2">Maturity Date</label>
                     <input type="date" id="savings-maturity-date"
                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent bg-white">
                 </div>
 
                 <!-- Future Amount -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Expected Future Amount (VND)</label>
+                    <label for="savings-future-amount" class="block text-sm font-medium text-gray-700 mb-2">Expected Future Amount (VND)</label>
                     <input type="number" id="savings-future-amount" step="1" min="0"
                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent bg-gray-50"
                            placeholder="Amount at maturity">
@@ -182,7 +182,7 @@
 
                 <!-- Notes -->
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
+                    <label for="savings-notes" class="block text-sm font-medium text-gray-700 mb-2">Notes</label>
                     <textarea id="savings-notes" rows="2"
                               class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                               placeholder="Optional notes about this savings"></textarea>
@@ -216,7 +216,7 @@
     </div>
 </div>
 <!-- Duplicate Warning Modal -->
-<div id="duplicate-modal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
+<div id="duplicate-modal" role="dialog" aria-modal="true" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)">
     <div class="cg-card rounded-xl shadow-xl max-w-md w-full">
         <div class="p-5 border-b flex items-start gap-3">
             <div class="w-9 h-9 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 mt-0.5">
