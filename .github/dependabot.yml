@@ -9,6 +9,12 @@ updates:
       python-dependencies:
         patterns:
           - "*"
+    ignore:
+      # SQLAlchemy 2.1 defaults postgresql:// URLs to the psycopg (v3) driver, but the
+      # app and workers ship psycopg2-binary — held at 2.0.x until that migration is
+      # done deliberately (see commit 1a0b015).
+      - dependency-name: "sqlalchemy"
+        versions: [">=2.1"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -19,3 +25,9 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    ignore:
+      # Python version upgrades are done by hand across all four Dockerfiles and CI's
+      # PYTHON_VERSION together — CI tests on that pinned version, never on the image,
+      # so an image-only bump goes untested. Patch/digest updates still come through.
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
