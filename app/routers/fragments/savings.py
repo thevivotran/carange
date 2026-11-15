@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.database import SavingsBundle, SavingsStatus, Transaction, get_db
+from app.models.database import SavingsBundle, SavingsStatus, SavingsType, Transaction, get_db
 from app.routers.fragments._helpers import render_fragment
 
 router = APIRouter()
@@ -41,8 +41,13 @@ def fragment_savings_grid(
         )
         .all()
     )
-    total_initial = sum(b.initial_deposit for b in active_bundles)
+    total_saved = sum(b.current_amount if b.current_amount is not None else b.initial_deposit for b in active_bundles)
     total_future = sum(b.future_amount for b in active_bundles)
+    # Only deposits earn a contractual interest figure — a savings goal's future_amount
+    # is a target, so (target − deposit) is money still to save, not interest.
+    total_interest = sum(
+        b.future_amount - b.initial_deposit for b in active_bundles if b.type != SavingsType.SAVINGS_GOAL
+    )
 
     return render_fragment(
         request,
@@ -51,9 +56,9 @@ def fragment_savings_grid(
             "bundles": bundles,
             "status_filter": status,
             "active_count": len(active_bundles),
-            "total_initial": total_initial,
+            "total_saved": total_saved,
             "total_future": total_future,
-            "total_interest": total_future - total_initial,
+            "total_interest": total_interest,
             "today": date.today(),
         },
     )

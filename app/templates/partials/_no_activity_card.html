@@ -1,0 +1,24 @@
+{#- Neutral first-run / empty-month state. Shown instead of a red safety score when the
+    month has no money movement at all — "0 / 4 ✗✗✗✗" scolds a user who simply hasn't
+    logged anything yet. Expects `no_activity_label` (e.g. "November"). -#}
+<div class="cg-card rounded-2xl border p-5 mb-6">
+  <div class="flex items-start gap-3">
+    <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center flex-shrink-0">
+      <i class="fas fa-seedling text-gray-500" aria-hidden="true"></i>
+    </div>
+    <div class="min-w-0 flex-1">
+      <p class="font-semibold text-gray-800">Nothing logged for {{ no_activity_label }} yet</p>
+      <p class="text-sm text-muted mt-0.5">Your health checks appear once this month has some income or spending.</p>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <button type="button" onclick="openAddModal()"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white text-sm font-medium transition">
+          <i class="fas fa-plus" aria-hidden="true"></i> Add a transaction
+        </button>
+        <a href="/import"
+           class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
+          <i class="fas fa-file-import" aria-hidden="true"></i> Import screenshots
+        </a>
+      </div>
+    </div>
+  </div>
+</div>

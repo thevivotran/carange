@@ -42,6 +42,7 @@ def fragment_safety_score(
             "check_tk": data["check_tk"],
             "check_net": data["check_net"],
             "ss_score": data["ss_score"],
+            "period_label": data["period_label"],
         },
     )
 

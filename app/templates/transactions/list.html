@@ -5,7 +5,7 @@
 <div class="p-6 pb-28 max-w-7xl mx-auto">
     <!-- Page Header -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div>
+        <div class="hidden md:block">
             <h2 class="text-3xl font-bold text-gray-800">Transactions</h2>
             <p class="text-muted mt-1">Manage your daily income and expenses</p>
         </div>
@@ -20,13 +20,13 @@
                 </div>
                 <button onclick="shiftTxMonth(1)"
                         class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none">&#8250;</button>
-                <button id="tx-exit-btn" onclick="exitTxMonthTracking()" title="Exit month filter — show all transactions"
+                <button id="tx-exit-btn" onclick="exitTxMonthTracking()" title="Exit month filter — show all transactions" aria-label="Show all months"
                         class="hidden w-7 h-7 flex items-center justify-center rounded-lg text-base text-muted hover:text-danger hover:bg-danger-subtle transition select-none">&#215;</button>
             </div>
             <button id="toggle-filters-btn" onclick="toggleFiltersPanel()"
                     class="flex items-center gap-2 cg-card border px-3 py-2.5 text-sm text-secondary hover:bg-surface-sunken transition flex-shrink-0">
-                <i class="fas fa-sliders-h text-muted"></i>
-                <span class="hidden sm:inline">Filters</span>
+                <i class="fas fa-sliders-h text-muted" aria-hidden="true"></i>
+                <span>Filters</span>
                 <span id="active-filter-count" class="hidden bg-accent text-white text-xs rounded-full w-5 h-5 items-center justify-center font-semibold">0</span>
             </button>
             <button onclick="openAddModal()" class="hidden md:flex bg-brand text-white px-6 py-3 rounded-lg hover:bg-brand-hover transition items-center">
@@ -138,6 +138,9 @@
         </div>
     </div>
     
+    <!-- Active filter chips (month picker dates are not filters — they're the period) -->
+    <div id="active-filter-chips" class="hidden flex-wrap items-center gap-2 mb-3" aria-label="Active filters"></div>
+
     <!-- Monthly Summary (compact) — HTMX-powered -->
     <div id="monthly-summary-bar"
          hx-get="/fragments/transactions/summary"
@@ -533,8 +536,8 @@
             showImportBanner('from_import', null);
             setTimeout(function() {
                 openAddModal();
-                if (hintDescription) document.getElementById('description').value = hintDescription;
-                if (hintDate) document.getElementById('date').value = hintDate;
+                if (hintDescription) document.getElementById('tx-description').value = hintDescription;
+                if (hintDate) document.getElementById('tx-date').value = hintDate;
             }, 300);
         }
     });
@@ -1095,17 +1098,76 @@
         toggleFiltersPanel();
     }
 
+    // Dates that exactly match the month picker's window are the period, not a filter.
+    function _datesAreMonthWindow() {
+        const start = document.getElementById('filter-start-date').value;
+        const end = document.getElementById('filter-end-date').value;
+        if (!start || !end) return false;
+        const [ws, we] = _fiscalWindow(start.slice(0, 7));
+        return start === ws && end === we;
+    }
+
+    function _activeFilters() {
+        const val = id => document.getElementById(id).value;
+        const optText = id => {
+            const el = document.getElementById(id);
+            return el.selectedIndex >= 0 ? el.options[el.selectedIndex].text.trim() : el.value;
+        };
+        const clear = (...ids) => () => { ids.forEach(id => { document.getElementById(id).value = ''; }); };
+        const out = [];
+        if (val('filter-search')) out.push({ label: 'Search: “' + val('filter-search') + '”', clear: clear('filter-search') });
+        if (val('filter-type')) out.push({ label: optText('filter-type'), clear: clear('filter-type') });
+        if (val('filter-category')) out.push({ label: optText('filter-category'), clear: clear('filter-category') });
+        if (val('filter-project')) out.push({ label: 'Project: ' + optText('filter-project'), clear: clear('filter-project') });
+        if (val('filter-spender')) out.push({ label: 'Spender: ' + optText('filter-spender'), clear: clear('filter-spender') });
+        if (val('filter-advance')) out.push({ label: optText('filter-advance'), clear: clear('filter-advance') });
+        if (val('filter-source')) out.push({ label: 'Source: ' + optText('filter-source'), clear: clear('filter-source') });
+        if ((val('filter-start-date') || val('filter-end-date')) && !_datesAreMonthWindow()) {
+            out.push({
+                label: (val('filter-start-date') || '…') + ' → ' + (val('filter-end-date') || '…'),
+                clear: () => { exitTxMonthTracking(); },
+            });
+        }
+        if (document.getElementById('filter-review-btn').dataset.active === 'true') {
+            out.push({ label: 'Needs review', clear: () => { document.getElementById('filter-review-btn').dataset.active = 'false'; _updateReviewBtn(); } });
+        }
+        return out;
+    }
+
+    function _renderFilterChips(active) {
+        const box = document.getElementById('active-filter-chips');
+        if (!box) return;
+        box.replaceChildren();
+        active.forEach(f => {
+            const chip = document.createElement('span');
+            chip.className = 'inline-flex items-center gap-1.5 pl-3 pr-1 py-1 rounded-full border text-xs font-medium text-secondary cg-card';
+            const text = document.createElement('span');
+            text.textContent = f.label;
+            const x = document.createElement('button');
+            x.type = 'button';
+            x.className = 'w-5 h-5 flex items-center justify-center rounded-full text-muted hover:text-danger hover:bg-surface-sunken';
+            x.setAttribute('aria-label', 'Remove filter ' + f.label);
+            x.textContent = '×';
+            x.addEventListener('click', () => { f.clear(); applyFilters(); });
+            chip.appendChild(text);
+            chip.appendChild(x);
+            box.appendChild(chip);
+        });
+        if (active.length > 1) {
+            const all = document.createElement('button');
+            all.type = 'button';
+            all.className = 'text-xs text-muted hover:text-secondary underline';
+            all.textContent = 'Clear all';
+            all.addEventListener('click', clearFilters);
+            box.appendChild(all);
+        }
+        box.classList.toggle('hidden', active.length === 0);
+        box.classList.toggle('flex', active.length > 0);
+    }
+
     function updateFilterBadge() {
-        const hasType     = !!document.getElementById('filter-type').value;
-        const hasCat      = !!document.getElementById('filter-category').value;
-        const hasStart    = !!document.getElementById('filter-start-date').value;
-        const hasEnd      = !!document.getElementById('filter-end-date').value;
-        const hasProject  = !!document.getElementById('filter-project').value;
-        const hasSpender  = !!document.getElementById('filter-spender').value;
-        const hasAdvance  = !!document.getElementById('filter-advance').value;
-        const hasSource   = !!document.getElementById('filter-source').value;
-        const hasReview   = document.getElementById('filter-review-btn').dataset.active === 'true';
-        const count = [hasType, hasCat, hasStart, hasEnd, hasProject, hasSpender, hasAdvance, hasSource, hasReview].filter(Boolean).length;
+        const active = _activeFilters();
+        const count = active.length;
         const badge = document.getElementById('active-filter-count');
         if (count > 0) {
             badge.textContent = count;
@@ -1115,6 +1177,7 @@
             badge.classList.add('hidden');
             badge.classList.remove('flex');
         }
+        _renderFilterChips(active);
     }
 
     function clearFilters() {

@@ -88,15 +88,23 @@ def test_fragment_history_nonexistent(client):
 # ── Dashboard fragment tests ──────────────────────────────────────────────────
 
 
-def test_fragment_dashboard_safety_score(client):
+def test_fragment_dashboard_safety_score_empty_month_is_neutral(client):
     r = client.get("/fragments/dashboard/safety-score", headers={"HX-Request": "true"})
     assert r.status_code == 200
     assert "text/html" in r.headers["content-type"]
-    assert "Family Safety Score" in r.text
+    assert "Nothing logged for" in r.text
+    assert "Family Safety Score" not in r.text
 
 
 def test_fragment_dashboard_safety_score_with_month(client):
     r = client.get("/fragments/dashboard/safety-score?year=2025&month=4", headers={"HX-Request": "true"})
+    assert r.status_code == 200
+    assert "Nothing logged for April 2025" in r.text
+
+
+def test_fragment_dashboard_safety_score_with_activity(client, sample_transaction):
+    d = sample_transaction.date
+    r = client.get(f"/fragments/dashboard/safety-score?year={d.year}&month={d.month}", headers={"HX-Request": "true"})
     assert r.status_code == 200
     assert "Family Safety Score" in r.text
 

@@ -314,7 +314,13 @@ async def pulse_page(request: Request, db: Session = Depends(get_db)):
     income = summary.get("total_income", 0)
     over_count = summary.get("budget_over_count", 0)
 
-    if income == 0:
+    has_activity = bool(income or summary.get("total_expense") or summary.get("total_savings_expense"))
+
+    if not has_activity:
+        pulse_level = "neutral"
+        pulse_label = "Nothing logged yet"
+        pulse_message = "No income or spending recorded this month yet."
+    elif income == 0:
         pulse_level = "amber"
         pulse_label = "No Income Yet"
         pulse_message = "No income recorded yet this month."
@@ -367,6 +373,8 @@ async def pulse_page(request: Request, db: Session = Depends(get_db)):
             "check_tk": check_tk,
             "check_net": check_net,
             "ss_score": ss_score,
+            "has_activity": has_activity,
+            "no_activity_label": fiscal_month_name,
             "recent_transactions": data["recent_transactions"],
             "alert_over_budget": data["alert_over_budget"],
         },

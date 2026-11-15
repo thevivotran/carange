@@ -11,15 +11,15 @@
       <p class="text-2xl font-bold text-accent amount tabular-nums">{{ active_count }}</p>
     </div>
     <div class="cg-card rounded-xl p-4 text-center">
-      <p class="text-sm text-muted mb-1">Total Deposited</p>
-      <p class="text-2xl font-bold text-accent amount tabular-nums">{{ total_initial | currency }}</p>
+      <p class="text-sm text-muted mb-1">Saved Now</p>
+      <p class="text-2xl font-bold text-accent amount tabular-nums">{{ total_saved | currency }}</p>
     </div>
     <div class="cg-card rounded-xl p-4 text-center">
-      <p class="text-sm text-muted mb-1">Future Amount</p>
+      <p class="text-sm text-muted mb-1">Targets &amp; Maturity</p>
       <p class="text-2xl font-bold text-success amount tabular-nums">{{ total_future | currency }}</p>
     </div>
     <div class="cg-card rounded-xl p-4 text-center">
-      <p class="text-sm text-muted mb-1">Total Interest</p>
+      <p class="text-sm text-muted mb-1">Expected Interest</p>
       <p class="text-2xl font-bold text-brand amount tabular-nums">{{ total_interest | currency }}</p>
     </div>
   </div>
@@ -38,8 +38,12 @@
   {% else %}
   <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
     {% for bundle in bundles %}
+    {% set is_goal = bundle.type and bundle.type.value == 'savings_goal' %}
+    {% set balance = bundle.current_amount if bundle.current_amount is not none else bundle.initial_deposit %}
     {% set interest = bundle.future_amount - bundle.initial_deposit %}
     {% set interest_pct = "%.2f"|format(interest / bundle.initial_deposit * 100) if bundle.initial_deposit > 0 else "0.00" %}
+    {% set remaining = bundle.future_amount - balance %}
+    {% set goal_pct = ((balance / bundle.future_amount * 100) | round | int) if bundle.future_amount > 0 else 0 %}
 
     <div id="bundle-card-{{ bundle.id }}" class="cg-card rounded-xl p-6 hover:shadow-md transition-shadow">
 
@@ -62,25 +66,54 @@
       <div class="space-y-3 mb-4">
         <div class="flex justify-between items-center p-3 rounded-lg" style="background: var(--accent-subtle)">
           <div>
-            <p class="text-xs text-muted">Initial Deposit</p>
-            <p class="font-semibold text-accent amount tabular-nums">{{ bundle.initial_deposit | currency }}</p>
+            <p class="text-xs text-muted">{{ 'Saved so far' if is_goal else 'Initial Deposit' }}</p>
+            <p class="font-semibold text-accent amount tabular-nums">{{ (balance if is_goal else bundle.initial_deposit) | currency }}</p>
           </div>
-          <i class="fas fa-arrow-right text-muted"></i>
+          <i class="fas fa-arrow-right text-muted" aria-hidden="true"></i>
           <div class="text-right">
-            <p class="text-xs text-muted">Future Amount</p>
+            <p class="text-xs text-muted">{{ 'Goal' if is_goal else 'At Maturity' }}</p>
             <p class="font-semibold text-success amount tabular-nums">{{ bundle.future_amount | currency }}</p>
           </div>
         </div>
-        {% if bundle.current_amount is not none and bundle.current_amount != bundle.initial_deposit %}
+        {% if is_goal %}
+        <div>
+          <div class="flex justify-between text-xs text-muted mb-1">
+            <span>Goal progress</span>
+            <span class="tabular-nums">{{ [goal_pct, 100] | min }}%</span>
+          </div>
+          <div class="w-full rounded-full h-2" style="background: var(--surface-sunken)" role="progressbar"
+               aria-valuenow="{{ [goal_pct, 100] | min }}" aria-valuemin="0" aria-valuemax="100" aria-label="Goal progress">
+            <div class="h-2 rounded-full bg-success" style="width: {{ [goal_pct, 100] | min }}%"></div>
+          </div>
+        </div>
+        {% endif %}
+        {% if not is_goal and bundle.current_amount is not none and bundle.current_amount != bundle.initial_deposit %}
         <div class="flex justify-between text-sm">
           <span class="text-muted">Current Amount:</span>
           <span class="font-semibold text-accent amount tabular-nums">{{ bundle.current_amount | currency }}</span>
         </div>
         {% endif %}
+        {% if is_goal %}
         <div class="flex justify-between text-sm">
-          <span class="text-muted">Interest Earned:</span>
+          <span class="text-muted">Remaining to goal:</span>
+          {% if remaining > 0 %}
+          <span class="font-semibold amount tabular-nums">{{ remaining | currency }}</span>
+          {% else %}
+          <span class="font-semibold text-success"><i class="fas fa-check mr-1" aria-hidden="true"></i>Goal reached</span>
+          {% endif %}
+        </div>
+        {% if bundle.interest_rate %}
+        <div class="flex justify-between text-sm">
+          <span class="text-muted">Interest per year (est.):</span>
+          <span class="font-semibold text-brand amount tabular-nums">{{ ((balance | float) * bundle.interest_rate / 100) | currency }}</span>
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="flex justify-between text-sm">
+          <span class="text-muted">Interest at maturity:</span>
           <span class="font-semibold text-brand amount tabular-nums">{{ interest | currency(signed=true) }} ({{ interest_pct }}%)</span>
         </div>
+        {% endif %}
         {% if bundle.interest_rate %}
         <div class="flex justify-between text-sm">
           <span class="text-muted">Interest Rate:</span>

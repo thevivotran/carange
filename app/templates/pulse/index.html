@@ -6,7 +6,7 @@
 
   <!-- Header -->
   <div class="flex items-center justify-between pt-1">
-    <div>
+    <div class="hidden md:block">
       <h1 class="text-2xl font-bold text-gray-800">Daily Pulse</h1>
       <p class="text-xs text-gray-400">{{ today.strftime('%A, %-d %B %Y') }}</p>
     </div>
@@ -27,6 +27,11 @@
     {% set label_color = 'text-amber-700' %}
     {% set icon_color = 'text-amber-500' %}
     {% set icon = 'fa-triangle-exclamation' %}
+  {% elif pulse_level == 'neutral' %}
+    {% set card_bg = 'bg-gray-50 border-gray-200' %}
+    {% set label_color = 'text-gray-700' %}
+    {% set icon_color = 'text-gray-400' %}
+    {% set icon = 'fa-circle-info' %}
   {% else %}
     {% set card_bg = 'bg-red-50 border-red-200' %}
     {% set label_color = 'text-red-700' %}
@@ -112,6 +117,9 @@
   </div>
 
   <!-- ── Family Safety Score ── -->
+  {% if not has_activity %}
+  {% include "partials/_no_activity_card.html" %}
+  {% else %}
   {% set ss_bg = 'bg-green-50 border-green-200' if ss_score == 4 else ('bg-amber-50 border-amber-200' if ss_score >= 2 else 'bg-red-50 border-red-200') %}
   {% set ss_dot = 'bg-green-500' if ss_score == 4 else ('bg-amber-500' if ss_score >= 2 else 'bg-red-500') %}
   {% set ss_label = 'text-green-700' if ss_score == 4 else ('text-amber-700' if ss_score >= 2 else 'text-red-700') %}
@@ -145,6 +153,7 @@
       {% endfor %}
     </div>
   </div>
+  {% endif %}
 
   <!-- ── Over-budget alerts ── -->
   {% if alert_over_budget %}
