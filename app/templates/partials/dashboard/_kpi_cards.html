@@ -1,4 +1,8 @@
+{#- A month with no money movement shows muted zeros and no status verdicts —
+    "+0 ₫ · Positive · Healthy" would claim health the data can't support. -#}
+{% set kpi_no_data = not summary.total_income and not summary.total_expense and not summary.total_savings_expense %}
 <div id="kpi-cards-region"
+     class="{{ 'kpi-no-data' if kpi_no_data else '' }}"
      hx-get="/fragments/dashboard/kpi-cards"
      hx-trigger="dashboard-month-changed from:body"
      hx-target="this"
@@ -15,15 +19,17 @@
         <p class="eyebrow">Family Surplus</p>
         <button onclick="showKpiInfo('net-family-surplus', this)" class="w-6 h-6 flex items-center justify-center rounded-md text-muted hover:text-secondary hover:bg-surface-sunken focus:outline-none transition" title="About this metric"><i class="fas fa-info-circle text-xs"></i></button>
       </div>
-      <p class="text-3xl font-bold leading-tight amount tabular-nums {{ 'text-success' if summary.net_family_surplus >= 0 else 'text-danger' }}">
+      <p class="text-3xl font-bold leading-tight amount tabular-nums {{ 'text-success' if summary.net_family_surplus > 0 else ('text-danger' if summary.net_family_surplus < 0 else 'text-muted') }}">
         {{ summary.net_family_surplus | currency_abbrev(signed=true) }}
       </p>
       <p class="text-xs text-muted mt-1">External income − external expense</p>
       <div class="mt-3 flex items-center justify-between">
         <span class="text-xs text-muted">Transfers excluded</span>
+        {% if summary.net_family_surplus != 0 %}
         <span class="cg-badge {{ 'cg-badge--success' if summary.net_family_surplus >= 0 else 'cg-badge--danger' }}">
           {{ 'Surplus held' if summary.net_family_surplus >= 0 else 'Family owed' }}
         </span>
+        {% endif %}
       </div>
     </div>
 
@@ -36,20 +42,22 @@
         <p class="eyebrow">Liquid Cash</p>
         <button onclick="showKpiInfo('liquid-cash', this)" class="w-6 h-6 flex items-center justify-center rounded-md text-muted hover:text-secondary hover:bg-surface-sunken focus:outline-none transition" title="About this metric"><i class="fas fa-info-circle text-xs"></i></button>
       </div>
-      <p class="text-3xl font-bold leading-tight amount tabular-nums {{ 'text-success' if summary.liquid_cash >= 0 else 'text-danger' }}">
+      <p class="text-3xl font-bold leading-tight amount tabular-nums {{ 'text-success' if summary.liquid_cash > 0 else ('text-danger' if summary.liquid_cash < 0 else 'text-muted') }}">
         {{ summary.liquid_cash | currency_abbrev(signed=true) }}
       </p>
       <p class="text-xs text-muted mt-1">Raw income − expense (all pots)</p>
       <div class="mt-3 flex items-center justify-between">
         <span class="text-xs text-muted">Spendable balance</span>
+        {% if summary.liquid_cash != 0 %}
         <span class="cg-badge {{ 'cg-badge--success' if summary.liquid_cash >= 0 else 'cg-badge--warning' }}">
           {{ 'Positive' if summary.liquid_cash >= 0 else 'Drawn down' }}
         </span>
+        {% endif %}
       </div>
     </div>
 
     <!-- Liquid Savings Rate -->
-    <div class="cg-card p-5 hover:shadow-md transition-shadow">
+    <div class="cg-card kpi-month-card p-5 hover:shadow-md transition-shadow">
       <div class="flex justify-between items-center mb-1">
         <p class="eyebrow">Liquid Savings</p>
         <div class="flex items-center gap-2">
@@ -81,7 +89,7 @@
 
     {% if 'kpi_extra' in visible_sections %}
     <!-- Real Estate Rate -->
-    <div class="cg-card p-5 hover:shadow-md transition-shadow">
+    <div class="cg-card kpi-month-card p-5 hover:shadow-md transition-shadow">
       <div class="flex justify-between items-center mb-1">
         <p class="eyebrow">Real Estate</p>
         <div class="flex items-center gap-2">
@@ -106,7 +114,7 @@
     {% endif %}
 
     <!-- Net Cash -->
-    <div class="cg-card p-5 hover:shadow-md transition-shadow">
+    <div class="cg-card kpi-month-card p-5 hover:shadow-md transition-shadow">
       <div class="flex justify-between items-center mb-1">
         <p class="eyebrow">Net Cash</p>
         <div class="flex items-center gap-2">
@@ -129,7 +137,7 @@
     </div>
 
     <!-- Living Expense Ratio -->
-    <div class="cg-card p-5 hover:shadow-md transition-shadow">
+    <div class="cg-card kpi-month-card p-5 hover:shadow-md transition-shadow">
       <div class="flex justify-between items-center mb-1">
         <p class="eyebrow">Living Expense</p>
         <div class="flex items-center gap-2">

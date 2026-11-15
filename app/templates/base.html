@@ -24,12 +24,17 @@
         window.currencyConfig = function() {
             return window.CURRENCY_CONFIG[window.DISPLAY_CURRENCY] || window.CURRENCY_CONFIG.VND;
         };
-        // Locale-formatted amount with the active currency's symbol — no decimals (amounts are whole units, not converted)
+        // Mirrors app/services/currency_format.format_amount exactly ("1,234,567 ₫" / "$1,234")
+        // so server- and client-rendered amounts never disagree on grouping or symbol placement.
+        window._groupDigits = function(n) {
+            return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(n);
+        };
         window.formatAmount = function(amount) {
             var cfg = window.currencyConfig();
-            return new Intl.NumberFormat(cfg.locale, {
-                style: 'currency', currency: cfg.code, minimumFractionDigits: 0, maximumFractionDigits: 0
-            }).format(amount);
+            var value = Math.round(Number(amount) || 0);
+            var num = window._groupDigits(Math.abs(value));
+            var body = cfg.position === 'prefix' ? (cfg.symbol + num) : (num + ' ' + cfg.symbol);
+            return (value < 0 ? '-' : '') + body;
         };
         // Abbreviated B/M form for large figures, e.g. "1.23B ₫" / "$1.23B"
         window.formatAmountAbbrev = function(amount) {
@@ -38,11 +43,11 @@
             var num;
             if (abs >= 1e9) num = (amount / 1e9).toFixed(2) + 'B';
             else if (abs >= 1e6) num = (amount / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
-            else num = new Intl.NumberFormat(cfg.locale, { maximumFractionDigits: 0 }).format(Math.round(amount));
+            else num = window._groupDigits(Math.round(amount));
             return cfg.position === 'prefix' ? (cfg.symbol + num) : (num + ' ' + cfg.symbol);
         };
     </script>
-    <title>{% block title %}Carange - Family Finance Tracker{% endblock %}</title>
+    <title>{% block title %}Carange{% endblock %}</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -173,6 +178,12 @@
         /* Scaffold */
         .dark body { background-color: #0F172A; }
 
+        /* Month-scoped KPI cards for a month with no data: neutral zeros, no verdicts
+           (all-time cards — surplus, liquid cash, net worth — stay as they are) */
+        .kpi-no-data .kpi-month-card .amount { color: var(--text-muted, #64748b) !important; }
+        .kpi-no-data .kpi-month-card .cg-badge,
+        .kpi-no-data .kpi-month-card .h-1\.5 { display: none !important; }
+
         /* ── Surfaces ─────────────────────────────────────── */
         .dark .bg-white   { background-color: #1E293B !important; }
         .dark .bg-gray-50 { background-color: #0F172A !important; }
@@ -185,6 +196,12 @@
         /* Coloured tints — raised to 20% so the status colour reads clearly */
         .dark .bg-green-50  { background-color: rgba(16,185,129,.20) !important; }
         .dark .bg-red-50    { background-color: rgba(239,68,68,.20)  !important; }
+        /* …and their peer-checked: variants (Income/Expense type toggles) — without these
+           the selected toggle stays #fef2f2 behind light text and the label disappears. */
+        .dark .peer:checked ~ .peer-checked\:bg-green-50 { background-color: rgba(16,185,129,.20) !important; }
+        .dark .peer:checked ~ .peer-checked\:bg-red-50   { background-color: rgba(239,68,68,.20)  !important; }
+        .dark .peer:checked ~ .peer-checked\:text-green-700 { color: #6ee7b7 !important; }
+        .dark .peer:checked ~ .peer-checked\:text-red-700   { color: #fca5a5 !important; }
         .dark .bg-blue-50   { background-color: rgba(37,99,235,.20) !important; }
         .dark .bg-indigo-50 { background-color: rgba(99,102,241,.20) !important; }
         .dark .bg-amber-50  { background-color: rgba(245,158,11,.20) !important; }

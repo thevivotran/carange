@@ -1,8 +1,11 @@
 """Tests for the opt-in sample/demo data feature (Settings → Sample Data)."""
 
+import pytest
+
 from app.models.database import Category, SavingsBundle, Transaction, TransactionType
 from app.services.sample_data_service import (
     SAMPLE_SOURCE,
+    SampleDataUnavailable,
     has_sample_data,
     load_sample_data,
     remove_sample_data,
@@ -44,8 +47,9 @@ def test_load_sample_data_is_idempotent(db_session):
     assert db_session.query(Transaction).filter(Transaction.source == SAMPLE_SOURCE).count() == first - 1
 
 
-def test_load_sample_data_noop_without_categories(db_session):
-    assert load_sample_data(db_session) == 0
+def test_load_sample_data_raises_without_categories(db_session):
+    with pytest.raises(SampleDataUnavailable):
+        load_sample_data(db_session)
     assert has_sample_data(db_session) is False
 
 
@@ -91,3 +95,22 @@ def test_settings_load_and_remove_sample_data_routes(client, db_session):
     assert remove_resp.status_code == 200
     assert "Load sample data" in remove_resp.text
     assert has_sample_data(db_session) is False
+
+
+def test_load_route_explains_missing_categories(client):
+    r = client.post("/settings/sample-data/load")
+    assert r.status_code == 200
+    assert "income and one expense category" in r.headers["HX-Trigger"]
+
+
+def test_load_and_remove_routes_invalidate_dashboard_cache(client, db_session, monkeypatch):
+    from app.services import dashboard_service
+
+    calls = []
+    monkeypatch.setattr(dashboard_service, "invalidate_dashboard_cache", lambda db=None: calls.append("x"))
+    _seed_categories(db_session)
+
+    client.post("/settings/sample-data/load")
+    assert len(calls) == 1
+    client.post("/settings/sample-data/remove")
+    assert len(calls) == 2

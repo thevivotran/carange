@@ -18,6 +18,10 @@ _DAILY_EXPENSE_COUNT = (1, 3)
 _DESCRIPTION_SUFFIXES = ["purchase", "payment", "expense", "spend"]
 
 
+class SampleDataUnavailable(Exception):
+    """Raised when there are no active income or expense categories to attach samples to."""
+
+
 def has_sample_data(db: Session) -> bool:
     return get_setting(db, "sample_data_loaded", "false") == "true"
 
@@ -51,7 +55,7 @@ def load_sample_data(db: Session) -> int:
         db.query(Category).filter(Category.type == TransactionType.INCOME, Category.is_active.is_(True)).all()
     )
     if not expense_categories or not income_categories:
-        return 0
+        raise SampleDataUnavailable("Add at least one income and one expense category before loading sample data.")
 
     salary_category = next(
         (c for c in income_categories if any(hint in c.name.lower() for hint in _SALARY_HINTS)),

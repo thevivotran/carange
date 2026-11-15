@@ -84,19 +84,14 @@ const SOURCE_LABELS = {
 let _forecastChart = null;
 let _currentHorizon = 90;
 
-function _fmtCurrency(amount, currencyCode) {
-    try {
-        return new Intl.NumberFormat(undefined, {
-            style: 'currency', currency: currencyCode, minimumFractionDigits: 0, maximumFractionDigits: 0
-        }).format(amount);
-    } catch (e) {
-        return amount.toLocaleString() + ' ' + currencyCode;
-    }
+// Amounts go through the app-wide formatter (base.html) so they match every other page.
+function _fmtCurrency(amount) {
+    return window.formatAmount(amount);
 }
 
-function _fmtSigned(amount, currencyCode) {
-    const formatted = _fmtCurrency(Math.abs(amount), currencyCode);
-    return (amount >= 0 ? '+' : '−') + formatted;
+function _fmtSigned(amount) {
+    const formatted = _fmtCurrency(Math.abs(amount));
+    return (amount > 0 ? '+' : (amount < 0 ? '−' : '')) + formatted;
 }
 
 function _fmtDate(isoDate) {
@@ -129,16 +124,15 @@ new MutationObserver(_refreshChartColors).observe(
 );
 
 function _renderSummary(data) {
-    const cur = data.currency;
-    document.getElementById('forecast-starting-balance').textContent = _fmtCurrency(data.starting_balance, cur);
+    document.getElementById('forecast-starting-balance').textContent = _fmtCurrency(data.starting_balance);
     const netEl = document.getElementById('forecast-horizon-net');
-    netEl.textContent = _fmtSigned(data.horizon_net, cur);
-    netEl.className = 'text-xl font-bold mt-1 ' + (data.horizon_net >= 0 ? 'text-success' : 'text-danger');
+    netEl.textContent = _fmtSigned(data.horizon_net);
+    netEl.className = 'text-xl font-bold mt-1 ' + (data.horizon_net > 0 ? 'text-success' : (data.horizon_net < 0 ? 'text-danger' : 'text-muted'));
 
     const lowEl = document.getElementById('forecast-low-point');
     const lowDateEl = document.getElementById('forecast-low-point-date');
     if (data.low_point) {
-        lowEl.textContent = _fmtCurrency(data.low_point.balance, cur);
+        lowEl.textContent = _fmtCurrency(data.low_point.balance);
         lowDateEl.textContent = _fmtDate(data.low_point.date);
     } else {
         lowEl.textContent = '—';
@@ -151,14 +145,13 @@ function _renderSummary(data) {
         banner.classList.remove('hidden');
         bannerText.textContent = 'Balance is projected to go negative on '
             + _fmtDate(data.shortfall.date)
-            + ' (' + _fmtCurrency(data.shortfall.balance, cur) + ')';
+            + ' (' + _fmtCurrency(data.shortfall.balance) + ')';
     } else {
         banner.classList.add('hidden');
     }
 }
 
 function _renderChart(data) {
-    const cur = data.currency;
     const startDate = new Date(data.series[0].date + 'T00:00:00');
     const dayMs = 86400000;
     const toDay = isoDate => Math.round((new Date(isoDate + 'T00:00:00') - startDate) / dayMs);
@@ -216,7 +209,7 @@ function _renderChart(data) {
                 y: {
                     grid: { color: _gridColor() },
                     ticks: {
-                        callback: v => _fmtCurrency(v, cur),
+                        callback: v => window.formatAmountAbbrev(v),
                         font: { size: 11 },
                         color: _tickColor(),
                     },
@@ -242,7 +235,7 @@ function _renderChart(data) {
                 tooltip: {
                     callbacks: {
                         title: items => items.length ? fromDay(items[0].parsed.x) : '',
-                        label: ctx => ' ' + ctx.dataset.label + ': ' + _fmtCurrency(ctx.parsed.y, cur),
+                        label: ctx => ' ' + ctx.dataset.label + ': ' + _fmtCurrency(ctx.parsed.y),
                     },
                 },
             },
@@ -251,7 +244,6 @@ function _renderChart(data) {
 }
 
 function _renderEvents(data) {
-    const cur = data.currency;
     const container = document.getElementById('forecast-events');
     const emptyMsg = document.getElementById('forecast-events-empty');
     container.replaceChildren();
@@ -300,7 +292,7 @@ function _renderEvents(data) {
         const amountEl = document.createElement('span');
         amountEl.className = 'text-sm font-semibold amount tabular-nums flex-shrink-0 '
             + (ev.signed >= 0 ? 'text-income' : 'text-expense');
-        amountEl.textContent = _fmtSigned(ev.signed, cur);
+        amountEl.textContent = _fmtSigned(ev.signed);
 
         row.appendChild(left);
         row.appendChild(amountEl);

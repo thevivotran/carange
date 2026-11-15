@@ -514,3 +514,16 @@ def test_sentinel_update_branch_and_cache_eviction(db_session):
     _cache_set(key, {"sentinel": "fresh"})
     result = _cache_get(key, db=db_session)
     assert result == {"sentinel": "fresh"}
+
+
+def test_dashboard_page_renders_requested_month(client):
+    r = client.get("/?month=2026-07")
+    assert r.status_code == 200
+    assert "ym !== '2026-07'" in r.text  # server rendered the requested period
+
+
+def test_dashboard_page_ignores_malformed_month(client):
+    r = client.get("/?month=2026-13")
+    assert r.status_code == 200
+    r = client.get("/?month=abc")
+    assert r.status_code == 200

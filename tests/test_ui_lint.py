@@ -161,6 +161,35 @@ def _check_img_alt(line: str, loc: str) -> list[str]:
     return violations
 
 
+# ── File-level rules (elements spanning several lines) ───────────────────────
+
+_PRIMARY_ACTION_TEXT = re.compile(r"^(Add|Save|Create|New|Edit Budgets)\b")
+_BLUE_PRIMARY_BG = {"bg-blue-500", "bg-blue-600", "bg-primary", "bg-accent"}
+_ELEMENT = re.compile(r"<(button|a)\b([^>]*)>(.*?)</\1>", re.DOTALL)
+
+
+def _check_primary_action_brand(text: str, path: Path) -> list[str]:
+    """Primary actions (Add/Save/Create/New/Edit Budgets) use brand orange, not blue —
+    orange is the action colour, blue is reserved for links and data."""
+    violations = []
+    for m in _ELEMENT.finditer(text):
+        attrs, inner = m.group(2), m.group(3)
+        label = re.sub(r"\{[{%#].*?[%}#]\}", "", re.sub(r"<[^>]+>", "", inner)).strip()
+        if not _PRIMARY_ACTION_TEXT.match(label):
+            continue
+        classes = set(_attr(attrs, "class").split()) if _attr(attrs, "class") else set()
+        if classes & _BLUE_PRIMARY_BG:
+            lineno = text.count("\n", 0, m.start()) + 1
+            violations.append(
+                f"{path}:{lineno}: [primary-action-brand] '{label[:30]}' uses a blue background"
+                " — use bg-brand hover:bg-brand-hover"
+            )
+    return violations
+
+
+_FILE_RULES = [_check_primary_action_brand]
+
+
 # ── Dispatcher ────────────────────────────────────────────────────────────────
 
 _RULES = [
@@ -190,6 +219,9 @@ def lint_file(path: Path) -> list[str]:
     violations: list[str] = []
     for lineno, line in enumerate(lines, 1):
         violations.extend(lint_line(line, path, lineno))
+    text = "\n".join(lines)
+    for rule in _FILE_RULES:
+        violations.extend(rule(text, path))
     return violations
 
 
@@ -457,3 +489,21 @@ def test_templates_are_clean():
     if violations:
         formatted = "\n".join(f"  ✗ {v}" for v in violations)
         pytest.fail(f"ui-lint found {len(violations)} violation(s) — fix the templates:\n{formatted}")
+
+
+# ── primary-action-brand ──────────────────────────────────────────────────────
+
+
+def test_primary_action_blue_flagged():
+    html = '<button class="bg-blue-600 text-white px-4">\n  <i class="fas fa-plus"></i> Add Asset\n</button>'
+    assert _check_primary_action_brand(html, Path("x.html"))
+
+
+def test_primary_action_brand_passes():
+    html = '<button class="bg-brand hover:bg-brand-hover text-white">Save Transaction</button>'
+    assert not _check_primary_action_brand(html, Path("x.html"))
+
+
+def test_blue_non_action_button_not_flagged():
+    html = '<a href="/x" class="bg-blue-600 text-white">View all</a>'
+    assert not _check_primary_action_brand(html, Path("x.html"))

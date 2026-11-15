@@ -83,11 +83,16 @@ from app.services.template_globals import register_template_globals
 register_template_globals(templates.env)
 
 
+# Categories inserted by alembic data migrations (0004 seeds the savings-interest
+# income category). An install whose only categories are these is still "fresh".
+MIGRATION_SEEDED_CATEGORY_NAMES = frozenset({"Lãi tiết kiệm"})
+
+
 def seed_default_categories():
     db = SessionLocal()
     try:
-        # Check if categories exist
-        if db.query(Category).count() == 0:
+        existing = {(c.name, c.type) for c in db.query(Category).all()}
+        if all(name in MIGRATION_SEEDED_CATEGORY_NAMES for name, _ in existing):
             default_categories = [
                 # Expense categories
                 Category(name="Food & Dining", type=TransactionType.EXPENSE, color="#EF4444", icon="utensils"),
@@ -108,7 +113,7 @@ def seed_default_categories():
                 Category(name="Rental", type=TransactionType.INCOME, color="#F59E0B", icon="building"),
                 Category(name="Others", type=TransactionType.INCOME, color="#6B7280", icon="ellipsis-h"),
             ]
-            db.add_all(default_categories)
+            db.add_all([c for c in default_categories if (c.name, c.type) not in existing])
             db.commit()
 
             # Fresh install — start new users on the decluttered "Simple" dashboard
@@ -165,7 +170,13 @@ async def dashboard_page(request: Request, db: Session = Depends(get_db)):
     from app.routers.settings import _ordinal_suffix
     from app.services.fiscal_period import get_month_start_day
 
-    data = get_dashboard_page_data(db)
+    year = month = None
+    month_param = request.query_params.get("month", "")
+    if len(month_param) == 7 and month_param[4] == "-" and month_param.replace("-", "").isdigit():
+        y, m = int(month_param[:4]), int(month_param[5:])
+        if 1 <= m <= 12:
+            year, month = y, m
+    data = get_dashboard_page_data(db, year=year, month=month)
     onboarding_dismissed = get_setting(db, "onboarding_complete", "false") == "true"
     # Auto-hide the welcome banner once the user has real data — clicking
     # "Got it" sets onboarding_complete=true, but we also hide it as soon as

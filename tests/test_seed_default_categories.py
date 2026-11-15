@@ -40,3 +40,20 @@ def test_existing_install_keeps_dashboard_default_untouched(db_session, monkeypa
     # Categories already existed — seeding (and the new dashboard default) is skipped,
     # so existing self-hosters keep seeing whatever they were used to ("full" fallback).
     assert get_setting(db_session, "dashboard_layout", "full") == "full"
+
+
+def test_install_with_only_migration_seeded_category_still_seeds_defaults(db_session, monkeypatch):
+    """Alembic 0004 inserts "Lãi tiết kiệm" on every fresh database, so a brand-new
+    install never has zero categories — it must still get the defaults."""
+    import main
+    from app.models.database import Category, TransactionType
+
+    monkeypatch.setattr(main, "SessionLocal", sessionmaker(bind=db_session.get_bind()))
+    db_session.add(Category(name="Lãi tiết kiệm", type=TransactionType.INCOME, color="#f59e0b", icon="piggy-bank"))
+    db_session.commit()
+
+    main.seed_default_categories()
+
+    assert db_session.query(Category).filter(Category.type == TransactionType.EXPENSE).count() > 0
+    assert db_session.query(Category).filter(Category.name == "Lãi tiết kiệm").count() == 1
+    assert get_setting(db_session, "dashboard_layout", "full") == "simple"
