@@ -128,3 +128,12 @@ class TestSaveForecastBuffer:
         assert r.status_code == 200
         assert b"Cash buffer" in r.content
         assert b"forecast_buffer" in r.content
+
+
+def test_settings_page_is_split_into_tabs(client):
+    r = client.get("/settings")
+    assert r.status_code == 200
+    for key in ("general", "goals", "dashboard", "integrations", "data"):
+        assert f'id="settings-tab-{key}"' in r.text
+        assert f'id="settings-panel-{key}"' in r.text
+    assert r.text.count('role="tabpanel"') == 5

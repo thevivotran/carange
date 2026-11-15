@@ -105,7 +105,21 @@ NAV_CORE = frozenset({"dashboard", "transactions", "budget", "savings", "setting
 NAV_PRESETS: dict[str, frozenset[str]] = {
     "simple": frozenset(),
     "standard": frozenset({"import", "pulse", "review", "projects", "income", "forecast"}),
-    "full": frozenset({"import", "pulse", "review", "projects", "income", "assets", "notes", "forecast"}),
+    "full": frozenset(
+        {
+            "import",
+            "pulse",
+            "review",
+            "projects",
+            "income",
+            "assets",
+            "notes",
+            "forecast",
+            "categories",
+            "rules",
+            "templates",
+        }
+    ),
 }
 
 NAV_PRESET_LABELS = {
@@ -117,7 +131,7 @@ NAV_PRESET_LABELS = {
 NAV_PRESET_DESCRIPTIONS = {
     "simple": "Just the day-to-day core: Dashboard, Transactions, Budget, Savings, Settings.",
     "standard": "Adds Import, Daily Pulse, Review Inbox, and Projects.",
-    "full": "Everything, including Assets and IOUs & Notes.",
+    "full": "Everything, including Assets, IOUs & Notes, and the Categories/Rules/Templates tools.",
 }
 
 # Canonical, ordered list of nav items a profile can toggle. Must stay in sync
@@ -131,6 +145,9 @@ TOGGLEABLE_NAV_ITEMS: tuple[str, ...] = (
     "assets",
     "notes",
     "forecast",
+    "categories",
+    "rules",
+    "templates",
 )
 
 NAV_ITEM_LABELS = {
@@ -142,6 +159,9 @@ NAV_ITEM_LABELS = {
     "assets": "Assets",
     "notes": "IOUs & Notes",
     "forecast": "Forecast",
+    "categories": "Categories",
+    "rules": "Rules",
+    "templates": "Templates",
 }
 
 NAV_ITEM_DESCRIPTIONS = {
@@ -153,6 +173,9 @@ NAV_ITEM_DESCRIPTIONS = {
     "assets": "Gold, currency, and other non-cash holdings.",
     "notes": "IOUs and freeform money notes.",
     "forecast": "Projected cash balance over the next 90 days.",
+    "categories": "Income/expense categories and their KPI roles.",
+    "rules": "Auto-classify imported transactions.",
+    "templates": "Quick-entry and scheduled recurring transactions.",
 }
 
 

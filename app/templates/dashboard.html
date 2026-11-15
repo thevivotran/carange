@@ -40,6 +40,21 @@
   {% include "partials/onboarding/_welcome_banner.html" %}
   {% endif %}
 
+  {% if review_count %}
+  <!-- ── Review nudge — imported transactions waiting for a decision ── -->
+  <a href="/review"
+     class="cg-card mb-6 flex items-center gap-3 rounded-2xl border px-5 py-3.5 hover:shadow-md transition-shadow">
+    <span class="w-9 h-9 rounded-full bg-brand-subtle text-brand flex items-center justify-center flex-shrink-0">
+      <i class="fas fa-inbox" aria-hidden="true"></i>
+    </span>
+    <span class="flex-1 min-w-0 text-sm">
+      <span class="font-semibold text-gray-800">{{ review_count }} transaction{{ '' if review_count == 1 else 's' }} need{{ 's' if review_count == 1 else '' }} review</span>
+      <span class="text-muted"> — confirm them so your numbers stay accurate.</span>
+    </span>
+    <span class="text-sm font-medium text-brand whitespace-nowrap">Review <i class="fas fa-arrow-right ml-1 text-xs" aria-hidden="true"></i></span>
+  </a>
+  {% endif %}
+
   <!-- ── Family Safety Score ────────────────────────────────────── -->
   {% set check_income = summary.total_income > 0 %}
   {% set check_bds    = summary.monthly_bds > 0 %}

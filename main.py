@@ -183,6 +183,9 @@ async def dashboard_page(request: Request, db: Session = Depends(get_db)):
     # there's at least one non-deleted transaction so first-time users don't
     # see a stale "everything below starts at zero" panel after they begin.
     has_any_tx = db.query(Transaction).filter(Transaction.deleted_at.is_(None)).first() is not None
+    review_count = (
+        db.query(Transaction).filter(Transaction.needs_review.is_(True), Transaction.deleted_at.is_(None)).count()
+    )
     show_onboarding = (not onboarding_dismissed) and not has_any_tx
     month_start_day = get_month_start_day(db)
     return templates.TemplateResponse(
@@ -192,6 +195,7 @@ async def dashboard_page(request: Request, db: Session = Depends(get_db)):
             "active_menu": "dashboard",
             "visible_sections": request.state.visible_sections,
             "show_onboarding": show_onboarding,
+            "review_count": review_count,
             "month_start_day": month_start_day,
             "month_start_day_label": f"{month_start_day}{_ordinal_suffix(month_start_day)}",
             **data,
