@@ -719,10 +719,10 @@
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
-                {#- Dashboard, Transactions and Budget already live in the bottom bar. -#}
+                {#- Dashboard, Transactions and Review already live in the bottom bar. -#}
                 {% for group_label, items in _nav_groups %}
                 {% set sheet_items = [] %}
-                {% for it in items %}{% if it[0] not in ('dashboard', 'transactions', 'budget') and (it[5] is none or it[5] in visible_nav_items) %}{% set _ = sheet_items.append(it) %}{% endif %}{% endfor %}
+                {% for it in items %}{% if it[0] not in ('dashboard', 'transactions', 'review') and (it[5] is none or it[5] in visible_nav_items) %}{% set _ = sheet_items.append(it) %}{% endif %}{% endfor %}
                 {% if sheet_items %}
                 <div class="px-5 {{ 'pt-2' if loop.first else 'pt-3' }} pb-1 text-xs font-semibold text-text-muted uppercase tracking-widest">{{ group_label }}</div>
                 <div class="grid grid-cols-4 gap-px bg-gray-100 border-t border-b mx-0">
@@ -1559,7 +1559,7 @@
             </a>
             <a href="/transactions" {% if active_menu == 'transactions' %}aria-current="page" {% endif %}class="bottom-nav-link {% if active_menu == 'transactions' %}active{% endif %} flex flex-col items-center justify-center flex-1 h-full gap-0.5">
                 <i class="fas fa-exchange-alt text-lg" aria-hidden="true"></i>
-                <span class="text-xs">Txns</span>
+                <span class="text-xs">Activity</span>
             </a>
             <div class="flex-1 flex items-center justify-center">
                 <button onclick="openAddModal()" aria-label="Add transaction"
@@ -1567,17 +1567,17 @@
                     <i class="fas fa-plus text-xl" aria-hidden="true"></i>
                 </button>
             </div>
-            <a href="/budget" {% if active_menu == 'budget' %}aria-current="page" {% endif %}class="bottom-nav-link {% if active_menu == 'budget' %}active{% endif %} flex flex-col items-center justify-center flex-1 h-full gap-0.5">
-                <i class="fas fa-wallet text-lg" aria-hidden="true"></i>
-                <span class="text-xs">Budget</span>
+            <a href="/review" {% if active_menu == 'review' %}aria-current="page" {% endif %}class="bottom-nav-link {% if active_menu == 'review' %}active{% endif %} flex flex-col items-center justify-center flex-1 h-full gap-0.5">
+                <span class="relative">
+                    <i class="fas fa-inbox text-lg" aria-hidden="true"></i>
+                    <span id="mobile-bottom-review-badge" class="hidden absolute -top-1.5 -right-2 bg-brand-solid text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5 leading-none"></span>
+                </span>
+                <span class="text-xs">Review<span class="sr-only" id="mobile-bottom-review-sr"></span></span>
             </a>
             <button id="mobile-more-btn" onclick="openMobileMenu()"
                     aria-haspopup="dialog" aria-expanded="false" aria-controls="mobile-menu"
                     class="bottom-nav-link flex flex-col items-center justify-center flex-1 h-full gap-0.5">
-                <span class="relative">
-                    <i class="fas fa-bars text-lg" aria-hidden="true"></i>
-                    <span id="mobile-bottom-review-badge" class="hidden absolute -top-1.5 -right-2 bg-brand-solid text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5 leading-none"></span>
-                </span>
+                <i class="fas fa-bars text-lg" aria-hidden="true"></i>
                 <span class="text-xs">More</span>
             </button>
         </div>
@@ -1751,12 +1751,14 @@
                         badge.textContent = n;
                         badge.closest('[data-review-badge]').classList.toggle('hidden', n === 0);
                     }
-                    // Mobile More button badge
+                    // Mobile bottom-nav Review badge (+ spoken count)
                     var bottomBadge = document.getElementById('mobile-bottom-review-badge');
                     if (bottomBadge) {
                         bottomBadge.textContent = n;
                         bottomBadge.classList.toggle('hidden', n === 0);
                     }
+                    var bottomSr = document.getElementById('mobile-bottom-review-sr');
+                    if (bottomSr) bottomSr.textContent = n ? ', ' + n + ' to review' : '';
                     // Mobile More sheet Review icon badge
                     var moreBadge = document.getElementById('mobile-more-review-badge');
                     if (moreBadge) {

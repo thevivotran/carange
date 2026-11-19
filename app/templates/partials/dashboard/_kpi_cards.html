@@ -2,7 +2,7 @@
     "+0 ₫ · Positive · Healthy" would claim health the data can't support. -#}
 {% set kpi_no_data = not summary.total_income and not summary.total_expense and not summary.total_savings_expense %}
 <div id="kpi-cards-region"
-     class="{{ 'kpi-no-data' if kpi_no_data else '' }}"
+     class="flex flex-col md:block {{ 'kpi-no-data' if kpi_no_data else '' }}"
      hx-get="/fragments/dashboard/kpi-cards"
      hx-trigger="dashboard-month-changed from:body"
      hx-target="this"
@@ -314,8 +314,8 @@
 
   </div>
 
-  <!-- ── Net Worth — full-width hero ────────────────────────────────── -->
-  <div class="hero-gradient rounded-2xl shadow-sm p-5 mb-4 text-white">
+  <!-- ── Net Worth — full-width hero (first on phones: it's the headline number) ── -->
+  <div class="hero-gradient rounded-2xl shadow-sm p-5 mb-4 text-white order-first md:order-none">
     <div class="flex justify-between items-start mb-3 flex-wrap gap-3">
       <div>
         <p class="text-xs font-semibold uppercase tracking-widest" style="color: #fff">Net Worth</p>

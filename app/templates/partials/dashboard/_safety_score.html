@@ -9,14 +9,14 @@
 {% set no_activity_label = (_months[(period_label[5:7] | int) - 1] ~ ' ' ~ period_label[:4]) if period_label else 'this month' %}
 {% include "partials/_no_activity_card.html" %}
 {% else %}
-<div id="safety-score-card" class="rounded-2xl border p-5 mb-6
+<div id="safety-score-card" class="rounded-2xl border p-4 md:p-5 mb-6
   {% if ss_score == 4 %}bg-green-50 border-green-200
   {% elif ss_score >= 2 %}bg-amber-50 border-amber-200
   {% else %}bg-red-50 border-red-200{% endif %}">
 
-  <div class="flex justify-between items-center mb-4">
+  <div class="flex justify-between items-center mb-3 md:mb-4">
     <p class="text-xs uppercase tracking-widest font-semibold
-      {% if ss_score == 4 %}text-success{% elif ss_score >= 2 %}text-amber-600{% else %}text-danger{% endif %}">
+      {% if ss_score == 4 %}text-success-text{% elif ss_score >= 2 %}text-warning-text{% else %}text-danger-text{% endif %}">
       Family Safety Score
     </p>
     <div class="flex items-center gap-2">
@@ -34,9 +34,9 @@
     </div>
   </div>
 
-  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3">
 
-    <div class="rounded-xl p-3 flex items-start gap-2.5 bg-white">
+    <div class="rounded-xl p-2.5 md:p-3 flex items-start gap-2 md:gap-2.5 bg-white min-w-0">
       <span class="text-base leading-none mt-0.5 flex-shrink-0">{% if check_income %}<i class="fas fa-circle-check text-success" aria-hidden="true"></i><span class="sr-only">Met:</span>{% else %}<i class="fas fa-circle-xmark text-danger" aria-hidden="true"></i><span class="sr-only">Not met:</span>{% endif %}</span>
       <div class="min-w-0">
         <p class="text-xs font-semibold {{ 'text-success-text' if check_income else 'text-danger-text' }}">{{ safety_labels.income }}</p>
@@ -46,7 +46,7 @@
       </div>
     </div>
 
-    <div class="rounded-xl p-3 flex items-start gap-2.5 bg-white">
+    <div class="rounded-xl p-2.5 md:p-3 flex items-start gap-2 md:gap-2.5 bg-white min-w-0">
       <span class="text-base leading-none mt-0.5 flex-shrink-0">{% if check_bds %}<i class="fas fa-circle-check text-success" aria-hidden="true"></i><span class="sr-only">Met:</span>{% else %}<i class="fas fa-circle-xmark text-danger" aria-hidden="true"></i><span class="sr-only">Not met:</span>{% endif %}</span>
       <div class="min-w-0">
         <p class="text-xs font-semibold {{ 'text-success-text' if check_bds else 'text-danger-text' }}">{{ safety_labels.bds }}</p>
@@ -56,7 +56,7 @@
       </div>
     </div>
 
-    <div class="rounded-xl p-3 flex items-start gap-2.5 bg-white">
+    <div class="rounded-xl p-2.5 md:p-3 flex items-start gap-2 md:gap-2.5 bg-white min-w-0">
       <span class="text-base leading-none mt-0.5 flex-shrink-0">{% if check_tk %}<i class="fas fa-circle-check text-success" aria-hidden="true"></i><span class="sr-only">Met:</span>{% else %}<i class="fas fa-circle-xmark text-danger" aria-hidden="true"></i><span class="sr-only">Not met:</span>{% endif %}</span>
       <div class="min-w-0">
         <p class="text-xs font-semibold {{ 'text-success-text' if check_tk else 'text-danger-text' }}">{{ savings_label(summary.savings_target_pct) }}</p>
@@ -66,7 +66,7 @@
       </div>
     </div>
 
-    <div class="rounded-xl p-3 flex items-start gap-2.5 bg-white">
+    <div class="rounded-xl p-2.5 md:p-3 flex items-start gap-2 md:gap-2.5 bg-white min-w-0">
       <span class="text-base leading-none mt-0.5 flex-shrink-0">{% if check_net %}<i class="fas fa-circle-check text-success" aria-hidden="true"></i><span class="sr-only">Met:</span>{% else %}<i class="fas fa-circle-xmark text-danger" aria-hidden="true"></i><span class="sr-only">Not met:</span>{% endif %}</span>
       <div class="min-w-0">
         <p class="text-xs font-semibold {{ 'text-success-text' if check_net else 'text-danger-text' }}">{{ safety_labels.net }}</p>
