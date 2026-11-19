@@ -1,5 +1,5 @@
 {% if not transactions %}
-<div class="flex flex-col items-center justify-center py-16 text-gray-400">
+<div class="flex flex-col items-center justify-center py-16 text-text-muted">
   <i class="fas fa-receipt text-5xl mb-4 block opacity-30"></i>
   <p class="text-lg">No transactions found.</p>
 </div>
@@ -8,10 +8,10 @@
   {% set txs = date_groups[date_str] %}
   {% set day_net = day_nets[date_str] %}
   <div class="bg-gray-50 border-t border-b border-gray-100 px-4 py-1.5 flex items-center justify-between">
-    <span class="text-xs font-semibold text-gray-400 uppercase tracking-widest">
-      {{ txs[0].date.strftime('%a, %d %b %Y') }}
+    <span class="text-xs font-semibold text-text-muted uppercase tracking-widest">
+      {{ (txs[0].date | app_date('long')) }}
     </span>
-    <span class="text-xs font-semibold {{ 'text-green-600' if day_net >= 0 else 'text-red-500' }}">
+    <span class="text-xs font-semibold {{ 'text-income' if day_net >= 0 else 'text-expense' }}">
       {{ day_net | currency(signed=true) }}
     </span>
   </div>
@@ -33,7 +33,10 @@
       'spender_name': t.spender.name if t.spender else None,
       'category': {'name': t.category.name if t.category else '', 'color': t.category.color if t.category else '#6B7280'}
     } %}
-    <div class="flex items-stretch gap-3 border-b transition-colors cursor-pointer select-none
+    <div role="button" tabindex="0"
+         aria-label="Edit {{ t.description or 'transaction' }}, {{ '+' if t.type == 'income' else '-' }}{{ t.amount | currency }}"
+         onkeydown="if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); this.click(); }"
+         class="flex items-stretch gap-3 border-b transition-colors cursor-pointer select-none focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand
       {% if t.is_advance and not t.advance_settled %}bg-amber-50 hover:bg-amber-100
       {% elif t.needs_review %}bg-orange-50 hover:bg-orange-100
       {% else %}hover:bg-gray-50{% endif %}"
@@ -56,7 +59,7 @@
         <!-- Category badge (desktop only) -->
         <span class="cat-pill hidden md:inline-flex items-center justify-center px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 w-24 truncate"
               style="--pill: {{ t.category.color if t.category else '#6B7280' }}">
-          {% if t.is_savings_related %}<i class="fas fa-piggy-bank text-purple-600 mr-1"></i>{% endif %}
+          {% if t.is_savings_related %}<i class="fas fa-piggy-bank text-accent-text mr-1"></i>{% endif %}
           {{ t.category.name if t.category else 'Uncategorized' }}
         </span>
 
@@ -66,22 +69,22 @@
 
         <!-- Description -->
         <div class="flex-1 min-w-0">
-          <p class="text-sm text-gray-700 truncate select-text cursor-text">{% if t.is_savings_related %}<i class="fas fa-piggy-bank text-purple-600 mr-1"></i>{% endif %}{{ t.description or '-' }}</p>
-          <p class="md:hidden text-xs text-gray-400 truncate">{{ t.category.name if t.category else 'Uncategorized' }}</p>
+          <p class="text-sm text-gray-700 truncate select-text cursor-text">{% if t.is_savings_related %}<i class="fas fa-piggy-bank text-accent-text mr-1"></i>{% endif %}{{ t.description or '-' }}</p>
+          <p class="md:hidden text-xs text-text-muted truncate">{{ t.category.name if t.category else 'Uncategorized' }}</p>
           {% if t.is_savings_related and t.savings_bundle and t.savings_bundle.maturity_date %}
           {% set days_until = (t.savings_bundle.maturity_date - today).days %}
           {% if days_until > 0 %}
-          <span class="inline-flex items-center gap-1 text-xs text-purple-600 font-medium mt-0.5">⏳ Matures in {{ days_until }} days</span>
+          <span class="inline-flex items-center gap-1 text-xs text-accent-text font-medium mt-0.5">⏳ Matures in {{ days_until }} days</span>
           {% elif days_until == 0 %}
-          <span class="inline-flex items-center gap-1 text-xs text-green-600 font-medium mt-0.5">✅ Maturing today</span>
+          <span class="inline-flex items-center gap-1 text-xs text-income font-medium mt-0.5">✅ Maturing today</span>
           {% else %}
-          <span class="inline-flex items-center gap-1 text-xs text-green-600 font-medium mt-0.5">✅ Matured on {{ t.savings_bundle.maturity_date.strftime('%d/%m/%Y') }}</span>
+          <span class="inline-flex items-center gap-1 text-xs text-income font-medium mt-0.5">✅ Matured on {{ (t.savings_bundle.maturity_date | app_date) }}</span>
           {% endif %}
           {% endif %}
         </div>
 
         <!-- Amount -->
-        <span class="text-sm font-semibold whitespace-nowrap {{ 'text-green-600' if t.type == 'income' else 'text-red-600' }}">
+        <span class="text-sm font-semibold whitespace-nowrap {{ 'text-income' if t.type == 'income' else 'text-expense' }}">
           {{ '+' if t.type == 'income' else '-' }}{{ t.amount | currency }}
         </span>
 
@@ -92,9 +95,9 @@
 
 <div class="bg-gray-50 border-t px-6 py-3 flex flex-wrap gap-x-6 gap-y-1 text-sm font-semibold">
   <span class="text-gray-600">Filtered totals:</span>
-  <span class="text-green-600">Income: {{ total_income | currency }}</span>
-  <span class="text-red-600">Expense: {{ total_expense | currency }}</span>
-  <span class="{{ 'text-green-700' if total_net >= 0 else 'text-red-700' }}">
+  <span class="text-income">Income: {{ total_income | currency }}</span>
+  <span class="text-expense">Expense: {{ total_expense | currency }}</span>
+  <span class="{{ 'text-income' if total_net >= 0 else 'text-expense' }}">
     Net: {{ total_net | currency(signed=true) }}
   </span>
 </div>

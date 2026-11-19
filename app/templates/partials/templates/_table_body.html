@@ -1,8 +1,8 @@
 {% if not templates %}
-<div class="p-12 text-center text-gray-400">
+<div class="p-12 text-center text-text-muted">
     <i class="fas fa-layer-group text-3xl mb-3 block"></i>
     <p class="text-sm">No templates yet.</p>
-    <button onclick="openTemplateModal()" class="mt-4 inline-flex items-center gap-2 bg-brand text-white text-sm px-4 py-2 rounded-lg hover:bg-brand-hover transition">
+    <button onclick="openTemplateModal()" class="mt-4 inline-flex items-center gap-2 bg-brand-solid text-white text-sm px-4 py-2 rounded-lg hover:bg-brand-solid-hover transition">
         <i class="fas fa-plus"></i> Add your first template
     </button>
 </div>
@@ -26,7 +26,7 @@
         <td class="px-4 py-3">
             <p class="font-medium text-gray-800">{{ t.name }}</p>
             {% if t.description %}
-            <p class="text-xs text-gray-400 mt-0.5 truncate max-w-xs">{{ t.description }}</p>
+            <p class="text-xs text-text-muted mt-0.5 truncate max-w-xs">{{ t.description }}</p>
             {% endif %}
             {% if not t.is_active %}
             <span class="inline-block mt-1 px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-500">Inactive</span>
@@ -43,30 +43,30 @@
         <td class="px-4 py-3">
             {% if t.cadence %}
             <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-600">
-                <i class="fas fa-rotate mr-1"></i>{{ t.cadence | capitalize }}{% if t.next_run_at %} &middot; next {{ t.next_run_at.strftime('%b %d') }}{% endif %}
+                <i class="fas fa-rotate mr-1"></i>{{ t.cadence | capitalize }}{% if t.next_run_at %} &middot; next {{ (t.next_run_at | app_date('short')) }}{% endif %}
             </span>
             {% else %}
             <span class="text-gray-300 text-xs">—</span>
             {% endif %}
         </td>
-        <td class="px-4 py-3 text-right font-semibold {{ 'text-green-600' if t.type == 'income' else 'text-red-600' }}">
+        <td class="px-4 py-3 text-right font-semibold {{ 'text-income' if t.type == 'income' else 'text-expense' }}">
             {{ '+' if t.type == 'income' else '-' }}{{ t.amount | currency }}
         </td>
         <td class="px-4 py-3 text-right whitespace-nowrap">
             <button onclick="useTemplate({{ t.id }})"
-                    class="text-gray-400 hover:text-green-600 transition p-2 rounded-lg hover:bg-green-50" title="Use Template">
+                    class="text-text-muted hover:text-income transition p-2 rounded-lg hover:bg-green-50" title="Use Template">
                 <i class="fas fa-play"></i>
             </button>
             <button onclick="openRecurringModal({{ t.id }})"
-                    class="text-gray-400 hover:text-indigo-600 transition p-2 rounded-lg hover:bg-indigo-50" title="Recurring Schedule">
+                    class="text-text-muted hover:text-indigo-600 transition p-2 rounded-lg hover:bg-indigo-50" title="Recurring Schedule">
                 <i class="fas fa-clock"></i>
             </button>
             <button onclick="editTemplate({{ t.id }})"
-                    class="text-gray-400 hover:text-primary transition p-2 rounded-lg hover:bg-gray-100" title="Edit">
+                    class="text-text-muted hover:text-primary transition p-2 rounded-lg hover:bg-gray-100" title="Edit">
                 <i class="fas fa-edit"></i>
             </button>
             <button onclick="deleteWithUndo(this.closest('tr'), '/api/templates/{{ t.id }}', _reloadTemplates, '{{ t.name | e }}')"
-                    class="text-gray-400 hover:text-red-500 transition p-2 rounded-lg hover:bg-red-50" title="Delete">
+                    class="text-text-muted hover:text-expense transition p-2 rounded-lg hover:bg-red-50" title="Delete">
                 <i class="fas fa-trash"></i>
             </button>
         </td>
@@ -89,7 +89,7 @@
                 {% endif %}
             </div>
             {% if t.description %}
-            <p class="text-xs text-gray-400 mt-0.5 truncate">{{ t.description }}</p>
+            <p class="text-xs text-text-muted mt-0.5 truncate">{{ t.description }}</p>
             {% endif %}
             <div class="mt-1.5 flex flex-wrap gap-1">
                 {% if t.category %}
@@ -100,29 +100,29 @@
                 {% endif %}
                 {% if t.cadence %}
                 <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-600">
-                    <i class="fas fa-rotate mr-1"></i>{{ t.cadence | capitalize }}{% if t.next_run_at %} &middot; next {{ t.next_run_at.strftime('%b %d') }}{% endif %}
+                    <i class="fas fa-rotate mr-1"></i>{{ t.cadence | capitalize }}{% if t.next_run_at %} &middot; next {{ (t.next_run_at | app_date('short')) }}{% endif %}
                 </span>
                 {% endif %}
             </div>
-            <p class="mt-1.5 font-semibold text-sm {{ 'text-green-600' if t.type == 'income' else 'text-red-600' }}">
+            <p class="mt-1.5 font-semibold text-sm {{ 'text-income' if t.type == 'income' else 'text-expense' }}">
                 {{ '+' if t.type == 'income' else '-' }}{{ t.amount | currency }}
             </p>
         </div>
         <div class="flex items-center gap-1 flex-shrink-0">
             <button onclick="useTemplate({{ t.id }})"
-                    class="text-gray-400 hover:text-green-600 p-2 rounded-lg hover:bg-green-50 transition" title="Use Template">
+                    class="text-text-muted hover:text-income p-2 rounded-lg hover:bg-green-50 transition" title="Use Template">
                 <i class="fas fa-play"></i>
             </button>
             <button onclick="openRecurringModal({{ t.id }})"
-                    class="text-gray-400 hover:text-indigo-600 p-2 rounded-lg hover:bg-indigo-50 transition" title="Recurring Schedule">
+                    class="text-text-muted hover:text-indigo-600 p-2 rounded-lg hover:bg-indigo-50 transition" title="Recurring Schedule">
                 <i class="fas fa-clock"></i>
             </button>
             <button onclick="editTemplate({{ t.id }})"
-                    class="text-gray-400 hover:text-primary p-2 rounded-lg hover:bg-gray-100 transition" title="Edit">
+                    class="text-text-muted hover:text-primary p-2 rounded-lg hover:bg-gray-100 transition" title="Edit">
                 <i class="fas fa-edit"></i>
             </button>
             <button onclick="deleteWithUndo(this.closest('div.px-4.py-4'), '/api/templates/{{ t.id }}', _reloadTemplates, '{{ t.name | e }}')"
-                    class="text-gray-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition" title="Delete">
+                    class="text-text-muted hover:text-expense p-2 rounded-lg hover:bg-red-50 transition" title="Delete">
                 <i class="fas fa-trash"></i>
             </button>
         </div>

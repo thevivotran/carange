@@ -37,6 +37,75 @@
             return (value < 0 ? '-' : '') + body;
         };
         // Abbreviated B/M form for large figures, e.g. "1.23B ₫" / "$1.23B"
+        // ── Chart text alternative ───────────────────────────────────────────
+        // A canvas is invisible to screen readers: give it role="img" + a one-line
+        // summary, and add a "View as table" toggle with the same numbers.
+        // headers: ['Month', 'Income', …]; rows: [['2026-10', '48M ₫', …], …]
+        window.describeChart = function(canvasId, summary, headers, rows) {
+            var canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            canvas.setAttribute('role', 'img');
+            canvas.setAttribute('aria-label', summary);
+            var holder = canvas.parentElement;
+            var tableId = canvasId + '-table';
+            var old = document.getElementById(tableId);
+            if (old) old.remove();
+            var oldBtn = document.getElementById(canvasId + '-table-toggle');
+            if (oldBtn) oldBtn.remove();
+
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.id = canvasId + '-table-toggle';
+            btn.className = 'mt-2 text-xs font-medium text-accent-text hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded';
+            btn.textContent = 'View as table';
+            btn.setAttribute('aria-expanded', 'false');
+            btn.setAttribute('aria-controls', tableId);
+
+            var wrap = document.createElement('div');
+            wrap.id = tableId;
+            wrap.className = 'hidden mt-2 overflow-x-auto';
+            var table = document.createElement('table');
+            table.className = 'w-full text-xs tabular-nums';
+            var cap = document.createElement('caption');
+            cap.className = 'sr-only';
+            cap.textContent = summary;
+            table.appendChild(cap);
+            var thead = document.createElement('thead');
+            var hr = document.createElement('tr');
+            headers.forEach(function(h, i) {
+                var th = document.createElement('th');
+                th.scope = 'col';
+                th.className = 'py-1 pr-3 font-semibold text-secondary ' + (i ? 'text-right' : 'text-left');
+                th.textContent = h;
+                hr.appendChild(th);
+            });
+            thead.appendChild(hr);
+            table.appendChild(thead);
+            var tbody = document.createElement('tbody');
+            rows.forEach(function(r) {
+                var tr = document.createElement('tr');
+                tr.className = 'border-t';
+                r.forEach(function(cell, i) {
+                    var td = document.createElement(i ? 'td' : 'th');
+                    if (!i) td.scope = 'row';
+                    td.className = 'py-1 pr-3 ' + (i ? 'text-right' : 'text-left font-normal');
+                    td.textContent = cell;
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+            table.appendChild(tbody);
+            wrap.appendChild(table);
+
+            btn.addEventListener('click', function() {
+                var open = wrap.classList.toggle('hidden') === false;
+                btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+                btn.textContent = open ? 'Hide table' : 'View as table';
+            });
+            holder.insertAdjacentElement('afterend', btn);
+            btn.insertAdjacentElement('afterend', wrap);
+        };
+
         window.formatAmountAbbrev = function(amount) {
             var cfg = window.currencyConfig();
             var abs = Math.abs(amount);
@@ -53,7 +122,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
 
     <!-- Design Tokens (must load before app CSS) -->
-    <link rel="stylesheet" href="/static/css/carange-tokens.css">
+    <link rel="stylesheet" href="{{ static_url('css/carange-tokens.css') }}">
 
     <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -86,7 +155,11 @@
                             press: '#C2440A',
                             subtle: '#FFF5ED',
                             'subtle-2': '#FFE7D4',
-                            text: '#EA5A0B',
+                            /* text-brand-text: orange-700, ≥4.5:1 on white and brand-subtle */
+                            text: '#C2440A',
+                            /* Filled buttons with white text (≥4.5:1) — bg-brand stays for icons/FAB */
+                            solid: '#C2440A',
+                            'solid-hover': '#99370F',
                         },
                         /* Accent · Blue (trust / data) */
                         accent: {
@@ -98,12 +171,15 @@
                             text: '#2563EB',
                         },
                         /* Finance semantics */
-                        income:  '#059669',
+                        income:  '#047857',
                         expense: '#DC2626',
                         /* Status */
-                        success: '#059669',
-                        warning: '#D97706',
-                        danger:  '#DC2626',
+                        success: '#047857',
+                        warning: '#B45309',
+                        danger:  '#B91C1C',
+                        'success-text': '#065F46',
+                        'danger-text':  '#991B1B',
+                        'warning-text': '#92400E',
                         info:    '#2563EB',
                         /* Surfaces */
                         'surface-card':   '#FFFFFF',
@@ -115,7 +191,7 @@
                         /* Text */
                         'text-primary':   '#1E293B',
                         'text-secondary': '#475569',
-                        'text-muted':     '#94A3B8',
+                        'text-muted':     '#64748B',
                     },
                     fontFamily: {
                         sans: ['"Plus Jakarta Sans"', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
@@ -146,7 +222,7 @@
     <style>
         body { font-family: var(--font-sans); }
         .sidebar-link:hover { background-color: var(--brand-subtle); }
-        .sidebar-link.active { background-color: var(--brand-subtle-2); border-right: 3px solid var(--brand); color: var(--brand-text); }
+        .sidebar-link.active { background-color: var(--brand-subtle); border-right: 3px solid var(--brand); color: var(--brand-text); }
 
         /* Chart container fix to prevent expanding */
         canvas { max-height: 100% !important; }
@@ -185,7 +261,7 @@
             background-color: color-mix(in srgb, var(--pill, #6B7280) 16%, transparent);
             color: color-mix(in srgb, var(--pill, #6B7280) 60%, black);
         }
-        .dark .cat-pill { color: color-mix(in srgb, var(--pill, #6B7280) 50%, white); }
+        .dark .cat-pill { color: color-mix(in srgb, var(--pill, #6B7280) 30%, white); }
 
         /* Money never wraps mid-figure ("8,149,000 / ₫") */
         .amount { white-space: nowrap; }
@@ -214,6 +290,8 @@
         .dark .peer:checked ~ .peer-checked\:bg-red-50   { background-color: rgba(239,68,68,.20)  !important; }
         .dark .peer:checked ~ .peer-checked\:text-green-700 { color: #6ee7b7 !important; }
         .dark .peer:checked ~ .peer-checked\:text-red-700   { color: #fca5a5 !important; }
+        .dark .peer:checked ~ .peer-checked\:text-income  { color: #6ee7b7 !important; }
+        .dark .peer:checked ~ .peer-checked\:text-expense { color: #fca5a5 !important; }
         .dark .bg-blue-50   { background-color: rgba(37,99,235,.20) !important; }
         .dark .bg-indigo-50 { background-color: rgba(99,102,241,.20) !important; }
         .dark .bg-amber-50  { background-color: rgba(245,158,11,.20) !important; }
@@ -334,6 +412,16 @@
 
         /* Income / Expense (new semantics) */
         .dark .text-income  { color: #34d399 !important; }
+        .dark .text-success { color: #34d399 !important; }
+        .dark .text-danger  { color: #f87171 !important; }
+        .dark .text-warning { color: #fbbf24 !important; }
+        .dark .text-success-text { color: #6ee7b7 !important; }
+        .dark .text-danger-text  { color: #fca5a5 !important; }
+        .dark .text-warning-text { color: #fcd34d !important; }
+        .dark .text-text-muted { color: #94a3b8 !important; }
+        .dark .text-emerald-600, .dark .text-emerald-700 { color: #34d399 !important; }
+        .dark .bg-success-subtle { background-color: rgba(16,185,129,.18) !important; }
+        .dark .bg-danger-subtle  { background-color: rgba(239,68,68,.18) !important; }
         .dark .bg-income-subtle { background-color: rgba(16,185,129,.18) !important; }
         .dark .text-expense { color: #f87171 !important; }
         .dark .bg-expense-subtle { background-color: rgba(239,68,68,.18) !important; }
@@ -362,13 +450,13 @@
         .dark .cat-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,.4); }
 
         /* ── Net Worth hero gradient — orange→blue (brand→accent) ─── */
-        /* Light: FB8334 → F97316 → 2563EB */
-        /* Dark: C2440A → EA5A0B → 1D4FD0 (desaturated) */
+        /* Stops are dark enough that white text stays ≥4.5:1 (see --hero-gradient). */
+        .theme-switching, .theme-switching * { transition: none !important; }
         .hero-gradient {
             background: var(--hero-gradient);
         }
         .dark .hero-gradient {
-            background: linear-gradient(135deg, #C2440A 0%, #EA5A0B 40%, #1D4FD0 130%) !important;
+            background: linear-gradient(135deg, #A8390A 0%, #99370F 45%, #1E3A86 130%) !important;
         }
 
         /* ── Notes page filter pills ──────────────────────── */
@@ -478,6 +566,7 @@
     <script defer src="https://unpkg.com/alpinejs@3.14.3/dist/cdn.min.js"></script>
 </head>
 <body class="bg-gray-50">
+    <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[300] focus:px-4 focus:py-2 focus:rounded-lg focus:bg-brand-solid focus:text-white focus:font-semibold">Skip to content</a>
     <div class="flex h-screen" style="height:100vh;height:100dvh;">
         <!-- Sidebar -->
         {#- Single source for the sidebar and the mobile "More" sheet.
@@ -518,12 +607,12 @@
                 <a id="sidebar-brand-link" href="/" class="hover:opacity-80 transition flex items-center gap-2 min-w-0">
                     <img src="/static/images/carange-icon.png" alt="Carange" class="w-8 h-8 rounded-lg flex-shrink-0">
                     <div id="sidebar-brand-text" class="min-w-0">
-                        <h1 class="text-lg font-extrabold leading-none"><span style="color:#2363E0">ca</span><span style="color:#F2730F">range</span></h1>
+                        <span class="block text-lg font-extrabold leading-none"><span style="color:#2363E0">ca</span><span style="color:#C2440A">range</span></span>
                         <p class="text-xs text-muted mt-0.5">Family finances. Together.</p>
                     </div>
                 </a>
                 <button id="sidebar-collapse-btn" @click="toggle()"
-                        class="flex-shrink-0 p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                        class="flex-shrink-0 p-1.5 text-text-muted hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
                         title="Collapse sidebar">
                     <i class="fas fa-chevron-left text-xs"></i>
                 </button>
@@ -535,7 +624,7 @@
                 {% set shown = [] %}
                 {% for it in items %}{% if it[5] is none or it[5] in visible_nav_items %}{% set _ = shown.append(it) %}{% endif %}{% endfor %}
                 {% if shown %}
-                <div class="px-6 {{ 'pt-2' if loop.first else 'pt-5' }} pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest sidebar-section-label">{{ group_label }}</div>
+                <div class="px-6 {{ 'pt-2' if loop.first else 'pt-5' }} pb-1 text-xs font-semibold text-text-muted uppercase tracking-widest sidebar-section-label">{{ group_label }}</div>
                 {% for key, href, icon, label, short, toggle in items %}
                 {% if toggle is none or toggle in visible_nav_items %}
                 <a href="{{ href }}" class="sidebar-link flex items-center px-6 py-3 text-gray-700 {% if active_menu == key %}active font-semibold{% endif %}" title="{{ label }}"{% if active_menu == key %} aria-current="page"{% endif %}>
@@ -543,7 +632,7 @@
                     <span class="sidebar-label">{{ label }}</span>
                     {% if key == 'review' %}
                     <span data-review-badge class="hidden ml-auto">
-                        <span id="review-count-badge" class="bg-brand text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">0</span>
+                        <span id="review-count-badge" class="bg-brand-solid text-white text-xs font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">0</span>
                     </span>
                     {% endif %}
                 </a>
@@ -605,7 +694,7 @@
                 <h1 class="flex-1 text-center text-base font-semibold text-gray-800 truncate">
                     {{ _nav_titles.get(active_menu, 'Carange') }}
                 </h1>
-                <button x-data @click="$store.theme.toggle()" class="flex-shrink-0 p-2 text-gray-500">
+                <button x-data @click="$store.theme.toggle()" class="flex-shrink-0 p-2 text-gray-500" aria-label="Toggle dark mode">
                     <i class="fas fa-moon theme-icon-dark"></i>
                     <i class="fas fa-sun theme-icon-light text-yellow-400"></i>
                 </button>
@@ -631,14 +720,14 @@
                 {% set sheet_items = [] %}
                 {% for it in items %}{% if it[0] not in ('dashboard', 'transactions', 'budget') and (it[5] is none or it[5] in visible_nav_items) %}{% set _ = sheet_items.append(it) %}{% endif %}{% endfor %}
                 {% if sheet_items %}
-                <div class="px-5 {{ 'pt-2' if loop.first else 'pt-3' }} pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest">{{ group_label }}</div>
+                <div class="px-5 {{ 'pt-2' if loop.first else 'pt-3' }} pb-1 text-xs font-semibold text-text-muted uppercase tracking-widest">{{ group_label }}</div>
                 <div class="grid grid-cols-4 gap-px bg-gray-100 border-t border-b mx-0">
                     {% for key, href, icon, label, short, toggle in sheet_items %}
                     <a href="{{ href }}" class="relative flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == key %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition"{% if active_menu == key %} aria-current="page"{% endif %}>
                         <span class="relative">
                             <i class="fas {{ icon }} text-xl" aria-hidden="true"></i>
                             {% if key == 'review' %}
-                            <span id="mobile-more-review-badge" class="hidden absolute -top-1.5 -right-2 bg-brand text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5 leading-none"></span>
+                            <span id="mobile-more-review-badge" class="hidden absolute -top-1.5 -right-2 bg-brand-solid text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5 leading-none"></span>
                             {% endif %}
                         </span>
                         <span class="text-xs font-medium">{{ short }}</span>
@@ -648,7 +737,7 @@
                 {% endif %}
                 {% endfor %}
                 <!-- Settings section -->
-                <div class="px-5 pt-3 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-widest">Settings</div>
+                <div class="px-5 pt-3 pb-1 text-xs font-semibold text-text-muted uppercase tracking-widest">Settings</div>
                 <div class="grid grid-cols-4 gap-px bg-gray-100 border-t border-b mx-0">
                     <a href="/settings" class="flex flex-col items-center justify-center gap-1.5 py-4 bg-white {% if active_menu == 'settings' %}text-primary{% else %}text-gray-600{% endif %} hover:bg-blue-50 active:bg-blue-100 transition">
                         <i class="fas fa-gear text-xl"></i>
@@ -667,7 +756,7 @@
         </div>
         
         <!-- Main Content -->
-        <main class="flex-1 overflow-y-auto md:pt-0 pt-14 pb-16 md:pb-0">
+        <main id="main-content" tabindex="-1" class="flex-1 overflow-y-auto md:pt-0 pt-14 pb-16 md:pb-0 focus:outline-none">
             {% block content %}{% endblock %}
         </main>
     </div>
@@ -681,7 +770,14 @@
                 dark: document.documentElement.classList.contains('dark'),
                 toggle: function() {
                     this.dark = !this.dark;
-                    document.documentElement.classList.toggle('dark', this.dark);
+                    // Switch every colour at once: without this, elements with a
+                    // `transition` class fade over 150ms while others snap, so the page
+                    // briefly mixes both themes (e.g. light nav text on a peach pill).
+                    var root = document.documentElement;
+                    root.classList.add('theme-switching');
+                    root.classList.toggle('dark', this.dark);
+                    void root.offsetHeight;
+                    requestAnimationFrame(function() { root.classList.remove('theme-switching'); });
                     localStorage.setItem('carange-theme', this.dark ? 'dark' : 'light');
                 },
                 get label() { return this.dark ? 'Light Mode' : 'Night Mode'; }
@@ -757,10 +853,15 @@
                 .then(function(ok) { if (ok) onConfirm(); });
         }
 
-        // ── Mobile menu close ─────────────────────────────────────────────────
-        document.getElementById('close-mobile-menu').addEventListener('click', function() {
-            document.getElementById('mobile-menu').classList.add('hidden');
-        });
+        // ── Mobile "More" sheet ───────────────────────────────────────────────
+        function _setMobileMenu(open) {
+            document.getElementById('mobile-menu').classList.toggle('hidden', !open);
+            var btn = document.getElementById('mobile-more-btn');
+            if (btn) btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        }
+        function openMobileMenu()  { _setMobileMenu(true); }
+        function closeMobileMenu() { _setMobileMenu(false); }
+        document.getElementById('close-mobile-menu').addEventListener('click', closeMobileMenu);
 
         // ── Format utilities ──────────────────────────────────────────────────
         function formatVND(amount) {
@@ -768,11 +869,16 @@
         }
 
         // Split-based date avoids UTC timezone off-by-one
+        // App date format ("19 Nov 2026"), the JS twin of the Jinja `app_date` filter.
+        // Split-based so a YYYY-MM-DD string never shifts a day through UTC parsing.
+        var _MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
         function formatDate(dateString) {
             if (!dateString) return '-';
-            var parts = dateString.split('-');
-            return parts[2] + '/' + parts[1] + '/' + parts[0];
+            var parts = String(dateString).slice(0, 10).split('-');
+            if (parts.length !== 3) return dateString;
+            return parseInt(parts[2], 10) + ' ' + _MONTHS_SHORT[parseInt(parts[1], 10) - 1] + ' ' + parts[0];
         }
+        window.formatDate = formatDate;
 
         function escapeHtml(str) {
             if (!str) return '';
@@ -847,18 +953,8 @@
     }
 
     function _onTxAmountInput(e) {
-        var el = e.target;
-        var digitsBeforeCaret = el.value.slice(0, el.selectionStart || 0).replace(/\D/g, '').length;
-        var digits = el.value.replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 15);
-        document.getElementById('tx-amount-raw').value = digits;
-        el.value = digits ? window._groupDigits(Number(digits)) : '';
-        // Keep the caret after the same number of digits it was after before regrouping
-        var pos = 0, seen = 0;
-        while (pos < el.value.length && seen < digitsBeforeCaret) {
-            if (/\d/.test(el.value[pos])) seen++;
-            pos++;
-        }
-        el.setSelectionRange(pos, pos);
+        // Shared caret-preserving formatter from /static/js/money-input.js
+        document.getElementById('tx-amount-raw').value = window.formatMoneyInputInPlace(e.target);
     }
 
     // ── Remembered defaults for quick entry (per-browser convenience only) ──
@@ -904,7 +1000,7 @@
         var tplList = document.getElementById('template-picker-list');
         if (tplList) tplList.classList.add('hidden');
         var tplArrow = document.getElementById('template-picker-arrow');
-        if (tplArrow) tplArrow.className = 'fas fa-chevron-down text-gray-400 text-xs';
+        if (tplArrow) tplArrow.className = 'fas fa-chevron-down text-text-muted text-xs';
         var nrSection = document.getElementById('needs-review-section');
         if (nrSection) nrSection.classList.add('hidden');
         _setTxAmount(0);
@@ -1032,7 +1128,7 @@
         while (items.firstChild) items.removeChild(items.firstChild);
         if (!_txTemplates.length) {
             var p = document.createElement('p');
-            p.className = 'text-sm text-gray-400 text-center py-4 px-4';
+            p.className = 'text-sm text-text-muted text-center py-4 px-4';
             p.textContent = 'No templates saved yet';
             items.appendChild(p);
         } else {
@@ -1044,7 +1140,7 @@
                 nameSpan.className = 'text-sm font-medium text-gray-800';
                 nameSpan.textContent = t.name;
                 var metaSpan = document.createElement('span');
-                metaSpan.className = 'text-xs text-gray-400 flex-shrink-0';
+                metaSpan.className = 'text-xs text-text-muted flex-shrink-0';
                 metaSpan.textContent = t.type + ' · ' + formatVND(t.amount);
                 btn.appendChild(nameSpan);
                 btn.appendChild(metaSpan);
@@ -1347,6 +1443,7 @@
     });
     </script>
 
+    <script src="{{ static_url('js/money-input.js') }}"></script>
     {% block extra_js %}{% endblock %}
 
     <!-- FAB: global quick-add transaction (desktop only — mobile uses bottom nav).
@@ -1355,7 +1452,7 @@
     <button onclick="openAddModal()" aria-label="Add transaction" title="Add transaction"
             class="hidden md:flex fixed bottom-6 right-6 z-[100] w-14 h-14 bg-brand text-white rounded-full shadow-brand hover:bg-brand-hover active:scale-95 transition-all items-center justify-center"
             style="bottom:calc(1.5rem + env(safe-area-inset-bottom))">
-        <i class="fas fa-plus text-xl"></i>
+        <i class="fas fa-plus text-xl" aria-hidden="true"></i>
     </button>
     {% endif %}
 
@@ -1364,21 +1461,21 @@
     {% include "partials/transactions/_modal_form.html" %}
 
     <!-- Toast container — Alpine-driven, sits above bottom nav on mobile -->
-    <div x-data class="fixed bottom-20 right-4 md:bottom-24 md:right-6 z-[200] space-y-2">
+    <div x-data role="status" aria-live="polite" aria-relevant="additions" class="fixed bottom-20 right-4 md:bottom-24 md:right-6 z-[200] space-y-2">
         <template x-for="toast in $store.toasts.items" :key="toast.id">
             <div class="text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 min-w-64"
                  :class="{
-                     'bg-green-500': toast.type === 'success',
-                     'bg-red-500':   toast.type === 'error',
-                     'bg-yellow-500':toast.type === 'warning',
-                     'bg-blue-500':  toast.type === 'info',
+                     'bg-success': toast.type === 'success',
+                     'bg-danger':  toast.type === 'error',
+                     'bg-warning': toast.type === 'warning',
+                     'bg-accent':  toast.type === 'info',
                      'bg-gray-800':  toast.type === 'undo'
                  }">
                 <span x-text="toast.message" class="flex-1 text-sm"></span>
                 <button x-show="toast.type === 'undo'" @click="toast._undoFn && toast._undoFn()"
                         class="text-yellow-300 hover:text-yellow-100 font-semibold text-sm underline">Undo</button>
-                <button x-show="toast.type !== 'undo'" @click="$store.toasts.remove(toast.id)"
-                        class="opacity-75 hover:opacity-100 text-lg leading-none">x</button>
+                <button x-show="toast.type !== 'undo'" @click="$store.toasts.remove(toast.id)" aria-label="Dismiss notification"
+                        class="opacity-90 hover:opacity-100 text-lg leading-none w-8 h-8 -mr-2 flex items-center justify-center rounded"><span aria-hidden="true">&times;</span></button>
             </div>
         </template>
     </div>
@@ -1387,29 +1484,30 @@
     <nav id="mobile-bottom-nav" class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-[90]"
          style="padding-bottom:max(env(safe-area-inset-bottom), 0.75rem)">
         <div class="flex items-center justify-around h-14">
-            <a href="/" class="bottom-nav-link {% if active_menu == 'dashboard' %}active{% endif %} flex flex-col items-center justify-center flex-1 h-full gap-0.5">
-                <i class="fas fa-chart-line text-lg"></i>
+            <a href="/" {% if active_menu == 'dashboard' %}aria-current="page" {% endif %}class="bottom-nav-link {% if active_menu == 'dashboard' %}active{% endif %} flex flex-col items-center justify-center flex-1 h-full gap-0.5">
+                <i class="fas fa-chart-line text-lg" aria-hidden="true"></i>
                 <span class="text-xs">Home</span>
             </a>
-            <a href="/transactions" class="bottom-nav-link {% if active_menu == 'transactions' %}active{% endif %} flex flex-col items-center justify-center flex-1 h-full gap-0.5">
-                <i class="fas fa-exchange-alt text-lg"></i>
+            <a href="/transactions" {% if active_menu == 'transactions' %}aria-current="page" {% endif %}class="bottom-nav-link {% if active_menu == 'transactions' %}active{% endif %} flex flex-col items-center justify-center flex-1 h-full gap-0.5">
+                <i class="fas fa-exchange-alt text-lg" aria-hidden="true"></i>
                 <span class="text-xs">Txns</span>
             </a>
             <div class="flex-1 flex items-center justify-center">
-                <button onclick="openAddModal()"
+                <button onclick="openAddModal()" aria-label="Add transaction"
                         class="w-12 h-12 bg-brand text-white rounded-full shadow-brand hover:bg-brand-hover active:scale-95 transition-all flex items-center justify-center -mt-5">
-                    <i class="fas fa-plus text-xl"></i>
+                    <i class="fas fa-plus text-xl" aria-hidden="true"></i>
                 </button>
             </div>
-            <a href="/budget" class="bottom-nav-link {% if active_menu == 'budget' %}active{% endif %} flex flex-col items-center justify-center flex-1 h-full gap-0.5">
-                <i class="fas fa-wallet text-lg"></i>
+            <a href="/budget" {% if active_menu == 'budget' %}aria-current="page" {% endif %}class="bottom-nav-link {% if active_menu == 'budget' %}active{% endif %} flex flex-col items-center justify-center flex-1 h-full gap-0.5">
+                <i class="fas fa-wallet text-lg" aria-hidden="true"></i>
                 <span class="text-xs">Budget</span>
             </a>
-            <button onclick="document.getElementById('mobile-menu').classList.remove('hidden')"
+            <button id="mobile-more-btn" onclick="openMobileMenu()"
+                    aria-haspopup="dialog" aria-expanded="false" aria-controls="mobile-menu"
                     class="bottom-nav-link flex flex-col items-center justify-center flex-1 h-full gap-0.5">
                 <span class="relative">
-                    <i class="fas fa-bars text-lg"></i>
-                    <span id="mobile-bottom-review-badge" class="hidden absolute -top-1.5 -right-2 bg-brand text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5 leading-none"></span>
+                    <i class="fas fa-bars text-lg" aria-hidden="true"></i>
+                    <span id="mobile-bottom-review-badge" class="hidden absolute -top-1.5 -right-2 bg-brand-solid text-white text-[10px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-0.5 leading-none"></span>
                 </span>
                 <span class="text-xs">More</span>
             </button>

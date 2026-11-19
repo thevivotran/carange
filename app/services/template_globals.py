@@ -6,8 +6,10 @@ without circular-import pain (the routers can't import from main.py).
 
 from __future__ import annotations
 
+import hashlib
 import threading
 import time
+from pathlib import Path
 
 from app.models.database import Category, SessionLocal, User
 
@@ -71,7 +73,31 @@ def get_all_users() -> list[User]:
         session.close()
 
 
+_STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+_static_hashes: dict[str, tuple[float, str]] = {}
+
+
+def static_url(path: str) -> str:
+    """`/static/<path>?v=<content hash>` so browsers and the service worker (which serves
+    /static/ cache-first) pick up a changed file instead of a stale cached copy."""
+    file = _STATIC_DIR / path
+    try:
+        mtime = file.stat().st_mtime
+    except OSError:
+        return f"/static/{path}"
+    cached = _static_hashes.get(path)
+    if cached is None or cached[0] != mtime:
+        digest = hashlib.sha256(file.read_bytes()).hexdigest()[:10]
+        cached = (mtime, digest)
+        _static_hashes[path] = cached
+    return f"/static/{path}?v={cached[1]}"
+
+
 def register_template_globals(env) -> None:
     """Register all Jinja globals on a Starlette `Jinja2Templates` env."""
     env.globals["get_all_active_categories"] = get_all_active_categories
     env.globals["get_all_users"] = get_all_users
+    env.globals["static_url"] = static_url
+    from app.services.date_format import register as register_date_filters
+
+    register_date_filters(env)

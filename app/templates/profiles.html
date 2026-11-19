@@ -38,7 +38,7 @@
         .dark .bg-gray-50 { background-color: #0F172A !important; }
         .dark .text-gray-800 { color: #E2E8F0 !important; }
         .dark .text-gray-700 { color: #CBD5E1 !important; }
-        .dark .text-gray-500, .dark .text-gray-400 { color: #94A3B8 !important; }
+        .dark .text-gray-500, .dark .text-text-muted { color: #94A3B8 !important; }
         .dark .border, .dark .border-t { border-color: #334155 !important; }
         .dark input { background-color: #0F172A !important; color: #E2E8F0 !important; }
     </style>
@@ -54,7 +54,7 @@
             </div>
 
             {% if error %}
-            <div class="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">
+            <div class="mb-4 px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-sm text-danger">
                 <i class="fas fa-circle-exclamation mr-1"></i>{{ error }}
             </div>
             {% endif %}
@@ -74,7 +74,7 @@
                                 <span class="min-w-0">
                                     <span class="block text-sm font-medium text-gray-800 truncate">{{ u.name }}</span>
                                     {% if u.id == current_user_id %}
-                                    <span class="block text-xs text-gray-400">Current profile</span>
+                                    <span class="block text-xs text-text-muted">Current profile</span>
                                     {% endif %}
                                 </span>
                             </button>
@@ -83,7 +83,7 @@
                         <form method="post" action="/profiles/{{ u.id }}/delete"
                               onsubmit="return confirm('Delete the “{{ u.name }}” profile? Its dashboard and menu preferences will be removed. Financial data is shared and stays untouched.');">
                             <button type="submit" title="Delete profile"
-                                    class="p-2 text-gray-400 hover:text-danger rounded-lg hover:bg-gray-100 transition">
+                                    class="p-2 text-text-muted hover:text-danger rounded-lg hover:bg-gray-100 transition">
                                 <i class="fas fa-trash-can text-sm"></i>
                             </button>
                         </form>
@@ -98,7 +98,7 @@
                 <h2 class="text-sm font-semibold text-gray-800 mb-1">
                     {% if users %}Add a profile{% else %}Create your first profile{% endif %}
                 </h2>
-                <p class="text-xs text-gray-400 mb-4">
+                <p class="text-xs text-text-muted mb-4">
                     Each profile gets its own dashboard layout and menu. All financial data is shared.
                 </p>
                 <form method="post" action="/profiles/create">
@@ -122,7 +122,7 @@
                         </div>
                     </div>
                     <button type="submit"
-                            class="mt-5 w-full px-5 py-2 rounded-xl bg-brand text-white text-sm font-semibold hover:bg-brand-hover transition">
+                            class="mt-5 w-full px-5 py-2 rounded-xl bg-brand-solid text-white text-sm font-semibold hover:bg-brand-solid-hover transition">
                         <i class="fas fa-plus mr-1"></i>Create profile
                     </button>
                 </form>

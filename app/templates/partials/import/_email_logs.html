@@ -2,27 +2,27 @@
 <div class="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 py-2 bg-gray-50 border-b border-gray-100 text-xs">
     <span class="flex items-center gap-1.5">
         <span class="w-2 h-2 rounded-full {{ 'bg-green-500' if worker_stats.online else 'bg-red-400' }}"></span>
-        <span class="font-medium {{ 'text-green-700' if worker_stats.online else 'text-red-600' }}">
+        <span class="font-medium {{ 'text-success' if worker_stats.online else 'text-danger' }}">
             Worker {{ 'online' if worker_stats.online else 'offline' }}
         </span>
         {% if worker_stats.last_ok %}
-        <span class="text-gray-400">last seen {{ worker_stats.last_ok | format_vn_dt }}</span>
+        <span class="text-text-muted">last seen {{ worker_stats.last_ok | format_vn_dt }}</span>
         {% endif %}
     </span>
-    <span class="text-gray-400 tabular-nums">7 days:
-        <span class="text-green-600 font-medium">{{ worker_stats.done }} done</span>
+    <span class="text-text-muted tabular-nums">7 days:
+        <span class="text-success font-medium">{{ worker_stats.done }} done</span>
         {% if worker_stats.pending %} · <span class="text-amber-600 font-medium">{{ worker_stats.pending }} pending</span>{% endif %}
-        {% if worker_stats.failed %} · <span class="text-red-500 font-medium">{{ worker_stats.failed }} failed</span>{% endif %}
+        {% if worker_stats.failed %} · <span class="text-danger font-medium">{{ worker_stats.failed }} failed</span>{% endif %}
     </span>
     {% if worker_stats.last_error %}
-    <span class="text-red-500 truncate max-w-full" title="{{ worker_stats.last_error }}">
+    <span class="text-danger truncate max-w-full" title="{{ worker_stats.last_error }}">
         <i class="fas fa-triangle-exclamation mr-1"></i>{{ worker_stats.last_error | truncate(90) }}
     </span>
     {% endif %}
 </div>
 {% endif %}
 {% if not logs %}
-<div class="py-12 text-center text-gray-400">
+<div class="py-12 text-center text-text-muted">
     <i class="fas fa-{{ 'search' if (search or status_filter != 'all') else 'envelope-open' }} text-3xl mb-3 block"></i>
     <p class="text-sm font-medium">{{ 'No emails match' if (search or status_filter != 'all') else 'No email receipts processed yet' }}</p>
     {% if not search and status_filter == 'all' %}
@@ -32,7 +32,7 @@
 {% else %}
 {% for date_label, date_logs in grouped_logs %}
 <div class="flex items-center gap-3 px-4 py-1.5 bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
-    <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider whitespace-nowrap">{{ date_label }}</span>
+    <span class="text-xs font-semibold text-text-muted uppercase tracking-wider whitespace-nowrap">{{ date_label }}</span>
     <div class="flex-1 border-t border-gray-200"></div>
     <span class="text-xs text-gray-300 tabular-nums">{{ date_logs | length }}</span>
 </div>
@@ -52,32 +52,32 @@
     <div class="flex-1 min-w-0 flex items-center gap-2">
         <span class="text-sm text-gray-700 truncate">{{ log.subject or '(no subject)' }}</span>
         {% if log.sender %}
-        <span class="hidden sm:inline text-xs text-gray-400 truncate max-w-[160px] flex-shrink-0">{{ log.sender }}</span>
+        <span class="hidden sm:inline text-xs text-text-muted truncate max-w-[160px] flex-shrink-0">{{ log.sender }}</span>
         {% endif %}
     </div>
 
     <span class="text-xs font-semibold px-2 py-0.5 rounded-full flex-shrink-0
-        {% if is_done %}bg-green-100 text-green-700
-        {% elif is_failed %}bg-red-100 text-red-600
+        {% if is_done %}bg-green-100 text-success
+        {% elif is_failed %}bg-red-100 text-danger
         {% elif is_proc %}bg-amber-100 text-amber-700
         {% else %}bg-gray-100 text-gray-500{% endif %}">
         {{ log.status }}
     </span>
 
     {% if log.transaction_count > 0 %}
-    <span class="hidden sm:inline text-xs text-green-600 font-medium flex-shrink-0 tabular-nums">{{ log.transaction_count }} tx</span>
+    <span class="hidden sm:inline text-xs text-success font-medium flex-shrink-0 tabular-nums">{{ log.transaction_count }} tx</span>
     {% endif %}
 
     {% if log.raw_size and (is_failed or (is_done and not log.transaction_count)) %}
     <button hx-post="/fragments/import/email-logs/{{ log.id }}/reprocess?status={{ status_filter }}"
             hx-target="#email-log-region" hx-swap="innerHTML" hx-include="#email-search"
-            class="text-xs text-gray-400 hover:text-primary transition flex-shrink-0"
+            class="text-xs text-text-muted hover:text-primary transition flex-shrink-0"
             title="Reprocess this email from its stored copy">
         <i class="fas fa-rotate-right"></i>
     </button>
     {% endif %}
 
-    <span class="hidden md:inline text-xs text-gray-400 tabular-nums flex-shrink-0">
+    <span class="hidden md:inline text-xs text-text-muted tabular-nums flex-shrink-0">
         {{ (log.received_at or log.created_at).strftime('%d/%m %H:%M') if (log.received_at or log.created_at) else '' }}
     </span>
 

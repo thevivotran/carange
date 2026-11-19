@@ -6,14 +6,14 @@
     <!-- Page Header -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div class="hidden md:block">
-            <h2 class="text-3xl font-bold text-gray-800">Savings Bundles</h2>
+            <h1 class="text-3xl font-bold text-gray-800">Savings</h1>
             <p class="text-muted mt-1">Track your family's fixed deposits and savings goals</p>
         </div>
         <div class="flex gap-3">
-            <button onclick="openTrashModal()" class="border border-gray-300 text-gray-600 px-4 py-3 rounded-lg hover:bg-gray-50 transition flex items-center gap-2">
+            <button aria-label="Trash" onclick="openTrashModal()" class="border border-gray-300 text-gray-600 px-4 py-3 rounded-lg hover:bg-gray-50 transition flex items-center gap-2">
                 <i class="fas fa-trash-alt"></i><span class="hidden sm:inline">Trash</span>
             </button>
-            <button onclick="openSavingsModal()" class="bg-brand text-white px-6 py-3 rounded-lg hover:bg-brand-hover transition flex items-center">
+            <button onclick="openSavingsModal()" class="bg-brand-solid text-white px-6 py-3 rounded-lg hover:bg-brand-solid-hover transition flex items-center">
                 <i class="fas fa-plus mr-2"></i>Add Savings Bundle
             </button>
         </div>
@@ -96,7 +96,7 @@
                     <option value="recurring_deposit">Recurring Deposit</option>
                     <option value="savings_goal">Savings Goal</option>
                 </select>
-                <p class="text-xs text-gray-400 mt-1">
+                <p class="text-xs text-text-muted mt-1">
                     <strong>Fixed Deposit</strong> — a lump sum locked at the bank until maturity ·
                     <strong>Recurring Deposit</strong> — regular smaller deposits building toward maturity ·
                     <strong>Savings Goal</strong> — informal saving toward a target with no fixed bank term
@@ -106,14 +106,14 @@
             <!-- Amounts -->
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label for="initial-deposit" class="field-required block text-sm font-medium text-gray-700 mb-2">Initial Deposit (VND)</label>
-                    <input type="number" id="initial-deposit" required min="0" step="1"
+                    <label for="initial-deposit" class="field-required block text-sm font-medium text-gray-700 mb-2">Initial Deposit ({{ display_currency | default('VND') }})</label>
+                    <input type="number" id="initial-deposit" data-money required min="0" step="1"
                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                            placeholder="Amount deposited">
                 </div>
                 <div>
-                    <label for="future-amount" class="block text-sm font-medium text-gray-700 mb-2">Future Amount (VND)</label>
-                    <input type="number" id="future-amount" required min="0" step="1"
+                    <label for="future-amount" class="block text-sm font-medium text-gray-700 mb-2">Future Amount ({{ display_currency | default('VND') }})</label>
+                    <input type="number" id="future-amount" data-money required min="0" step="1"
                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                            placeholder="Amount at maturity">
                 </div>
@@ -121,11 +121,11 @@
 
             <!-- Current Amount (#4) -->
             <div>
-                <label for="current-amount" class="block text-sm font-medium text-gray-700 mb-2">Current Amount (VND)</label>
-                <input type="number" id="current-amount" min="0" step="1"
+                <label for="current-amount" class="block text-sm font-medium text-gray-700 mb-2">Current Amount ({{ display_currency | default('VND') }})</label>
+                <input type="number" id="current-amount" data-money min="0" step="1"
                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                        placeholder="Leave blank to use Initial Deposit">
-                <p class="text-xs text-gray-400 mt-1">Actual current value (may differ from initial if partially withdrawn/added)</p>
+                <p class="text-xs text-text-muted mt-1">Actual current value (may differ from initial if partially withdrawn/added)</p>
             </div>
             
             <!-- Interest Rate -->
@@ -165,7 +165,7 @@
                 Cancel
             </button>
             <button type="submit"
-                    class="flex-1 px-4 py-3 bg-brand text-white rounded-lg hover:bg-brand-hover transition">
+                    class="flex-1 px-4 py-3 bg-brand-solid text-white rounded-lg hover:bg-brand-solid-hover transition">
                 Save Bundle
             </button>
         </div>
@@ -369,13 +369,12 @@
                 }
                 var list = _el('div', 'space-y-3');
                 bundles.forEach(function(b) {
-                    var amount = (b.current_amount || b.initial_deposit || 0).toLocaleString();
                     var row = _el('div', 'flex items-center justify-between p-4 border rounded-lg');
                     row.id = 'trash-item-' + b.id;
                     var info = _el('div');
                     info.appendChild(_el('p', 'font-semibold', b.name));
                     info.appendChild(_el('p', 'text-sm text-muted',
-                        (b.bank_name || '') + ' \u2014 ' + amount + ' VND' +
+                        (b.bank_name || '') + ' \u2014 ' + formatVND(b.current_amount || b.initial_deposit || 0) +
                         (b.deleted_at ? ' \u00b7 deleted ' + new Date(b.deleted_at).toLocaleDateString() : '')));
                     var actions = _el('div', 'flex gap-2 flex-shrink-0');
                     actions.appendChild(_trashButton('fas fa-undo mr-1', 'Restore',

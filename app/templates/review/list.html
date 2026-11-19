@@ -23,13 +23,25 @@
     <i class="fas fa-inbox text-xs"></i>
     <span data-count-label>{{ count }} transaction{{ '' if count == 1 else 's' }} pending</span>
   </span>
+  {% set confident = transactions | selectattr('confidence_score') | list %}
+  {% set confident = confident | selectattr('confidence_score', 'ge', 0.8) | list %}
+  <div class="flex flex-wrap items-center gap-2">
+  {% if confident and confident | length < count %}
+  <button id="review-approve-confident-btn" onclick="approveConfident({{ confident | length }})"
+          class="inline-flex items-center gap-2 px-4 py-2 border border-success text-success-text text-sm font-medium rounded-lg hover:bg-success-subtle transition">
+    <i class="fas fa-check text-xs" aria-hidden="true"></i> Confirm {{ confident | length }} high-confidence
+  </button>
+  {% endif %}
   {% if count > 1 %}
   <button id="review-approve-all-btn" onclick="approveAll()"
           class="inline-flex items-center gap-2 px-4 py-2 bg-success hover:bg-success/90 text-white text-sm font-medium rounded-lg transition">
     <i class="fas fa-check-double text-xs"></i> Approve all
   </button>
   {% endif %}
+  </div>
 </div>
+
+<p class="hidden md:block text-xs text-muted mb-3">Keyboard: <kbd>j</kbd>/<kbd>k</kbd> move between items · <kbd>c</kbd> confirm · <kbd>s</kbd> skip · <kbd>r</kbd> make a rule</p>
 
 <!-- ── Transaction cards, grouped by date ────────────────────────────── -->
 {% set ns = namespace(last_date=none) %}
@@ -42,14 +54,15 @@
   {% if not loop.first %}<div class="pt-2"></div>{% endif %}
   <div class="px-3 py-1.5 rounded-lg mb-1" style="background: var(--surface-sunken)">
     <span class="eyebrow">
-      {{ tx.date.strftime('%d %b %Y') }}
+      {{ (tx.date | app_date) }}
     </span>
   </div>
   {% endif %}
 
   {# ── Card — left border signals income (green) vs expense (red) ── #}
-  <div id="review-row-{{ tx.id }}"
-       class="cg-card rounded-xl hover:shadow-md transition-shadow
+  <div id="review-row-{{ tx.id }}" tabindex="0" data-review-card
+       aria-label="{{ tx.description or 'Transaction' }}, {{ tx.amount | currency }}"
+       class="cg-card rounded-xl hover:shadow-md transition-shadow focus:outline-none focus-visible:ring-2 focus-visible:ring-accent
               {% if tx.type.value == 'income' %}border-l-4 border-success{% else %}border-l-4 border-danger{% endif %}">
 
     <!-- TOP ROW: icon · description · amount -->
@@ -59,12 +72,12 @@
       <div class="flex-shrink-0 w-9 h-9 rounded-lg flex items-center justify-center mt-0.5
                   {{ 'bg-income-subtle' if tx.type.value == 'income' else 'bg-surface-sunken' }}">
         <i class="fas text-xs
-                  {{ 'fa-arrow-down text-income' if tx.type.value == 'income' else 'fa-arrow-up text-expense' }}"></i>
+                  {{ 'fa-plus text-income' if tx.type.value == 'income' else 'fa-minus text-expense' }}"></i>
       </div>
 
       <!-- Description — editable inline input, styled to feel like a field -->
       <div class="flex-1 min-w-0">
-        <input type="text"
+        <input type="text" aria-label="Description"
                class="desc-input w-full text-sm font-medium bg-transparent
                       border border-transparent rounded-lg px-2 py-1 -ml-2
                       hover:border-default hover:bg-surface-sunken
@@ -75,14 +88,30 @@
                placeholder="Add description…">
       </div>
 
-      <!-- Amount — consistent with transaction list (+/- prefix, ₫ suffix) -->
-      <div class="flex-shrink-0 text-right">
-        <span class="text-sm font-bold whitespace-nowrap amount tabular-nums
-                     {{ 'text-income' if tx.type.value == 'income' else 'text-expense' }}">
-          {{ '+' if tx.type.value == 'income' else '-' }}{{ tx.amount | currency }}
-        </span>
+      <!-- Amount — editable: OCR most often misreads the amount -->
+      <div class="flex-shrink-0 w-36">
+        <label for="review-amount-{{ tx.id }}" class="sr-only">Amount ({{ display_currency | default('VND') }})</label>
+        <input type="number" id="review-amount-{{ tx.id }}" data-money
+               class="amount-input w-full text-sm font-bold text-right tabular-nums bg-transparent
+                      border border-transparent rounded-lg px-2 py-1
+                      hover:border-default hover:bg-surface-sunken
+                      focus:border-accent focus:bg-white focus:ring-2 focus:ring-accent/20 focus:outline-none transition
+                      {{ 'text-income' if tx.type.value == 'income' else 'text-expense' }}"
+               value="{{ tx.amount | int }}" data-original="{{ tx.amount | int }}">
       </div>
     </div>
+
+    {% if tx.import_job_id %}
+    <!-- Source screenshot — check the parsed values against what was uploaded -->
+    <div class="px-4 pb-3">
+      <button type="button" onclick="openReviewImage({{ tx.import_job_id }})"
+              class="inline-flex items-center gap-2 rounded-lg border px-2 py-1.5 text-xs text-secondary hover:bg-surface-sunken focus:outline-none focus-visible:ring-2 focus-visible:ring-accent transition">
+        <img src="/api/import/jobs/{{ tx.import_job_id }}/image" alt="" loading="lazy"
+             class="w-10 h-10 object-cover rounded" onerror="this.remove()">
+        View source screenshot
+      </button>
+    </div>
+    {% endif %}
 
     <!-- META ROW: date · source · confidence · category -->
     <div class="flex flex-wrap items-center gap-2 px-4 pb-3">
@@ -115,20 +144,34 @@
       </div>
       {% endif %}
 
-      <!-- Spacer pushes category to right on wider screens -->
+      <!-- Spacer pushes the editable fields to the right on wider screens -->
       <div class="flex-1"></div>
 
-      <!-- Category selector — styled as a compact select -->
-      <select class="cat-select text-xs border rounded-lg px-2.5 py-1.5
+      <label for="review-date-{{ tx.id }}" class="sr-only">Date</label>
+      <input type="date" id="review-date-{{ tx.id }}"
+             class="date-input text-xs border rounded-lg px-2 py-1.5 bg-white focus:ring-2 focus:ring-accent focus:border-accent focus:outline-none"
+             value="{{ tx.date.isoformat() }}" data-original="{{ tx.date.isoformat() }}">
+
+      <label for="review-type-{{ tx.id }}" class="sr-only">Type</label>
+      <select id="review-type-{{ tx.id }}" onchange="onReviewTypeChange({{ tx.id }})"
+              class="type-select text-xs border rounded-lg px-2.5 py-1.5 bg-white font-medium focus:ring-2 focus:ring-accent focus:border-accent focus:outline-none"
+              data-original="{{ tx.type.value }}">
+        <option value="expense" {% if tx.type.value == 'expense' %}selected{% endif %}>Expense</option>
+        <option value="income" {% if tx.type.value == 'income' %}selected{% endif %}>Income</option>
+      </select>
+
+      <!-- Category selector — options for the other type stay hidden until Type changes -->
+      <label for="review-cat-{{ tx.id }}" class="sr-only">Category</label>
+      <select id="review-cat-{{ tx.id }}" class="cat-select text-xs border rounded-lg px-2.5 py-1.5
                      bg-white font-medium
                      focus:ring-2 focus:ring-accent focus:border-accent focus:outline-none
                      hover:border-default transition cursor-pointer">
         {% for cat in categories %}
-        {% if cat.type == tx.type %}
-        <option value="{{ cat.id }}" {% if cat.id == tx.category_id %}selected{% endif %}>
+        <option value="{{ cat.id }}" data-type="{{ cat.type.value }}"
+                {% if cat.type != tx.type %}hidden disabled{% endif %}
+                {% if cat.id == tx.category_id %}selected{% endif %}>
           {{ cat.name }}
         </option>
-        {% endif %}
         {% endfor %}
       </select>
     </div>
@@ -138,10 +181,8 @@
 
       <!-- Approve — primary action, leftmost, widest -->
       <button onclick="approveRow({{ tx.id }})"
-              class="flex-1 flex items-center justify-center gap-2 px-4 py-2.5
-                     text-sm font-semibold rounded-bl-xl transition"
-              style="color: var(--success-text); background: var(--success-subtle)"
-              onmouseover="this.style.background='var(--success)'" onmouseout="this.style.background='var(--success-subtle)'">
+              class="review-confirm-btn flex-1 flex items-center justify-center gap-2 px-4 py-2.5
+                     text-sm font-semibold rounded-bl-xl transition focus:outline-none">
         <i class="fas fa-check text-xs"></i> Confirm
       </button>
 

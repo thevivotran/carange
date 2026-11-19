@@ -6,10 +6,10 @@
     <!-- Page Header -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div class="hidden md:block">
-            <h2 class="text-3xl font-bold text-gray-800">Other Assets</h2>
+            <h1 class="text-3xl font-bold text-gray-800">Assets</h1>
             <p class="text-gray-600 mt-1">Track currencies, gold, and other assets</p>
         </div>
-        <button onclick="openAddAssetModal()" class="bg-brand text-white px-6 py-3 rounded-lg hover:bg-brand-hover transition flex items-center">
+        <button onclick="openAddAssetModal()" class="bg-brand-solid text-white px-6 py-3 rounded-lg hover:bg-brand-solid-hover transition flex items-center">
             <i class="fas fa-plus mr-2"></i>Add Asset
         </button>
     </div>
@@ -41,7 +41,7 @@
     <div class="bg-white rounded-xl shadow-xl max-w-lg w-full max-h-[90dvh] flex flex-col">
         <div class="p-6 border-b flex justify-between items-center flex-shrink-0">
             <h3 class="text-xl font-bold text-gray-800" id="asset-modal-title">Add Asset</h3>
-            <button onclick="closeAssetModal()" class="text-gray-500 hover:text-gray-700">
+            <button onclick="closeAssetModal()" aria-label="Close" class="text-gray-500 hover:text-gray-700">
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
@@ -96,14 +96,14 @@
             <!-- VND Values per unit -->
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label for="asset-purchase-price" class="block text-sm font-medium text-gray-700 mb-2">Purchase Price per Unit (VND)</label>
-                    <input type="number" id="asset-purchase-price" required min="0" step="1"
+                    <label for="asset-purchase-price" class="block text-sm font-medium text-gray-700 mb-2">Purchase Price per Unit ({{ display_currency | default('VND') }})</label>
+                    <input type="number" id="asset-purchase-price" data-money required min="0" step="1"
                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
-                           placeholder="Cost per unit in VND" oninput="updateAssetTotals()">
+                           placeholder="Cost per unit" oninput="updateAssetTotals()">
                 </div>
                 <div>
-                    <label for="asset-current-value" class="block text-sm font-medium text-gray-700 mb-2">Current Value per Unit (VND)</label>
-                    <input type="number" id="asset-current-value" required min="0" step="1"
+                    <label for="asset-current-value" class="block text-sm font-medium text-gray-700 mb-2">Current Value per Unit ({{ display_currency | default('VND') }})</label>
+                    <input type="number" id="asset-current-value" data-money required min="0" step="1"
                            class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                            placeholder="Current value per unit" oninput="updateAssetTotals()">
                 </div>
@@ -111,7 +111,7 @@
             <!-- Auto-calculated totals preview -->
             <div id="asset-totals-preview" class="hidden bg-gray-50 rounded-lg px-4 py-2 text-xs text-gray-600 grid grid-cols-2 gap-2">
                 <div>Total Purchase: <span id="preview-purchase" class="font-semibold text-blue-700"></span></div>
-                <div>Total Current: <span id="preview-current" class="font-semibold text-green-700"></span></div>
+                <div>Total Current: <span id="preview-current" class="font-semibold text-income"></span></div>
             </div>
 
             <!-- Notes -->
@@ -129,7 +129,7 @@
                 Cancel
             </button>
             <button type="submit"
-                    class="flex-1 px-4 py-3 bg-brand text-white rounded-lg hover:bg-brand-hover transition">
+                    class="flex-1 px-4 py-3 bg-brand-solid text-white rounded-lg hover:bg-brand-solid-hover transition">
                 Save Asset
             </button>
         </div>

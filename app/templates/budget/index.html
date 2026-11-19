@@ -7,33 +7,33 @@
   <!-- Header -->
   <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
     <div class="hidden md:block">
-      <h2 class="text-3xl font-bold text-gray-800">Budget</h2>
+      <h1 class="text-3xl font-bold text-gray-800">Budget</h1>
       <p class="text-muted mt-1">Monthly budget allocations and spending</p>
     </div>
     <!-- Controls: month pill + actions all on one line -->
     <div class="flex items-center gap-2 flex-wrap">
       <div class="flex items-center gap-1 cg-card px-2 py-1">
-        <button onclick="prevMonth()"
-                class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none">&#8249;</button>
+        <button onclick="prevMonth()" aria-label="Previous month"
+                class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none"><span aria-hidden="true">&#8249;</span></button>
         <div class="flex flex-col items-center justify-center px-3 py-1 min-w-[110px]">
           <span id="month-label" class="text-sm font-semibold text-center select-none"></span>
           <span id="budget-month-range-display" class="block text-[10px] leading-tight text-muted text-center whitespace-nowrap select-none"></span>
         </div>
-        <button onclick="nextMonth()"
-                class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none">&#8250;</button>
-        <button id="budget-exit-btn" onclick="exitBudgetMonthTracking()" title="Exit month tracking — reset to current month"
-                class="hidden w-7 h-7 flex items-center justify-center rounded-lg text-base text-muted hover:text-danger hover:bg-danger-subtle transition select-none">&#215;</button>
+        <button onclick="nextMonth()" aria-label="Next month"
+                class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none"><span aria-hidden="true">&#8250;</span></button>
+        <button id="budget-exit-btn" onclick="exitBudgetMonthTracking()" title="Exit month tracking — reset to current month" aria-label="Reset to current month"
+                class="hidden w-10 h-10 flex items-center justify-center rounded-lg text-base text-muted hover:text-danger hover:bg-danger-subtle transition select-none">&#215;</button>
       </div>
-      <button onclick="openHistoryModal()" title="Budget History" aria-label="Budget History"
+      <button onclick="openHistoryModal()" title="Budget history" aria-label="Budget history"
               class="hidden md:flex items-center justify-center w-10 h-10 cg-card border text-secondary rounded-lg hover:bg-surface-sunken transition flex-shrink-0">
         <i class="fas fa-history"></i>
       </button>
-      <button onclick="openBudgetAddModal()" title="Add Category" aria-label="Add Category"
-              class="flex items-center justify-center gap-2 px-4 py-2.5 md:py-3 cg-card border text-secondary rounded-lg hover:bg-surface-sunken transition flex-shrink-0">
+      <button onclick="openBudgetAddModal()" title="Add a category to this budget"
+              class="flex items-center justify-center gap-2 px-4 py-2.5 md:py-3 cg-card border text-secondary rounded-lg hover:bg-surface-sunken transition flex-shrink-0 whitespace-nowrap">
         <i class="fas fa-plus" aria-hidden="true"></i>
-        <span>Add Category</span>
+        <span>Add to budget</span>
       </button>
-      <button onclick="openEditModal()" class="flex items-center gap-2 px-6 py-3 bg-brand text-white rounded-lg hover:bg-brand-hover transition">
+      <button onclick="openEditModal()" class="flex items-center gap-2 whitespace-nowrap px-6 py-3 bg-brand-solid text-white rounded-lg hover:bg-brand-solid-hover transition">
         <i class="fas fa-sliders-h"></i> Edit Budgets
       </button>
     </div>
@@ -54,7 +54,7 @@
   <div class="cg-card rounded-xl shadow-xl w-full max-w-lg max-h-[85dvh] flex flex-col">
     <div class="p-6 border-b flex items-center justify-between">
       <h3 class="font-bold text-gray-800">Edit Budgets</h3>
-      <button onclick="closeEditModal()" class="text-gray-400 hover:text-gray-600" aria-label="Close"><i class="fas fa-times"></i></button>
+      <button onclick="closeEditModal()" class="text-text-muted hover:text-gray-600" aria-label="Close"><i class="fas fa-times"></i></button>
     </div>
     <div class="px-6 py-2 border-b bg-gray-50">
       <p class="text-xs text-gray-500 py-2">Each row has its own effective-from month. Only rows you change will be saved.</p>
@@ -62,7 +62,7 @@
     <div id="edit-form" class="flex-1 overflow-y-auto overscroll-contain px-6 py-4 space-y-3"></div>
     <div class="px-6 py-4 border-t flex gap-3" style="border-color: var(--border-subtle)">
       <button onclick="closeEditModal()" class="flex-1 px-4 py-2.5 border rounded-lg hover:bg-surface-sunken transition text-sm font-medium">Cancel</button>
-      <button onclick="saveEdits()" class="flex-1 px-4 py-2.5 bg-brand text-white rounded-lg hover:bg-brand-hover transition text-sm font-medium">Save</button>
+      <button onclick="saveEdits()" class="flex-1 px-4 py-2.5 bg-brand-solid text-white rounded-lg hover:bg-brand-solid-hover transition text-sm font-medium">Save</button>
     </div>
   </div>
 </div>
@@ -72,7 +72,7 @@
   <div class="cg-card rounded-xl shadow-xl w-full max-w-sm">
     <div class="p-6 border-b flex items-center justify-between">
       <h3 class="font-bold text-gray-800">Add Category to Budget</h3>
-      <button onclick="closeAddModal()" class="text-gray-400 hover:text-gray-600" aria-label="Close"><i class="fas fa-times"></i></button>
+      <button onclick="closeAddModal()" class="text-text-muted hover:text-gray-600" aria-label="Close"><i class="fas fa-times"></i></button>
     </div>
     <div class="px-6 py-4 space-y-4">
       <div>
@@ -82,14 +82,14 @@
         </select>
       </div>
       <div>
-        <label for="add-amount" class="text-sm font-medium text-gray-700 mb-1 block">Monthly Budget (VND)</label>
-        <input id="add-amount" type="number" min="0" step="10000" placeholder="0"
+        <label for="add-amount" class="text-sm font-medium text-gray-700 mb-1 block">Monthly Budget ({{ display_currency | default('VND') }})</label>
+        <input id="add-amount" data-money type="number" min="0" step="10000" placeholder="0"
           class="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
       </div>
     </div>
     <div class="px-6 py-4 border-t flex gap-3" style="border-color: var(--border-subtle)">
       <button onclick="closeAddModal()" class="flex-1 px-4 py-2.5 border rounded-lg hover:bg-surface-sunken transition text-sm font-medium">Cancel</button>
-      <button onclick="confirmAdd()" class="flex-1 px-4 py-2.5 bg-brand text-white rounded-lg hover:bg-brand-hover transition text-sm font-medium">Add</button>
+      <button onclick="confirmAdd()" class="flex-1 px-4 py-2.5 bg-brand-solid text-white rounded-lg hover:bg-brand-solid-hover transition text-sm font-medium">Add</button>
     </div>
   </div>
 </div>
@@ -99,10 +99,10 @@
   <div class="cg-card rounded-xl shadow-xl w-full max-w-5xl max-h-[90dvh] flex flex-col">
     <div class="p-6 border-b flex items-center justify-between">
       <h3 class="font-bold text-gray-800">Budget History — Last 6 Months</h3>
-      <button onclick="closeHistoryModal()" class="text-gray-400 hover:text-gray-600" aria-label="Close"><i class="fas fa-times"></i></button>
+      <button onclick="closeHistoryModal()" class="text-text-muted hover:text-gray-600" aria-label="Close"><i class="fas fa-times"></i></button>
     </div>
     <div class="flex-1 overflow-auto overscroll-contain px-6 py-4">
-      <div id="history-loading" class="text-center text-gray-400 py-8">Loading...</div>
+      <div id="history-loading" class="text-center text-text-muted py-8">Loading...</div>
       <div id="history-table-wrap" class="hidden overflow-x-auto"></div>
     </div>
   </div>
@@ -252,11 +252,47 @@ async function _fetchRows() {
 }
 
 // ── Edit modal ─────────────────────────────────────────────────────────────
-async function openEditModal() {
-    const rows = await _fetchRows();
+// Lists every active expense category: budgeted ones first, then the rest with a
+// suggestion from the last 3 months of spending (so a first budget can be set here).
+async function openEditModal(useSuggestions) {
+    const [rows, suggestions] = await Promise.all([
+        _fetchRows(),
+        fetch(`/api/budget/${currentYM}/suggestions`).then(r => r.ok ? r.json() : []),
+    ]);
+    const budgetedIds = new Set(rows.map(r => r.category_id));
+    const fresh = suggestions
+        .filter(sg => !budgetedIds.has(sg.category_id))
+        .map(sg => ({
+            category_id: sg.category_id,
+            category_name: sg.category_name,
+            category_color: sg.category_color,
+            monthly_allocation: useSuggestions && sg.suggested > 0 ? sg.suggested : '',
+            has_own_allocation: true,
+            is_new: true,
+            suggested: sg.suggested,
+        }));
     const form = document.getElementById('edit-form');
     form.replaceChildren();
-    rows.forEach(r => {
+    if (fresh.length && fresh.some(r => r.suggested > 0)) {
+        const bar = document.createElement('div');
+        bar.className = 'flex items-center justify-between gap-3 rounded-lg px-3 py-2 bg-accent-subtle';
+        const msg = document.createElement('p');
+        msg.className = 'text-xs text-accent-text';
+        msg.textContent = fresh.length + ' categories have no budget yet. Suggestions use your average spending over the last 3 months.';
+        const use = document.createElement('button');
+        use.type = 'button';
+        use.className = 'flex-shrink-0 text-xs font-semibold px-3 py-1.5 rounded-lg bg-brand-solid text-white hover:bg-brand-solid-hover';
+        use.textContent = 'Use suggestions';
+        use.addEventListener('click', () => {
+            form.querySelectorAll('input[data-suggested]').forEach(inp => {
+                if (!inp.value && Number(inp.dataset.suggested) > 0) inp.value = inp.dataset.suggested;
+            });
+        });
+        bar.appendChild(msg);
+        bar.appendChild(use);
+        form.appendChild(bar);
+    }
+    rows.concat(fresh).forEach(r => {
         const row = document.createElement('div');
         row.className = 'border-b border-gray-100 pb-3 last:border-b-0 last:pb-0';
 
@@ -292,26 +328,37 @@ async function openEditModal() {
 
         const amtField = document.createElement('div');
         amtField.className = 'flex-1 min-w-0';
-        const amtLabel = document.createElement('span');
-        amtLabel.className = 'block text-[10px] uppercase tracking-wide text-gray-400 mb-0.5';
-        amtLabel.textContent = 'Amount (VND)';
+        const amtLabel = document.createElement('label');
+        amtLabel.htmlFor = 'budget-amt-' + r.category_id;
+        amtLabel.className = 'block text-[10px] uppercase tracking-wide text-text-muted mb-0.5';
+        amtLabel.textContent = 'Amount ({{ display_currency | default('VND') }})';
         const amtInput = document.createElement('input');
+        amtInput.id = 'budget-amt-' + r.category_id;
         amtInput.type = 'number';
+        amtInput.dataset.money = '';
         amtInput.min = '0';
         amtInput.step = '10000';
         amtInput.value = r.monthly_allocation;
         amtInput.dataset.catId = r.category_id;
         amtInput.dataset.origAmt = r.monthly_allocation;
+        if (r.is_new) {
+            // Not budgeted yet: any amount entered (or accepted) is a change worth saving.
+            amtInput.dataset.origAmt = '';
+            amtInput.dataset.suggested = r.suggested;
+            amtInput.placeholder = r.suggested > 0 ? 'Suggested ' + window.formatAmount(r.suggested) : 'Not budgeted';
+        }
         amtInput.className = 'w-full min-w-0 border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary text-right';
         amtField.appendChild(amtLabel);
         amtField.appendChild(amtInput);
 
         const monthField = document.createElement('div');
         monthField.className = 'flex-1 min-w-0';
-        const monthLabel = document.createElement('span');
-        monthLabel.className = 'block text-[10px] uppercase tracking-wide text-gray-400 mb-0.5';
+        const monthLabel = document.createElement('label');
+        monthLabel.htmlFor = 'budget-month-' + r.category_id;
+        monthLabel.className = 'block text-[10px] uppercase tracking-wide text-text-muted mb-0.5';
         monthLabel.textContent = 'Effective from';
         const monthInput = document.createElement('input');
+        monthInput.id = 'budget-month-' + r.category_id;
         monthInput.type = 'month';
         monthInput.value = currentYM;
         monthInput.dataset.forCat = r.category_id;
@@ -327,6 +374,7 @@ async function openEditModal() {
         row.appendChild(inputRow);
         form.appendChild(row);
     });
+    window.bindMoneyInputs(form);
     document.getElementById('edit-modal').classList.remove('hidden');
 }
 
@@ -340,6 +388,7 @@ async function saveEdits() {
         const origAmt = parseFloat(inp.dataset.origAmt);
         const catId   = parseInt(inp.dataset.catId);
         if (isNaN(newAmt)) return;
+        if (inp.dataset.origAmt === '' && newAmt <= 0) return;
         const monthInput = document.querySelector(`#edit-form input[data-for-cat="${catId}"]`);
         const effectiveMonth = monthInput ? monthInput.value : currentYM;
         if (!effectiveMonth) return;
@@ -453,7 +502,7 @@ async function openHistoryModal() {
 
     if (catMap.size === 0) {
         const empty = document.createElement('p');
-        empty.className = 'text-gray-400 text-center py-8';
+        empty.className = 'text-text-muted text-center py-8';
         empty.textContent = 'No budget data found for this period.';
         wrap.appendChild(empty);
         return;
@@ -512,7 +561,7 @@ async function openHistoryModal() {
                 spentEl.textContent = fmtVND(row.this_month_spent);
 
                 const budgetEl = document.createElement('div');
-                budgetEl.className = 'text-xs text-gray-400';
+                budgetEl.className = 'text-xs text-text-muted';
                 budgetEl.textContent = fmtVND(row.monthly_allocation) + ' budget';
 
                 td.appendChild(spentEl);

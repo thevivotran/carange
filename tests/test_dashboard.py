@@ -74,7 +74,7 @@ def test_dashboard_page_shows_income_in_safety_score_on_first_load(client, db_se
     r = client.get("/")
     assert r.status_code == 200
     assert "No income recorded" not in r.text
-    assert "Salary Received" in r.text
+    assert "Salary received" in r.text
 
 
 # ── Savings Rate ──────────────────────────────────────────────────────────────

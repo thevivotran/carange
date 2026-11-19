@@ -8,19 +8,19 @@
   <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
     <div class="cg-card rounded-xl p-4 text-center">
       <p class="text-sm text-muted mb-1">Active Bundles</p>
-      <p class="text-2xl font-bold text-accent amount tabular-nums">{{ active_count }}</p>
+      <p class="text-2xl font-bold text-gray-800 amount tabular-nums">{{ active_count }}</p>
     </div>
     <div class="cg-card rounded-xl p-4 text-center">
       <p class="text-sm text-muted mb-1">Saved Now</p>
-      <p class="text-2xl font-bold text-accent amount tabular-nums">{{ total_saved | currency }}</p>
+      <p class="text-2xl font-bold text-gray-800 amount tabular-nums">{{ total_saved | currency }}</p>
     </div>
     <div class="cg-card rounded-xl p-4 text-center">
       <p class="text-sm text-muted mb-1">Targets &amp; Maturity</p>
-      <p class="text-2xl font-bold text-success amount tabular-nums">{{ total_future | currency }}</p>
+      <p class="text-2xl font-bold text-gray-800 amount tabular-nums">{{ total_future | currency }}</p>
     </div>
     <div class="cg-card rounded-xl p-4 text-center">
       <p class="text-sm text-muted mb-1">Expected Interest</p>
-      <p class="text-2xl font-bold text-brand amount tabular-nums">{{ total_interest | currency }}</p>
+      <p class="text-2xl font-bold text-gray-800 amount tabular-nums">{{ total_interest | currency }}</p>
     </div>
   </div>
 
@@ -31,7 +31,7 @@
     </div>
     <p class="text-xl font-medium mb-2">No savings bundles yet</p>
     <p class="text-sm text-muted mb-6">Track fixed deposits and savings goals — create your first bundle to see projected growth.</p>
-    <button onclick="openSavingsModal()" class="bg-brand text-white px-6 py-3 rounded-lg hover:bg-brand-hover transition flex items-center gap-2 text-sm mx-auto">
+    <button onclick="openSavingsModal()" class="bg-brand-solid text-white px-6 py-3 rounded-lg hover:bg-brand-solid-hover transition flex items-center gap-2 text-sm mx-auto">
       <i class="fas fa-plus"></i> Add savings bundle
     </button>
   </div>

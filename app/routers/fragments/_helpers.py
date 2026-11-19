@@ -29,6 +29,9 @@ templates.env.filters["tojson"] = _decimal_safe_tojson
 from app.services.currency_format import register as register_currency_filters, inject_currency
 
 register_currency_filters(templates.env)
+from app.services.date_format import register as register_date_filters  # noqa: E402
+
+register_date_filters(templates.env)
 templates.context_processors.append(inject_currency)
 
 _VN_TZ = timezone(timedelta(hours=7))

@@ -1,5 +1,6 @@
 """Budget domain business logic with SQL-based cumulative computation."""
 
+import math
 from collections import defaultdict
 from datetime import date as _date
 
@@ -209,3 +210,63 @@ def compute_budget_rows(db: Session, year_month: str, day: int | None = None) ->
 
     result.sort(key=lambda r: r["available_balance"])
     return result
+
+
+SUGGESTION_ROUNDING = 50_000
+
+
+def _shift_month(year_month: str, delta: int) -> str:
+    y, m = int(year_month[:4]), int(year_month[5:7])
+    idx = y * 12 + (m - 1) + delta
+    return f"{idx // 12:04d}-{idx % 12 + 1:02d}"
+
+
+def suggest_budget_amounts(db: Session, year_month: str, months: int = 3, day: int | None = None) -> dict[int, float]:
+    """Suggested monthly budget per active expense category: average spend over the
+    `months` full fiscal periods before `year_month` (counting only periods that have any
+    spending), rounded up to SUGGESTION_ROUNDING.
+
+    Every active expense category is returned; ones with no spending suggest 0.
+    """
+    from app.services.fiscal_period import fiscal_window, get_month_start_day
+
+    if day is None:
+        day = get_month_start_day(db)
+    start = fiscal_window(_shift_month(year_month, -months), day)[0]
+    end = fiscal_window(_shift_month(year_month, -1), day)[1]
+
+    totals = dict(
+        db.query(Transaction.category_id, func.sum(Transaction.amount))
+        .filter(
+            Transaction.type == TransactionType.EXPENSE,
+            Transaction.deleted_at.is_(None),
+            Transaction.date >= start,
+            Transaction.date <= end,
+        )
+        .group_by(Transaction.category_id)
+        .all()
+    )
+    # Average over the periods that actually have spending, so a household with only
+    # one or two months of history isn't told to budget a third of what it spends.
+    months_with_data = 0
+    for i in range(months, 0, -1):
+        p_start, p_end = fiscal_window(_shift_month(year_month, -i), day)
+        if (
+            db.query(Transaction.id)
+            .filter(
+                Transaction.type == TransactionType.EXPENSE,
+                Transaction.deleted_at.is_(None),
+                Transaction.date >= p_start,
+                Transaction.date <= p_end,
+            )
+            .first()
+        ):
+            months_with_data += 1
+    divisor = max(1, months_with_data)
+
+    cats = db.query(Category.id).filter(Category.type == TransactionType.EXPENSE, Category.is_active.isnot(False)).all()
+    out: dict[int, float] = {}
+    for (cat_id,) in cats:
+        avg = float(totals.get(cat_id) or 0) / divisor
+        out[cat_id] = float(math.ceil(avg / SUGGESTION_ROUNDING) * SUGGESTION_ROUNDING) if avg > 0 else 0.0
+    return out

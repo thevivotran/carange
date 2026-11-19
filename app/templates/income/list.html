@@ -6,10 +6,10 @@
     <!-- Page Header -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div class="hidden md:block">
-            <h2 class="text-3xl font-bold text-gray-800">Income Sources</h2>
+            <h1 class="text-3xl font-bold text-gray-800">Income Sources</h1>
             <p class="text-muted mt-1">Track each income stream's contract terms, comp reviews, and trajectory</p>
         </div>
-        <button onclick="openIncomeModal()" class="bg-brand text-white px-6 py-3 rounded-lg hover:bg-brand-hover transition flex items-center">
+        <button onclick="openIncomeModal()" class="bg-brand-solid text-white px-6 py-3 rounded-lg hover:bg-brand-solid-hover transition flex items-center">
             <i class="fas fa-plus mr-2"></i>Add Income Source
         </button>
     </div>
@@ -92,7 +92,7 @@
             <div class="grid grid-cols-2 gap-4">
                 <div>
                     <label for="income-base-amount" class="block text-sm font-medium text-gray-700 mb-2">Base Amount (monthly)</label>
-                    <input type="number" id="income-base-amount" min="0" step="1" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Informational only">
+                    <input type="number" id="income-base-amount" data-money min="0" step="1" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Informational only">
                 </div>
                 <div>
                     <label for="income-currency" class="block text-sm font-medium text-gray-700 mb-2">Currency</label>
@@ -124,7 +124,7 @@
         </div>
         <div class="p-6 border-t flex gap-4 flex-shrink-0">
             <button type="button" onclick="closeIncomeModal()" class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition text-sm font-medium">Cancel</button>
-            <button type="submit" class="flex-1 px-4 py-3 bg-brand text-white rounded-lg hover:bg-brand-hover transition text-sm font-medium">Save Income Source</button>
+            <button type="submit" class="flex-1 px-4 py-3 bg-brand-solid text-white rounded-lg hover:bg-brand-solid-hover transition text-sm font-medium">Save Income Source</button>
         </div>
         </form>
     </div>
@@ -165,7 +165,7 @@
                 </div>
                 <div>
                     <label for="event-new-base-amount" class="block text-sm font-medium text-gray-700 mb-2">New Base Amount</label>
-                    <input type="number" id="event-new-base-amount" min="0" step="1" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Optional">
+                    <input type="number" id="event-new-base-amount" data-money min="0" step="1" class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Optional">
                 </div>
             </div>
             <div>
@@ -175,7 +175,7 @@
         </div>
         <div class="p-6 border-t flex gap-4 flex-shrink-0">
             <button type="button" onclick="closeEventModal()" class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition text-sm font-medium">Cancel</button>
-            <button type="submit" class="flex-1 px-4 py-3 bg-brand text-white rounded-lg hover:bg-brand-hover transition text-sm font-medium">Save Event</button>
+            <button type="submit" class="flex-1 px-4 py-3 bg-brand-solid text-white rounded-lg hover:bg-brand-solid-hover transition text-sm font-medium">Save Event</button>
         </div>
         </form>
     </div>

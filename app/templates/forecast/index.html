@@ -7,7 +7,7 @@
   <!-- Header -->
   <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
     <div class="hidden md:block">
-      <h2 class="text-2xl font-bold">Cash-Flow Forecast</h2>
+      <h1 class="text-2xl font-bold">Forecast</h1>
       <p class="text-sm text-muted">Projected running balance</p>
     </div>
     <div class="flex items-center gap-1 cg-card px-2 py-1">
@@ -50,7 +50,7 @@
     <p class="font-semibold text-gray-800">Nothing scheduled to forecast yet</p>
     <p class="text-sm text-muted mt-1 max-w-md mx-auto">The forecast projects your balance from recurring templates, project payments, savings maturities and budgets. Add one to see where your cash is heading.</p>
     <div class="mt-4 flex flex-wrap justify-center gap-2">
-      <a href="/templates" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white text-sm font-medium transition">
+      <a href="/templates" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-solid hover:bg-brand-solid-hover text-white text-sm font-medium transition">
         <i class="fas fa-repeat" aria-hidden="true"></i> Set up a recurring bill
       </a>
       <a href="/budget" class="inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium text-gray-700 hover:bg-gray-50 transition">
@@ -66,7 +66,7 @@
       <span class="text-xs text-muted">― Buffer line</span>
     </div>
     <div style="height: 280px; position: relative;">
-      <canvas id="forecastChart"></canvas>
+      <canvas id="forecastChart" role="img" aria-label="Projected running balance chart (loading)"></canvas>
     </div>
   </div>
 
@@ -191,6 +191,13 @@ function _renderChart(data) {
     const pointRadii = data.series.map((_, i) => i === lowPointIndex ? 6 : 0);
     const pointColors = data.series.map((_, i) => i === lowPointIndex ? _lowPointColor() : _balanceLineColor());
 
+    const last = data.series[data.series.length - 1];
+    window.describeChart('forecastChart',
+        'Projected balance over ' + data.series.length + ' days: from ' + window.formatAmountAbbrev(data.series[0].balance) +
+        ' to ' + window.formatAmountAbbrev(last.balance) +
+        (data.low_point ? ', lowest ' + window.formatAmountAbbrev(data.low_point.balance) + ' on ' + data.low_point.date : '') + '.',
+        ['Date', 'Balance'],
+        data.series.filter((_, i) => i % 7 === 0 || i === data.series.length - 1).map(p => [p.date, window.formatAmount(p.balance)]));
     const ctx = document.getElementById('forecastChart').getContext('2d');
     if (_forecastChart) { _forecastChart.destroy(); }
     _forecastChart = new Chart(ctx, {

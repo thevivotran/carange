@@ -8,11 +8,11 @@
   <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
     <div class="cg-card rounded-xl p-4 text-center">
       <p class="text-sm text-muted mb-1">Income Sources</p>
-      <p class="text-2xl font-bold text-accent amount tabular-nums">{{ total_count }}</p>
+      <p class="text-2xl font-bold text-gray-800 amount tabular-nums">{{ total_count }}</p>
     </div>
     <div class="cg-card rounded-xl p-4 text-center">
       <p class="text-sm text-muted mb-1">Active</p>
-      <p class="text-2xl font-bold text-success amount tabular-nums">{{ active_count }}</p>
+      <p class="text-2xl font-bold text-gray-800 amount tabular-nums">{{ active_count }}</p>
     </div>
     <div class="cg-card rounded-xl p-4 text-center">
       <p class="text-sm text-muted mb-1">Review Overdue</p>
@@ -27,7 +27,7 @@
     </div>
     <p class="text-xl font-medium mb-2">No income sources yet</p>
     <p class="text-sm text-muted mb-6">Track each income stream's contract terms, comp reviews, and trajectory over time.</p>
-    <button onclick="openIncomeModal()" class="bg-brand text-white px-6 py-3 rounded-lg hover:bg-brand-hover transition flex items-center gap-2 text-sm mx-auto">
+    <button onclick="openIncomeModal()" class="bg-brand-solid text-white px-6 py-3 rounded-lg hover:bg-brand-solid-hover transition flex items-center gap-2 text-sm mx-auto">
       <i class="fas fa-plus"></i> Add your first income source
     </button>
   </div>
@@ -118,11 +118,11 @@
               <div class="flex gap-1 flex-shrink-0">
                 <button data-event='{{ event_dict | tojson }}'
                         onclick="editEvent({{ source.id }}, JSON.parse(this.getAttribute('data-event')))"
-                        class="p-2 text-gray-400 hover:text-accent rounded-lg hover:bg-gray-100" title="Edit event" aria-label="Edit compensation event">
+                        class="p-2 text-text-muted hover:text-accent rounded-lg hover:bg-gray-100" title="Edit event" aria-label="Edit compensation event">
                   <i class="fas fa-edit text-xs"></i>
                 </button>
                 <button onclick="deleteEvent({{ source.id }}, {{ event.id }})"
-                        class="p-2 text-gray-400 hover:text-danger rounded-lg hover:bg-gray-100" title="Delete event" aria-label="Delete compensation event">
+                        class="p-2 text-text-muted hover:text-danger rounded-lg hover:bg-gray-100" title="Delete event" aria-label="Delete compensation event">
                   <i class="fas fa-trash text-xs"></i>
                 </button>
               </div>

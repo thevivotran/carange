@@ -6,10 +6,10 @@
     <!-- Page Header -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div class="hidden md:block">
-            <h2 class="text-3xl font-bold text-gray-800">Financial Projects</h2>
+            <h1 class="text-3xl font-bold text-gray-800">Projects</h1>
             <p class="text-gray-600 mt-1">Track your family's financial goals and projects</p>
         </div>
-        <button onclick="openProjectModal()" class="bg-brand text-white px-6 py-3 rounded-lg hover:bg-brand-hover transition flex items-center">
+        <button onclick="openProjectModal()" class="bg-brand-solid text-white px-6 py-3 rounded-lg hover:bg-brand-solid-hover transition flex items-center">
             <i class="fas fa-plus mr-2"></i>Add Project
         </button>
     </div>
@@ -97,7 +97,7 @@
             </div>
             <div class="flex gap-4 pt-4">
                 <button type="button" onclick="closeProjectModal()" class="flex-1 px-4 py-3 border rounded-lg hover:bg-gray-50 transition text-sm font-medium">Cancel</button>
-                <button type="submit" class="flex-1 px-4 py-3 bg-brand text-white rounded-lg hover:bg-brand-hover transition text-sm font-medium">Save Project</button>
+                <button type="submit" class="flex-1 px-4 py-3 bg-brand-solid text-white rounded-lg hover:bg-brand-solid-hover transition text-sm font-medium">Save Project</button>
             </div>
         </form>
         </div>
@@ -142,7 +142,7 @@
             <!-- Linked Transactions Section (#9) -->
             <div class="border rounded-lg p-4">
                 <h4 class="font-semibold text-gray-700 mb-3 flex items-center gap-2">
-                    <i class="fas fa-receipt text-green-500 text-sm"></i>
+                    <i class="fas fa-receipt text-income text-sm"></i>
                     Linked Transactions
                 </h4>
                 <div id="project-transactions-list" class="space-y-1 text-sm text-gray-500">
@@ -159,15 +159,15 @@
                         <input type="date" id="new-payment-date" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
                     </div>
                     <div>
-                        <label for="new-payment-amount" class="block text-xs text-gray-600 mb-1">Amount (VND) *</label>
-                        <input type="number" id="new-payment-amount" required min="1" step="1" placeholder="Amount" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                        <label for="new-payment-amount" class="block text-xs text-gray-600 mb-1">Amount ({{ display_currency | default('VND') }}) *</label>
+                        <input type="number" id="new-payment-amount" data-money required min="1" step="1" placeholder="Amount" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
                     </div>
                     <div>
                         <label for="new-payment-notes" class="block text-xs text-gray-600 mb-1">Notes</label>
                         <input type="text" id="new-payment-notes" placeholder="Optional notes" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
                     </div>
                     <div>
-                        <button type="submit" class="w-full bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand-hover transition text-sm">
+                        <button type="submit" class="w-full bg-brand-solid text-white px-4 py-2 rounded-lg hover:bg-brand-solid-hover transition text-sm">
                             <i class="fas fa-plus mr-1"></i>Add Payment
                         </button>
                     </div>
@@ -184,7 +184,7 @@
                     <form id="recurring-form" class="grid grid-cols-2 md:grid-cols-3 gap-3 items-end">
                         <div>
                             <label for="rec-amount" class="block text-xs text-gray-600 mb-1">Amount per installment *</label>
-                            <input type="number" id="rec-amount" required min="1" step="1" placeholder="Amount" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                            <input type="number" id="rec-amount" data-money required min="1" step="1" placeholder="Amount" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
                         </div>
                         <div>
                             <label for="rec-start-date" class="block text-xs text-gray-600 mb-1">Start Date *</label>
@@ -229,8 +229,8 @@
                 <input type="date" id="edit-payment-date" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
             </div>
             <div>
-                <label for="edit-payment-amount" class="block text-xs text-gray-600 mb-1">Amount (VND) *</label>
-                <input type="number" id="edit-payment-amount" required min="1" step="1" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
+                <label for="edit-payment-amount" class="block text-xs text-gray-600 mb-1">Amount ({{ display_currency | default('VND') }}) *</label>
+                <input type="number" id="edit-payment-amount" data-money required min="1" step="1" class="w-full border rounded px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
             </div>
             <div>
                 <label for="edit-payment-notes" class="block text-xs text-gray-600 mb-1">Notes</label>
@@ -239,7 +239,7 @@
         </div>
         <div class="flex gap-3 mt-5">
             <button onclick="closeEditPaymentModal()" class="flex-1 px-4 py-2.5 border rounded-lg hover:bg-gray-50 text-sm font-medium">Cancel</button>
-            <button onclick="saveEditPayment()" class="flex-1 px-4 py-2.5 bg-brand text-white rounded-lg hover:bg-brand-hover text-sm font-medium">Save Changes</button>
+            <button onclick="saveEditPayment()" class="flex-1 px-4 py-2.5 bg-brand-solid text-white rounded-lg hover:bg-brand-solid-hover text-sm font-medium">Save Changes</button>
         </div>
     </div>
 </div>
@@ -440,7 +440,7 @@
             wrap.appendChild(undoBtn);
         } else {
             const paidBtn = document.createElement('button');
-            paidBtn.className = 'text-xs text-green-600 hover:text-green-800 px-2 py-1 rounded hover:bg-green-50 font-medium';
+            paidBtn.className = 'text-xs text-income hover:text-success-text px-2 py-1 rounded hover:bg-green-50 font-medium';
             paidBtn.textContent = 'Mark Paid';
             paidBtn.onclick = () => openMarkPaidModal(p.id, p.due_date, p.amount);
             wrap.appendChild(paidBtn);
@@ -454,7 +454,7 @@
         editPayBtn.onclick = () => openEditPaymentModal(p);
         wrap.appendChild(editPayBtn);
         const delBtn = document.createElement('button');
-        delBtn.className = 'text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50';
+        delBtn.className = 'text-xs text-expense hover:text-expense px-2 py-1 rounded hover:bg-red-50';
         delBtn.textContent = 'Del';
         delBtn.onclick = () => deletePayment(p.id);
         wrap.appendChild(delBtn);
@@ -474,7 +474,7 @@
 
             const isPaid = p.status === 'paid';
             const badgeCls = isPaid
-                ? 'px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium'
+                ? 'px-2 py-0.5 bg-green-100 text-income rounded-full text-xs font-medium'
                 : 'px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium';
             const dateStr = p.due_date ? formatDate(p.due_date) : 'TBD';
 
@@ -493,7 +493,7 @@
                 tdDate.textContent = dateStr;
             } else {
                 const tbd = document.createElement('span');
-                tbd.className = 'text-gray-400';
+                tbd.className = 'text-text-muted';
                 tbd.textContent = 'TBD';
                 tdDate.appendChild(tbd);
             }
@@ -549,7 +549,7 @@
             cardLeft.className = 'flex-1 min-w-0';
 
             const cardNum = document.createElement('span');
-            cardNum.className = 'text-xs text-gray-400 mr-2';
+            cardNum.className = 'text-xs text-text-muted mr-2';
             cardNum.textContent = '#' + (idx + 1);
             cardLeft.appendChild(cardNum);
 
@@ -605,8 +605,8 @@
         totalsEl.replaceChildren();
         [
             { label: 'Total',     value: formatVND(totalAmt),   cls: '' },
-            { label: 'Paid',      value: formatVND(paidAmt),    cls: 'text-green-700' },
-            { label: 'Remaining', value: formatVND(remaining),  cls: 'text-red-600' },
+            { label: 'Paid',      value: formatVND(paidAmt),    cls: 'text-income' },
+            { label: 'Remaining', value: formatVND(remaining),  cls: 'text-gray-800' },
             { label: 'Progress',  value: pct + '%',             cls: 'text-blue-600' },
         ].forEach(item => {
             const div = document.createElement('div');
@@ -748,7 +748,7 @@
             while (container.firstChild) container.removeChild(container.firstChild);
             if (txns.length === 0) {
                 const empty = document.createElement('p');
-                empty.className = 'text-gray-400 italic';
+                empty.className = 'text-text-muted italic';
                 empty.textContent = 'No linked transactions yet.';
                 container.appendChild(empty);
                 return;
@@ -782,7 +782,7 @@
                 }
 
                 const amtSpan = document.createElement('span');
-                amtSpan.className = 'font-semibold text-red-600 flex-shrink-0 ml-2';
+                amtSpan.className = 'font-semibold text-expense flex-shrink-0 ml-2';
                 amtSpan.textContent = '-' + formatVND(t.amount);
 
                 row.appendChild(left);
@@ -795,7 +795,7 @@
             const totalLbl = document.createElement('span');
             totalLbl.textContent = 'Total (' + txns.length + ' transaction' + (txns.length !== 1 ? 's' : '') + ')';
             const totalAmtSpan = document.createElement('span');
-            totalAmtSpan.className = 'text-red-600';
+            totalAmtSpan.className = 'text-expense';
             totalAmtSpan.textContent = '-' + formatVND(totalAmount);
             totalRow.appendChild(totalLbl);
             totalRow.appendChild(totalAmtSpan);
@@ -803,7 +803,7 @@
         } catch(e) {
             while (container.firstChild) container.removeChild(container.firstChild);
             const errP = document.createElement('p');
-            errP.className = 'text-red-500';
+            errP.className = 'text-expense';
             errP.textContent = 'Failed to load transactions.';
             container.appendChild(errP);
         }

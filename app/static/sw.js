@@ -1,4 +1,6 @@
-const CACHE = 'carange-v2';
+// Bump when the caching strategy changes. Static URLs carry ?v=<hash> (static_url() in
+// template_globals), so cache-first never serves a stale stylesheet after a deploy.
+const CACHE = 'carange-v3';
 const PRECACHE = ['/pulse', '/static/manifest.json'];
 
 self.addEventListener('install', e => {

@@ -6,10 +6,10 @@
     <!-- Page Header -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div class="hidden md:block">
-            <h2 class="text-3xl font-bold text-gray-800">Templates</h2>
+            <h1 class="text-3xl font-bold text-gray-800">Templates</h1>
             <p class="text-gray-600 mt-1">Quick-entry shortcuts for common transactions. Tap <i class="fas fa-clock text-indigo-500"></i> on any template to make it run automatically on a schedule.</p>
         </div>
-        <button onclick="openTemplateModal()" class="bg-brand text-white px-5 py-2.5 rounded-lg hover:bg-brand-hover transition flex items-center gap-2">
+        <button onclick="openTemplateModal()" class="bg-brand-solid text-white px-5 py-2.5 rounded-lg hover:bg-brand-solid-hover transition flex items-center gap-2">
             <i class="fas fa-plus"></i> Add Template
         </button>
     </div>
@@ -51,7 +51,7 @@
              hx-get="/fragments/templates/rows"
              hx-trigger="load, templates-updated from:body"
              hx-swap="innerHTML">
-            <div class="flex justify-center py-12 text-gray-400">
+            <div class="flex justify-center py-12 text-text-muted">
                 <i class="fas fa-spinner fa-spin text-2xl"></i>
             </div>
         </div>
@@ -99,15 +99,15 @@
                 <div class="flex gap-4" role="radiogroup" aria-labelledby="tpl-type-label">
                     <label class="flex-1 cursor-pointer">
                         <input type="radio" name="type" value="income" class="sr-only peer" onchange="loadModalCategories()">
-                        <div class="text-center py-3 border-2 rounded-lg peer-checked:border-green-500 peer-checked:bg-green-50 peer-checked:text-green-700 peer-checked:font-semibold transition peer-focus-visible:ring-2 peer-focus-visible:ring-brand">
-                            <i class="fas fa-arrow-down text-green-600 text-xl mb-1"></i>
+                        <div class="text-center py-3 border-2 rounded-lg peer-checked:border-green-500 peer-checked:bg-green-50 peer-checked:text-income peer-checked:font-semibold transition peer-focus-visible:ring-2 peer-focus-visible:ring-brand">
+                            <i class="fas fa-plus text-income text-xl mb-1" aria-hidden="true"></i>
                             <p class="text-sm font-medium">Income</p>
                         </div>
                     </label>
                     <label class="flex-1 cursor-pointer">
                         <input type="radio" name="type" value="expense" class="sr-only peer" checked onchange="loadModalCategories()">
-                        <div class="text-center py-3 border-2 rounded-lg peer-checked:border-red-500 peer-checked:bg-red-50 peer-checked:text-red-700 peer-checked:font-semibold transition peer-focus-visible:ring-2 peer-focus-visible:ring-brand">
-                            <i class="fas fa-arrow-up text-red-600 text-xl mb-1"></i>
+                        <div class="text-center py-3 border-2 rounded-lg peer-checked:border-red-500 peer-checked:bg-red-50 peer-checked:text-expense peer-checked:font-semibold transition peer-focus-visible:ring-2 peer-focus-visible:ring-brand">
+                            <i class="fas fa-minus text-expense text-xl mb-1" aria-hidden="true"></i>
                             <p class="text-sm font-medium">Expense</p>
                         </div>
                     </label>
@@ -116,8 +116,8 @@
 
             <!-- Amount -->
             <div>
-                <label for="amount" class="block text-sm font-medium text-gray-700 mb-2">Amount (VND)</label>
-                <input type="number" id="amount" required min="0" step="1"
+                <label for="amount" class="block text-sm font-medium text-gray-700 mb-2">Amount ({{ display_currency | default('VND') }})</label>
+                <input type="number" id="amount" data-money required min="0" step="1"
                        class="w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-primary focus:border-transparent"
                        placeholder="Enter amount">
             </div>
@@ -166,7 +166,7 @@
                 Cancel
             </button>
             <button type="submit"
-                    class="flex-1 px-4 py-3 bg-brand text-white rounded-lg hover:bg-brand-hover transition">
+                    class="flex-1 px-4 py-3 bg-brand-solid text-white rounded-lg hover:bg-brand-solid-hover transition">
                 Save Template
             </button>
         </div>
@@ -223,7 +223,7 @@
                 Cancel
             </button>
             <button type="submit"
-                    class="flex-1 px-4 py-3 bg-brand text-white rounded-lg hover:bg-brand-hover transition">
+                    class="flex-1 px-4 py-3 bg-brand-solid text-white rounded-lg hover:bg-brand-solid-hover transition">
                 Save Schedule
             </button>
         </div>

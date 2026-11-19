@@ -1,5 +1,5 @@
 {% if not snap or not is_expense %}
-  <p class="text-xs text-gray-400 text-center py-2">No budget set for this category</p>
+  <p class="text-xs text-text-muted text-center py-2">No budget set for this category</p>
 {% else %}
   {% set bar_pct = [[snap.usage_pct, 100] | min, 0] | max %}
   {% if snap.status == 'On track' %}
@@ -19,6 +19,6 @@
       </span>
       <span class="font-medium" style="color:{{ bar_color }}">{{ snap.status }}</span>
     </div>
-    <p class="text-xs text-gray-400">{{ snap.usage_pct }}% spent &middot; {{ snap.pace_status }}</p>
+    <p class="text-xs text-text-muted">{{ snap.usage_pct }}% spent &middot; {{ snap.pace_status }}</p>
   </div>
 {% endif %}

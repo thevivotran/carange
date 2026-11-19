@@ -8,19 +8,19 @@
   <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
     <div class="bg-white rounded-lg shadow p-4">
       <p class="text-sm text-gray-500">Active Projects</p>
-      <p class="text-2xl font-bold text-primary">{{ active_count }}</p>
+      <p class="text-2xl font-bold text-gray-800">{{ active_count }}</p>
     </div>
     <div class="bg-white rounded-lg shadow p-4">
       <p class="text-sm text-gray-500">Completed</p>
-      <p class="text-2xl font-bold text-green-600">{{ completed_count }}</p>
+      <p class="text-2xl font-bold text-gray-800">{{ completed_count }}</p>
     </div>
     <div class="bg-white rounded-lg shadow p-4">
       <p class="text-sm text-gray-500">Current Amount</p>
-      <p class="text-2xl font-bold text-blue-600">{{ total_current | currency }}</p>
+      <p class="text-2xl font-bold text-gray-800">{{ total_current | currency }}</p>
     </div>
     <div class="bg-white rounded-lg shadow p-4">
       <p class="text-sm text-gray-500">Progress</p>
-      <p class="text-2xl font-bold text-purple-600">{{ "%.1f"|format(progress_pct) }}%</p>
+      <p class="text-2xl font-bold text-gray-800">{{ "%.1f"|format(progress_pct) }}%</p>
     </div>
   </div>
 
@@ -28,9 +28,9 @@
   <div class="col-span-full flex flex-col items-center justify-center py-20 text-center">
     <i class="fas fa-bullseye text-6xl mb-4 text-gray-200"></i>
     <p class="text-xl font-medium text-gray-500 mb-2">No projects yet</p>
-    <p class="text-sm text-gray-400 mb-6">Set a financial goal and track your progress toward it</p>
+    <p class="text-sm text-text-muted mb-6">Set a financial goal and track your progress toward it</p>
     <button onclick="openProjectModal()"
-            class="bg-brand text-white px-6 py-3 rounded-lg hover:bg-brand-hover transition flex items-center gap-2 text-sm mx-auto">
+            class="bg-brand-solid text-white px-6 py-3 rounded-lg hover:bg-brand-solid-hover transition flex items-center gap-2 text-sm mx-auto">
       <i class="fas fa-plus"></i> Create your first project
     </button>
   </div>
@@ -41,14 +41,14 @@
     {% set remaining = project.target_amount - project.current_amount %}
     {% set pay_count = project.payments | length %}
 
-    {% if project.priority.value == 'high' %}{% set pri_cls = 'bg-red-100 text-red-800' %}
+    {% if project.priority.value == 'high' %}{% set pri_cls = 'bg-red-100 text-danger-text' %}
     {% elif project.priority.value == 'medium' %}{% set pri_cls = 'bg-yellow-100 text-yellow-800' %}
-    {% else %}{% set pri_cls = 'bg-green-100 text-green-800' %}{% endif %}
+    {% else %}{% set pri_cls = 'bg-green-100 text-success-text' %}{% endif %}
 
     {% if project.status.value == 'planning' %}{% set st_cls = 'bg-gray-100 text-gray-800' %}
     {% elif project.status.value == 'in_progress' %}{% set st_cls = 'bg-blue-100 text-blue-800' %}
-    {% elif project.status.value == 'completed' %}{% set st_cls = 'bg-green-100 text-green-800' %}
-    {% else %}{% set st_cls = 'bg-red-100 text-red-800' %}{% endif %}
+    {% elif project.status.value == 'completed' %}{% set st_cls = 'bg-green-100 text-success-text' %}
+    {% else %}{% set st_cls = 'bg-red-100 text-danger-text' %}{% endif %}
 
     <div class="bg-white rounded-xl shadow-md p-6">
       <!-- Header -->
@@ -81,9 +81,9 @@
       <!-- Stats -->
       <div class="text-sm text-gray-600 mb-2">
         {{ pay_count }} payment{{ '' if pay_count == 1 else 's' }}&nbsp;&nbsp;|&nbsp;&nbsp;Paid:
-        <span class="font-semibold text-green-700">{{ project.current_amount | currency }}</span>
+        <span class="font-semibold text-income">{{ project.current_amount | currency }}</span>
         &nbsp;&nbsp;|&nbsp;&nbsp;Remaining:
-        <span class="font-semibold text-red-600">{{ remaining | currency }}</span>
+        <span class="font-semibold text-gray-800">{{ remaining | currency }}</span>
       </div>
 
       {% if next_due %}
@@ -105,7 +105,7 @@
           <i class="fas fa-edit"></i>
         </button>
         <button onclick="deleteProject({{ project.id }})"
-                class="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                class="px-3 py-2 text-expense hover:bg-red-50 rounded-lg transition"
                 title="Delete" aria-label="Delete project">
           <i class="fas fa-trash"></i>
         </button>

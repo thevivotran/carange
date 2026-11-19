@@ -8,9 +8,9 @@
   <div class="flex items-center justify-between pt-1">
     <div class="hidden md:block">
       <h1 class="text-2xl font-bold text-gray-800">Daily Pulse</h1>
-      <p class="text-xs text-gray-400">{{ today.strftime('%A, %-d %B %Y') }}</p>
+      <p class="text-xs text-text-muted">{{ (today | app_date('long')) }}</p>
     </div>
-    <a href="/" class="text-xs text-gray-400 hover:text-primary flex items-center gap-1">
+    <a href="/" class="text-xs text-text-muted hover:text-primary flex items-center gap-1">
       <i class="fas fa-chart-line text-sm"></i>
       <span>Full view</span>
     </a>
@@ -19,8 +19,8 @@
   <!-- ── Status Card ── -->
   {% if pulse_level == 'green' %}
     {% set card_bg = 'bg-green-50 border-green-200' %}
-    {% set label_color = 'text-green-700' %}
-    {% set icon_color = 'text-green-500' %}
+    {% set label_color = 'text-success' %}
+    {% set icon_color = 'text-success' %}
     {% set icon = 'fa-circle-check' %}
   {% elif pulse_level == 'amber' %}
     {% set card_bg = 'bg-amber-50 border-amber-200' %}
@@ -30,12 +30,12 @@
   {% elif pulse_level == 'neutral' %}
     {% set card_bg = 'bg-gray-50 border-gray-200' %}
     {% set label_color = 'text-gray-700' %}
-    {% set icon_color = 'text-gray-400' %}
+    {% set icon_color = 'text-text-muted' %}
     {% set icon = 'fa-circle-info' %}
   {% else %}
     {% set card_bg = 'bg-red-50 border-red-200' %}
-    {% set label_color = 'text-red-700' %}
-    {% set icon_color = 'text-red-500' %}
+    {% set label_color = 'text-danger' %}
+    {% set icon_color = 'text-danger' %}
     {% set icon = 'fa-circle-xmark' %}
   {% endif %}
 
@@ -63,30 +63,30 @@
 
   <!-- ── This Month Numbers ── -->
   <div class="bg-white rounded-2xl border border-gray-100 p-4">
-    <p class="text-xs uppercase tracking-widest text-gray-400 font-semibold mb-3">This Month</p>
+    <p class="text-xs uppercase tracking-widest text-text-muted font-semibold mb-3">This Month</p>
     <div class="grid grid-cols-3 gap-2 text-center">
       <div>
-        <p class="text-xs text-gray-400 mb-0.5">Income</p>
-        <p class="text-sm font-bold text-green-600">
+        <p class="text-xs text-text-muted mb-0.5">Income</p>
+        <p class="text-sm font-bold text-success">
           {{ summary.total_income | currency_abbrev }}
         </p>
       </div>
       <div>
-        <p class="text-xs text-gray-400 mb-0.5">Spent</p>
-        <p class="text-sm font-bold text-red-500">
+        <p class="text-xs text-text-muted mb-0.5">Spent</p>
+        <p class="text-sm font-bold text-danger">
           {{ summary.total_expense | currency_abbrev }}
         </p>
       </div>
       <div>
-        <p class="text-xs text-gray-400 mb-0.5">Saved</p>
+        <p class="text-xs text-text-muted mb-0.5">Saved</p>
         <p class="text-sm font-bold text-blue-600">
           {{ summary.total_savings_expense | currency_abbrev }}
         </p>
       </div>
     </div>
     <div class="mt-3 pt-3 border-t border-gray-100 flex justify-between items-center">
-      <span class="text-xs text-gray-400">Net cash this month</span>
-      <span class="text-sm font-bold {{ 'text-green-600' if summary.net_this_month >= 0 else 'text-red-500' }}">
+      <span class="text-xs text-text-muted">Net cash this month</span>
+      <span class="text-sm font-bold {{ 'text-success' if summary.net_this_month >= 0 else 'text-danger' }}">
         {{ summary.net_this_month | currency_abbrev(signed=true) }}
       </span>
     </div>
@@ -95,10 +95,10 @@
   <!-- ── Month Progress ── -->
   <div class="bg-white rounded-2xl border border-gray-100 p-4">
     <div class="flex justify-between items-center mb-2">
-      <p class="text-xs uppercase tracking-widest text-gray-400 font-semibold">
+      <p class="text-xs uppercase tracking-widest text-text-muted font-semibold">
         {{ fiscal_month_name }} Progress
       </p>
-      <span class="text-xs text-gray-400">
+      <span class="text-xs text-text-muted">
         Day {{ day_index }} / {{ last_day }}
       </span>
     </div>
@@ -122,7 +122,7 @@
   {% else %}
   {% set ss_bg = 'bg-green-50 border-green-200' if ss_score == 4 else ('bg-amber-50 border-amber-200' if ss_score >= 2 else 'bg-red-50 border-red-200') %}
   {% set ss_dot = 'bg-green-500' if ss_score == 4 else ('bg-amber-500' if ss_score >= 2 else 'bg-red-500') %}
-  {% set ss_label = 'text-green-700' if ss_score == 4 else ('text-amber-700' if ss_score >= 2 else 'text-red-700') %}
+  {% set ss_label = 'text-success' if ss_score == 4 else ('text-warning' if ss_score >= 2 else 'text-danger') %}
 
   <div class="rounded-2xl border p-4 {{ ss_bg }}">
     <div class="flex items-center justify-between mb-3">
@@ -137,17 +137,18 @@
       </div>
     </div>
     <div class="grid grid-cols-2 gap-2">
+      {% from "partials/_safety_labels.html" import safety_labels, savings_label %}
       {% for ok, label, detail in [
-          (check_income, 'Salary', 'Income received'),
-          (check_bds, 'Property', 'Payment made this month'),
-          (check_tk, 'Savings', '≥ ' ~ summary.savings_target_pct|int ~ '% of income'),
-          (check_net, 'Net Positive', 'Income > expenses')
+          (check_income, safety_labels.income, 'Income received this month'),
+          (check_bds, safety_labels.bds, 'Paid this month'),
+          (check_tk, savings_label(summary.savings_target_pct), 'Of this month’s income'),
+          (check_net, safety_labels.net, 'Income above spending')
       ] %}
       <div class="flex items-center gap-2 bg-white rounded-xl px-3 py-2">
-        <span class="text-sm">{% if ok %}<i class="fas fa-circle-check text-green-600" aria-hidden="true"></i><span class="sr-only">Met:</span>{% else %}<i class="fas fa-circle-xmark text-red-500" aria-hidden="true"></i><span class="sr-only">Not met:</span>{% endif %}</span>
+        <span class="text-sm">{% if ok %}<i class="fas fa-circle-check text-success" aria-hidden="true"></i><span class="sr-only">Met:</span>{% else %}<i class="fas fa-circle-xmark text-danger" aria-hidden="true"></i><span class="sr-only">Not met:</span>{% endif %}</span>
         <div>
-          <p class="text-xs font-semibold {{ 'text-green-800' if ok else 'text-red-700' }}">{{ label }}</p>
-          <p class="text-xs {{ 'text-green-600' if ok else 'text-red-500' }} opacity-80">{{ detail }}</p>
+          <p class="text-xs font-semibold {{ 'text-success-text' if ok else 'text-danger' }}">{{ label }}</p>
+          <p class="text-xs {{ 'text-success' if ok else 'text-danger' }} opacity-80">{{ detail }}</p>
         </div>
       </div>
       {% endfor %}
@@ -158,7 +159,7 @@
   <!-- ── Over-budget alerts ── -->
   {% if alert_over_budget %}
   <div class="bg-white rounded-2xl border border-red-100 p-4">
-    <p class="text-xs uppercase tracking-widest text-red-500 font-semibold mb-3">Over Budget</p>
+    <p class="text-xs uppercase tracking-widest text-danger font-semibold mb-3">Over Budget</p>
     <div class="space-y-2">
       {% for cat in alert_over_budget[:4] %}
       <div class="flex items-center justify-between">
@@ -166,8 +167,8 @@
           <span class="w-2 h-2 rounded-full flex-shrink-0" style="background-color: {{ cat.color or '#6B7280' }}"></span>
           <span class="text-sm text-gray-700 truncate">{{ cat.category_name }}</span>
         </div>
-        <span class="text-xs font-semibold text-red-500 flex-shrink-0 ml-2">
-          -{{ currency_symbol() }}{{ "{:,.0f}".format(cat.available_balance | abs / 1000) }}K over
+        <span class="text-xs font-semibold text-danger flex-shrink-0 ml-2">
+          {{ cat.available_balance | abs | currency_abbrev }} over
         </span>
       </div>
       {% endfor %}
@@ -179,7 +180,7 @@
   {% if recent_transactions %}
   <div class="bg-white rounded-2xl border border-gray-100 p-4">
     <div class="flex items-center justify-between mb-3">
-      <p class="text-xs uppercase tracking-widest text-gray-400 font-semibold">Recent</p>
+      <p class="text-xs uppercase tracking-widest text-text-muted font-semibold">Recent</p>
       <a href="/transactions" class="text-xs text-primary hover:underline">See all</a>
     </div>
     <div class="space-y-3">
@@ -187,17 +188,17 @@
       <div class="flex items-center gap-3">
         <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0
           {{ 'bg-income-subtle' if tx.type.value == 'income' else 'bg-surface-sunken' }}">
-          <i class="fas text-xs {{ 'fa-arrow-down text-income' if tx.type.value == 'income' else 'fa-arrow-up text-expense' }}"></i>
+          <i class="fas text-xs {{ 'fa-plus text-income' if tx.type.value == 'income' else 'fa-minus text-expense' }}"></i>
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-sm text-gray-700 truncate">
             {{ tx.description or tx.category.name }}
           </p>
-          <p class="text-xs text-gray-400">{{ tx.date.strftime('%-d %b') }} · {{ tx.category.name }}</p>
+          <p class="text-xs text-text-muted">{{ (tx.date | app_date('short')) }} · {{ tx.category.name }}</p>
         </div>
         <span class="text-sm font-semibold flex-shrink-0
           {{ 'text-income' if tx.type.value == 'income' else 'text-expense' }}">
-          {% if tx.type.value == 'income' %}+{% else %}-{% endif %}{{ currency_symbol() }}{{ "{:,.0f}".format(tx.amount / 1000) }}K
+          {{ (tx.amount if tx.type.value == 'income' else -tx.amount) | currency_abbrev(signed=true) }}
         </span>
       </div>
       {% endfor %}

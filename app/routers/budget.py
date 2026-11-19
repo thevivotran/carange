@@ -10,7 +10,7 @@ from app.models.schemas import (
     BudgetAllocationUpdate,
     BudgetAllocationRecord,
 )
-from app.services.budget_service import compute_budget_rows
+from app.services.budget_service import compute_budget_rows, suggest_budget_amounts
 from app.services.dashboard_service import invalidate_dashboard_cache
 from app.services.fiscal_period import fiscal_window, get_month_start_day
 
@@ -25,6 +25,22 @@ router = APIRouter()
 @router.get("/{year_month}/rows")
 def get_budget_rows(year_month: str, db: Session = Depends(get_db)):
     return _compute_rows(db, year_month)
+
+
+@router.get("/{year_month}/suggestions")
+def get_budget_suggestions(year_month: str, db: Session = Depends(get_db)):
+    """Every active expense category with a suggested monthly amount from recent spending."""
+    suggestions = suggest_budget_amounts(db, year_month)
+    cats = db.query(Category).filter(Category.id.in_(list(suggestions))).order_by(Category.name).all()
+    return [
+        {
+            "category_id": c.id,
+            "category_name": c.name,
+            "category_color": c.color,
+            "suggested": suggestions[c.id],
+        }
+        for c in cats
+    ]
 
 
 @router.get("/allocations/{year_month}", response_model=List[BudgetAllocationRecord])
