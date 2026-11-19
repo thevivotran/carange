@@ -65,6 +65,9 @@
       <h3 class="font-semibold">Running Balance</h3>
       <span class="text-xs text-muted">― Buffer line</span>
     </div>
+    <p id="forecast-estimate-note" class="hidden text-xs text-muted -mt-2 mb-3">Nothing is scheduled, so this is estimated from your average income and spending over the last <span id="forecast-estimate-days"></span> days.</p>
+    <div class="hidden">
+    </div>
     <div style="height: 280px; position: relative;">
       <canvas id="forecastChart" role="img" aria-label="Projected running balance chart (loading)"></canvas>
     </div>
@@ -93,6 +96,7 @@ const _bufferLineColor = () => '#F59E0B';
 const _lowPointColor = () => '#EF4444';
 
 const SOURCE_LABELS = {
+    spending_estimate: 'Estimate',
     template: 'Template',
     project_payment: 'Project Payment',
     savings_maturity: 'Savings Maturity',
@@ -344,6 +348,9 @@ function loadForecast(horizon) {
             _renderSummary(data);
             const nothingScheduled = (!data.events || data.events.length === 0) && !data.horizon_net;
             document.getElementById('forecast-empty').classList.toggle('hidden', !nothingScheduled);
+            const est = data.estimate_source === 'spending_average';
+            document.getElementById('forecast-estimate-note').classList.toggle('hidden', !est);
+            if (est) document.getElementById('forecast-estimate-days').textContent = data.estimate_days;
             document.getElementById('forecast-chart-card').classList.toggle('hidden', nothingScheduled);
             if (!nothingScheduled) _renderChart(data);
             _renderEvents(data);

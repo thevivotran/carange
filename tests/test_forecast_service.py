@@ -274,3 +274,38 @@ def test_budget_headroom_estimate_events(db_session, expense_cat):
 
     assert without_estimate["events"] == []
     assert with_estimate["low_point"]["balance"] <= without_estimate["low_point"]["balance"]
+
+
+def test_spending_estimate_when_nothing_scheduled(db_session):
+    from datetime import date, timedelta
+    from decimal import Decimal
+
+    from app.models.database import Category, Transaction, TransactionType
+    from app.services.forecast_service import build_forecast
+
+    cat = Category(name="EstFood", type=TransactionType.EXPENSE, color="#111111", icon="x")
+    db_session.add(cat)
+    db_session.commit()
+    today = date.today()
+    for d in (30, 20, 10):
+        db_session.add(
+            Transaction(
+                date=today - timedelta(days=d),
+                amount=Decimal(700_000),
+                type=TransactionType.EXPENSE,
+                category_id=cat.id,
+            )
+        )
+    db_session.commit()
+    f = build_forecast(db_session, horizon_days=28)
+    assert f["estimate_source"] == "spending_average"
+    assert f["estimate_days"] == 30
+    assert [e["source"] for e in f["events"]] == ["spending_estimate"] * 4
+    assert f["events"][0]["signed"] == -2_100_000 / 30 * 7
+
+
+def test_no_spending_estimate_without_enough_history(db_session):
+    from app.services.forecast_service import build_forecast
+
+    f = build_forecast(db_session, horizon_days=28)
+    assert f["estimate_source"] is None
