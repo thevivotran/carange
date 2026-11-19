@@ -59,10 +59,10 @@ fas fa-sort text-gray-300 group-hover:text-primary text-xs
                 {% endif %}
             </div>
         </td>
-        <td class="px-4 py-3 text-sm text-gray-500">{{ cat.transaction_count or 0 }} txns</td>
+        <td class="px-4 py-3 text-sm text-gray-500">{{ cat.transaction_count or 0 }} transaction{{ '' if (cat.transaction_count or 0) == 1 else 's' }}</td>
         <td class="px-4 py-3">
             {% if cat.kpi_role %}
-            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-accent-text">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-accent-subtle text-accent-text">
                 <i class="fas fa-bullseye mr-1"></i>{{ kpi_labels.get(cat.kpi_role, cat.kpi_role) }}
             </span>
             {% else %}
@@ -70,8 +70,8 @@ fas fa-sort text-gray-300 group-hover:text-primary text-xs
             {% endif %}
         </td>
         <td class="px-4 py-3">
-            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ 'bg-green-100 text-success' if cat.is_active else 'bg-gray-100 text-gray-500' }}">
-                {{ 'Active' if cat.is_active else 'Inactive' }}
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ 'text-muted' if cat.is_active else 'bg-gray-100 text-gray-600' }}">
+                {{ 'Shown' if cat.is_active else 'Hidden' }}
             </span>
         </td>
         <td class="px-4 py-3 text-right whitespace-nowrap">
@@ -124,36 +124,36 @@ fas fa-sort text-gray-300 group-hover:text-primary text-xs
                     {% endif %}
                 </div>
                 <div class="mt-1 flex flex-wrap gap-1">
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ 'bg-green-100 text-success' if cat.is_active else 'bg-gray-100 text-gray-500' }}">
-                        {{ 'Active' if cat.is_active else 'Inactive' }}
-                    </span>
+                    {% if not cat.is_active %}
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">Hidden</span>
+                    {% endif %}
                     {% if cat.kpi_role %}
-                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-accent-text">
+                    <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-accent-subtle text-accent-text">
                         <i class="fas fa-bullseye mr-1"></i>{{ kpi_labels.get(cat.kpi_role, cat.kpi_role) }}
                     </span>
                     {% endif %}
-                    <span class="text-xs text-text-muted">{{ cat.transaction_count or 0 }} txns</span>
+                    <span class="text-xs text-text-muted">{{ cat.transaction_count or 0 }} transaction{{ '' if (cat.transaction_count or 0) == 1 else 's' }}</span>
                 </div>
             </div>
         </div>
         <div class="flex items-center gap-1 flex-shrink-0">
             <button onclick="editCategory({{ cat.id }})"
-                    class="p-2 text-text-muted hover:text-primary hover:bg-gray-100 rounded-lg transition" title="Edit">
+                    class="w-10 h-10 flex items-center justify-center text-text-muted hover:text-primary hover:bg-gray-100 rounded-lg transition" title="Edit" aria-label="Edit {{ cat.name | e }}">
                 <i class="fas fa-edit text-sm"></i>
             </button>
             <button onclick="toggleCategory({{ cat.id }})"
-                    class="p-2 text-text-muted hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
-                    title="{{ 'Deactivate' if cat.is_active else 'Activate' }}">
+                    class="w-10 h-10 flex items-center justify-center text-text-muted hover:text-gray-700 hover:bg-gray-100 rounded-lg transition"
+                    title="{{ 'Hide' if cat.is_active else 'Show' }}" aria-label="{{ 'Hide' if cat.is_active else 'Show' }} {{ cat.name | e }}">
                 <i class="fas fa-{{ 'eye-slash' if cat.is_active else 'eye' }} text-sm"></i>
             </button>
             {% if cat.transaction_count > 0 %}
             <button onclick="openMergeModal({{ cat.id }}, '{{ cat.name | e }}', '{{ cat.type }}', {{ cat.transaction_count }})"
-                    class="p-2 text-text-muted hover:text-danger hover:bg-red-50 rounded-lg transition" title="Delete">
+                    class="w-10 h-10 flex items-center justify-center text-text-muted hover:text-danger hover:bg-red-50 rounded-lg transition" title="Delete" aria-label="Delete {{ cat.name | e }}">
                 <i class="fas fa-trash text-sm"></i>
             </button>
             {% else %}
             <button onclick="deleteCategoryDirect({{ cat.id }}, '{{ cat.name | e }}')"
-                    class="p-2 text-text-muted hover:text-danger hover:bg-red-50 rounded-lg transition" title="Delete">
+                    class="w-10 h-10 flex items-center justify-center text-text-muted hover:text-danger hover:bg-red-50 rounded-lg transition" title="Delete" aria-label="Delete {{ cat.name | e }}">
                 <i class="fas fa-trash text-sm"></i>
             </button>
             {% endif %}

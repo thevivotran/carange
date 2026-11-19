@@ -218,7 +218,7 @@
             collapseActions();
             deleteWithUndo(row, '/api/transactions/' + t.id, function() {
                 saveFilters(); loadTransactions(); loadMonthlySummary();
-            }, formatDate(t.date) + ' ' + t.category.name, 0);
+            }, formatDate(t.date) + ' ' + t.category.name, 0, '/api/transactions/' + t.id + '/restore');
         }
     }
 
@@ -256,6 +256,8 @@
         newConfirm.addEventListener('click', function() {
             document.getElementById('cascade-modal').classList.add('hidden');
             collapseActions();
+            // Cascade deletes linked records too; restore only brings back the
+            // transaction, so this path stays "delete now" without an Undo.
             deleteWithUndo(row, '/api/transactions/' + t.id, function() {
                 saveFilters(); loadTransactions(); loadMonthlySummary();
             }, formatDate(t.date) + ' ' + t.category.name, 0);

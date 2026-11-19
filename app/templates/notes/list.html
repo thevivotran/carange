@@ -8,7 +8,8 @@
     <!-- Sidebar: note list (full-width on mobile, fixed-width on desktop) -->
     <div id="notes-sidebar" class="w-full md:w-72 md:flex-shrink-0 bg-white border-r flex flex-col h-full">
         <div class="p-4 border-b flex items-center justify-between">
-            <h1 class="text-lg font-bold text-gray-800"><i class="fas fa-sticky-note mr-2 text-yellow-500" aria-hidden="true"></i>IOUs &amp; Notes</h1>
+            {# The mobile top bar already shows "IOUs & Notes"; keep this heading for screen readers there. #}
+            <h1 class="sr-only md:not-sr-only text-lg font-bold text-gray-800"><i class="fas fa-sticky-note mr-2 text-yellow-500" aria-hidden="true"></i>IOUs &amp; Notes</h1>
             <button onclick="newNote()" class="bg-brand-solid text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-solid-hover transition flex items-center gap-1.5">
                 <i class="fas fa-plus text-xs"></i> New
             </button>
@@ -17,7 +18,7 @@
         <!-- Filter by type -->
         <div class="px-3 pt-3 pb-1 flex gap-2 flex-wrap">
             <button onclick="filterNotes(null)" id="filter-all" class="filter-btn active text-xs px-2.5 py-1 rounded-full border transition">All</button>
-            <button onclick="filterNotes('money_owed')" id="filter-money_owed" class="filter-btn text-xs px-2.5 py-1 rounded-full border transition">Money Owed</button>
+            <button onclick="filterNotes('money_owed')" id="filter-money_owed" class="filter-btn text-xs px-2.5 py-1 rounded-full border transition">Money owed</button>
             <button onclick="filterNotes('general')" id="filter-general" class="filter-btn text-xs px-2.5 py-1 rounded-full border transition">General</button>
         </div>
 
@@ -49,9 +50,8 @@
 
                 <select id="note-type" onchange="scheduleSave()"
                     class="text-xs border rounded-full px-3 py-1 text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-brand/40">
-                    <option value="">General</option>
-                    <option value="money_owed">Money Owed</option>
                     <option value="general">General</option>
+                    <option value="money_owed">Money owed</option>
                 </select>
 
                 <span id="save-status" class="text-xs text-text-muted min-w-16 text-right"></span>
@@ -76,7 +76,7 @@
 
 <style>
 .filter-btn { background: white; color: #6b7280; }
-.filter-btn.active { background: #3b82f6; color: white; border-color: #3b82f6; }
+.filter-btn.active { background: var(--brand-solid); color: white; border-color: var(--brand-solid); }
 .note-card { cursor: pointer; border-radius: 0.5rem; padding: 0.625rem 0.75rem; transition: background 0.15s; border-left: 3px solid transparent; }
 .note-card:hover { background: #f3f4f6; }
 .note-card.selected { background: #eff6ff; border-left-color: #3b82f6; }
@@ -89,7 +89,7 @@ let currentNoteId = null;
 let saveTimer = null;
 let activeFilter = null;
 
-const TYPE_LABELS = { money_owed: 'Money Owed', general: 'General' };
+const TYPE_LABELS = { money_owed: 'Money owed', general: 'General' };
 const TYPE_COLORS = { money_owed: 'bg-orange-100 text-orange-700', general: 'bg-gray-100 text-gray-600' };
 
 async function loadNotes() {
@@ -115,7 +115,8 @@ function renderNoteList() {
     const container = document.getElementById('notes-list');
     container.replaceChildren();
 
-    const filtered = activeFilter ? notes.filter(n => n.type === activeFilter) : notes;
+    // Notes saved before types existed have no type: they count as General.
+    const filtered = activeFilter ? notes.filter(n => (n.type || 'general') === activeFilter) : notes;
 
     if (filtered.length === 0) {
         const empty = document.createElement('div');
@@ -176,7 +177,7 @@ function openNote(id) {
     if (!note) return;
     document.getElementById('note-title').value = note.title;
     document.getElementById('note-content').value = note.content || '';
-    document.getElementById('note-type').value = note.type || '';
+    document.getElementById('note-type').value = note.type === 'money_owed' ? 'money_owed' : 'general';
     updateMeta(note);
     updateCharCount();
     showEditor();

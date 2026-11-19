@@ -36,6 +36,18 @@ def recompute_project_totals(db: Session, project: FinancialProject) -> None:
     db.flush()
 
 
+def next_due_payment(project: FinancialProject):
+    """The payment to show as "next": the earliest pending payment with a due date, or —
+    when none is dated — the first pending one by schedule order. None if all are paid."""
+    pending = [p for p in (project.payments or []) if p.status == PaymentStatus.PENDING]
+    if not pending:
+        return None
+    dated = [p for p in pending if p.due_date is not None]
+    if dated:
+        return min(dated, key=lambda p: (p.due_date, p.sort_order or 0, p.id or 0))
+    return min(pending, key=lambda p: (p.sort_order or 0, p.id or 0))
+
+
 def calc_progress(project: FinancialProject) -> float:
     if project.target_amount > 0:
         return round((project.current_amount / project.target_amount) * 100, 2)

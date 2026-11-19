@@ -4,28 +4,13 @@
      hx-target="this"
      hx-swap="outerHTML">
 
-  <!-- Summary Cards -->
-  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-    <div class="bg-white rounded-lg shadow p-4">
-      <p class="text-sm text-gray-500">Active Projects</p>
-      <p class="text-2xl font-bold text-gray-800">{{ active_count }}</p>
-    </div>
-    <div class="bg-white rounded-lg shadow p-4">
-      <p class="text-sm text-gray-500">Completed</p>
-      <p class="text-2xl font-bold text-gray-800">{{ completed_count }}</p>
-    </div>
-    <div class="bg-white rounded-lg shadow p-4">
-      <p class="text-sm text-gray-500">Current Amount</p>
-      <p class="text-2xl font-bold text-gray-800">{{ total_current | currency }}</p>
-    </div>
-    <div class="bg-white rounded-lg shadow p-4">
-      <p class="text-sm text-gray-500">Progress</p>
-      <p class="text-2xl font-bold text-gray-800">{{ "%.1f"|format(progress_pct) }}%</p>
-    </div>
-  </div>
+  {% from "partials/_list_page.html" import stat_strip %}
+  {% if projects %}
+  {{ stat_strip([{"label": "Active", "value": active_count}, {"label": "Completed", "value": completed_count}, {"label": "Paid so far", "value": total_current | currency_abbrev, "title": total_current | currency}, {"label": "Progress", "value": "%.1f" | format(progress_pct) ~ "%"}]) }}
+  {% endif %}
 
   {% if not projects %}
-  <div class="col-span-full flex flex-col items-center justify-center py-20 text-center">
+  <div class="col-span-full flex flex-col items-center justify-center py-20 text-center"{% if not request.query_params.get('status') and not request.query_params.get('project_type') %} data-list-empty{% endif %}>
     <i class="fas fa-bullseye text-6xl mb-4 text-gray-200"></i>
     <p class="text-xl font-medium text-gray-500 mb-2">No projects yet</p>
     <p class="text-sm text-text-muted mb-6">Set a financial goal and track your progress toward it</p>
@@ -37,7 +22,7 @@
   {% else %}
   <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
     {% for project in projects %}
-    {% set next_due = project.payments | selectattr('status', 'eq', 'pending') | selectattr('due_date') | sort(attribute='due_date') | first if project.payments else none %}
+    {% set next_due = project.next_due %}
     {% set remaining = project.target_amount - project.current_amount %}
     {% set pay_count = project.payments | length %}
 
@@ -78,26 +63,35 @@
         </div>
       </div>
 
-      <!-- Stats -->
-      <div class="text-sm text-gray-600 mb-2">
-        {{ pay_count }} payment{{ '' if pay_count == 1 else 's' }}&nbsp;&nbsp;|&nbsp;&nbsp;Paid:
-        <span class="font-semibold text-income">{{ project.current_amount | currency }}</span>
-        &nbsp;&nbsp;|&nbsp;&nbsp;Remaining:
-        <span class="font-semibold text-gray-800">{{ remaining | currency }}</span>
+      <!-- Next payment — the fact you most need from a project card -->
+      <div class="rounded-lg px-3 py-2 mb-3 text-sm bg-surface-sunken">
+        {% if next_due %}
+        <p class="text-xs text-muted">Next payment</p>
+        <p class="font-semibold text-gray-800 tabular-nums">
+          {{ next_due.amount | currency }}
+          <span class="font-normal text-secondary">· {{ (next_due.due_date | app_date) if next_due.due_date else 'date not set' }}</span>
+        </p>
+        {% elif pay_count %}
+        <p class="text-secondary"><i class="fas fa-circle-check text-success mr-1" aria-hidden="true"></i>All scheduled payments are paid</p>
+        {% else %}
+        <p class="text-secondary">No payments scheduled yet — open the timeline to add them.</p>
+        {% endif %}
       </div>
 
-      {% if next_due %}
-      <div class="text-sm text-blue-600 mb-2">Next due: {{ next_due.due_date }} — {{ next_due.amount | currency }}</div>
-      {% endif %}
+      <dl class="grid grid-cols-3 gap-2 text-sm mb-3">
+        <div><dt class="text-xs text-muted">Payments</dt><dd class="font-semibold text-gray-800">{{ pay_count }}</dd></div>
+        <div><dt class="text-xs text-muted">Paid</dt><dd class="font-semibold text-gray-800 tabular-nums whitespace-nowrap">{{ project.current_amount | currency_abbrev }}</dd></div>
+        <div><dt class="text-xs text-muted">Remaining</dt><dd class="font-semibold text-gray-800 tabular-nums whitespace-nowrap">{{ remaining | currency_abbrev }}</dd></div>
+      </dl>
       {% if project.deadline %}
-      <div class="text-sm text-gray-500 mb-2">Deadline: {{ project.deadline }}</div>
+      <p class="text-xs text-muted mb-2">Deadline {{ project.deadline | app_date }}</p>
       {% endif %}
 
       <!-- Actions -->
       <div class="flex gap-2 pt-3 border-t">
         <button onclick="openTimelineModal({{ project.id }}, '{{ project.name | e }}')"
                 class="flex-1 bg-blue-50 text-blue-700 py-2 rounded-lg hover:bg-blue-100 transition text-sm">
-          View Timeline
+          Payment timeline
         </button>
         <button onclick="editProject({{ project.id }})"
                 class="px-3 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
@@ -105,7 +99,7 @@
           <i class="fas fa-edit"></i>
         </button>
         <button onclick="deleteProject({{ project.id }})"
-                class="px-3 py-2 text-expense hover:bg-red-50 rounded-lg transition"
+                class="px-3 py-2 text-danger hover:bg-red-50 rounded-lg transition"
                 title="Delete" aria-label="Delete project">
           <i class="fas fa-trash"></i>
         </button>

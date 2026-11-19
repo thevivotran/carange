@@ -461,7 +461,7 @@
 
         /* ── Notes page filter pills ──────────────────────── */
         .dark .filter-btn { background: #334155 !important; color: #CBD5E1 !important; border-color: #475569 !important; }
-        .dark .filter-btn.active { background: #2563eb !important; color: #fff !important; border-color: #2563eb !important; }
+        .dark .filter-btn.active { background: #C2440A !important; color: #fff !important; border-color: #C2440A !important; }
 
         /* ── Notes page note cards ────────────────────────── */
         .dark .note-card:hover   { background: #334155 !important; }
@@ -658,11 +658,15 @@
                     <span class="sidebar-label truncate">{{ current_user.name }}</span>
                 </a>
                 {% endif %}
-                <button @click="$store.theme.toggle()"
-                        class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-100 transition" title="Toggle theme">
-                    <i class="fas fa-moon theme-icon-dark w-4 text-center flex-shrink-0"></i>
-                    <i class="fas fa-sun  theme-icon-light w-4 text-center text-yellow-400 flex-shrink-0"></i>
-                    <span class="sidebar-label" x-text="$store.theme.label">Night Mode</span>
+                <button @click="$store.theme.toggle()" role="switch" :aria-checked="$store.theme.dark ? 'true' : 'false'"
+                        class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-secondary hover:bg-gray-100 transition" title="Dark mode">
+                    <i class="fas fa-moon w-4 text-center flex-shrink-0" aria-hidden="true"></i>
+                    <span class="sidebar-label flex-1 text-left">Dark mode</span>
+                    <span class="sidebar-label relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors"
+                          :class="$store.theme.dark ? 'bg-brand-solid' : 'bg-gray-300'" aria-hidden="true">
+                        <span class="absolute top-0.5 left-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform"
+                              :class="$store.theme.dark ? 'translate-x-4' : ''"></span>
+                    </span>
                 </button>
             </div>
         </aside>
@@ -694,7 +698,7 @@
                 <h1 class="flex-1 text-center text-base font-semibold text-gray-800 truncate">
                     {{ _nav_titles.get(active_menu, 'Carange') }}
                 </h1>
-                <button x-data @click="$store.theme.toggle()" class="flex-shrink-0 p-2 text-gray-500" aria-label="Toggle dark mode">
+                <button x-data @click="$store.theme.toggle()" class="flex-shrink-0 p-2 text-gray-500" aria-label="Dark mode" role="switch" :aria-checked="$store.theme.dark ? 'true' : 'false'">
                     <i class="fas fa-moon theme-icon-dark"></i>
                     <i class="fas fa-sun theme-icon-light text-yellow-400"></i>
                 </button>
@@ -756,7 +760,7 @@
         </div>
         
         <!-- Main Content -->
-        <main id="main-content" tabindex="-1" class="flex-1 overflow-y-auto md:pt-0 pt-14 pb-16 md:pb-0 focus:outline-none">
+        <main id="main-content" tabindex="-1" class="flex-1 overflow-y-auto md:pt-0 pt-14 pb-16 md:pb-24 focus:outline-none">
             {% block content %}{% endblock %}
         </main>
     </div>
@@ -779,8 +783,7 @@
                     void root.offsetHeight;
                     requestAnimationFrame(function() { root.classList.remove('theme-switching'); });
                     localStorage.setItem('carange-theme', this.dark ? 'dark' : 'light');
-                },
-                get label() { return this.dark ? 'Light Mode' : 'Night Mode'; }
+                }
             });
 
             // Toast store — replaces direct DOM manipulation in showToast()
@@ -853,6 +856,17 @@
                 .then(function(ok) { if (ok) onConfirm(); });
         }
 
+        // ── List pages: no filter bar while nothing exists yet ─────────────────
+        // A grid fragment marks its empty state with data-list-empty only when no
+        // filter is narrowing it, so hiding [data-list-filters] never strands a user
+        // behind a filter that is hiding their data.
+        function _syncListFilters() {
+            var bar = document.querySelector('[data-list-filters]');
+            if (bar) bar.classList.toggle('hidden', !!document.querySelector('[data-list-empty]'));
+        }
+        document.addEventListener('DOMContentLoaded', _syncListFilters);
+        document.addEventListener('htmx:afterSettle', _syncListFilters);
+
         // ── Mobile "More" sheet ───────────────────────────────────────────────
         function _setMobileMenu(open) {
             document.getElementById('mobile-menu').classList.toggle('hidden', !open);
@@ -888,43 +902,96 @@
         }
 
         // ── Undo-delete ───────────────────────────────────────────────────────
-        // delay=0: immediate soft-delete (no undo); delay>0: undo toast for N ms.
-        function deleteWithUndo(element, deleteUrl, reloadFn, itemName, delay) {
+        // Two modes, both with a 10 s Undo toast that pauses while hovered or focused:
+        // • restoreUrl given (soft-deletable records): DELETE now, Undo POSTs restoreUrl.
+        //   Nothing is lost if the user navigates away — the record is in the trash.
+        // • no restoreUrl (hard deletes): DELETE after the toast expires. Pending deletes
+        //   are flushed with keepalive when the page is hidden, so leaving the page
+        //   within the undo window still deletes instead of silently dropping it.
+        // delay=0 without restoreUrl keeps the old "delete now, no undo" behaviour.
+        var _UNDO_MS = 10000;
+        var _pendingDeletes = {};
+
+        function _undoTimer(ms, onExpire) {
+            var remaining = ms, startedAt = Date.now(), handle = setTimeout(onExpire, ms);
+            return {
+                pause: function() { if (!handle) return; clearTimeout(handle); handle = null; remaining -= Date.now() - startedAt; },
+                resume: function() { if (handle) return; startedAt = Date.now(); handle = setTimeout(onExpire, Math.max(remaining, 1500)); },
+                cancel: function() { clearTimeout(handle); handle = null; },
+            };
+        }
+
+        function _flushPendingDeletes() {
+            Object.keys(_pendingDeletes).forEach(function(key) {
+                var p = _pendingDeletes[key];
+                delete _pendingDeletes[key];
+                p.timer.cancel();
+                try { fetch(p.url, { method: 'DELETE', keepalive: true }); } catch (e) {}
+            });
+        }
+        window.addEventListener('pagehide', _flushPendingDeletes);
+        document.addEventListener('visibilitychange', function() {
+            if (document.visibilityState === 'hidden') _flushPendingDeletes();
+        });
+
+        function _showUndoToast(message, onUndo, onExpire) {
+            var toastId = Date.now() + Math.random();
+            var timer = _undoTimer(_UNDO_MS, function() {
+                Alpine.store('toasts').remove(toastId);
+                if (onExpire) onExpire();
+            });
+            Alpine.store('toasts').items.push({
+                id: toastId,
+                message: message,
+                type: 'undo',
+                _pause: function() { timer.pause(); },
+                _resume: function() { timer.resume(); },
+                _undoFn: function() {
+                    timer.cancel();
+                    Alpine.store('toasts').remove(toastId);
+                    onUndo();
+                },
+            });
+            return timer;
+        }
+
+        function deleteWithUndo(element, deleteUrl, reloadFn, itemName, delay, restoreUrl) {
             itemName = itemName || 'item';
-            if (delay === 0) {
-                if (element) element.style.display = 'none';
+            function restoreRow() { if (element) element.style.display = ''; }
+            if (element) element.style.display = 'none';
+
+            if (restoreUrl || delay === 0) {
                 (async function() {
                     try {
                         var resp = await fetch(deleteUrl, { method: 'DELETE' });
-                        if (resp.ok) { showToast('Moved to trash', 'info'); reloadFn(); }
-                        else { if (element) element.style.display = ''; showToast('Failed to delete', 'error'); }
-                    } catch(e) { if (element) element.style.display = ''; showToast('Failed to delete', 'error'); }
+                        if (!resp.ok) { restoreRow(); showToast('Failed to delete', 'error'); return; }
+                        reloadFn();
+                        if (!restoreUrl) { showToast('Moved to trash', 'info'); return; }
+                        _showUndoToast(itemName + ' moved to trash', async function() {
+                            var r = await fetch(restoreUrl, { method: 'POST' });
+                            if (r.ok) { reloadFn(); showToast(itemName + ' restored', 'info'); }
+                            else { showToast('Could not restore — find it in Trash', 'error'); }
+                        });
+                    } catch (e) { restoreRow(); showToast('Failed to delete', 'error'); }
                 })();
                 return;
             }
-            if (element) element.style.display = 'none';
-            var cancelled = false;
-            var toastId = Date.now();
-            Alpine.store('toasts').items.push({
-                id: toastId,
-                message: itemName + ' deleted',
-                type: 'undo',
-                _undoFn: function() {
-                    cancelled = true;
-                    if (element) element.style.display = '';
-                    Alpine.store('toasts').remove(toastId);
-                    showToast('Delete cancelled', 'info');
-                }
-            });
-            setTimeout(async function() {
-                Alpine.store('toasts').remove(toastId);
-                if (cancelled) return;
+
+            var key = deleteUrl;
+            var timer = _showUndoToast(itemName + ' deleted', function() {
+                delete _pendingDeletes[key];
+                restoreRow();
+                showToast('Delete cancelled', 'info');
+            }, async function() {
+                if (!_pendingDeletes[key]) return;  // already flushed on page hide
+                delete _pendingDeletes[key];
                 try {
                     var resp = await fetch(deleteUrl, { method: 'DELETE' });
                     if (resp.ok) { reloadFn(); }
-                    else { if (element) element.style.display = ''; showToast('Failed to delete', 'error'); }
-                } catch(e) { if (element) element.style.display = ''; showToast('Failed to delete', 'error'); }
-            }, delay !== undefined ? delay : 5000);
+                    else { restoreRow(); showToast('Failed to delete', 'error'); }
+                } catch (e) { restoreRow(); showToast('Failed to delete', 'error'); }
+            });
+            _pendingDeletes[key] = { url: deleteUrl, timer: timer };
     }
     </script>
 
@@ -1464,6 +1531,8 @@
     <div x-data role="status" aria-live="polite" aria-relevant="additions" class="fixed bottom-20 right-4 md:bottom-24 md:right-6 z-[200] space-y-2">
         <template x-for="toast in $store.toasts.items" :key="toast.id">
             <div class="text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 min-w-64"
+                 @mouseenter="toast._pause && toast._pause()" @mouseleave="toast._resume && toast._resume()"
+                 @focusin="toast._pause && toast._pause()" @focusout="toast._resume && toast._resume()"
                  :class="{
                      'bg-success': toast.type === 'success',
                      'bg-danger':  toast.type === 'error',
@@ -1473,7 +1542,7 @@
                  }">
                 <span x-text="toast.message" class="flex-1 text-sm"></span>
                 <button x-show="toast.type === 'undo'" @click="toast._undoFn && toast._undoFn()"
-                        class="text-yellow-300 hover:text-yellow-100 font-semibold text-sm underline">Undo</button>
+                        class="text-yellow-300 hover:text-yellow-100 font-semibold text-sm underline px-2 py-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-yellow-300">Undo</button>
                 <button x-show="toast.type !== 'undo'" @click="$store.toasts.remove(toast.id)" aria-label="Dismiss notification"
                         class="opacity-90 hover:opacity-100 text-lg leading-none w-8 h-8 -mr-2 flex items-center justify-center rounded"><span aria-hidden="true">&times;</span></button>
             </div>

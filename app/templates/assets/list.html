@@ -3,21 +3,18 @@
 
 {% block content %}
 <div class="p-6 pb-28 max-w-7xl mx-auto">
-    <!-- Page Header -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div class="hidden md:block">
-            <h1 class="text-3xl font-bold text-gray-800">Assets</h1>
-            <p class="text-gray-600 mt-1">Track currencies, gold, and other assets</p>
-        </div>
+    {% from "partials/_list_page.html" import list_header %}
+    {% set _subtitle %}Track currencies, gold, and other assets{% endset %}
+    {% call list_header("Assets", _subtitle) %}
         <button onclick="openAddAssetModal()" class="bg-brand-solid text-white px-6 py-3 rounded-lg hover:bg-brand-solid-hover transition flex items-center">
             <i class="fas fa-plus mr-2"></i>Add Asset
         </button>
-    </div>
+    {% endcall %}
 
     <!-- Filters -->
-    <div class="bg-white rounded-xl shadow-md p-4 mb-6">
+    <div data-list-filters class="bg-white rounded-xl shadow-md p-4 mb-6">
         <div class="flex flex-wrap gap-4">
-            <select id="filter-asset-type" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
+            <select aria-label="Asset type" id="filter-asset-type" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
                     onchange="document.body.dispatchEvent(new CustomEvent('assets-updated'))">
                 <option value="">All Types</option>
                 <option value="currency">Currency</option>

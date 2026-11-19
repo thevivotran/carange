@@ -3,40 +3,37 @@
 
 {% block content %}
 <div class="p-6 pb-28 max-w-7xl mx-auto">
-    <!-- Page Header -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div class="hidden md:block">
-            <h1 class="text-3xl font-bold text-gray-800">Templates</h1>
-            <p class="text-gray-600 mt-1">Quick-entry shortcuts for common transactions. Tap <i class="fas fa-clock text-indigo-500"></i> on any template to make it run automatically on a schedule.</p>
-        </div>
+    {% from "partials/_list_page.html" import list_header %}
+    {% set _subtitle %}Quick-entry shortcuts for common transactions. Tap <i class="fas fa-clock text-indigo-500"></i> on any template to make it run automatically on a schedule.{% endset %}
+    {% call list_header("Templates", _subtitle) %}
         <button onclick="openTemplateModal()" class="bg-brand-solid text-white px-5 py-2.5 rounded-lg hover:bg-brand-solid-hover transition flex items-center gap-2">
             <i class="fas fa-plus"></i> Add Template
         </button>
-    </div>
+    {% endcall %}
 
     <!-- Filters -->
-    <div class="bg-white rounded-2xl shadow-sm border p-4 mb-6">
+    <div data-list-filters class="bg-white rounded-2xl shadow-sm border p-4 mb-6">
         <div class="flex flex-wrap gap-4">
-            <select id="filter-type" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
+            <select aria-label="Type" id="filter-type" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
                     onchange="_reloadTemplates()">
                 <option value="">All Types</option>
                 <option value="income">Income</option>
                 <option value="expense">Expense</option>
             </select>
 
-            <select id="filter-category" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
+            <select aria-label="Category" id="filter-category" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
                     onchange="_reloadTemplates()">
                 <option value="">All Categories</option>
             </select>
 
-            <select id="filter-status" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
+            <select aria-label="Status" id="filter-status" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
                     onchange="_reloadTemplates()">
                 <option value="">All Status</option>
                 <option value="true" selected>Active</option>
                 <option value="false">Inactive</option>
             </select>
 
-            <select id="filter-schedule" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
+            <select aria-label="Schedule" id="filter-schedule" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
                     onchange="_reloadTemplates()">
                 <option value="">All Schedules</option>
                 <option value="yes">Recurring only</option>
@@ -56,9 +53,9 @@
             </div>
         </div>
 
-        <!-- Pagination -->
-        <div class="flex justify-between items-center p-4 border-t">
-            <p class="text-sm text-gray-600" id="pagination-info">Loading…</p>
+        <!-- Pagination (hidden while there is nothing to page through) -->
+        <div id="templates-pagination" class="hidden flex justify-between items-center p-4 border-t">
+            <p class="text-sm text-gray-600" id="pagination-info"></p>
             <div class="flex gap-2">
                 <button onclick="prevPage()" id="prev-btn"
                         class="px-4 py-2 border rounded-lg hover:bg-gray-50 text-gray-700 disabled:opacity-50"
@@ -254,6 +251,7 @@
             'Page ' + (Math.floor(skip / limit) + 1) + ' - Showing ' + count + ' templates';
         document.getElementById('prev-btn').disabled = skip === 0;
         document.getElementById('next-btn').disabled = count < limit;
+        document.getElementById('templates-pagination').classList.toggle('hidden', count === 0 && skip === 0);
     });
 
     function _reloadTemplates() {

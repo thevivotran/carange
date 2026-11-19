@@ -3,8 +3,25 @@
 
 {% block content %}
 <div class="p-6 pb-28 max-w-5xl mx-auto"
-     x-data="{ tab: (['general','goals','dashboard','integrations','data'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'general'),
-               go(t) { this.tab = t; history.replaceState(null, '', '#' + t); } }">
+     x-data="{ tabs: ['general','goals','dashboard','integrations','data'],
+               tab: (['general','goals','dashboard','integrations','data'].includes(location.hash.slice(1)) ? location.hash.slice(1) : 'general'),
+               dirty: false,
+               async go(t) {
+                 if (t === this.tab) return;
+                 if (this.dirty) {
+                   const leave = await $store.confirm.show('You have unsaved changes on this tab. Leave without saving?', 'Leave', 'bg-danger hover:bg-danger/90');
+                   if (!leave) return;
+                 }
+                 this.dirty = false;
+                 this.tab = t;
+                 history.replaceState(null, '', '#' + t);
+                 this.$nextTick(() => { const b = document.getElementById('settings-tab-' + t); if (b) b.scrollIntoView({ inline: 'nearest', block: 'nearest' }); });
+               } }"
+     @hashchange.window="const h = location.hash.slice(1); if (tabs.includes(h) && h !== tab) { dirty = false; tab = h; }"
+     @input="if ($event.target.closest('[role=tabpanel] form')) dirty = true"
+     @change="if ($event.target.closest('[role=tabpanel] form')) dirty = true"
+     @htmx:after-request="if ($event.detail.successful && $event.detail.elt && $event.detail.elt.closest('form')) dirty = false"
+     x-init="window.addEventListener('beforeunload', (e) => { if (dirty) { e.preventDefault(); e.returnValue = ''; } })">
 
   <!-- Page Header -->
   <div class="mb-6 hidden md:block">
@@ -16,35 +33,36 @@
 
     <!-- Section tabs: a scrollable row on mobile, a sticky side list on desktop -->
     <nav role="tablist" aria-label="Settings sections"
-         class="flex md:flex-col gap-1 overflow-x-auto -mx-6 px-6 md:mx-0 md:px-0 mb-4 md:mb-0 md:w-52 md:flex-shrink-0 md:sticky md:top-6">
+         class="flex md:flex-col gap-1 overflow-x-auto snap-x -mx-6 px-6 md:mx-0 md:px-0 mb-4 md:mb-0 md:w-52 md:flex-shrink-0 md:sticky md:top-6
+                [mask-image:linear-gradient(to_right,black_85%,transparent)] md:[mask-image:none]">
       <button type="button" role="tab" id="settings-tab-general" aria-controls="settings-panel-general"
               :aria-selected="tab === 'general'" :tabindex="tab === 'general' ? 0 : -1" @click="go('general')"
-              :class="tab === 'general' ? 'bg-brand-subtle text-brand font-semibold' : 'text-secondary hover:bg-surface-sunken'"
-              class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition text-left">
+              :class="tab === 'general' ? 'bg-brand-subtle text-brand-text font-semibold' : 'text-secondary hover:bg-surface-sunken'"
+              class="snap-start flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition text-left">
         <i class="fas fa-sliders-h w-4 text-center" aria-hidden="true"></i>General
       </button>
       <button type="button" role="tab" id="settings-tab-goals" aria-controls="settings-panel-goals"
               :aria-selected="tab === 'goals'" :tabindex="tab === 'goals' ? 0 : -1" @click="go('goals')"
-              :class="tab === 'goals' ? 'bg-brand-subtle text-brand font-semibold' : 'text-secondary hover:bg-surface-sunken'"
-              class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition text-left">
+              :class="tab === 'goals' ? 'bg-brand-subtle text-brand-text font-semibold' : 'text-secondary hover:bg-surface-sunken'"
+              class="snap-start flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition text-left">
         <i class="fas fa-bullseye w-4 text-center" aria-hidden="true"></i>Goals
       </button>
       <button type="button" role="tab" id="settings-tab-dashboard" aria-controls="settings-panel-dashboard"
               :aria-selected="tab === 'dashboard'" :tabindex="tab === 'dashboard' ? 0 : -1" @click="go('dashboard')"
-              :class="tab === 'dashboard' ? 'bg-brand-subtle text-brand font-semibold' : 'text-secondary hover:bg-surface-sunken'"
-              class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition text-left">
+              :class="tab === 'dashboard' ? 'bg-brand-subtle text-brand-text font-semibold' : 'text-secondary hover:bg-surface-sunken'"
+              class="snap-start flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition text-left">
         <i class="fas fa-table-columns w-4 text-center" aria-hidden="true"></i>Dashboard & Menu
       </button>
       <button type="button" role="tab" id="settings-tab-integrations" aria-controls="settings-panel-integrations"
               :aria-selected="tab === 'integrations'" :tabindex="tab === 'integrations' ? 0 : -1" @click="go('integrations')"
-              :class="tab === 'integrations' ? 'bg-brand-subtle text-brand font-semibold' : 'text-secondary hover:bg-surface-sunken'"
-              class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition text-left">
+              :class="tab === 'integrations' ? 'bg-brand-subtle text-brand-text font-semibold' : 'text-secondary hover:bg-surface-sunken'"
+              class="snap-start flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition text-left">
         <i class="fas fa-plug w-4 text-center" aria-hidden="true"></i>Integrations
       </button>
       <button type="button" role="tab" id="settings-tab-data" aria-controls="settings-panel-data"
               :aria-selected="tab === 'data'" :tabindex="tab === 'data' ? 0 : -1" @click="go('data')"
-              :class="tab === 'data' ? 'bg-brand-subtle text-brand font-semibold' : 'text-secondary hover:bg-surface-sunken'"
-              class="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition text-left">
+              :class="tab === 'data' ? 'bg-brand-subtle text-brand-text font-semibold' : 'text-secondary hover:bg-surface-sunken'"
+              class="snap-start flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition text-left">
         <i class="fas fa-database w-4 text-center" aria-hidden="true"></i>Data
       </button>
     </nav>

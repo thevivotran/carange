@@ -4,28 +4,13 @@
      hx-target="this"
      hx-swap="outerHTML">
 
-  <!-- Summary Cards -->
-  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-    <div class="cg-card rounded-xl p-4 text-center">
-      <p class="text-sm text-muted mb-1">Active Bundles</p>
-      <p class="text-2xl font-bold text-gray-800 amount tabular-nums">{{ active_count }}</p>
-    </div>
-    <div class="cg-card rounded-xl p-4 text-center">
-      <p class="text-sm text-muted mb-1">Saved Now</p>
-      <p class="text-2xl font-bold text-gray-800 amount tabular-nums">{{ total_saved | currency }}</p>
-    </div>
-    <div class="cg-card rounded-xl p-4 text-center">
-      <p class="text-sm text-muted mb-1">Targets &amp; Maturity</p>
-      <p class="text-2xl font-bold text-gray-800 amount tabular-nums">{{ total_future | currency }}</p>
-    </div>
-    <div class="cg-card rounded-xl p-4 text-center">
-      <p class="text-sm text-muted mb-1">Expected Interest</p>
-      <p class="text-2xl font-bold text-gray-800 amount tabular-nums">{{ total_interest | currency }}</p>
-    </div>
-  </div>
+  {% from "partials/_list_page.html" import stat_strip %}
+  {% if bundles %}
+  {{ stat_strip([{"label": "Active bundles", "value": active_count}, {"label": "Saved now", "value": total_saved | currency_abbrev, "title": total_saved | currency}, {"label": "Targets & maturity", "value": total_future | currency_abbrev, "title": total_future | currency}, {"label": "Expected interest", "value": total_interest | currency_abbrev, "title": total_interest | currency}]) }}
+  {% endif %}
 
   {% if not bundles %}
-  <div class="col-span-full flex flex-col items-center justify-center py-20 text-center">
+  <div class="col-span-full flex flex-col items-center justify-center py-20 text-center"{% if false %} data-list-empty{% endif %}>
     <div class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style="background: var(--surface-sunken)">
       <i class="fas fa-piggy-bank text-5xl text-muted"></i>
     </div>
@@ -36,7 +21,7 @@
     </button>
   </div>
   {% else %}
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+  <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
     {% for bundle in bundles %}
     {% set is_goal = bundle.type and bundle.type.value == 'savings_goal' %}
     {% set balance = bundle.current_amount if bundle.current_amount is not none else bundle.initial_deposit %}
@@ -64,15 +49,14 @@
 
       <!-- Amounts -->
       <div class="space-y-3 mb-4">
-        <div class="flex justify-between items-center p-3 rounded-lg" style="background: var(--accent-subtle)">
-          <div>
-            <p class="text-xs text-muted">{{ 'Saved so far' if is_goal else 'Initial Deposit' }}</p>
-            <p class="font-semibold text-accent amount tabular-nums">{{ (balance if is_goal else bundle.initial_deposit) | currency }}</p>
+        <div class="grid grid-cols-2 gap-3 p-3 rounded-lg" style="background: var(--accent-subtle)">
+          <div class="min-w-0">
+            <p class="text-xs text-muted">{{ 'Saved so far' if is_goal else 'Initial deposit' }}</p>
+            <p class="font-semibold text-gray-800 amount tabular-nums truncate" title="{{ (balance if is_goal else bundle.initial_deposit) | currency }}">{{ (balance if is_goal else bundle.initial_deposit) | currency }}</p>
           </div>
-          <i class="fas fa-arrow-right text-muted" aria-hidden="true"></i>
-          <div class="text-right">
-            <p class="text-xs text-muted">{{ 'Goal' if is_goal else 'At Maturity' }}</p>
-            <p class="font-semibold text-success amount tabular-nums">{{ bundle.future_amount | currency }}</p>
+          <div class="min-w-0 text-right">
+            <p class="text-xs text-muted">{{ 'Goal' if is_goal else 'At maturity' }}</p>
+            <p class="font-semibold text-gray-800 amount tabular-nums truncate" title="{{ bundle.future_amount | currency }}">{{ bundle.future_amount | currency }}</p>
           </div>
         </div>
         {% if is_goal %}

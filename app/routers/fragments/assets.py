@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
@@ -34,5 +36,6 @@ def fragment_assets_grid(
             "total_current": total_current,
             "gain_loss": gain_loss,
             "gain_loss_pct": gain_loss_pct,
+            "today": date.today(),
         },
     )

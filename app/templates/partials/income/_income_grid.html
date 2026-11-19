@@ -4,24 +4,13 @@
      hx-target="this"
      hx-swap="outerHTML">
 
-  <!-- Summary Cards -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-    <div class="cg-card rounded-xl p-4 text-center">
-      <p class="text-sm text-muted mb-1">Income Sources</p>
-      <p class="text-2xl font-bold text-gray-800 amount tabular-nums">{{ total_count }}</p>
-    </div>
-    <div class="cg-card rounded-xl p-4 text-center">
-      <p class="text-sm text-muted mb-1">Active</p>
-      <p class="text-2xl font-bold text-gray-800 amount tabular-nums">{{ active_count }}</p>
-    </div>
-    <div class="cg-card rounded-xl p-4 text-center">
-      <p class="text-sm text-muted mb-1">Review Overdue</p>
-      <p class="text-2xl font-bold {{ 'text-danger' if review_overdue_count else 'text-muted' }} amount tabular-nums">{{ review_overdue_count }}</p>
-    </div>
-  </div>
+  {% from "partials/_list_page.html" import stat_strip %}
+  {% if total_count %}
+  {{ stat_strip([{"label": "Income sources", "value": total_count}, {"label": "Active", "value": active_count}, {"label": "Review overdue", "value": review_overdue_count, "tone": "text-danger" if review_overdue_count else none}]) }}
+  {% endif %}
 
   {% if total_count == 0 %}
-  <div class="col-span-full flex flex-col items-center justify-center py-20 text-center">
+  <div class="col-span-full flex flex-col items-center justify-center py-20 text-center"{% if not request.query_params.get('income_type') and request.query_params.get('active_only') != 'true' %} data-list-empty{% endif %}>
     <div class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style="background: var(--surface-sunken)">
       <i class="fas fa-sack-dollar text-5xl text-muted"></i>
     </div>

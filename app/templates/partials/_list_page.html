@@ -1,0 +1,41 @@
+{#- Shared scaffolding for list pages (Assets, Projects, Savings, Income, Templates,
+    Categories, Rules) so headers, summary stats and empty states look and behave alike.
+
+    {% from "partials/_list_page.html" import list_header, stat_strip %}
+
+    {% call list_header("Assets", "Track currencies, gold, and other assets") %}
+      <button …>Add asset</button>
+    {% endcall %}
+
+    {{ stat_strip([
+        {"label": "Items", "value": 3},
+        {"label": "Invested", "value": total | currency_abbrev, "title": total | currency},
+        {"label": "Gain / loss", "value": "+2M ₫", "tone": "text-success"},
+    ]) }}
+-#}
+
+{%- macro list_header(title, subtitle="") -%}
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+  <div class="hidden md:block min-w-0">
+    <h1 class="text-3xl font-bold text-gray-800">{{ title }}</h1>
+    {% if subtitle %}<p class="text-muted mt-1">{{ subtitle }}</p>{% endif %}
+  </div>
+  <div class="flex flex-wrap items-center gap-3 flex-shrink-0 [&>*]:whitespace-nowrap">
+    {{ caller() if caller }}
+  </div>
+</div>
+{%- endmacro -%}
+
+{#- Summary stats: neutral values (status colour only via `tone`), abbreviated with the
+    full figure in `title`. 2 columns on phones so the list starts on the first screen. -#}
+{%- macro stat_strip(items) -%}
+<div class="grid grid-cols-2 lg:grid-cols-{{ items | length }} gap-3 md:gap-4 mb-6" data-stat-strip>
+  {% for item in items %}
+  <div class="cg-card rounded-xl px-4 py-3 min-w-0">
+    <p class="text-xs md:text-sm text-muted mb-1 truncate">{{ item.label }}</p>
+    <p class="text-lg md:text-2xl font-bold amount tabular-nums whitespace-nowrap truncate {{ item.tone or 'text-gray-800' }}"
+       {% if item.title %}title="{{ item.title }}"{% endif %}>{{ item.value }}</p>
+  </div>
+  {% endfor %}
+</div>
+{%- endmacro -%}

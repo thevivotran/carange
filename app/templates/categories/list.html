@@ -3,16 +3,13 @@
 
 {% block content %}
 <div class="p-6 pb-28 max-w-4xl mx-auto">
-    <!-- Page Header -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div class="hidden md:block">
-            <h1 class="text-3xl font-bold text-gray-800">Categories</h1>
-            <p class="text-gray-600 mt-1">Manage income and expense categories. Assign a <strong>KPI Role</strong> to expense categories to count them toward Savings Rate or Real Estate metrics.</p>
-        </div>
+    {% from "partials/_list_page.html" import list_header %}
+    {% set _subtitle %}Manage income and expense categories. Assign a <strong>KPI Role</strong> to expense categories to count them toward Savings Rate or Real Estate metrics.{% endset %}
+    {% call list_header("Categories", _subtitle) %}
         <button onclick="openCategoryModal()" class="bg-brand-solid text-white px-5 py-2.5 rounded-lg hover:bg-brand-solid-hover transition flex items-center gap-2">
             <i class="fas fa-plus"></i> Add Category
         </button>
-    </div>
+    {% endcall %}
 
     <!-- Tabs -->
     <div class="bg-white rounded-2xl shadow-sm border mb-4">

@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.models.database import FinancialProject, ProjectStatus, get_db
 from app.routers.fragments._helpers import render_fragment
+from app.services.project_service import next_due_payment
 
 router = APIRouter()
 
@@ -29,6 +30,7 @@ def fragment_projects_grid(
     projects = query.order_by(FinancialProject.created_at.desc()).all()
     for p in projects:
         p.progress_pct = _calc_progress(p)
+        p.next_due = next_due_payment(p)
 
     active_projects = (
         db.query(FinancialProject)

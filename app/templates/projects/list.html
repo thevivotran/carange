@@ -3,28 +3,25 @@
 
 {% block content %}
 <div class="p-6 pb-28 max-w-7xl mx-auto">
-    <!-- Page Header -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div class="hidden md:block">
-            <h1 class="text-3xl font-bold text-gray-800">Projects</h1>
-            <p class="text-gray-600 mt-1">Track your family's financial goals and projects</p>
-        </div>
+    {% from "partials/_list_page.html" import list_header %}
+    {% set _subtitle %}Track your family's financial goals and projects{% endset %}
+    {% call list_header("Projects", _subtitle) %}
         <button onclick="openProjectModal()" class="bg-brand-solid text-white px-6 py-3 rounded-lg hover:bg-brand-solid-hover transition flex items-center">
             <i class="fas fa-plus mr-2"></i>Add Project
         </button>
-    </div>
+    {% endcall %}
 
     <!-- Filters -->
-    <div class="bg-white rounded-xl shadow-md p-4 mb-6">
+    <div data-list-filters class="bg-white rounded-xl shadow-md p-4 mb-6">
         <div class="flex flex-wrap gap-4">
-            <select id="filter-status" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
+            <select aria-label="Status" id="filter-status" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
                     onchange="document.body.dispatchEvent(new CustomEvent('projects-updated'))">
                 <option value="">All Status</option>
                 <option value="planning">Planning</option>
                 <option value="in_progress">In Progress</option>
                 <option value="completed">Completed</option>
             </select>
-            <select id="filter-type" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
+            <select aria-label="Type" id="filter-type" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
                     onchange="document.body.dispatchEvent(new CustomEvent('projects-updated'))">
                 <option value="">All Types</option>
                 <option value="real_estate">Real Estate</option>
@@ -113,6 +110,7 @@
         </div>
 
         <div class="overflow-y-auto overscroll-contain flex-1 p-3 md:p-6 space-y-4 md:space-y-6">
+            <p class="text-sm text-muted -mb-2">The project goal is the sum of its scheduled payments. Add each payment below, or generate a recurring schedule.</p>
             <!-- Payments List (card on mobile, table on desktop) -->
             <div>
                 <!-- Desktop table (hidden on mobile) -->
@@ -178,7 +176,7 @@
             <div class="border rounded-lg p-4">
                 <button onclick="toggleRecurring()" class="font-semibold text-gray-700 flex items-center gap-2 w-full">
                     <i id="recurring-chevron" class="fas fa-chevron-right text-xs"></i>
-                    Generate Recurring Schedule (DCA)
+                    Generate recurring schedule
                 </button>
                 <div id="recurring-section" class="hidden mt-4">
                     <form id="recurring-form" class="grid grid-cols-2 md:grid-cols-3 gap-3 items-end">
@@ -440,22 +438,19 @@
             wrap.appendChild(undoBtn);
         } else {
             const paidBtn = document.createElement('button');
-            paidBtn.className = 'text-xs text-income hover:text-success-text px-2 py-1 rounded hover:bg-green-50 font-medium';
-            paidBtn.textContent = 'Mark Paid';
+            paidBtn.className = 'text-xs font-semibold text-success-text border border-current px-2.5 py-1.5 rounded-lg hover:bg-success-subtle';
+            paidBtn.textContent = 'Mark paid';
             paidBtn.onclick = () => openMarkPaidModal(p.id, p.due_date, p.amount);
             wrap.appendChild(paidBtn);
         }
         const editPayBtn = document.createElement('button');
-        editPayBtn.className = 'text-xs text-blue-500 hover:text-blue-700 px-2 py-1 rounded hover:bg-blue-50';
-        editPayBtn.title = 'Edit';
-        const editPayIco = document.createElement('i');
-        editPayIco.className = 'fas fa-pencil-alt';
-        editPayBtn.appendChild(editPayIco);
+        editPayBtn.className = 'text-xs text-accent-text border px-2.5 py-1.5 rounded-lg hover:bg-accent-subtle';
+        editPayBtn.textContent = 'Edit';
         editPayBtn.onclick = () => openEditPaymentModal(p);
         wrap.appendChild(editPayBtn);
         const delBtn = document.createElement('button');
-        delBtn.className = 'text-xs text-expense hover:text-expense px-2 py-1 rounded hover:bg-red-50';
-        delBtn.textContent = 'Del';
+        delBtn.className = 'text-xs text-danger border px-2.5 py-1.5 rounded-lg hover:bg-red-50';
+        delBtn.textContent = 'Delete';
         delBtn.onclick = () => deletePayment(p.id);
         wrap.appendChild(delBtn);
         return wrap;
@@ -468,6 +463,19 @@
         cardList.replaceChildren();
 
         let totalAmt = 0, paidAmt = 0;
+        if (!payments.length) {
+            const tr = document.createElement('tr');
+            const td = document.createElement('td');
+            td.colSpan = 7;
+            td.className = 'px-3 py-6 text-center text-sm text-muted';
+            td.textContent = 'No payments yet — add the first one below.';
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+            const card = document.createElement('p');
+            card.className = 'py-6 text-center text-sm text-muted';
+            card.textContent = 'No payments yet — add the first one below.';
+            cardList.appendChild(card);
+        }
         payments.forEach((p, idx) => {
             totalAmt += p.amount;
             if (p.status === 'paid') paidAmt += p.amount;
@@ -476,7 +484,7 @@
             const badgeCls = isPaid
                 ? 'px-2 py-0.5 bg-green-100 text-income rounded-full text-xs font-medium'
                 : 'px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs font-medium';
-            const dateStr = p.due_date ? formatDate(p.due_date) : 'TBD';
+            const dateStr = p.due_date ? formatDate(p.due_date) : 'Date not set';
 
             // ── Desktop table row ──────────────────────────────────────────────
             const tr = document.createElement('tr');

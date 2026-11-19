@@ -3,26 +3,21 @@
 
 {% block content %}
 <div class="p-6 pb-28 max-w-7xl mx-auto">
-    <!-- Page Header -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div class="hidden md:block">
-            <h1 class="text-3xl font-bold text-gray-800">Savings</h1>
-            <p class="text-muted mt-1">Track your family's fixed deposits and savings goals</p>
-        </div>
-        <div class="flex gap-3">
+    {% from "partials/_list_page.html" import list_header %}
+    {% set _subtitle %}Track your family's fixed deposits and savings goals{% endset %}
+    {% call list_header("Savings", _subtitle) %}
             <button aria-label="Trash" onclick="openTrashModal()" class="border border-gray-300 text-gray-600 px-4 py-3 rounded-lg hover:bg-gray-50 transition flex items-center gap-2">
                 <i class="fas fa-trash-alt"></i><span class="hidden sm:inline">Trash</span>
             </button>
             <button onclick="openSavingsModal()" class="bg-brand-solid text-white px-6 py-3 rounded-lg hover:bg-brand-solid-hover transition flex items-center">
                 <i class="fas fa-plus mr-2"></i>Add Savings Bundle
             </button>
-        </div>
-    </div>
+    {% endcall %}
 
     <!-- Filters -->
-    <div class="cg-card rounded-xl p-4 mb-6">
+    <div data-list-filters class="cg-card rounded-xl p-4 mb-6">
         <div class="flex flex-wrap gap-4">
-            <select id="filter-status" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
+            <select aria-label="Status" id="filter-status" class="border rounded-lg px-4 py-2 focus:ring-2 focus:ring-primary"
                     onchange="document.body.dispatchEvent(new CustomEvent('savings-updated'))">
                 <option value="">All Status</option>
                 <option value="active" selected>Active</option>
@@ -342,7 +337,7 @@
               '. They will remain in your history but will no longer be associated with any savings bundle.'
             : 'Delete \"' + name + '\"?';
         const doDelete = function() {
-            deleteWithUndo(card, '/api/savings/' + id, _reloadSavings, name);
+            deleteWithUndo(card, '/api/savings/' + id, _reloadSavings, name, undefined, '/api/savings/' + id + '/restore');
         };
         if (txCount > 0) {
             showConfirm(msg, doDelete, 'Delete Anyway', 'bg-red-600 hover:bg-red-700');
