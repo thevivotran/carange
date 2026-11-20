@@ -41,3 +41,11 @@ def test_paste_to_import_is_wired_on_import_and_review(client):
     assert "window.addEventListener('paste'" in imp and "stageFiles(files)" in imp
     rev = client.get("/review").text
     assert "window.addEventListener('paste'" in rev and "/api/import/jobs" in rev
+
+
+def test_keyboard_shortcuts_sheet_and_reduced_motion(client):
+    html = client.get("/").text
+    assert 'id="shortcuts-dialog" role="dialog"' in html
+    assert "if (e.key === '?')" in html and "window.openAddModal()" in html
+    assert "@media (prefers-reduced-motion: reduce)" in html
+    assert "prefers-reduced-motion: reduce)').matches ? false" in html  # Chart.js animation off

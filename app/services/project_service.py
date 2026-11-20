@@ -48,6 +48,31 @@ def next_due_payment(project: FinancialProject):
     return min(pending, key=lambda p: (p.sort_order or 0, p.id or 0))
 
 
+def next_due_payment_overall(db: Session, today: date | None = None) -> dict | None:
+    """The soonest unpaid, dated project payment due today or later, across live projects."""
+    today = today or date.today()
+    payment = (
+        db.query(ProjectPayment)
+        .join(FinancialProject, ProjectPayment.project_id == FinancialProject.id)
+        .filter(
+            ProjectPayment.status == PaymentStatus.PENDING,
+            ProjectPayment.due_date.isnot(None),
+            ProjectPayment.due_date >= today,
+            FinancialProject.deleted_at.is_(None),
+        )
+        .order_by(ProjectPayment.due_date.asc(), ProjectPayment.id.asc())
+        .first()
+    )
+    if payment is None:
+        return None
+    return {
+        "project_name": payment.project.name,
+        "amount": payment.amount,
+        "due_date": payment.due_date,
+        "days": (payment.due_date - today).days,
+    }
+
+
 def calc_progress(project: FinancialProject) -> float:
     if project.target_amount > 0:
         return round((project.current_amount / project.target_amount) * 100, 2)

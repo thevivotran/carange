@@ -3,12 +3,13 @@
 import json
 import logging
 import re
-from datetime import datetime, timezone
+from collections import Counter, defaultdict
+from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from sqlalchemy.orm import Session
 
-from app.models.database import Transaction, TransactionRule
+from app.models.database import Category, Transaction, TransactionRule
 
 log = logging.getLogger("app.rules_service")
 
@@ -127,3 +128,59 @@ def _matches(rule: TransactionRule, tx: Transaction) -> bool:
             return float(val) < float(pattern)
         except (ValueError, TypeError):
             return False
+
+
+# ── Rule suggestions ──────────────────────────────────────────────────────────
+
+SUGGEST_LOOKBACK_DAYS = 180
+SUGGEST_MIN_PURITY = 0.9
+
+
+def normalise_description(text: Optional[str]) -> str:
+    """'GRAB*Ride 12/11 #4821' → 'grab*ride'. Digits vary per transaction (dates,
+    order numbers), so they are dropped before grouping."""
+    text = re.sub(r"\d+", " ", (text or "").lower())
+    text = re.sub(r"(?<!\w)[#/:.,\-]+(?!\w)", " ", text)  # punctuation left behind by the digits
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def suggest_rules(db: Session, min_count: int = 5, limit: int = 5, today: Optional[date] = None) -> list[dict]:
+    """Descriptions the user keeps filing under the same category without a rule.
+
+    A suggestion needs ≥ ``min_count`` transactions in the lookback window, at least
+    SUGGEST_MIN_PURITY of them in one category, and no active rule already matching.
+    """
+    today = today or date.today()
+    txs = (
+        db.query(Transaction)
+        .filter(
+            Transaction.deleted_at.is_(None),
+            Transaction.date >= today - timedelta(days=SUGGEST_LOOKBACK_DAYS),
+            Transaction.description.isnot(None),
+        )
+        .all()
+    )
+    groups: dict[str, list[Transaction]] = defaultdict(list)
+    for tx in txs:
+        key = normalise_description(tx.description)
+        if len(key) >= 3:
+            groups[key].append(tx)
+
+    rules = load_active_rules(db)
+    out = []
+    for pattern, members in groups.items():
+        if len(members) < min_count:
+            continue
+        category_id, count = Counter(t.category_id for t in members).most_common(1)[0]
+        if count / len(members) < SUGGEST_MIN_PURITY:
+            continue
+        if any(_matches(rule, members[0]) for rule in rules):
+            continue
+        out.append({"pattern": pattern, "category_id": category_id, "count": count})
+
+    out.sort(key=lambda s: (-s["count"], s["pattern"]))
+    out = out[:limit]
+    names = dict(db.query(Category.id, Category.name).filter(Category.id.in_([s["category_id"] for s in out])).all())
+    for s in out:
+        s["category_name"] = names.get(s["category_id"], "")
+    return out

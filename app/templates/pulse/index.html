@@ -156,6 +156,23 @@
   </div>
   {% endif %}
 
+  <!-- ── Next project payment ── -->
+  {% if next_payment %}
+  <a href="/projects" class="cg-card p-4  flex items-center justify-between gap-3 hover:shadow-md transition">
+    <div class="flex items-center gap-3 min-w-0">
+      <span class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-accent-subtle">
+        <i class="fas fa-calendar-day text-accent-text" aria-hidden="true"></i>
+      </span>
+      <div class="min-w-0">
+        <p class="eyebrow">Next project payment</p>
+        <p class="text-sm font-semibold text-gray-800 truncate">{{ next_payment.project_name }} · <span class="tabular-nums">{{ next_payment.amount | currency }}</span></p>
+        <p class="text-xs text-muted">{{ next_payment.due_date | app_date('long') }} · {% if next_payment.days == 0 %}today{% elif next_payment.days == 1 %}tomorrow{% else %}in {{ next_payment.days }} days{% endif %}</p>
+      </div>
+    </div>
+    <i class="fas fa-chevron-right text-muted flex-shrink-0" aria-hidden="true"></i>
+  </a>
+  {% endif %}
+
   <!-- ── Over-budget alerts ── -->
   {% if alert_over_budget %}
   <div class="bg-white rounded-2xl border border-red-100 p-4">

@@ -45,3 +45,61 @@ def test_project_card_shows_next_payment(client, db_session):
     html = client.get("/fragments/projects/grid").text
     assert "Next payment" in html
     assert "3 Feb 2027" in html
+
+
+# ── Across projects (Dashboard / Pulse) ──────────────────────────────────────
+
+
+def _mk_project(db, name, deleted=False):
+    from datetime import datetime, timezone
+
+    from app.models.database import FinancialProject, ProjectType
+
+    p = FinancialProject(
+        name=name,
+        type=ProjectType.REAL_ESTATE,
+        target_amount=1,
+        current_amount=0,
+        deleted_at=datetime.now(timezone.utc) if deleted else None,
+    )
+    db.add(p)
+    db.commit()
+    return p
+
+
+def test_next_due_payment_overall(db_session):
+    from app.models.database import ProjectPayment
+    from app.services.project_service import next_due_payment_overall
+
+    today = date(2026, 11, 20)
+    assert next_due_payment_overall(db_session, today=today) is None
+
+    flat, car, gone = (
+        _mk_project(db_session, "Flat"),
+        _mk_project(db_session, "Car"),
+        _mk_project(db_session, "Gone", True),
+    )
+    db_session.add_all(
+        [
+            ProjectPayment(project_id=flat.id, amount=1, due_date=date(2026, 11, 1)),  # past
+            ProjectPayment(project_id=flat.id, amount=2, due_date=date(2026, 11, 22), status=PaymentStatus.PAID),
+            ProjectPayment(project_id=gone.id, amount=3, due_date=date(2026, 11, 21)),  # deleted project
+            ProjectPayment(project_id=car.id, amount=4, due_date=date(2026, 11, 25)),
+            ProjectPayment(project_id=flat.id, amount=5, due_date=date(2026, 12, 5)),
+            ProjectPayment(project_id=flat.id, amount=6, due_date=None),
+        ]
+    )
+    db_session.commit()
+    nxt = next_due_payment_overall(db_session, today=today)
+    assert nxt["project_name"] == "Car" and float(nxt["amount"]) == 4 and nxt["days"] == 5
+
+
+def test_dashboard_and_pulse_show_next_payment(client, db_session):
+    from app.models.database import ProjectPayment
+
+    p = _mk_project(db_session, "Flat")
+    db_session.add(ProjectPayment(project_id=p.id, amount=7_000_000, due_date=date.today()))
+    db_session.commit()
+    for path in ("/", "/pulse"):
+        html = client.get(path).text
+        assert "Next project payment" in html and "today" in html

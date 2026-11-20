@@ -48,6 +48,13 @@ def list_rules(db: Session = Depends(get_db)):
     return [_to_dict(r) for r in rules]
 
 
+@router.get("/suggestions")
+def rule_suggestions(db: Session = Depends(get_db)):
+    from app.services.rules_service import suggest_rules
+
+    return suggest_rules(db)
+
+
 @router.post("/", status_code=201)
 def create_rule(payload: RuleCreate, db: Session = Depends(get_db)):
     _validate(payload.match_field, payload.match_op)

@@ -232,6 +232,7 @@ function _renderChart(data) {
         },
         options: {
             responsive: true,
+            animation: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? false : undefined,
             maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
             scales: {

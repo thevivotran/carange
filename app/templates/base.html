@@ -452,6 +452,17 @@
         /* ── Net Worth hero gradient — orange→blue (brand→accent) ─── */
         /* Stops are dark enough that white text stays ≥4.5:1 (see --hero-gradient). */
         .theme-switching, .theme-switching * { transition: none !important; }
+
+        /* Respect the OS "reduce motion" setting: no fades, slides or press-scale. */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+                scroll-behavior: auto !important;
+            }
+            .active\:scale-95:active { transform: none !important; }
+        }
         .hero-gradient {
             background: var(--hero-gradient);
         }
@@ -1528,6 +1539,72 @@
         }
 
     });
+    </script>
+
+    <!-- Keyboard shortcuts (press ? for the list) -->
+    <div id="shortcuts-dialog" role="dialog" aria-modal="true" aria-labelledby="shortcuts-title"
+         class="hidden fixed inset-0 z-[220] flex items-center justify-center p-4" style="background: rgba(15,23,42,.5)"
+         onclick="if (event.target === this) this.classList.add('hidden')">
+        <div class="cg-card rounded-xl shadow-xl w-full max-w-md">
+            <div class="flex items-center justify-between px-5 py-4 border-b">
+                <h2 id="shortcuts-title" class="font-semibold text-gray-800">Keyboard shortcuts</h2>
+                <button type="button" aria-label="Close" data-dialog-close
+                        onclick="document.getElementById('shortcuts-dialog').classList.add('hidden')"
+                        class="w-10 h-10 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+            <dl class="px-5 py-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 text-sm">
+                <dt><kbd>n</kbd></dt><dd>New transaction</dd>
+                <dt><kbd>/</kbd></dt><dd>Search (Transactions)</dd>
+                <dt><kbd>←</kbd> <kbd>→</kbd></dt><dd>Previous / next month</dd>
+                <dt><kbd>g</kbd> then <kbd>d</kbd> <kbd>t</kbd> <kbd>r</kbd> <kbd>b</kbd></dt><dd>Go to Dashboard, Transactions, Review, Budget</dd>
+                <dt><kbd>j</kbd> <kbd>k</kbd></dt><dd>Review: move between items</dd>
+                <dt><kbd>c</kbd> <kbd>s</kbd> <kbd>r</kbd></dt><dd>Review: confirm, skip, make a rule</dd>
+                <dt><kbd>?</kbd></dt><dd>Show this list</dd>
+            </dl>
+        </div>
+    </div>
+    <script>
+    (function() {
+        var GO = { d: '/', t: '/transactions', r: '/review', b: '/budget' };
+        var pendingGo = 0;
+        function typing(t) {
+            return t && t.closest && t.closest('input, textarea, select, [contenteditable]');
+        }
+        function dialogOpen() {
+            return Array.prototype.some.call(document.querySelectorAll('[role="dialog"], [role="alertdialog"]'),
+                function(d) { return !d.classList.contains('hidden') && d.offsetParent !== null; });
+        }
+        function shiftMonthOnPage(delta) {
+            if (typeof window.shiftMonth === 'function') return window.shiftMonth(delta);
+            if (typeof window.shiftTxMonth === 'function') return window.shiftTxMonth(delta);
+            if (delta < 0 && typeof window.prevMonth === 'function') return window.prevMonth();
+            if (delta > 0 && typeof window.nextMonth === 'function') return window.nextMonth();
+        }
+        document.addEventListener('keydown', function(e) {
+            if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || typing(e.target) || dialogOpen()) return;
+            if (pendingGo && Date.now() - pendingGo < 1000 && GO[e.key]) {
+                e.preventDefault(); pendingGo = 0; window.location.href = GO[e.key]; return;
+            }
+            pendingGo = 0;
+            if (e.key === 'g') { pendingGo = Date.now(); return; }
+            if (e.key === '?') {
+                e.preventDefault(); document.getElementById('shortcuts-dialog').classList.remove('hidden'); return;
+            }
+            if (e.key === 'n' && typeof window.openAddModal === 'function') { e.preventDefault(); window.openAddModal(); return; }
+            if (e.key === '/') {
+                var search = document.getElementById('filter-search');
+                if (search) { e.preventDefault(); search.focus(); }
+                return;
+            }
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+                if (document.activeElement && document.activeElement !== document.body &&
+                    document.activeElement.id !== 'main-content') return;  // arrows belong to the focused control
+                shiftMonthOnPage(e.key === 'ArrowLeft' ? -1 : 1);
+            }
+        });
+    })();
     </script>
 
     <script src="{{ static_url('js/money-input.js') }}"></script>

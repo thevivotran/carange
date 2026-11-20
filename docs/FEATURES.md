@@ -56,6 +56,8 @@ instructions, see the [main README](../README.md).
 - **Budget History modal** — last 6 months of spend vs. budget per category with delta
 - **Summary bar** — Total Budgeted / Spent / Available + overall progress bar
 - **Alert thresholds** — notifications fire as categories approach overspend
+- **Budget suggestions** — Edit Budgets lists every expense category with a suggested limit
+  from your average spending over the last 3 months; one click applies them all
 
 ## Cash-Flow Forecast
 
@@ -90,7 +92,11 @@ instructions, see the [main README](../README.md).
 ## Review Inbox
 
 - Holding area for all auto-imported (OCR/Email) transactions pending confirmation
-- Edit description and category before approving; reject to discard
+- Edit description, category, **amount, date and type** before approving; reject to discard
+- **Source screenshot** — open the image an OCR item was read from to check it
+- **Confirm high-confidence** — approve every item read with ≥80% confidence in one step
+- **Keyboard** — `j`/`k` move between items, `c` confirm, `s` skip, `r` make a rule
+- **Paste to import** — paste a screenshot (Ctrl/⌘+V) here or on Import
 - **Remember as Rule** — one click to turn the approval into a permanent auto-rule
 - Approve All bulk action with partial-failure feedback
 - Live badge count in every nav viewport syncs after every action
@@ -156,6 +162,8 @@ See [`email_worker/README.md`](../email_worker/README.md) for the worker's inter
   on every ingest; compiled patterns cached per-process and invalidated on write
 - **Rules** — ordered auto-categorisation rules on description, amount, payment method,
   source, or payee; supports auto-approve and force-review actions
+- **Rule suggestions** — when you keep filing the same description under one category,
+  the Rules page offers to make it a rule in one click
 
 ## Pulse (Daily Status)
 
@@ -229,7 +237,9 @@ See [`notify_worker/README.md`](../notify_worker/README.md) for the worker's int
 ## Notes
 
 - Two-panel editor with auto-save (800 ms debounce)
-- Types: General, Money Owed; filter by type
+- Types: General, Money owed; filter by type
+- **IOUs** — money-owed notes record the person, amount, direction and due date, with an
+  "Owed to you · You owe" total; **Mark settled** opens the add-transaction form pre-filled
 
 ---
 
@@ -242,12 +252,21 @@ See [`notify_worker/README.md`](../notify_worker/README.md) for the worker's int
   persisted per-browser
 - **HTMX-driven fragments** — dashboard cards, filters, and modals update in place without
   full-page reloads, keeping interactions snappy on slower mobile connections
+- **Accessible by default** — WCAG AA contrast in both themes, every control named for screen
+  readers, keyboard-operable rows and drop zones, chart summaries with "View as table",
+  and `prefers-reduced-motion` respected
+- **Keyboard shortcuts** — `n` new transaction, `/` search, ←/→ month, `g` then d/t/r/b to
+  jump between pages, `?` for the list
+- **Integration health** — Settings → Integrations shows whether email import, screenshot
+  OCR and Telegram are working, with an email connection test
+- **Phone-first dashboard** — Net Worth and the safety checks fit on the first screen;
+  Review has its own bottom-nav tab
 
 ---
 
 ## Design system
 
-`tests/test_ui_lint.py` runs as part of `make lint` and enforces 7 template rules to prevent UI drift:
+`tests/test_ui_lint.py` runs as part of `make lint` and enforces these template rules to prevent UI drift:
 
 | Rule | Prevents |
 |------|---------|
@@ -255,6 +274,12 @@ See [`notify_worker/README.md`](../notify_worker/README.md) for the worker's int
 | `icon-button-size` | Header icon buttons at inconsistent sizes |
 | `modal-button-font` | Modal footer buttons without `font-medium` |
 | `page-heading-color` | Page `h2` titles missing `text-gray-800` |
-| `icon-btn-label` | Icon-only buttons with no `title` or `aria-label` |
+| `icon-btn-label` | Buttons/links (multi-line too) with no text, `title` or `aria-label` |
 | `input-focus-ring` | Bordered inputs missing `focus:ring-2` |
 | `img-alt` | `<img>` tags without `alt` attribute |
+| `dialog-role` | Overlays without `role="dialog"` |
+| `label-for` | `<label>` not tied to a control |
+| `primary-action-brand` | Primary actions in blue instead of brand orange |
+| `primary-button-contrast` | White text on `bg-brand` (2.8:1) — use `bg-brand-solid` |
+| `semantic-color-token` | Raw green/red text classes instead of income/expense/status tokens |
+| `clickable-div` | Click handlers on non-focusable elements |
