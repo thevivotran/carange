@@ -7,19 +7,19 @@
   <!-- Header -->
   <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-3">
     <div class="hidden md:block">
-      <h2 class="text-2xl font-bold">Financial Health</h2>
-      <p class="text-sm text-muted">as of {{ today.strftime('%d %B %Y') }}</p>
+      <h1 class="text-2xl font-bold">Financial Health</h1>
+      <p class="text-sm text-muted">as of {{ (today | app_date) }}</p>
     </div>
     <div class="flex items-center gap-2">
       <div class="flex items-center gap-1 cg-card px-2 py-1">
-        <button onclick="shiftMonth(-1)"
-                class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none">&#8249;</button>
+        <button onclick="shiftMonth(-1)" aria-label="Previous month"
+                class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none"><span aria-hidden="true">&#8249;</span></button>
         <div class="flex flex-col items-center justify-center px-3 py-1 min-w-[120px]">
           <span id="month-year-display" class="text-sm font-semibold text-center select-none"></span>
           <span id="month-range-display" class="block text-[10px] leading-tight text-muted text-center whitespace-nowrap select-none"></span>
         </div>
-        <button onclick="shiftMonth(1)"
-                class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none">&#8250;</button>
+        <button onclick="shiftMonth(1)" aria-label="Next month"
+                class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none"><span aria-hidden="true">&#8250;</span></button>
       </div>
       {% if month_start_day and month_start_day != 1 %}
       <a href="/settings" class="cg-badge cg-badge--brand w-10 h-10 justify-center sm:w-auto sm:h-auto"
@@ -86,6 +86,23 @@
     </div>
   </div>
 
+  <!-- ── Next project payment ─────────────────────────────────────── -->
+  {% if next_payment %}
+  <a href="/projects" class="cg-card p-4 mb-6 flex items-center justify-between gap-3 hover:shadow-md transition">
+    <div class="flex items-center gap-3 min-w-0">
+      <span class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 bg-accent-subtle">
+        <i class="fas fa-calendar-day text-accent-text" aria-hidden="true"></i>
+      </span>
+      <div class="min-w-0">
+        <p class="eyebrow">Next project payment</p>
+        <p class="text-sm font-semibold text-gray-800 truncate">{{ next_payment.project_name }} · <span class="tabular-nums">{{ next_payment.amount | currency }}</span></p>
+        <p class="text-xs text-muted">{{ next_payment.due_date | app_date('long') }} · {% if next_payment.days < 0 %}<span class="text-danger font-semibold">overdue by {{ -next_payment.days }} day{{ 's' if next_payment.days < -1 }}</span>{% elif next_payment.days == 0 %}today{% elif next_payment.days == 1 %}tomorrow{% else %}in {{ next_payment.days }} days{% endif %}</p>
+      </div>
+    </div>
+    <i class="fas fa-chevron-right text-muted flex-shrink-0" aria-hidden="true"></i>
+  </a>
+  {% endif %}
+
   <!-- ── BDS Progress ───────────────────────────────────────────────── -->
   {% if bds_project %}
   {% set bds_pct = (bds_project.current_amount / bds_project.target_amount * 100) if bds_project.target_amount > 0 else 0 %}
@@ -126,7 +143,7 @@
             {% elif bds_days_until_next == 0 %}Due today
             {% elif bds_days_until_next <= 15 %}Due in {{ bds_days_until_next }}d
             {% elif bds_days_until_next <= 30 %}Due in {{ bds_days_until_next }}d
-            {% else %}{{ bds_next_payment.due_date.strftime('%d/%m/%Y') }}{% endif %}
+            {% else %}{{ (bds_next_payment.due_date | app_date) }}{% endif %}
           {% endif %}
         </p>
       </div>
@@ -180,7 +197,7 @@
         <span class="text-xs text-muted">― 50M target</span>
       </div>
       <div style="height: 260px; position: relative;">
-        <canvas id="cashFlowChart"></canvas>
+        <canvas id="cashFlowChart" role="img" aria-label="Cash flow chart: income and expense by month (loading)"></canvas>
       </div>
     </div>
     {% endif %}
@@ -252,7 +269,7 @@
         </div>
       </div>
       <div style="height: 230px; position: relative;">
-        <canvas id="wealthTrendChart"></canvas>
+        <canvas id="wealthTrendChart" role="img" aria-label="Wealth building chart: savings and property payments by month (loading)"></canvas>
       </div>
     </div>
 
@@ -265,7 +282,7 @@
         </div>
       </div>
       <div style="height: 180px; position: relative;" class="mx-auto">
-        <canvas id="wealthAllocChart"></canvas>
+        <canvas id="wealthAllocChart" role="img" aria-label="Wealth allocation chart"></canvas>
       </div>
       <div class="mt-4 space-y-1.5" id="alloc-legend"></div>
     </div>
@@ -364,7 +381,7 @@
           <div class="flex justify-between items-center text-xs">
             <span class="font-medium truncate pr-2" style="color: var(--warning-text)">{{ b.name }}</span>
             <div class="text-right flex-shrink-0">
-              <span style="color: var(--warning-text)">{{ b.maturity_date.strftime('%d/%m') }}</span>
+              <span style="color: var(--warning-text)">{{ b.maturity_date | app_date('short') }}</span>
               <span class="ml-1" style="color: var(--warning)">({{ days }}d)</span>
             </div>
           </div>
@@ -417,7 +434,7 @@
         <p class="text-xs text-muted">Projected low point</p>
         {% if outlook and outlook.low_point %}
         <p class="text-lg font-bold mt-1">{{ outlook.low_point.balance | currency }}</p>
-        <p class="text-xs text-muted mt-0.5">{{ outlook.low_point.date.strftime('%b %d') }}</p>
+        <p class="text-xs text-muted mt-0.5">{{ (outlook.low_point.date | app_date('short')) }}</p>
         {% else %}
         <p class="text-lg font-bold mt-1 text-muted">—</p>
         {% endif %}
@@ -464,7 +481,7 @@
           </div>
           <div class="flex justify-between text-xs text-muted mt-0.5">
             <span>
-              {% if p.deadline %}Due {{ p.deadline.strftime('%d/%m/%Y') }}{% else %}No deadline{% endif %}
+              {% if p.deadline %}Due {{ (p.deadline | app_date) }}{% else %}No deadline{% endif %}
             </span>
             <span>Gap: {{ ([p.target_amount - p.current_amount, 0]|max) | currency }}</span>
           </div>
@@ -519,7 +536,7 @@
             <p class="text-sm font-medium truncate">{{ s.name }}</p>
             <p class="text-xs text-muted">
               {{ s.bank_name }}
-              {% if s.maturity_date %}· {{ s.maturity_date.strftime('%d/%m/%Y') }}{% endif %}
+              {% if s.maturity_date %}· {{ (s.maturity_date | app_date) }}{% endif %}
               {% if days is not none %}
               <span class="{{ 'text-warning font-semibold' if days <= 30 else 'text-muted' }}">
                 ({{ days }}d)
@@ -555,11 +572,11 @@
         <div class="flex items-center gap-3 min-w-0">
           <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0
             {{ 'bg-income-subtle' if t.type.value == 'income' else 'bg-surface-sunken' }}">
-            <i class="fas text-xs {{ 'fa-arrow-down text-income' if t.type.value == 'income' else 'fa-arrow-up text-expense' }}"></i>
+            <i class="fas text-xs {{ 'fa-plus text-income' if t.type.value == 'income' else 'fa-minus text-expense' }}"></i>
           </div>
           <div class="min-w-0">
             <p class="text-sm font-medium truncate">{{ t.description or t.category.name }}</p>
-            <p class="text-xs text-muted">{{ t.date.strftime('%d/%m/%Y') }} · {{ t.category.name }}</p>
+            <p class="text-xs text-muted">{{ (t.date | app_date) }} · {{ t.category.name }}</p>
           </div>
         </div>
         <span class="text-sm font-semibold amount tabular-nums ml-4 flex-shrink-0
@@ -584,7 +601,7 @@
       <p class="text-sm font-semibold mb-1">No transactions yet</p>
       <p class="text-xs text-muted max-w-xs mx-auto">Log your first income or expense to start seeing your activity here.</p>
       <button onclick="openAddModal()"
-              class="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand hover:bg-brand-hover text-white text-xs font-medium transition-colors">
+              class="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-solid hover:bg-brand-solid-hover text-white text-xs font-medium transition-colors">
         Add a transaction
       </button>
     </div>
@@ -763,10 +780,20 @@ function fmtM(v) {
 
 
 // ── Cash flow chart ────────────────────────────────────────────────────────
+// Guarded: the chart is absent in some layout presets (it used to throw on every load).
+if (document.getElementById('cashFlowChart')) {
 fetch('/api/dashboard/monthly-trend')
     .then(r => r.json())
     .then(all => {
         const data = all.slice(-6);
+        if (data.length) {
+            const avg = k => data.reduce((a, d) => a + d[k], 0) / data.length;
+            window.describeChart('cashFlowChart',
+                'Cash flow, last ' + data.length + ' months: income averaged ' + window.formatAmountAbbrev(avg('income')) +
+                ', expense averaged ' + window.formatAmountAbbrev(avg('expense')) + ' per month.',
+                ['Month', 'Income', 'Expense', 'Net'],
+                data.map(d => [d.month, window.formatAmount(d.income), window.formatAmount(d.expense), window.formatAmount(d.net)]));
+        }
         const ctx  = document.getElementById('cashFlowChart').getContext('2d');
         if (_charts.cashFlow) { _charts.cashFlow.destroy(); }
         _charts.cashFlow = new Chart(ctx, {
@@ -818,6 +845,7 @@ fetch('/api/dashboard/monthly-trend')
             },
             options: {
                 responsive: true,
+            animation: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? false : undefined,
                 maintainAspectRatio: false,
                 interaction: { mode: 'index', intersect: false },
                 scales: {
@@ -850,6 +878,7 @@ fetch('/api/dashboard/monthly-trend')
         const skel = document.getElementById('cashflow-skel');
         if (skel) skel.remove();
     });
+}
 
 // ── Wealth Building Trend chart (with savings rate rolling line) ──────────────
 // Guarded: this section is hidden in the Simple/Standard layout presets, so the
@@ -864,6 +893,12 @@ fetch('/api/dashboard/wealth-building-trend')
             const avg = (data[i].savings_rate + data[i-1].savings_rate + data[i-2].savings_rate) / 3;
             return Math.round(avg * 10) / 10;
         });
+        if (data.length) {
+            window.describeChart('wealthTrendChart',
+                'Wealth building, last ' + data.length + ' months: latest savings rate ' + data[data.length - 1].savings_rate + '%.',
+                ['Month', 'Savings', 'Property', 'Savings rate'],
+                data.map(d => [d.month, window.formatAmount(d.tiet_kiem), window.formatAmount(d.bds), d.savings_rate + '%']));
+        }
         const ctx = document.getElementById('wealthTrendChart').getContext('2d');
         if (_charts.wealthTrend) { _charts.wealthTrend.destroy(); }
         _charts.wealthTrend = new Chart(ctx, {
@@ -911,6 +946,7 @@ fetch('/api/dashboard/wealth-building-trend')
             },
             options: {
                 responsive: true,
+            animation: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? false : undefined,
                 maintainAspectRatio: false,
                 interaction: { mode: 'index', intersect: false },
                 scales: {
@@ -955,6 +991,10 @@ if (document.getElementById('wealthAllocChart')) {
     const colors = projectSegs.map(s => s.color).concat(['#60A5FA', '#FBBF24']);
     const total  = values.reduce((a, b) => a + b, 0);
 
+    window.describeChart('wealthAllocChart',
+        'Wealth allocation across ' + labels.length + ' groups, total ' + window.formatAmountAbbrev(total) + '.',
+        ['Group', 'Amount', 'Share'],
+        labels.map((l, i) => [l, window.formatAmount(values[i]), (total > 0 ? (values[i] / total * 100).toFixed(1) : 0) + '%']));
     const ctx = document.getElementById('wealthAllocChart').getContext('2d');
     new Chart(ctx, {
         type: 'doughnut',
@@ -970,6 +1010,7 @@ if (document.getElementById('wealthAllocChart')) {
         },
         options: {
             responsive: true,
+            animation: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? false : undefined,
             maintainAspectRatio: false,
             cutout: '65%',
             plugins: {
@@ -1007,7 +1048,7 @@ if (document.getElementById('wealthAllocChart')) {
         pctEl.className = 'font-semibold text-gray-700';
         pctEl.textContent = pct + '%';
         const valEl = document.createElement('div');
-        valEl.className = 'text-gray-400';
+        valEl.className = 'text-text-muted';
         valEl.textContent = window.formatAmountAbbrev(values[i]);
         right.appendChild(pctEl);
         right.appendChild(valEl);
@@ -1130,6 +1171,7 @@ const KPI_INFO = {
         formula: 'External Income − External Expense (all-time, transfers excluded)',
         target: 'Positive = the family holds surplus that touched the spendable account',
         notes: [
+            'How it differs from Liquid Cash: moving money into savings or property lowers Liquid Cash but not this. The two match until you start moving money between pots.',
             'The "who owes whom" number — internal transfers (savings, real estate, projects) are netted out',
             'Unaffected by moving money between pots; only real external income/spend move it',
             'Positive means surplus is held; negative means the family is owed',
@@ -1141,6 +1183,7 @@ const KPI_INFO = {
         formula: 'Σ Income − Σ Expense (all transactions, every pot)',
         target: 'The true spendable balance; can be negative as a data signal',
         notes: [
+            'How it differs from Family Surplus: this drops when you move money into savings or property; Family Surplus does not. They match until you do.',
             'Raw cash position — includes savings/real-estate deposits that really left the account',
             'Can be legitimately negative when deposits outpaced cash inflow',
             'A negative value is NOT the family surplus — see Family Surplus for that',
@@ -1170,7 +1213,7 @@ function showKpiInfo(key, btn) {
     titleEl.className = 'font-semibold text-gray-800 text-sm';
     titleEl.textContent = info.title;
     const closeBtn = document.createElement('button');
-    closeBtn.className = 'text-gray-400 hover:text-gray-600 text-lg leading-none ml-3';
+    closeBtn.className = 'text-text-muted hover:text-gray-600 text-lg leading-none ml-3';
     closeBtn.textContent = '×';
     closeBtn.addEventListener('click', hideKpiInfo);
     header.appendChild(titleEl);

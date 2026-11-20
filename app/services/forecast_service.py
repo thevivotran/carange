@@ -19,6 +19,7 @@ from app.models.database import (
     ProjectPayment,
     SavingsBundle,
     SavingsStatus,
+    Transaction,
     TransactionTemplate,
     TransactionType,
 )
@@ -219,6 +220,29 @@ def build_forecast(db: Session, horizon_days: int = 90, include_budget_estimate:
                     }
                 )
 
+    # ── Fallback: nothing scheduled → project from recent spending ───────────
+    # A flat line tells the user nothing. Use the average net flow (income − expense,
+    # the same definition as liquid cash) over the last SPENDING_LOOKBACK_DAYS,
+    # emitted as one estimated event per week so the list stays readable.
+    estimate_source = None
+    estimate_days = 0
+    if include_budget_estimate and not events:
+        weekly, estimate_days = _weekly_net_from_history(db, start)
+        if weekly is not None:
+            estimate_source = "spending_average"
+            for i in range(1, horizon_days // 7 + 1):
+                events.append(
+                    {
+                        "date": start + timedelta(days=7 * i),
+                        "label": "Typical week (from your recent spending)",
+                        "amount": abs(weekly),
+                        "signed": weekly,
+                        "source": "spending_estimate",
+                        "estimated": True,
+                        "entity_id": None,
+                    }
+                )
+
     events.sort(key=lambda e: e["date"])
 
     # ── Running balance series ───────────────────────────────────────────────
@@ -258,4 +282,34 @@ def build_forecast(db: Session, horizon_days: int = 90, include_budget_estimate:
         "low_point": low_point,
         "horizon_net": horizon_net,
         "shortfall": shortfall,
+        "estimate_source": estimate_source,
+        "estimate_days": estimate_days,
     }
+
+
+SPENDING_LOOKBACK_DAYS = 90
+MIN_HISTORY_DAYS = 14
+
+
+def _weekly_net_from_history(db: Session, today: date) -> tuple[float | None, int]:
+    """Average weekly net flow over the last SPENDING_LOOKBACK_DAYS (or since the first
+    transaction, if that is more recent). None when there is under MIN_HISTORY_DAYS of history."""
+    window_start = today - timedelta(days=SPENDING_LOOKBACK_DAYS)
+    first = (
+        db.query(func.min(Transaction.date))
+        .filter(Transaction.deleted_at.is_(None), Transaction.date >= window_start, Transaction.date < today)
+        .scalar()
+    )
+    if first is None:
+        return None, 0
+    days = (today - first).days
+    if days < MIN_HISTORY_DAYS:
+        return None, days
+    totals = dict(
+        db.query(Transaction.type, func.sum(Transaction.amount))
+        .filter(Transaction.deleted_at.is_(None), Transaction.date >= first, Transaction.date < today)
+        .group_by(Transaction.type)
+        .all()
+    )
+    net = float(totals.get(TransactionType.INCOME) or 0) - float(totals.get(TransactionType.EXPENSE) or 0)
+    return net / days * 7, days

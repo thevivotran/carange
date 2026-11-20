@@ -36,6 +36,44 @@ def recompute_project_totals(db: Session, project: FinancialProject) -> None:
     db.flush()
 
 
+def next_due_payment(project: FinancialProject):
+    """The payment to show as "next": the earliest pending payment with a due date, or —
+    when none is dated — the first pending one by schedule order. None if all are paid."""
+    pending = [p for p in (project.payments or []) if p.status == PaymentStatus.PENDING]
+    if not pending:
+        return None
+    dated = [p for p in pending if p.due_date is not None]
+    if dated:
+        return min(dated, key=lambda p: (p.due_date, p.sort_order or 0, p.id or 0))
+    return min(pending, key=lambda p: (p.sort_order or 0, p.id or 0))
+
+
+def next_due_payment_overall(db: Session, today: date | None = None) -> dict | None:
+    """The soonest unpaid, dated payment across planning/in-progress projects — overdue
+    ones included, since those matter most (``days`` is then negative)."""
+    today = today or date.today()
+    payment = (
+        db.query(ProjectPayment)
+        .join(FinancialProject, ProjectPayment.project_id == FinancialProject.id)
+        .filter(
+            ProjectPayment.status == PaymentStatus.PENDING,
+            ProjectPayment.due_date.isnot(None),
+            FinancialProject.deleted_at.is_(None),
+            FinancialProject.status.in_([ProjectStatus.PLANNING, ProjectStatus.IN_PROGRESS]),
+        )
+        .order_by(ProjectPayment.due_date.asc(), ProjectPayment.id.asc())
+        .first()
+    )
+    if payment is None:
+        return None
+    return {
+        "project_name": payment.project.name,
+        "amount": payment.amount,
+        "due_date": payment.due_date,
+        "days": (payment.due_date - today).days,
+    }
+
+
 def calc_progress(project: FinancialProject) -> float:
     if project.target_amount > 0:
         return round((project.current_amount / project.target_amount) * 100, 2)

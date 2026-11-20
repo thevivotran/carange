@@ -9,14 +9,22 @@ Visual consistency (prevent drift from the design system):
   page-heading-color   h2 with text-3xl font-bold must include text-gray-800
 
 Accessibility (prevent silent a11y regressions):
-  icon-btn-label       single-line icon-only buttons need title= or aria-label=
+  icon-btn-label       every <button>/<a> (multi-line too) needs text, aria-label or title (file-level)
   input-focus-ring     inputs/selects with border class must have focus:ring-2
   img-alt              every <img> must carry an alt= attribute
   dialog-role          fixed inset-0 overlays with a modal/drawer id need role="dialog"
   label-for            every <label> has for= or wraps its control (file-level)
+  clickable-div        div/li/tr/span/td with onclick/@click needs role= and tabindex= so it
+                       is keyboard-reachable; overlay backdrops (inset-0) are exempt (file-level)
+
+Colour tokens:
+  semantic-color-token raw text-(green|red|emerald|rose)-NNN → use text-income / text-expense /
+                       text-success / text-danger (tokens are contrast-checked in both themes)
 
 Brand:
   primary-action-brand Add/Save/Create/New/Edit Budgets buttons use bg-brand, not blue/indigo (file-level)
+  primary-button-contrast filled buttons with visible text use bg-brand-solid (white on
+                       bg-brand is 2.8:1); bg-brand is for icon-only FABs (file-level)
 
 Two test layers below:
   1. Unit tests — verify each rule fires/passes on synthetic HTML snippets.
@@ -107,30 +115,35 @@ def _check_modal_button_font(line: str, loc: str) -> list[str]:
 
 
 def _check_page_heading_color(line: str, loc: str) -> list[str]:
-    """h2 page titles (text-3xl font-bold) must carry text-gray-800."""
+    """Page titles (h1/h2 with text-3xl font-bold) must carry text-gray-800."""
     violations = []
-    if "<h2" not in line:
+    if "<h2" not in line and "<h1" not in line:
         return violations
     for cls in _class_sets(line):
         if "text-3xl" in cls and "font-bold" in cls and "text-gray-800" not in cls:
-            violations.append(f"{loc}: [page-heading-color] h2 with text-3xl font-bold is missing text-gray-800")
+            violations.append(f"{loc}: [page-heading-color] heading with text-3xl font-bold is missing text-gray-800")
     return violations
 
 
-def _check_icon_btn_label(line: str, loc: str) -> list[str]:
-    """Single-line icon-only <button> must have title= or aria-label=."""
+def _check_icon_btn_label(text: str, path: Path) -> list[str]:
+    """Every <button>/<a> needs an accessible name: visible text, aria-label,
+    aria-labelledby or title. Matches multi-line elements (file-level)."""
     violations = []
-    if "<button" not in line or "</button>" not in line:
-        return violations
-    if '<i class="fa' not in line:
-        return violations
-    # Only flag when the button has no readable text (icon-only)
-    if _button_text(line):
-        return violations
-    if "title=" not in line and "aria-label=" not in line:
-        violations.append(
-            f"{loc}: [icon-btn-label] icon-only button has no title= or aria-label= — add one for accessibility"
-        )
+    for m in _ELEMENT.finditer(text):
+        attrs, inner = m.group(2), m.group(3)
+        if re.search(r"\b(aria-label|aria-labelledby|title|:aria-label|x-bind:aria-label)=", attrs):
+            continue
+        if "x-text" in inner or "x-text" in attrs or "x-html" in attrs:
+            continue
+        visible = re.sub(r"<[^>]*\bsr-only\b[^>]*>(.*?)</[a-z]+>", r"\1", inner, flags=re.DOTALL)
+        visible = re.sub(r"<[^>]+>", "", visible)
+        visible = re.sub(r"\{[{%#].*?[%}#]\}", "X", visible).strip()
+        if visible:
+            continue
+        if re.search(r"<img\b[^>]*\balt=\"[^\"]+\"", inner):
+            continue
+        lineno = text.count("\n", 0, m.start()) + 1
+        violations.append(f"{path}:{lineno}: [icon-btn-label] <{m.group(1)}> has no text, aria-label or title")
     return violations
 
 
@@ -200,7 +213,7 @@ def _check_primary_action_brand(text: str, path: Path) -> list[str]:
             lineno = text.count("\n", 0, m.start()) + 1
             violations.append(
                 f"{path}:{lineno}: [primary-action-brand] '{label[:30]}' uses a blue/indigo background"
-                " — use bg-brand hover:bg-brand-hover"
+                " — use bg-brand-solid hover:bg-brand-solid-hover"
             )
     return violations
 
@@ -220,7 +233,68 @@ def _check_label_association(text: str, path: Path) -> list[str]:
     return violations
 
 
-_FILE_RULES = [_check_primary_action_brand, _check_label_association]
+def _visible_text(inner: str) -> str:
+    """Text a sighted user sees inside an element: tags stripped, Jinja expressions kept as 'X'."""
+    text = re.sub(r"<[^>]+>", "", inner)
+    return re.sub(r"\{[{%#].*?[%}#]\}", "X", text).strip()
+
+
+def _check_primary_button_contrast(text: str, path: Path) -> list[str]:
+    """White text on bg-brand (#F97316) is 2.8:1 — buttons/links with visible text must use
+    bg-brand-solid. Icon-only round FABs may keep bg-brand."""
+    violations = []
+    for m in _ELEMENT.finditer(text):
+        attrs, inner = m.group(2), m.group(3)
+        classes = set((_attr(attrs, "class") or "").split())
+        if "bg-brand" not in classes or "text-white" not in classes:
+            continue
+        if not _visible_text(inner) and "x-text" not in inner:
+            continue
+        lineno = text.count("\n", 0, m.start()) + 1
+        violations.append(f"{path}:{lineno}: [primary-button-contrast] text on bg-brand fails AA — use bg-brand-solid")
+    return violations
+
+
+_CLICKABLE = re.compile(r"<(div|li|tr|span|td)\b([^>]*?(?:\sonclick=|\s@click=)[^>]*)>", re.DOTALL)
+
+
+def _check_clickable_div(text: str, path: Path) -> list[str]:
+    """Non-interactive elements with click handlers must be focusable and announced."""
+    violations = []
+    for m in _CLICKABLE.finditer(text):
+        attrs = m.group(2)
+        if "role=" in attrs and "tabindex=" in attrs:
+            continue
+        if re.search(r"\binset-0\b|@click\.(?:stop|self|outside|away)", attrs):
+            continue
+        lineno = text.count("\n", 0, m.start()) + 1
+        violations.append(
+            f"{path}:{lineno}: [clickable-div] <{m.group(1)}> has a click handler but no role= + tabindex="
+        )
+    return violations
+
+
+_FILE_RULES = [
+    _check_clickable_div,
+    _check_primary_action_brand,
+    _check_label_association,
+    _check_primary_button_contrast,
+    _check_icon_btn_label,
+]
+
+
+_RAW_SEMANTIC_TEXT = re.compile(r"(?<![\w.-])(?:[a-z-]+:)*text-(?:green|red|emerald|rose)-\d{3}\b")
+
+
+def _check_semantic_color_token(line: str, loc: str) -> list[str]:
+    """Income/expense/status text goes through tokens. CSS selectors (`.dark .text-red-600`)
+    are dark-mode overrides, not usages, and are skipped."""
+    if re.search(r"\.(?:dark|peer)\b.*\{", line):
+        return []
+    m = _RAW_SEMANTIC_TEXT.search(line)
+    if not m:
+        return []
+    return [f"{loc}: [semantic-color-token] '{m.group(0)}' — use text-income/text-expense/text-success/text-danger"]
 
 
 # ── Dispatcher ────────────────────────────────────────────────────────────────
@@ -230,10 +304,10 @@ _RULES = [
     _check_icon_button_size,
     _check_modal_button_font,
     _check_page_heading_color,
-    _check_icon_btn_label,
     _check_input_focus_ring,
     _check_img_alt,
     _check_dialog_role,
+    _check_semantic_color_token,
 ]
 
 
@@ -275,7 +349,7 @@ def test_badge_missing_font_medium_is_flagged():
 
 
 def test_badge_with_font_medium_passes():
-    line = '<span class="text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">On track</span>'
+    line = '<span class="text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-success-text">On track</span>'
     assert lint_line(line, Path("t.html"), 1) == []
 
 
@@ -301,7 +375,7 @@ def test_badge_text_sm_not_flagged():
 
 def test_badge_shade_500_opacity_not_flagged():
     """bg-green-500/20 is an opacity tint, not a standard light-shade badge bg."""
-    line = '<span class="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-200">↑ flat</span>'
+    line = '<span class="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-white">↑ flat</span>'
     assert lint_line(line, Path("t.html"), 1) == []
 
 
@@ -421,33 +495,38 @@ def test_page_heading_not_3xl_not_checked():
 
 
 def test_icon_btn_no_label_flagged():
-    line = '<button onclick="doThing()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>'
-    assert any("icon-btn-label" in v for v in lint_line(line, Path("t.html"), 1))
+    html = '<button onclick="doThing()" class="text-gray-400"><i class="fas fa-times"></i></button>'
+    assert _check_icon_btn_label(html, Path("t.html"))
+
+
+def test_icon_btn_multiline_no_label_flagged():
+    html = '<button onclick="doThing()"\n        class="w-12 h-12">\n    <i class="fas fa-plus"></i>\n</button>'
+    assert _check_icon_btn_label(html, Path("t.html"))
+
+
+def test_icon_link_no_label_flagged():
+    html = '<a href="/x"><i class="fas fa-arrow-left"></i></a>'
+    assert _check_icon_btn_label(html, Path("t.html"))
 
 
 def test_icon_btn_with_title_passes():
-    line = '<button onclick="doThing()" title="Close" class="text-gray-400"><i class="fas fa-times"></i></button>'
-    assert lint_line(line, Path("t.html"), 1) == []
+    html = '<button title="Close" class="text-gray-400"><i class="fas fa-times"></i></button>'
+    assert not _check_icon_btn_label(html, Path("t.html"))
 
 
 def test_icon_btn_with_aria_label_passes():
-    line = '<button onclick="doThing()" aria-label="Close" class="text-gray-400"><i class="fas fa-times"></i></button>'
-    assert lint_line(line, Path("t.html"), 1) == []
+    html = '<button aria-label="Close"><i class="fas fa-times"></i></button>'
+    assert not _check_icon_btn_label(html, Path("t.html"))
 
 
 def test_icon_btn_with_text_not_flagged():
-    """Button with visible text does not need aria-label."""
-    line = (
-        '<button class="bg-primary text-white px-4 py-2 rounded-lg">'
-        '<i class="fas fa-plus mr-2"></i>Add Transaction</button>'
-    )
-    assert lint_line(line, Path("t.html"), 1) == []
+    html = '<button class="px-4">\n  <i class="fas fa-plus mr-2"></i>Add Transaction\n</button>'
+    assert not _check_icon_btn_label(html, Path("t.html"))
 
 
-def test_icon_btn_multiline_not_checked():
-    """Multi-line buttons (no </button> on same line) are skipped."""
-    line = '<button class="w-10 h-10 rounded-lg">'
-    assert lint_line(line, Path("t.html"), 1) == []
+def test_icon_btn_with_jinja_or_x_text_not_flagged():
+    assert not _check_icon_btn_label('<a href="/p">{{ name }}</a>', Path("t.html"))
+    assert not _check_icon_btn_label('<button><span x-text="label"></span></button>', Path("t.html"))
 
 
 # ── input-focus-ring ──────────────────────────────────────────────────────────
@@ -575,3 +654,62 @@ def test_label_with_for_passes():
 
 def test_wrapping_label_passes():
     assert not _check_label_association('<label><input type="checkbox"> Remember</label>', Path("x.html"))
+
+
+# ── primary-button-contrast ───────────────────────────────────────────────────
+
+
+def test_primary_button_contrast_flags_text_on_bg_brand():
+    html = '<button class="bg-brand text-white px-4">\n  <i class="fas fa-plus"></i> Add\n</button>'
+    assert _check_primary_button_contrast(html, Path("x.html"))
+
+
+def test_primary_button_contrast_allows_solid():
+    html = '<button class="bg-brand-solid text-white px-4">Add</button>'
+    assert not _check_primary_button_contrast(html, Path("x.html"))
+
+
+def test_primary_button_contrast_allows_icon_only_fab():
+    html = '<button aria-label="Add" class="bg-brand text-white rounded-full"><i class="fas fa-plus"></i></button>'
+    assert not _check_primary_button_contrast(html, Path("x.html"))
+
+
+# ── semantic-color-token ──────────────────────────────────────────────────────
+
+
+def test_semantic_color_token_flags_raw_green():
+    line = '<span class="text-sm text-green-600">+1,000</span>'
+    assert any("semantic-color-token" in v for v in lint_line(line, Path("t.html"), 1))
+
+
+def test_semantic_color_token_flags_variant_prefix():
+    line = '<a class="hover:text-red-700">Delete</a>'
+    assert any("semantic-color-token" in v for v in lint_line(line, Path("t.html"), 1))
+
+
+def test_semantic_color_token_allows_tokens():
+    line = '<span class="text-income">+1,000</span><span class="text-danger">x</span>'
+    assert not any("semantic-color-token" in v for v in lint_line(line, Path("t.html"), 1))
+
+
+def test_semantic_color_token_skips_dark_css_overrides():
+    line = "        .dark .text-red-600   { color: #f87171 !important; }"
+    assert not any("semantic-color-token" in v for v in lint_line(line, Path("t.html"), 1))
+
+
+# ── clickable-div ─────────────────────────────────────────────────────────────
+
+
+def test_clickable_div_flagged():
+    html = '<div class="row cursor-pointer"\n     onclick="openTx(1)">Coffee</div>'
+    assert _check_clickable_div(html, Path("x.html"))
+
+
+def test_clickable_div_with_role_and_tabindex_passes():
+    html = '<div role="button" tabindex="0" onclick="openTx(1)">Coffee</div>'
+    assert not _check_clickable_div(html, Path("x.html"))
+
+
+def test_clickable_backdrop_exempt():
+    html = '<div class="absolute inset-0" onclick="closeDrawer()"></div>'
+    assert not _check_clickable_div(html, Path("x.html"))

@@ -2,7 +2,7 @@
     "+0 ₫ · Positive · Healthy" would claim health the data can't support. -#}
 {% set kpi_no_data = not summary.total_income and not summary.total_expense and not summary.total_savings_expense %}
 <div id="kpi-cards-region"
-     class="{{ 'kpi-no-data' if kpi_no_data else '' }}"
+     class="flex flex-col md:block {{ 'kpi-no-data' if kpi_no_data else '' }}"
      hx-get="/fragments/dashboard/kpi-cards"
      hx-trigger="dashboard-month-changed from:body"
      hx-target="this"
@@ -20,7 +20,7 @@
         <button onclick="showKpiInfo('net-family-surplus', this)" class="w-6 h-6 flex items-center justify-center rounded-md text-muted hover:text-secondary hover:bg-surface-sunken focus:outline-none transition" title="About this metric"><i class="fas fa-info-circle text-xs"></i></button>
       </div>
       <p class="text-3xl font-bold leading-tight amount tabular-nums {{ 'text-success' if summary.net_family_surplus > 0 else ('text-danger' if summary.net_family_surplus < 0 else 'text-muted') }}">
-        {{ summary.net_family_surplus | currency_abbrev(signed=true) }}
+        {{ summary.net_family_surplus | currency_abbrev }}
       </p>
       <p class="text-xs text-muted mt-1">Earned minus spent, all time</p>
       <div class="mt-3 flex items-center justify-between">
@@ -43,7 +43,7 @@
         <button onclick="showKpiInfo('liquid-cash', this)" class="w-6 h-6 flex items-center justify-center rounded-md text-muted hover:text-secondary hover:bg-surface-sunken focus:outline-none transition" title="About this metric"><i class="fas fa-info-circle text-xs"></i></button>
       </div>
       <p class="text-3xl font-bold leading-tight amount tabular-nums {{ 'text-success' if summary.liquid_cash > 0 else ('text-danger' if summary.liquid_cash < 0 else 'text-muted') }}">
-        {{ summary.liquid_cash | currency_abbrev(signed=true) }}
+        {{ summary.liquid_cash | currency_abbrev }}
       </p>
       <p class="text-xs text-muted mt-1">Cash you can spend right now</p>
       <div class="mt-3 flex items-center justify-between">
@@ -63,7 +63,7 @@
         <div class="flex items-center gap-2">
           <span class="text-xs font-semibold
             {{ 'text-success' if liquid_delta > 0.5 else ('text-danger' if liquid_delta < -0.5 else 'text-muted') }}">
-            {% if liquid_delta > 0.5 %}<i class="fas fa-arrow-up mr-0.5"></i>+{{ "%.1f"|format(liquid_delta) }}%{% elif liquid_delta < -0.5 %}<i class="fas fa-arrow-down mr-0.5"></i>{{ "%.1f"|format(liquid_delta) }}%{% endif %}
+            {% if liquid_delta > 0.5 %}+{{ "%.1f"|format(liquid_delta) }}%{% elif liquid_delta < -0.5 %}{{ "%.1f"|format(liquid_delta) }}%{% endif %}
           </span>
           <button onclick="showKpiInfo('liquid-savings', this)" class="w-6 h-6 flex items-center justify-center rounded-md text-muted hover:text-secondary hover:bg-surface-sunken focus:outline-none transition" title="About this metric"><i class="fas fa-info-circle text-xs"></i></button>
         </div>
@@ -95,7 +95,7 @@
         <div class="flex items-center gap-2">
           <span class="text-xs font-semibold
             {{ 'text-success' if bds_delta > 0.5 else ('text-danger' if bds_delta < -0.5 else 'text-muted') }}">
-            {% if bds_delta > 0.5 %}<i class="fas fa-arrow-up mr-0.5"></i>+{{ "%.1f"|format(bds_delta) }}%{% elif bds_delta < -0.5 %}<i class="fas fa-arrow-down mr-0.5"></i>{{ "%.1f"|format(bds_delta) }}%{% endif %}
+            {% if bds_delta > 0.5 %}+{{ "%.1f"|format(bds_delta) }}%{% elif bds_delta < -0.5 %}{{ "%.1f"|format(bds_delta) }}%{% endif %}
           </span>
           <button onclick="showKpiInfo('bds-rate', this)" class="w-6 h-6 flex items-center justify-center rounded-md text-muted hover:text-secondary hover:bg-surface-sunken focus:outline-none transition" title="About this metric"><i class="fas fa-info-circle text-xs"></i></button>
         </div>
@@ -120,7 +120,7 @@
         <div class="flex items-center gap-2">
           <span class="text-xs font-semibold
             {{ 'text-success' if net_delta > 500000 else ('text-danger' if net_delta < -500000 else 'text-muted') }}">
-            {% if net_delta|abs > 500000 %}<i class="fas fa-arrow-{{ 'up' if net_delta > 0 else 'down' }} mr-0.5"></i>{{ (net_delta|abs) | currency_abbrev }}{% endif %}
+            {% if net_delta|abs > 500000 %}{{ net_delta | currency_abbrev(signed=true) }}<span class="sr-only"> vs last month</span>{% endif %}
           </span>
           <button onclick="showKpiInfo('net-cash', this)" class="w-6 h-6 flex items-center justify-center rounded-md text-muted hover:text-secondary hover:bg-surface-sunken focus:outline-none transition" title="About this metric"><i class="fas fa-info-circle text-xs"></i></button>
         </div>
@@ -143,7 +143,7 @@
         <div class="flex items-center gap-2">
           <span class="text-xs font-semibold
             {{ 'text-success' if living_delta < -0.5 else ('text-danger' if living_delta > 0.5 else 'text-muted') }}">
-            {% if living_delta > 0.5 %}<i class="fas fa-arrow-up mr-0.5"></i>+{{ "%.1f"|format(living_delta) }}%{% elif living_delta < -0.5 %}<i class="fas fa-arrow-down mr-0.5"></i>{{ "%.1f"|format(living_delta) }}%{% endif %}
+            {% if living_delta > 0.5 %}+{{ "%.1f"|format(living_delta) }}%{% elif living_delta < -0.5 %}{{ "%.1f"|format(living_delta) }}%{% endif %}
           </span>
           <button onclick="showKpiInfo('living-expense', this)" class="w-6 h-6 flex items-center justify-center rounded-md text-muted hover:text-secondary hover:bg-surface-sunken focus:outline-none transition" title="About this metric"><i class="fas fa-info-circle text-xs"></i></button>
         </div>
@@ -314,11 +314,11 @@
 
   </div>
 
-  <!-- ── Net Worth — full-width hero ────────────────────────────────── -->
-  <div class="hero-gradient rounded-2xl shadow-sm p-5 mb-4 text-white">
+  <!-- ── Net Worth — full-width hero (first on phones: it's the headline number) ── -->
+  <div class="hero-gradient rounded-2xl shadow-sm p-5 mb-4 text-white order-first md:order-none">
     <div class="flex justify-between items-start mb-3 flex-wrap gap-3">
       <div>
-        <p class="text-xs font-semibold uppercase tracking-widest" style="color: rgba(255,255,255,.8)">Net Worth</p>
+        <p class="text-xs font-semibold uppercase tracking-widest" style="color: #fff">Net Worth</p>
         <p class="text-4xl font-bold mt-1 leading-tight amount tabular-nums">
           {{ summary.net_worth | currency_abbrev }}
         </p>
@@ -326,7 +326,7 @@
       <div class="flex items-center gap-2">
         {% set ngr = summary.net_worth_growth_rate %}
         {% if ngr > 0.5 %}
-        <span class="text-xs font-semibold px-2.5 py-1 rounded-full" style="background: rgba(255,255,255,.18); color: #fff">
+        <span class="text-xs font-semibold px-2.5 py-1 rounded-full" style="background: rgba(0,0,0,.20); color: #fff">
           <i class="fas fa-arrow-trend-up mr-1"></i>+{{ "%.1f"|format(ngr) }}% this month
         </span>
         {% elif ngr < -0.5 %}
@@ -334,39 +334,39 @@
           <i class="fas fa-arrow-trend-down mr-1"></i>{{ "%.1f"|format(ngr) }}% this month
         </span>
         {% else %}
-        <span class="text-xs font-semibold px-2.5 py-1 rounded-full" style="background: rgba(255,255,255,.18); color: rgba(255,255,255,.8)">≈ flat</span>
+        <span class="text-xs font-semibold px-2.5 py-1 rounded-full" style="background: rgba(0,0,0,.20); color: #fff">≈ flat</span>
         {% endif %}
-        <button onclick="showKpiInfo('net-worth', this)" class="text-white opacity-60 hover:opacity-100 transition" title="About this metric"><i class="fas fa-info-circle text-xs"></i></button>
+        <button onclick="showKpiInfo('net-worth', this)" class="text-white opacity-90 hover:opacity-100 transition" title="About this metric" aria-label="About net worth"><i class="fas fa-info-circle text-xs"></i></button>
       </div>
     </div>
     <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
-      <div class="rounded-xl p-3" style="background: rgba(255,255,255,.14)">
-        <p class="text-xs" style="color: rgba(255,255,255,.82)">Cash on Hand</p>
+      <div class="rounded-xl p-3" style="background: rgba(0,0,0,.20)">
+        <p class="text-xs" style="color: #fff">Cash on Hand</p>
         <p class="text-sm font-semibold mt-0.5 amount tabular-nums">{{ summary.cash_on_hand | currency_abbrev }}</p>
         {% if summary.operating_surplus is defined and summary.operating_surplus != summary.cash_on_hand %}
-        <p class="text-xs mt-0.5 leading-tight" style="color: rgba(255,255,255,.7)">
+        <p class="text-xs mt-0.5 leading-tight" style="color: #fff">
           Op surplus: <span class="amount tabular-nums">{{ summary.operating_surplus | currency_abbrev }}</span>
         </p>
         {% endif %}
       </div>
-      <div class="rounded-xl p-3" style="background: rgba(255,255,255,.14)">
-        <p class="text-xs" style="color: rgba(255,255,255,.82)">Active Savings</p>
+      <div class="rounded-xl p-3" style="background: rgba(0,0,0,.20)">
+        <p class="text-xs" style="color: #fff">Active Savings</p>
         <p class="text-sm font-semibold mt-0.5 amount tabular-nums">{{ summary.total_savings | currency_abbrev }}</p>
       </div>
-      <div class="rounded-xl p-3" style="background: rgba(255,255,255,.14)">
-        <p class="text-xs" style="color: rgba(255,255,255,.82)">Real Estate</p>
+      <div class="rounded-xl p-3" style="background: rgba(0,0,0,.20)">
+        <p class="text-xs" style="color: #fff">Real Estate</p>
         <p class="text-sm font-semibold mt-0.5 amount tabular-nums">{{ summary.total_projects_paid | currency_abbrev }}</p>
       </div>
-      <div class="rounded-xl p-3" style="background: rgba(255,255,255,.14)">
-        <p class="text-xs" style="color: rgba(255,255,255,.82)">Other Assets</p>
+      <div class="rounded-xl p-3" style="background: rgba(0,0,0,.20)">
+        <p class="text-xs" style="color: #fff">Other Assets</p>
         <p class="text-sm font-semibold mt-0.5 amount tabular-nums">{{ summary.total_assets_current | currency_abbrev }}</p>
       </div>
-      <div class="rounded-xl p-3 col-span-2 sm:col-span-1" style="background: rgba(255,255,255,.14)">
-        <p class="text-xs" style="color: rgba(255,255,255,.82)">Passive Income</p>
+      <div class="rounded-xl p-3 col-span-2 sm:col-span-1" style="background: rgba(0,0,0,.20)">
+        <p class="text-xs" style="color: #fff">Passive Income</p>
         {% if summary.passive_income_pct > 0 %}
         <p class="text-sm font-semibold mt-0.5">{{ summary.passive_income_pct }}% of income</p>
         {% else %}
-        <p class="text-xs mt-0.5 leading-tight" style="color: rgba(255,255,255,.6)">0% — grows with rental or business income</p>
+        <p class="text-xs mt-0.5 leading-tight" style="color: #fff">0% — grows with rental or business income</p>
         {% endif %}
       </div>
     </div>

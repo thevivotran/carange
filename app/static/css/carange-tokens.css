@@ -83,7 +83,7 @@
   /* Text */
   --text-primary:    var(--slate-800);
   --text-secondary:  var(--slate-600);
-  --text-muted:      var(--slate-400);
+  --text-muted:      var(--slate-500);
   --text-inverse:    #FFFFFF;
   --text-on-brand:   #FFFFFF;
 
@@ -93,7 +93,9 @@
   --brand-press:     var(--orange-700);
   --brand-subtle:    var(--orange-50);
   --brand-subtle-2:  var(--orange-100);
-  --brand-text:      var(--orange-600);
+  --brand-text:      var(--orange-700);
+  --brand-solid:       var(--orange-700);
+  --brand-solid-hover: var(--orange-800);
   --on-brand:        #FFFFFF;
 
   /* Accent (blue) */
@@ -105,19 +107,19 @@
   --accent-text:     var(--blue-600);
 
   /* Finance Semantics */
-  --income:          var(--green-600);
+  --income:          var(--green-700);
   --income-subtle:   var(--green-50);
   --expense:         var(--red-600);
   --expense-subtle:  var(--red-50);
 
   /* Status */
-  --success:         var(--green-600);
+  --success:         var(--green-700);
   --success-subtle:  var(--green-50);
   --success-text:    var(--green-700);
-  --warning:         var(--amber-600);
+  --warning:         var(--amber-700);
   --warning-subtle:  var(--amber-50);
   --warning-text:    var(--amber-700);
-  --danger:          var(--red-600);
+  --danger:          var(--red-700);
   --danger-subtle:   var(--red-50);
   --danger-text:     var(--red-700);
   --info:            var(--blue-600);
@@ -129,7 +131,7 @@
   --focus-ring-accent: rgba(37, 99, 235, 0.35);
 
   /* Hero Gradients */
-  --hero-gradient:   linear-gradient(135deg, #FB8334 0%, #F97316 38%, #2563EB 130%);
+  --hero-gradient:   linear-gradient(135deg, #C2440A 0%, #A8390A 45%, #1E40AA 130%); /* white text ≥4.5:1 across the stops */
   --hero-gradient-soft: linear-gradient(135deg, #2563EB 0%, #1E40AA 100%);
 
   /* ── Typography ──────────────────────────────────────────── */
@@ -295,7 +297,7 @@
   --focus-ring-accent: rgba(96, 144, 250, 0.45);
 
   /* Hero Gradients (desaturated) */
-  --hero-gradient:   linear-gradient(135deg, #C2440A 0%, #EA5A0B 40%, #1D4FD0 130%);
+  --hero-gradient:   linear-gradient(135deg, #A8390A 0%, #99370F 45%, #1E3A86 130%);
   --hero-gradient-soft: linear-gradient(135deg, #1D4FD0 0%, #1E3A86 100%);
 
   /* Shadows */

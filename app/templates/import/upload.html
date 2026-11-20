@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Import Transactions — Carange{% endblock %}
+{% block title %}Import — Carange{% endblock %}
 
 {% block content %}
 <div class="p-6 pb-28 max-w-4xl mx-auto">
@@ -8,7 +8,7 @@
     <!-- Page Header -->
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <div class="hidden md:block">
-            <h2 class="text-3xl font-bold text-gray-800">Import Transactions</h2>
+            <h1 class="text-3xl font-bold text-gray-800">Import</h1>
             <p class="text-gray-600 mt-1">Upload screenshots from Timo, UOB, LioBank, Shopee or Grab</p>
         </div>
         <div id="upload-action-area" class="flex items-center gap-3">
@@ -21,19 +21,20 @@
     </div>
 
     <!-- Drop Zone -->
-    <div id="drop-zone"
+    <div id="drop-zone" role="button" tabindex="0" aria-label="Choose screenshots to import"
          class="relative border-2 border-dashed border-gray-300 rounded-xl p-10 mb-6 text-center bg-white
-                transition hover:border-primary hover:bg-blue-50 cursor-pointer">
-        <input id="file-input" type="file" accept="image/*" multiple class="hidden">
+                transition hover:border-primary hover:bg-blue-50 cursor-pointer
+                focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:border-brand">
+        <input id="file-input" type="file" accept="image/*" multiple class="sr-only" tabindex="-1" aria-hidden="true">
         <div id="drop-prompt">
-            <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-3"></i>
+            <i class="fas fa-cloud-upload-alt text-4xl text-text-muted mb-3"></i>
             <p class="text-gray-500 font-medium">
                 <span class="md:hidden">Tap to choose screenshots</span>
-                <span class="hidden md:inline">Drag &amp; drop screenshots here</span>
+                <span class="hidden md:inline">Drag &amp; drop, paste (Ctrl+V), or click to choose screenshots</span>
             </p>
-            <p class="text-gray-400 text-sm mt-1">
+            <p class="text-text-muted text-sm mt-1">
                 <span class="md:hidden">JPEG, PNG, WebP, HEIC &nbsp;·&nbsp; max 20 MB each</span>
-                <span class="hidden md:inline">or click to browse &nbsp;·&nbsp; JPEG, PNG, WebP, HEIC &nbsp;·&nbsp; max 20 MB each</span>
+                <span class="hidden md:inline">JPEG, PNG, WebP, HEIC &nbsp;·&nbsp; max 20 MB each</span>
             </p>
             <div class="mt-4">
                 <label for="source-hint" class="block text-xs font-medium text-gray-500 mb-1">Source (optional — helps OCR accuracy)</label>
@@ -54,7 +55,7 @@
     <div id="staged-section" class="hidden mb-6">
         <div class="flex items-center justify-between mb-3">
             <h3 class="font-semibold text-gray-700">Ready to upload</h3>
-            <button onclick="clearStaged()" class="text-sm text-gray-400 hover:text-red-500 transition">Clear all</button>
+            <button onclick="clearStaged()" class="text-sm text-text-muted hover:text-danger transition">Clear all</button>
         </div>
         <div id="staged-list" class="space-y-2"></div>
     </div>
@@ -120,7 +121,7 @@
              hx-swap="outerHTML"
              hx-include="#ocr-search"
              class="space-y-3">
-            <div class="text-center py-10 text-gray-400">
+            <div class="text-center py-10 text-text-muted">
                 <i class="fas fa-inbox text-3xl mb-2 block"></i>
                 <p class="text-sm">Loading…</p>
             </div>
@@ -159,7 +160,7 @@
              hx-trigger="load, email-refresh"
              hx-swap="innerHTML"
              hx-include="#email-search">
-            <div class="text-center py-10 text-gray-400">
+            <div class="text-center py-10 text-text-muted">
                 <i class="fas fa-spinner fa-spin text-2xl mb-2 block"></i>
                 <p class="text-sm">Loading…</p>
             </div>
@@ -168,11 +169,11 @@
 
     <!-- CSV Import — lowest priority, collapsible -->
     <div class="mt-8 border-t pt-6">
-        <button id="csv-toggle-btn" onclick="toggleCsvPanel()"
+        <button id="csv-toggle-btn" onclick="toggleCsvPanel()" aria-expanded="false" aria-controls="csv-panel"
                 class="flex w-full items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition">
-            <i class="fas fa-file-csv text-gray-400"></i>
+            <i class="fas fa-file-csv text-text-muted"></i>
             <span>CSV Import</span>
-            <i id="csv-chevron" class="fas fa-chevron-down text-xs text-gray-400 ml-auto transition-transform"></i>
+            <i id="csv-chevron" class="fas fa-chevron-down text-xs text-text-muted ml-auto transition-transform"></i>
         </button>
         <div id="csv-panel" class="hidden mt-4 space-y-4">
             <div class="bg-blue-50 rounded-lg p-4">
@@ -182,9 +183,9 @@
                     <i class="fas fa-download mr-1"></i>Download English Template
                 </button>
             </div>
-            <div class="bg-purple-50 rounded-lg p-4">
-                <p class="text-sm text-purple-700"><i class="fas fa-exchange-alt mr-1"></i> <strong>Alternative Vietnamese Format:</strong></p>
-                <p class="text-xs text-purple-600 mt-1">N&#259;m (Year), Th&#225;ng (Month), Thu (Income), Chi (Expense), Lo&#7841;i (Category), Ghi ch&#250; (Description)</p>
+            <div class="rounded-lg p-4 bg-surface-sunken">
+                <p class="text-sm text-gray-700"><i class="fas fa-exchange-alt mr-1" aria-hidden="true"></i> <strong>Alternative Vietnamese format:</strong></p>
+                <p class="text-xs text-secondary mt-1">N&#259;m (Year), Th&#225;ng (Month), Thu (Income), Chi (Expense), Lo&#7841;i (Category), Ghi ch&#250; (Description)</p>
             </div>
             <div>
                 <label for="csv-file" class="block text-sm font-medium text-gray-700 mb-2">Select CSV File</label>
@@ -195,7 +196,7 @@
             <div id="csv-upload-result" class="hidden"></div>
             <div class="flex gap-3">
                 <button type="button" onclick="csvSubmitUpload()"
-                        class="px-5 py-2.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition">
+                        class="px-5 py-2.5 bg-brand-solid text-white text-sm font-medium rounded-lg hover:bg-brand-solid-hover transition">
                     <i class="fas fa-upload mr-1.5"></i>Upload &amp; Import
                 </button>
                 <button type="button" onclick="csvReset()"
@@ -212,7 +213,7 @@
     <div class="bg-white rounded-xl shadow-xl max-w-sm w-full">
         <div class="p-5 border-b flex items-center gap-3">
             <div class="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0">
-                <i class="fas fa-check-circle text-green-600"></i>
+                <i class="fas fa-check-circle text-success"></i>
             </div>
             <h3 class="text-base font-bold text-gray-800">Import Complete</h3>
         </div>
@@ -284,8 +285,13 @@ const dropZone  = document.getElementById('drop-zone');
 const fileInput = document.getElementById('file-input');
 
 dropZone.addEventListener('click', function(e) {
-    if (e.target.closest('select')) return;
+    if (e.target.closest('select, label')) return;
     fileInput.click();
+});
+// Keyboard: the zone is role="button", so Enter/Space opens the file picker.
+dropZone.addEventListener('keydown', function(e) {
+    if (e.target !== dropZone) return;
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
 });
 dropZone.addEventListener('dragover',  function(e) { e.preventDefault(); dropZone.classList.add('drag-over'); });
 dropZone.addEventListener('dragleave', function()  { dropZone.classList.remove('drag-over'); });
@@ -293,6 +299,14 @@ dropZone.addEventListener('drop', function(e) {
     e.preventDefault();
     dropZone.classList.remove('drag-over');
     stageFiles(Array.from(e.dataTransfer.files));
+});
+// Paste anywhere on the page stages the screenshot like a dropped file.
+window.addEventListener('paste', function(e) {
+    const files = window.imagesFromPaste(e);
+    if (!files.length) return;
+    e.preventDefault();
+    stageFiles(files);
+    showToast(files.length + (files.length === 1 ? ' screenshot' : ' screenshots') + ' pasted — review and upload', 'info');
 });
 fileInput.addEventListener('change', function() {
     stageFiles(Array.from(fileInput.files));
@@ -337,12 +351,12 @@ function renderStaged() {
         nameEl.className = 'text-sm font-medium text-gray-700 truncate';
         nameEl.textContent = f.name;
         const sizeEl = document.createElement('p');
-        sizeEl.className = 'text-xs text-gray-400 mt-0.5';
+        sizeEl.className = 'text-xs text-text-muted mt-0.5';
         sizeEl.textContent = (f.size / 1024).toFixed(0) + ' KB';
         info.appendChild(nameEl);
         info.appendChild(sizeEl);
         const removeBtn = document.createElement('button');
-        removeBtn.className = 'flex-shrink-0 text-gray-300 hover:text-red-500 transition p-1';
+        removeBtn.className = 'flex-shrink-0 text-gray-300 hover:text-danger transition p-1';
         removeBtn.setAttribute('aria-label', 'Remove');
         const icon = document.createElement('i');
         icon.className = 'fas fa-times';
@@ -500,6 +514,7 @@ function toggleCsvPanel() {
     var chevron = document.getElementById('csv-chevron');
     var hidden  = panel.classList.toggle('hidden');
     chevron.style.transform = hidden ? '' : 'rotate(180deg)';
+    document.getElementById('csv-toggle-btn').setAttribute('aria-expanded', hidden ? 'false' : 'true');
 }
 
 function csvReset() {
@@ -540,13 +555,13 @@ async function csvSubmitUpload() {
             var successBox = document.createElement('div');
             successBox.className = 'bg-green-50 border border-green-200 rounded-lg p-4';
             var msgP = document.createElement('p');
-            msgP.className = 'text-green-800 font-medium';
+            msgP.className = 'text-success-text font-medium';
             var checkIco = document.createElement('i');
             checkIco.className = 'fas fa-check-circle mr-2';
             msgP.appendChild(checkIco);
             msgP.appendChild(document.createTextNode(result.message));
             var statsDiv = document.createElement('div');
-            statsDiv.className = 'mt-3 text-sm text-green-700';
+            statsDiv.className = 'mt-3 text-sm text-success';
             var incP = document.createElement('p');
             incP.textContent = '✅ Income: ' + result.stats.income;
             var expP = document.createElement('p');
@@ -564,10 +579,10 @@ async function csvSubmitUpload() {
                 var details = document.createElement('details');
                 details.className = 'mt-2';
                 var summary = document.createElement('summary');
-                summary.className = 'cursor-pointer text-red-600 text-sm';
+                summary.className = 'cursor-pointer text-danger text-sm';
                 summary.textContent = 'Show errors (' + result.stats.errors.length + ')';
                 var ul = document.createElement('ul');
-                ul.className = 'mt-2 text-xs text-red-600 max-h-32 overflow-y-auto';
+                ul.className = 'mt-2 text-xs text-danger max-h-32 overflow-y-auto';
                 result.stats.errors.forEach(function(errMsg) {
                     var li = document.createElement('li');
                     li.textContent = '• ' + errMsg;
@@ -582,7 +597,7 @@ async function csvSubmitUpload() {
             var errBox = document.createElement('div');
             errBox.className = 'bg-red-50 border border-red-200 rounded-lg p-4';
             var errP = document.createElement('p');
-            errP.className = 'text-red-800 font-medium';
+            errP.className = 'text-danger-text font-medium';
             var errIco = document.createElement('i');
             errIco.className = 'fas fa-exclamation-circle mr-2';
             errP.appendChild(errIco);
@@ -595,7 +610,7 @@ async function csvSubmitUpload() {
         var catchBox = document.createElement('div');
         catchBox.className = 'bg-red-50 border border-red-200 rounded-lg p-4';
         var catchP = document.createElement('p');
-        catchP.className = 'text-red-800';
+        catchP.className = 'text-danger-text';
         var catchIco = document.createElement('i');
         catchIco.className = 'fas fa-exclamation-circle mr-2';
         catchP.appendChild(catchIco);

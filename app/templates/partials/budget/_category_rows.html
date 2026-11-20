@@ -5,10 +5,20 @@
      hx-swap="outerHTML">
 
 {% if not rows %}
-  <div class="text-center py-16 text-gray-400">
+  <div class="text-center py-16 text-text-muted">
     <i class="fas fa-wallet text-5xl mb-4 opacity-30 block"></i>
     <p class="text-lg font-medium text-gray-600 mb-1">No budget set for this month.</p>
-    <p class="text-sm text-gray-400">Your categories are ready — use <strong class="text-gray-600">Edit Budgets</strong> above to set monthly limits and start tracking spending against a plan.</p>
+    <p class="text-sm text-text-muted mb-5">We can suggest a limit for each category from what you spent over the last 3 months. You can adjust every amount before saving.</p>
+    <div class="flex flex-wrap justify-center gap-3">
+      <button type="button" onclick="openEditModal(true)"
+              class="inline-flex items-center gap-2 px-5 py-2.5 bg-brand-solid text-white rounded-lg hover:bg-brand-solid-hover transition text-sm font-semibold">
+        <i class="fas fa-wand-magic-sparkles" aria-hidden="true"></i> Suggest budgets from last 3 months
+      </button>
+      <button type="button" onclick="openEditModal()"
+              class="inline-flex items-center gap-2 px-5 py-2.5 border rounded-lg hover:bg-surface-sunken transition text-sm font-medium text-secondary">
+        Set amounts myself
+      </button>
+    </div>
   </div>
 
 {% else %}
@@ -58,11 +68,11 @@
     </div>
     <div class="bg-white rounded-lg shadow p-4">
       <p class="text-sm text-gray-500">Spent This Month</p>
-      <p class="text-2xl font-bold text-red-500">{{ total_spent | currency }}</p>
+      <p class="text-2xl font-bold text-expense">{{ total_spent | currency }}</p>
     </div>
     <div class="bg-white rounded-lg shadow p-4">
       <p class="text-sm text-gray-500">Available Balance</p>
-      <p class="text-2xl font-bold {{ 'text-green-600' if total_balance >= 0 else 'text-red-500' }}">{{ total_balance | currency }}</p>
+      <p class="text-2xl font-bold {{ 'text-income' if total_balance >= 0 else 'text-expense' }}">{{ total_balance | currency }}</p>
     </div>
   </div>
   <div class="bg-white rounded-lg shadow px-4 py-3 mb-6">
@@ -70,9 +80,9 @@
       <div class="h-3 rounded-full transition-all duration-500" style="width:{{ summary_used_pct | int }}%; background:{{ bar_color }}"></div>
     </div>
     {% if total_balance < 0 %}
-    <div class="text-right text-xs text-red-500 font-medium mt-1">Over budget by {{ total_balance | abs | currency }}</div>
+    <div class="text-right text-xs text-expense font-medium mt-1">Over budget by {{ total_balance | abs | currency }}</div>
     {% else %}
-    <div class="text-right text-xs text-gray-400 mt-1">{{ "%.1f"|format(100 - summary_used_pct) }}% of monthly budgets remaining</div>
+    <div class="text-right text-xs text-text-muted mt-1">{{ "%.1f"|format(100 - summary_used_pct) }}% of monthly budgets remaining</div>
     {% endif %}
   </div>
 
@@ -99,10 +109,10 @@
         </div>
         <div class="flex items-center gap-3 text-sm flex-shrink-0">
           <span class="text-gray-500">{{ fmt_vnd(r.this_month_spent) }} spent</span>
-          <span class="font-bold {{ 'text-green-600' if r.available_balance >= 0 else 'text-red-500' }}">
+          <span class="font-bold {{ 'text-income' if r.available_balance >= 0 else 'text-expense' }}">
             {{ '' if r.available_balance >= 0 else '-' }}{{ fmt_vnd(r.available_balance | abs) }} left
           </span>
-          <button class="text-gray-300 hover:text-red-500 transition"
+          <button class="text-gray-300 hover:text-expense transition"
                   title="Remove from budget"
                   onclick="removeCategory({{ r.category_id }}, '{{ r.category_name | e }}')">
             <i class="fas fa-trash-alt text-xs"></i>
@@ -112,7 +122,7 @@
       <div class="progress-bg">
         <div class="progress-bar" style="width:{{ used_pct | int }}%; background:{{ color }}"></div>
       </div>
-      <div class="flex justify-between text-xs text-gray-400 mt-1">
+      <div class="flex justify-between text-xs text-text-muted mt-1">
         <span>
           {% if rollover | abs >= 1000 %}
             {{ fmt_vnd(r.monthly_allocation) }} new

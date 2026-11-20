@@ -1,0 +1,43 @@
+{#- Status of each auto-import integration (see app/services/integration_health.py). -#}
+{% set _tone = {
+    'ok': ('fa-circle-check', 'text-success', 'Working'),
+    'warning': ('fa-triangle-exclamation', 'text-warning', 'Recent errors'),
+    'error': ('fa-circle-xmark', 'text-danger', 'Not working'),
+    'not_configured': ('fa-circle-minus', 'text-muted', 'Not set up'),
+} %}
+<div id="integration-health" class="cg-card rounded-2xl p-6"
+     hx-get="/settings/integrations/health" hx-trigger="integrations-check from:body" hx-swap="outerHTML">
+  <div class="flex items-center justify-between gap-3 mb-4">
+    <div>
+      <h4 class="font-semibold text-sm">Is auto-import working?</h4>
+      <p class="text-xs text-muted">From what the import workers last recorded.</p>
+    </div>
+    <button type="button" hx-get="/settings/integrations/health" hx-target="#integration-health" hx-swap="outerHTML"
+            class="px-3 py-1.5 rounded-lg border text-xs font-semibold hover:bg-gray-50 transition whitespace-nowrap">
+      Check now
+    </button>
+  </div>
+  <ul class="divide-y">
+    {% for i in integrations %}
+    {% set icon, tone, word = _tone[i.status] %}
+    <li class="py-3 first:pt-0 last:pb-0">
+      <div class="flex items-start gap-3">
+        <i class="fas {{ icon }} {{ tone }} mt-0.5" aria-hidden="true"></i>
+        <div class="min-w-0 flex-1">
+          <p class="text-sm font-medium text-gray-800">{{ i.label }} <span class="{{ tone }} font-semibold">· {{ word }}</span></p>
+          <p class="text-xs text-muted">
+            {% if i.last_success_at %}Last success {{ i.last_success_at | app_date }} {{ i.last_success_at.strftime('%H:%M') }} UTC{% else %}No successful run yet{% endif %}
+            {% if i.last_failure_at %} · last error {{ i.last_failure_at | app_date }}{% endif %}
+          </p>
+          {% if i.last_error %}
+          <details class="mt-1">
+            <summary class="text-xs text-secondary cursor-pointer select-none">Show last error</summary>
+            <p class="mt-1 text-xs text-secondary font-mono break-words">{{ i.last_error | truncate(400) }}</p>
+          </details>
+          {% endif %}
+        </div>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+</div>

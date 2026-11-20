@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
@@ -120,6 +121,30 @@ def list_import_jobs(
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid status '{status}'")
     return query.order_by(ImportJob.created_at.desc()).offset(skip).limit(limit).all()
+
+
+_IMAGE_MEDIA_TYPES = {
+    ".jpg": "image/jpeg",
+    ".jpeg": "image/jpeg",
+    ".png": "image/png",
+    ".webp": "image/webp",
+    ".heic": "image/heic",
+    ".heif": "image/heif",
+}
+
+
+@router.get("/jobs/{job_id}/image")
+def get_import_job_image(job_id: int, db: Session = Depends(get_db)):
+    """Serve the uploaded screenshot so the Review inbox can show what OCR read from."""
+    job = db.query(ImportJob).filter(ImportJob.id == job_id).first()
+    if not job or not job.file_path:
+        raise HTTPException(status_code=404, detail="Import job not found")
+    path = os.path.realpath(_resolve_path(job.file_path))
+    upload_root = os.path.realpath(UPLOAD_DIR)
+    if os.path.commonpath([path, upload_root]) != upload_root or not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="Image not found")
+    media_type = _IMAGE_MEDIA_TYPES.get(os.path.splitext(path)[1].lower(), "application/octet-stream")
+    return FileResponse(path, media_type=media_type, headers={"Cache-Control": "private, max-age=3600"})
 
 
 @router.get("/jobs/{job_id}", response_model=ImportJobSchema)

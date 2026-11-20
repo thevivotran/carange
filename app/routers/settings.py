@@ -416,6 +416,32 @@ async def test_telegram(request: Request, db: Session = Depends(get_db)):
     )
 
 
+@router.get("/integrations/health", response_class=HTMLResponse)
+def integrations_health(request: Request, db: Session = Depends(get_db)):
+    from app.services.integration_health import get_integration_health
+
+    return render_fragment(request, "settings/_integration_health.html", {"integrations": get_integration_health(db)})
+
+
+@router.get("/integrations/alert", response_class=HTMLResponse)
+def integrations_alert(request: Request, db: Session = Depends(get_db)):
+    """Sidebar chip — empty unless an integration has been failing for a day."""
+    from app.services.integration_health import any_integration_failing
+
+    failing = any_integration_failing(db)
+    response = render_fragment(request, "settings/_integration_alert.html", {"failing": failing})
+    response.headers["Cache-Control"] = "private, max-age=60"
+    return response
+
+
+@router.post("/email/test")
+def test_email_connection(request: Request, db: Session = Depends(get_db)):
+    from app.services.integration_health import check_imap_login
+
+    ok, message = check_imap_login(db)
+    return render_fragment(request, "settings/_saved.html", {}, toast=message, toast_type="success" if ok else "error")
+
+
 @router.post("/ocr")
 async def save_ocr(request: Request, db: Session = Depends(get_db)):
     form = await request.form()

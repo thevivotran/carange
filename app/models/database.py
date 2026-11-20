@@ -589,6 +589,12 @@ class Note(Base):
     title = Column(String(200), nullable=False)
     content = Column(Text, nullable=True)
     type = Column(String(50), nullable=True)  # e.g. 'money_owed', 'general'
+    # IOU fields — only used when type == 'money_owed'
+    counterparty = Column(String(120), nullable=True)
+    amount = Column(Numeric(18, 0), nullable=True)
+    direction = Column(String(10), nullable=True)  # 'owed_to_us' | 'we_owe'
+    due_date = Column(Date, nullable=True)
+    settled_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at = Column(
         DateTime(timezone=True),

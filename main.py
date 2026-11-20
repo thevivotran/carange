@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+from app.services.project_service import next_due_payment_overall
 from app.models.database import create_tables, get_db, SessionLocal, startup_lock
 from app.models.database import Category, Transaction, TransactionType, User
 from app.routers import transactions, categories, savings, projects, dashboard, templates as templates_router
@@ -198,6 +199,7 @@ async def dashboard_page(request: Request, db: Session = Depends(get_db)):
             "review_count": review_count,
             "month_start_day": month_start_day,
             "month_start_day_label": f"{month_start_day}{_ordinal_suffix(month_start_day)}",
+            "next_payment": next_due_payment_overall(db),
             **data,
         },
     )
@@ -362,6 +364,7 @@ async def pulse_page(request: Request, db: Session = Depends(get_db)):
         "pulse/index.html",
         {
             "active_menu": "pulse",
+            "next_payment": next_due_payment_overall(db),
             "summary": summary,
             "today": today,
             "day_index": day_index,

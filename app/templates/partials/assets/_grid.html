@@ -4,35 +4,30 @@
      hx-target="this"
      hx-swap="outerHTML">
 
-  <!-- Summary Cards -->
-  <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-    <div class="bg-white rounded-lg shadow p-4">
-      <p class="text-sm text-gray-500">Total Items</p>
-      <p class="text-2xl font-bold text-primary">{{ total_count }}</p>
-    </div>
-    <div class="bg-white rounded-lg shadow p-4">
-      <p class="text-sm text-gray-500">Total Invested</p>
-      <p class="text-2xl font-bold text-blue-600">{{ total_invested | currency }}</p>
-    </div>
-    <div class="bg-white rounded-lg shadow p-4">
-      <p class="text-sm text-gray-500">Current Value</p>
-      <p class="text-2xl font-bold text-green-600">{{ total_current | currency }}</p>
-    </div>
-    <div class="bg-white rounded-lg shadow p-4">
-      <p class="text-sm text-gray-500">Gain / Loss</p>
-      <p class="text-2xl font-bold {{ 'text-green-600' if gain_loss >= 0 else 'text-red-600' }}">
-        {{ gain_loss | currency(signed=true) }} ({{ '+' if gain_loss >= 0 else '' }}{{ "%.2f"|format(gain_loss_pct) }}%)
-      </p>
-    </div>
-  </div>
+  {% from "partials/_list_page.html" import stat_strip %}
+  {% if assets %}
+  {{ stat_strip([
+      {"label": "Items", "value": total_count},
+      {"label": "Invested", "value": total_invested | currency_abbrev, "title": total_invested | currency},
+      {"label": "Current value", "value": total_current | currency_abbrev, "title": total_current | currency},
+      {"label": "Gain / loss", "value": (gain_loss | currency_abbrev(signed=true)) ~ " (" ~ ("+" if gain_loss > 0 else "") ~ "%.1f" | format(gain_loss_pct) ~ "%)",
+       "title": gain_loss | currency(signed=true), "tone": ("text-success" if gain_loss > 0 else ("text-danger" if gain_loss < 0 else none))},
+  ]) }}
+  {% endif %}
 
   {% if not assets %}
-  <div class="col-span-3 text-center py-16 text-gray-400">
-    <i class="fas fa-coins text-4xl mb-3 block"></i>
-    <p>No assets yet. Add your first asset above.</p>
+  <div class="col-span-full flex flex-col items-center justify-center py-20 text-center"{% if not request.query_params.get('asset_type') %} data-list-empty{% endif %}>
+    <div class="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4" style="background: var(--surface-sunken)">
+      <i class="fas fa-coins text-5xl text-muted" aria-hidden="true"></i>
+    </div>
+    <p class="text-xl font-medium mb-2">No assets yet</p>
+    <p class="text-sm text-muted mb-6">Track cash in other currencies, gold and other holdings so they count toward net worth.</p>
+    <button onclick="openAddAssetModal()" class="bg-brand-solid text-white px-6 py-3 rounded-lg hover:bg-brand-solid-hover transition flex items-center gap-2 text-sm mx-auto">
+      <i class="fas fa-plus" aria-hidden="true"></i> Add your first asset
+    </button>
   </div>
   {% else %}
-  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+  <div class="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-6">
     {% for asset in assets %}
     {% set gain_loss = asset.current_value_vnd - asset.purchase_price_vnd %}
     {% set gain_loss_pct = "%.2f"|format(gain_loss / asset.purchase_price_vnd * 100) if asset.purchase_price_vnd > 0 else "0.00" %}
@@ -59,41 +54,46 @@
         <span class="font-semibold text-gray-800">{{ "{:,}".format(asset.quantity | int) }} {{ asset.unit }}</span>
       </div>
 
-      <div class="space-y-2 mb-4">
-        <div class="flex justify-between text-sm">
-          <span class="text-gray-500">Purchase Price:</span>
-          <span class="font-semibold text-blue-700">{{ per_unit_purchase | currency }}/unit · {{ asset.purchase_price_vnd | currency }} total</span>
+      <dl class="grid grid-cols-2 gap-x-4 gap-y-3 mb-4 text-sm">
+        <div class="min-w-0">
+          <dt class="text-xs text-muted">Paid</dt>
+          <dd class="font-semibold text-gray-800 tabular-nums whitespace-nowrap">{{ asset.purchase_price_vnd | currency }}</dd>
+          <dd class="text-xs text-muted tabular-nums whitespace-nowrap">{{ per_unit_purchase | currency }} / {{ asset.unit }}</dd>
         </div>
-        <div class="flex justify-between text-sm">
-          <span class="text-gray-500">Current Value:</span>
-          <span class="font-semibold text-green-700">{{ per_unit_current | currency }}/unit · {{ asset.current_value_vnd | currency }} total</span>
+        <div class="min-w-0">
+          <dt class="text-xs text-muted">Worth now</dt>
+          <dd class="font-semibold text-gray-800 tabular-nums whitespace-nowrap">{{ asset.current_value_vnd | currency }}</dd>
+          <dd class="text-xs text-muted tabular-nums whitespace-nowrap">{{ per_unit_current | currency }} / {{ asset.unit }}</dd>
         </div>
-        <div class="flex justify-between text-sm pt-2 border-t">
-          <span class="text-gray-500">Gain / Loss:</span>
-          <span class="font-semibold {{ 'text-green-600' if gain_loss >= 0 else 'text-red-600' }}">
-            {{ gain_loss | currency(signed=true) }} ({{ '+' if gain_loss >= 0 else '' }}{{ gain_loss_pct }}%)
-          </span>
+        <div class="col-span-2 pt-2 border-t flex justify-between items-baseline">
+          <dt class="text-muted">Gain / loss</dt>
+          <dd class="font-semibold tabular-nums {{ 'text-success' if gain_loss > 0 else ('text-danger' if gain_loss < 0 else 'text-gray-800') }}">
+            {{ gain_loss | currency(signed=true) }} ({{ '+' if gain_loss > 0 else '' }}{{ gain_loss_pct }}%)
+          </dd>
         </div>
-      </div>
+      </dl>
 
       <!-- Quick price update -->
-      <div class="flex items-center gap-2 mb-3 bg-yellow-50 rounded-lg px-3 py-2">
-        <span class="text-xs text-gray-500 flex-shrink-0">New price/unit:</span>
-        <input type="number" min="0" step="1"
-               id="quick-price-{{ asset.id }}"
-               value="{{ per_unit_current }}"
-               title="Current value per unit in VND"
-               class="flex-1 border rounded px-2 py-1 text-sm focus:ring-2 focus:ring-primary text-right min-w-0">
-        <button onclick="quickUpdateAsset({{ asset.id }}, {{ asset.quantity }})"
-                class="flex-shrink-0 text-xs bg-yellow-500 text-white px-3 py-1 rounded hover:bg-yellow-600 transition">
-          Update
-        </button>
+      <div class="mb-3 rounded-lg px-3 py-2.5 bg-surface-sunken">
+        <label for="quick-price-{{ asset.id }}" class="block text-xs text-muted mb-1">New price per {{ asset.unit }}</label>
+        <div class="flex items-center gap-2">
+          <input type="number" min="0" step="1"
+                 id="quick-price-{{ asset.id }}" data-money
+                 value="{{ per_unit_current }}"
+                 class="flex-1 min-w-0 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary text-right">
+          <button onclick="quickUpdateAsset({{ asset.id }}, {{ asset.quantity }})"
+                  class="flex-shrink-0 text-sm font-medium border rounded-lg px-3 py-2 hover:bg-white transition">
+            Update
+          </button>
+        </div>
       </div>
 
       {% if asset.updated_at %}
-      <div class="text-sm text-gray-500 mb-4">
-        <i class="fas fa-clock mr-2 w-4"></i>Updated: {{ asset.updated_at.strftime('%d %b %Y') if asset.updated_at else '' }}
-      </div>
+      {% set price_age = (today - asset.updated_at.date()).days if today is defined else none %}
+      <p class="text-xs mb-4 {{ 'text-warning' if price_age is not none and price_age > 30 else 'text-muted' }}">
+        <i class="fas fa-clock mr-1" aria-hidden="true"></i>
+        Updated {{ asset.updated_at | app_date }}{% if price_age is not none and price_age > 30 %} · {{ price_age }} days ago, worth refreshing{% endif %}
+      </p>
       {% endif %}
       {% if asset.notes %}
       <p class="text-sm text-gray-600 mb-4 italic">"{{ asset.notes }}"</p>
@@ -105,7 +105,7 @@
           <i class="fas fa-edit"></i> Edit
         </button>
         <button onclick="deleteAsset({{ asset.id }}, '{{ asset.name | e }}')"
-                class="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition" title="Delete">
+                class="px-3 py-2 text-danger hover:bg-red-50 rounded-lg transition" title="Delete" aria-label="Delete {{ asset.name }}">
           <i class="fas fa-trash"></i>
         </button>
       </div>

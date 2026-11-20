@@ -1,0 +1,8 @@
+{#- One source for the Family Safety check names, shared by the Dashboard card and Daily
+    Pulse so the same check never reads differently on two screens. -#}
+{%- set safety_labels = {
+    'income': 'Salary received',
+    'bds': 'Property payment',
+    'net': 'Net cash positive',
+} -%}
+{%- macro savings_label(pct) -%}Savings ≥ {{ pct | int }}%{%- endmacro -%}

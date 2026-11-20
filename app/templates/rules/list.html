@@ -1,8 +1,8 @@
 {% if not rules %}
-<div class="p-12 text-center text-gray-400">
+<div class="p-12 text-center text-text-muted">
     <i class="fas fa-bolt text-3xl mb-3 block"></i>
     <p class="text-sm">No rules yet. Add a rule to auto-classify transactions.</p>
-    <button onclick="openCreateModal()" class="mt-4 inline-flex items-center gap-2 bg-brand text-white text-sm px-4 py-2 rounded-lg hover:bg-brand-hover transition">
+    <button onclick="openCreateModal()" class="mt-4 inline-flex items-center gap-2 bg-brand-solid text-white text-sm px-4 py-2 rounded-lg hover:bg-brand-solid-hover transition">
         <i class="fas fa-plus"></i> Add your first rule
     </button>
 </div>
@@ -24,7 +24,7 @@
     <tbody class="divide-y divide-gray-100">
     {% for r in rules %}
     <tr class="hover:bg-gray-50 transition">
-        <td class="px-4 py-3 text-gray-400 text-xs {% if not r.is_active %}opacity-40{% endif %}">{{ r.priority }}</td>
+        <td class="px-4 py-3 text-text-muted text-xs {% if not r.is_active %}opacity-40{% endif %}">{{ r.priority }}</td>
         <td class="px-4 py-3 {% if not r.is_active %}opacity-40{% endif %}">
             <span class="font-medium text-gray-800">{{ r.name }}</span>
             {% if not r.is_active %}
@@ -33,26 +33,26 @@
         </td>
         <td class="px-4 py-3 font-mono text-xs text-gray-600 {% if not r.is_active %}opacity-40{% endif %}">
             <span class="bg-gray-100 px-1.5 py-0.5 rounded">{{ r.match_field }}</span>
-            <span class="text-gray-400 mx-1">{{ r.match_op }}</span>
+            <span class="text-text-muted mx-1">{{ r.match_op }}</span>
             <span class="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded">{{ r.match_value[:40] }}{% if r.match_value|length > 40 %}…{% endif %}</span>
         </td>
         <td class="px-4 py-3 text-xs text-gray-600 {% if not r.is_active %}opacity-40{% endif %}">
             {% if r.action_json.set_category_id %}
-            <span class="bg-green-50 text-green-700 px-2 py-0.5 rounded-full">→ {{ r.category_name }}</span>
+            <span class="bg-green-50 text-success px-2 py-0.5 rounded-full">→ {{ r.category_name }}</span>
             {% endif %}
             {% if r.action_json.auto_approve %}
-            <span class="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full ml-1">auto</span>
+            <span class="bg-emerald-50 text-success px-2 py-0.5 rounded-full ml-1">auto</span>
             {% endif %}
         </td>
         <td class="px-4 py-3 text-right text-gray-500 {% if not r.is_active %}opacity-40{% endif %}">{{ r.match_count }}</td>
         <td class="px-4 py-3 text-right">
             <button data-rule='{{ {"id": r.id, "name": r.name, "match_field": r.match_field, "match_op": r.match_op, "match_value": r.match_value, "action_json": r.action_json, "is_active": r.is_active, "priority": r.priority} | tojson }}'
-                    onclick="openEditModal(JSON.parse(this.dataset.rule))"
-                    class="text-gray-400 hover:text-primary transition p-2 rounded-lg hover:bg-gray-100">
+                    onclick="openEditModal(JSON.parse(this.dataset.rule))" aria-label="Edit rule {{ r.name }}"
+                    class="text-text-muted hover:text-primary transition p-2 rounded-lg hover:bg-gray-100">
                 <i class="fas fa-edit"></i>
             </button>
-            <button onclick="deleteRule({{ r.id }})"
-                    class="text-gray-400 hover:text-red-500 transition p-2 rounded-lg hover:bg-red-50">
+            <button onclick="deleteRule({{ r.id }})" aria-label="Delete rule {{ r.name }}"
+                    class="text-text-muted hover:text-danger transition p-2 rounded-lg hover:bg-red-50">
                 <i class="fas fa-trash"></i>
             </button>
         </td>
@@ -74,29 +74,29 @@
                 <span class="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">off</span>
                 {% endif %}
                 {% if r.action_json.auto_approve %}
-                <span class="text-xs font-medium bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded-full">auto</span>
+                <span class="text-xs font-medium bg-emerald-50 text-success px-2 py-0.5 rounded-full">auto</span>
                 {% endif %}
             </div>
             <div class="mt-1.5 font-mono text-xs text-gray-500 flex flex-wrap items-center gap-1">
                 <span class="bg-gray-100 px-1.5 py-0.5 rounded">{{ r.match_field }}</span>
-                <span class="text-gray-400">{{ r.match_op }}</span>
+                <span class="text-text-muted">{{ r.match_op }}</span>
                 <span class="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded truncate max-w-[160px]">{{ r.match_value[:40] }}{% if r.match_value|length > 40 %}…{% endif %}</span>
             </div>
             <div class="mt-1.5 flex items-center gap-2 flex-wrap text-xs text-gray-500">
                 {% if r.action_json.set_category_id %}
-                <span class="bg-green-50 text-green-700 px-2 py-0.5 rounded-full">→ {{ r.category_name }}</span>
+                <span class="bg-green-50 text-success px-2 py-0.5 rounded-full">→ {{ r.category_name }}</span>
                 {% endif %}
-                <span class="text-gray-400">{{ r.match_count }} match{{ '' if r.match_count == 1 else 'es' }}</span>
+                <span class="text-text-muted">{{ r.match_count }} match{{ '' if r.match_count == 1 else 'es' }}</span>
             </div>
         </div>
         <div class="flex items-center gap-1 flex-shrink-0 opacity-100">
             <button data-rule='{{ {"id": r.id, "name": r.name, "match_field": r.match_field, "match_op": r.match_op, "match_value": r.match_value, "action_json": r.action_json, "is_active": r.is_active, "priority": r.priority} | tojson }}'
-                    onclick="openEditModal(JSON.parse(this.dataset.rule))"
-                    class="text-gray-400 hover:text-primary p-2 rounded-lg hover:bg-gray-100 transition">
+                    onclick="openEditModal(JSON.parse(this.dataset.rule))" aria-label="Edit rule {{ r.name }}"
+                    class="text-text-muted hover:text-primary p-2 rounded-lg hover:bg-gray-100 transition">
                 <i class="fas fa-edit"></i>
             </button>
-            <button onclick="deleteRule({{ r.id }})"
-                    class="text-gray-400 hover:text-red-500 p-2 rounded-lg hover:bg-red-50 transition">
+            <button onclick="deleteRule({{ r.id }})" aria-label="Delete rule {{ r.name }}"
+                    class="text-text-muted hover:text-danger p-2 rounded-lg hover:bg-red-50 transition">
                 <i class="fas fa-trash"></i>
             </button>
         </div>

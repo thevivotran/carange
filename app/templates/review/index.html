@@ -1,13 +1,21 @@
 {% extends "base.html" %}
 {% block title %}Review Inbox — Carange{% endblock %}
 
+{% block extra_css %}
+<style>
+  .review-confirm-btn { color: var(--success-text); background: var(--success-subtle); }
+  .review-confirm-btn:hover, .review-confirm-btn:focus-visible { color: #fff; background: var(--success); }
+  .review-confirm-btn:focus-visible { box-shadow: inset 0 0 0 2px var(--success-text); }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="p-6 pb-28 max-w-5xl mx-auto">
 
   <!-- Header — consistent with Transactions page -->
   <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
     <div class="hidden md:block">
-      <h2 class="text-3xl font-bold text-gray-800">Review Inbox</h2>
+      <h1 class="text-3xl font-bold text-gray-800">Review Inbox</h1>
       <p class="text-gray-600 mt-1">Confirm or skip transactions before they're saved</p>
     </div>
     <div class="flex items-center gap-2">
@@ -15,7 +23,7 @@
       <div id="review-header-actions"></div>
       <!-- Refresh — icon-button style matching Transactions export button -->
       <button onclick="htmx.trigger('#review-list', 'refresh')"
-              title="Refresh inbox"
+              title="Refresh inbox" aria-label="Refresh inbox"
               class="w-10 h-10 flex items-center justify-center bg-white border border-gray-300 text-gray-500 rounded-lg hover:bg-gray-50 hover:text-gray-700 transition flex-shrink-0">
         <i class="fas fa-sync-alt text-sm"></i>
       </button>
@@ -28,7 +36,7 @@
        hx-trigger="load, review-updated from:body, refresh"
        hx-target="this"
        hx-swap="innerHTML">
-    <div class="flex justify-center py-20 text-gray-400">
+    <div class="flex justify-center py-20 text-text-muted">
       <div class="text-center">
         <i class="fas fa-spinner fa-spin text-2xl mb-3 block"></i>
         <p class="text-sm">Loading inbox…</p>
@@ -38,14 +46,78 @@
 
 </div>
 
+<!-- Source screenshot viewer -->
+<div id="review-image-modal" role="dialog" aria-modal="true" aria-labelledby="review-image-title"
+     class="hidden fixed inset-0 z-[120] flex items-center justify-center p-4" style="background: rgba(15,23,42,.7)"
+     onclick="if (event.target === this) closeReviewImage()">
+  <div class="cg-card rounded-xl shadow-xl max-w-lg w-full max-h-[90dvh] flex flex-col">
+    <div class="flex items-center justify-between px-4 py-3 border-b">
+      <h3 id="review-image-title" class="font-semibold text-gray-800">Source screenshot</h3>
+      <button onclick="closeReviewImage()" aria-label="Close" class="w-10 h-10 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100">
+        <i class="fas fa-times" aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="overflow-auto p-3">
+      <img id="review-image-full" src="" alt="Uploaded screenshot the transaction was read from" class="w-full h-auto rounded">
+    </div>
+  </div>
+</div>
+
 <script>
-function approveRow(txId) {
-    const row = document.getElementById('review-row-' + txId);
+// Paste a screenshot here and it's sent for OCR straight away; results land in this inbox.
+window.addEventListener('paste', async function(e) {
+    const files = window.imagesFromPaste(e);
+    if (!files.length) return;
+    e.preventDefault();
+    const fd = new FormData();
+    files.forEach(f => fd.append('files', f));
+    const r = await fetch('/api/import/jobs', { method: 'POST', body: fd });
+    if (r.ok) showToast('Screenshot uploaded — it will appear here once it has been read', 'success');
+    else showToast('Upload failed — try the Import page', 'error');
+});
+
+// Values the user may have corrected on a card. Only changed fields are sent.
+function _reviewPayload(row) {
+    const payload = {};
     const catEl = row.querySelector('.cat-select');
     const descEl = row.querySelector('.desc-input');
-    const payload = {};
-    if (catEl) payload.category_id = parseInt(catEl.value);
+    const amtEl = row.querySelector('input.amount-input[data-money]');  // the hidden raw value, not the grouped display
+    const dateEl = row.querySelector('.date-input');
+    const typeEl = row.querySelector('.type-select');
+    if (catEl && catEl.value) payload.category_id = parseInt(catEl.value);
     if (descEl && descEl.value !== descEl.dataset.original) payload.description = descEl.value;
+    if (amtEl && amtEl.value && amtEl.value !== amtEl.dataset.original) payload.amount = parseFloat(amtEl.value);
+    if (dateEl && dateEl.value && dateEl.value !== dateEl.dataset.original) payload.date = dateEl.value;
+    if (typeEl && typeEl.value !== typeEl.dataset.original) payload.type = typeEl.value;
+    return payload;
+}
+
+// Switching Income/Expense shows that type's categories and picks the first one.
+function onReviewTypeChange(txId) {
+    const row = document.getElementById('review-row-' + txId);
+    const type = row.querySelector('.type-select').value;
+    const sel = row.querySelector('.cat-select');
+    let first = null;
+    Array.prototype.forEach.call(sel.options, function(o) {
+        const match = o.dataset.type === type;
+        o.hidden = !match;
+        o.disabled = !match;
+        if (match && !first) first = o;
+    });
+    if (sel.selectedOptions[0] && sel.selectedOptions[0].disabled && first) sel.value = first.value;
+}
+
+function openReviewImage(jobId) {
+    document.getElementById('review-image-full').src = '/api/import/jobs/' + jobId + '/image';
+    document.getElementById('review-image-modal').classList.remove('hidden');
+}
+function closeReviewImage() {
+    document.getElementById('review-image-modal').classList.add('hidden');
+}
+
+function approveRow(txId) {
+    const row = document.getElementById('review-row-' + txId);
+    const payload = _reviewPayload(row);
 
     fetch('/api/review/' + txId + '/approve', {
         method: 'POST',
@@ -61,6 +133,9 @@ function approveRow(txId) {
                 _reviewUpdateCount(-1);
                 showToast('Transaction confirmed', 'success');
             }, 250);
+        } else {
+            r.json().then(d => showToast(d.detail || 'Could not confirm this transaction', 'error'))
+                     .catch(() => showToast('Could not confirm this transaction', 'error'));
         }
     });
 }
@@ -102,11 +177,7 @@ async function approveAll() {
     let approved = 0;
     for (const row of rows) {
         const txId = row.id.replace('review-row-', '');
-        const catEl = row.querySelector('.cat-select');
-        const descEl = row.querySelector('.desc-input');
-        const payload = {};
-        if (catEl) payload.category_id = parseInt(catEl.value);
-        if (descEl && descEl.value !== descEl.dataset.original) payload.description = descEl.value;
+        const payload = _reviewPayload(row);
         try {
             const r = await fetch('/api/review/' + txId + '/approve', {
                 method: 'POST',
@@ -126,6 +197,44 @@ async function approveAll() {
     const failed = rows.length - approved;
     if (failed > 0) showToast(failed + ' transaction' + (failed !== 1 ? 's' : '') + ' could not be approved', 'error');
 }
+
+async function approveConfident(n) {
+    const ok = await Alpine.store('confirm').show(
+        'Confirm ' + n + ' item' + (n === 1 ? '' : 's') + ' read with 80% confidence or more? Lower-confidence items stay here for a closer look.',
+        'Confirm ' + n,
+        'bg-success hover:bg-success/90'
+    );
+    if (!ok) return;
+    const r = await fetch('/api/review/approve-bulk', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ min_confidence: 0.8 })
+    });
+    if (!r.ok) { showToast('Could not confirm these items', 'error'); return; }
+    const d = await r.json();
+    _reviewUpdateCount(-d.approved);
+    showToast(d.approved + ' transaction' + (d.approved === 1 ? '' : 's') + ' confirmed', 'success');
+    htmx.trigger('#review-list', 'refresh');
+}
+
+// ── Keyboard: j/k move, c confirm, s skip, r rule (ignored while typing) ──────
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const t = e.target;
+    if (t.closest && t.closest('input, textarea, select, [contenteditable], [role="dialog"]:not(.hidden)')) return;
+    const cards = Array.from(document.querySelectorAll('[data-review-card]'));
+    if (!cards.length) return;
+    const current = t.closest ? t.closest('[data-review-card]') : null;
+    const idx = current ? cards.indexOf(current) : -1;
+    const focusCard = i => { const c = cards[Math.max(0, Math.min(cards.length - 1, i))]; c.focus(); c.scrollIntoView({ block: 'nearest' }); };
+    if (e.key === 'j') { e.preventDefault(); focusCard(idx + 1); return; }
+    if (e.key === 'k') { e.preventDefault(); focusCard(idx < 0 ? 0 : idx - 1); return; }
+    if (!current) return;
+    const id = current.id.replace('review-row-', '');
+    if (e.key === 'c') { e.preventDefault(); if (cards[idx + 1]) cards[idx + 1].focus(); approveRow(id); }
+    else if (e.key === 's') { e.preventDefault(); rejectRow(id); }
+    else if (e.key === 'r') { e.preventDefault(); rememberAsRule(id); }
+});
 
 function _reviewUpdateCount(delta) {
     // ── All nav badges (sidebar + both mobile variants) ──────────────────

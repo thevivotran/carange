@@ -16,10 +16,10 @@
     <button onclick="openAddModal()"
             class="text-left p-4 rounded-xl bg-white border border-blue-100 hover:border-blue-300 hover:shadow-sm transition-all">
       <div class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center mb-2">
-        <i class="fas fa-plus text-sm text-blue-600"></i>
+        <i class="fas fa-plus text-sm text-blue-600" aria-hidden="true"></i>
       </div>
       <p class="text-sm font-semibold text-gray-700">1. Add your first transaction</p>
-      <p class="text-xs text-gray-400 mt-1">Log an income or expense to see your dashboard come alive.</p>
+      <p class="text-xs text-text-muted mt-1">Log an income or expense to see your dashboard come alive.</p>
     </button>
 
     <a href="/categories"
@@ -28,7 +28,7 @@
         <i class="fas fa-tags text-sm text-blue-600"></i>
       </div>
       <p class="text-sm font-semibold text-gray-700">2. Review your categories</p>
-      <p class="text-xs text-gray-400 mt-1">16 categories are seeded already — rename or add your own.</p>
+      <p class="text-xs text-text-muted mt-1">16 categories are seeded already — rename or add your own.</p>
     </a>
 
     <a href="/budget"
@@ -37,7 +37,7 @@
         <i class="fas fa-wallet text-sm text-blue-600"></i>
       </div>
       <p class="text-sm font-semibold text-gray-700">3. Set a monthly budget</p>
-      <p class="text-xs text-gray-400 mt-1">Put a limit on each category to start tracking against it.</p>
+      <p class="text-xs text-text-muted mt-1">Put a limit on each category to start tracking against it.</p>
     </a>
 
     <a href="/savings"
@@ -46,12 +46,21 @@
         <i class="fas fa-piggy-bank text-sm text-blue-600"></i>
       </div>
       <p class="text-sm font-semibold text-gray-700">4. Track your savings</p>
-      <p class="text-xs text-gray-400 mt-1">Create a bundle for a goal, fixed deposit, or fund.</p>
+      <p class="text-xs text-text-muted mt-1">Create a bundle for a goal, fixed deposit, or fund.</p>
     </a>
   </div>
 
-  <p class="text-xs text-gray-400 mt-4">
-    Tip: prefer a lighter dashboard while you get started? Switch to the
-    <a href="/settings" class="text-blue-600 hover:underline">Simple layout in Settings</a>.
-  </p>
+  <div class="flex flex-wrap items-center justify-between gap-3 mt-4">
+    <p class="text-xs text-text-muted">
+      Tip: prefer a lighter dashboard while you get started? Switch to the
+      <a href="/settings#dashboard" class="text-accent-text hover:underline">Simple layout in Settings</a>.
+    </p>
+    {# Sample data is clearly tagged and removable from Settings → Data. #}
+    <button type="button"
+            hx-post="/settings/sample-data/load" hx-swap="none"
+            hx-on::after-request="if (event.detail.successful) window.location.reload()"
+            class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-blue-200 text-xs font-semibold text-gray-700 hover:bg-blue-100 transition-colors whitespace-nowrap">
+      <i class="fas fa-flask" aria-hidden="true"></i> Explore with sample data first
+    </button>
+  </div>
 </div>

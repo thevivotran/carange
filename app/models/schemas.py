@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from datetime import date, datetime
-from typing import Optional, List
+from typing import List, Literal, Optional
 
 # Python 3.12 evaluates annotated assignment values before annotation expressions in class bodies.
 # When a field is named `date` with default `None`, `date = None` is stored first, causing
@@ -531,10 +531,17 @@ class DashboardData(BaseModel):
 
 
 # Note Schemas
+IouDirection = Literal["owed_to_us", "we_owe"]
+
+
 class NoteBase(BaseModel):
     title: str
     content: Optional[str] = None
     type: Optional[str] = None
+    counterparty: Optional[str] = Field(default=None, max_length=120)
+    amount: Optional[float] = Field(default=None, ge=0)
+    direction: Optional[IouDirection] = None
+    due_date: Optional[date] = None
 
 
 class NoteCreate(NoteBase):
@@ -545,10 +552,15 @@ class NoteUpdate(BaseModel):
     title: Optional[str] = None
     content: Optional[str] = None
     type: Optional[str] = None
+    counterparty: Optional[str] = Field(default=None, max_length=120)
+    amount: Optional[float] = Field(default=None, ge=0)
+    direction: Optional[IouDirection] = None
+    due_date: Optional[date] = None
 
 
 class Note(NoteBase):
     id: int
+    settled_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
 

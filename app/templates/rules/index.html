@@ -3,21 +3,26 @@
 
 {% block content %}
 <div class="p-6 pb-28 max-w-5xl mx-auto">
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        <div class="hidden md:block">
-            <h2 class="text-3xl font-bold text-gray-800">Rules</h2>
-            <p class="text-gray-600 mt-1">Auto-classify transactions on every email and OCR import by matching description, amount, or source.</p>
-        </div>
+    {% from "partials/_list_page.html" import list_header %}
+    {% set _subtitle %}Auto-classify transactions on every email and OCR import by matching description, amount, or source.{% endset %}
+    {% call list_header("Rules", _subtitle) %}
         <button onclick="openCreateModal()"
-                class="bg-brand text-white px-5 py-2.5 rounded-lg hover:bg-brand-hover transition flex items-center gap-2">
+                class="bg-brand-solid text-white px-5 py-2.5 rounded-lg hover:bg-brand-solid-hover transition flex items-center gap-2">
             <i class="fas fa-plus"></i> Add Rule
         </button>
+    {% endcall %}
+
+    <!-- Suggested rules: descriptions you keep filing the same way (filled by JS) -->
+    <div id="rule-suggestions" class="hidden cg-card rounded-2xl p-5 mb-4">
+        <h2 class="font-semibold text-sm text-gray-800 mb-1">Suggested rules</h2>
+        <p class="text-xs text-muted mb-3">You keep filing these the same way. A rule does it automatically on every import.</p>
+        <ul id="rule-suggestions-list" class="divide-y"></ul>
     </div>
 
     <!-- Rules table -->
     <div class="bg-white rounded-2xl shadow-sm border overflow-hidden">
         <div id="rules-list" hx-get="/fragments/rules/list" hx-trigger="load, rules-updated from:body" hx-swap="innerHTML">
-            <div class="flex justify-center py-12 text-gray-400">
+            <div class="flex justify-center py-12 text-text-muted">
                 <i class="fas fa-spinner fa-spin text-2xl"></i>
             </div>
         </div>
@@ -82,18 +87,82 @@
                 <label for="rule-active" class="text-sm text-gray-700">Active</label>
             </div>
             <div>
-                <label for="rule-priority" class="block text-sm font-medium text-gray-700 mb-1">Priority <span class="text-gray-400 font-normal">(lower number = higher priority)</span></label>
+                <label for="rule-priority" class="block text-sm font-medium text-gray-700 mb-1">Priority <span class="text-text-muted font-normal">(lower number = higher priority)</span></label>
                 <input type="number" id="rule-priority" value="0" min="0" class="w-24 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary">
             </div>
         </div>
         <div class="p-6 border-t flex justify-end gap-3">
             <button onclick="closeModal()" class="px-4 py-2 border rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition">Cancel</button>
-            <button onclick="saveRule()" class="px-4 py-2 bg-brand text-white rounded-lg text-sm hover:bg-brand-hover transition">Save</button>
+            <button onclick="saveRule()" class="px-4 py-2 bg-brand-solid text-white rounded-lg text-sm hover:bg-brand-solid-hover transition">Save</button>
         </div>
     </div>
 </div>
 
 <script>
+// ── Suggested rules ─────────────────────────────────────────────────────────
+// Dismissals are a per-browser convenience; the server re-suggests nothing once a
+// matching rule exists.
+function _dismissedSuggestions() {
+    try { return JSON.parse(localStorage.getItem('carange-dismissed-rule-suggestions') || '[]'); } catch (e) { return []; }
+}
+function _dismissSuggestion(pattern) {
+    try {
+        const d = _dismissedSuggestions(); d.push(pattern);
+        localStorage.setItem('carange-dismissed-rule-suggestions', JSON.stringify(d));
+    } catch (e) {}
+}
+async function loadRuleSuggestions() {
+    let items = [];
+    try { const r = await fetch('/api/rules/suggestions'); if (r.ok) items = await r.json(); } catch (e) {}
+    const dismissed = _dismissedSuggestions();
+    items = items.filter(s => !dismissed.includes(s.pattern));
+    const box = document.getElementById('rule-suggestions');
+    const list = document.getElementById('rule-suggestions-list');
+    list.replaceChildren();
+    box.classList.toggle('hidden', !items.length);
+    items.forEach(function(sg) {
+        const li = document.createElement('li');
+        li.className = 'py-2.5 flex flex-wrap items-center justify-between gap-3';
+        const text = document.createElement('p');
+        text.className = 'text-sm text-gray-700 min-w-0';
+        const pat = document.createElement('strong');
+        pat.textContent = '“' + sg.pattern + '”';
+        text.append('Description contains ', pat, ' → ' + sg.category_name + ' ');
+        const count = document.createElement('span');
+        count.className = 'text-xs text-muted';
+        count.textContent = '(' + sg.count + ' times)';
+        text.appendChild(count);
+        const actions = document.createElement('div');
+        actions.className = 'flex gap-2 flex-shrink-0';
+        const create = document.createElement('button');
+        create.type = 'button';
+        create.className = 'px-3 py-1.5 rounded-lg bg-brand-solid text-white text-xs font-semibold hover:bg-brand-solid-hover';
+        create.textContent = 'Create rule';
+        create.addEventListener('click', async function() {
+            const r = await fetch('/api/rules/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: 'Auto: ' + sg.pattern, match_field: 'description', match_op: 'contains',
+                    match_value: sg.pattern, action_json: { set_category_id: sg.category_id },
+                }),
+            });
+            if (r.ok) { showToast('Rule created', 'success'); htmx.trigger(document.body, 'rules-updated'); loadRuleSuggestions(); }
+            else showToast('Could not create the rule', 'error');
+        });
+        const dismiss = document.createElement('button');
+        dismiss.type = 'button';
+        dismiss.className = 'px-3 py-1.5 rounded-lg border text-xs font-medium text-secondary hover:bg-gray-50';
+        dismiss.textContent = 'Dismiss';
+        dismiss.setAttribute('aria-label', 'Dismiss suggestion for ' + sg.pattern);
+        dismiss.addEventListener('click', function() { _dismissSuggestion(sg.pattern); loadRuleSuggestions(); });
+        actions.append(create, dismiss);
+        li.append(text, actions);
+        list.appendChild(li);
+    });
+}
+loadRuleSuggestions();
+
 let _editId = null;
 
 // ── Field/operator coupling ────────────────────────────────────────────────

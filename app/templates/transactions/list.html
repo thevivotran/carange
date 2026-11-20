@@ -3,25 +3,26 @@
 
 {% block content %}
 <div class="p-6 pb-28 max-w-7xl mx-auto">
-    <!-- Page Header -->
-    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+    <!-- Page Header — on phones only the controls show, pinned while the list scrolls -->
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-3 md:mb-6 gap-4
+                sticky top-0 z-20 -mx-6 px-6 py-2 bg-gray-50 md:static md:mx-0 md:px-0 md:py-0 md:bg-transparent">
         <div class="hidden md:block">
-            <h2 class="text-3xl font-bold text-gray-800">Transactions</h2>
+            <h1 class="text-3xl font-bold text-gray-800">Transactions</h1>
             <p class="text-muted mt-1">Manage your daily income and expenses</p>
         </div>
-        <div class="flex items-center gap-3 flex-wrap">
+        <div class="flex items-center gap-3 w-full md:w-auto">
             <!-- Month pill — same style as Dashboard -->
-            <div class="flex items-center gap-1 cg-card px-2 py-1">
-                <button onclick="shiftTxMonth(-1)"
-                        class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none">&#8249;</button>
+            <div class="flex items-center justify-between gap-1 cg-card px-2 py-1 flex-1 md:flex-none min-w-0">
+                <button onclick="shiftTxMonth(-1)" aria-label="Previous month"
+                        class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none"><span aria-hidden="true">&#8249;</span></button>
                 <div class="flex flex-col items-center justify-center px-3 py-1 min-w-[120px]">
                     <span id="tx-month-display" class="text-sm font-semibold text-center select-none"></span>
                     <span id="tx-month-range-display" class="block text-[10px] leading-tight text-muted text-center whitespace-nowrap select-none"></span>
                 </div>
-                <button onclick="shiftTxMonth(1)"
-                        class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none">&#8250;</button>
+                <button onclick="shiftTxMonth(1)" aria-label="Next month"
+                        class="w-10 h-10 flex items-center justify-center rounded-lg text-xl text-muted hover:text-secondary hover:bg-surface-sunken active:bg-surface-sunken transition select-none"><span aria-hidden="true">&#8250;</span></button>
                 <button id="tx-exit-btn" onclick="exitTxMonthTracking()" title="Exit month filter — show all transactions" aria-label="Show all months"
-                        class="hidden w-7 h-7 flex items-center justify-center rounded-lg text-base text-muted hover:text-danger hover:bg-danger-subtle transition select-none">&#215;</button>
+                        class="hidden w-10 h-10 flex items-center justify-center rounded-lg text-base text-muted hover:text-danger hover:bg-danger-subtle transition select-none">&#215;</button>
             </div>
             <button id="toggle-filters-btn" onclick="toggleFiltersPanel()"
                     class="flex items-center gap-2 cg-card border px-3 py-2.5 text-sm text-secondary hover:bg-surface-sunken transition flex-shrink-0">
@@ -29,12 +30,23 @@
                 <span>Filters</span>
                 <span id="active-filter-count" class="hidden bg-accent text-white text-xs rounded-full w-5 h-5 items-center justify-center font-semibold">0</span>
             </button>
-            <button onclick="openAddModal()" class="hidden md:flex bg-brand text-white px-6 py-3 rounded-lg hover:bg-brand-hover transition items-center">
+            <button onclick="openAddModal()" class="hidden md:flex bg-brand-solid text-white px-6 py-3 rounded-lg hover:bg-brand-solid-hover transition items-center">
                 <i class="fas fa-plus mr-2"></i>Add Transaction
             </button>
         </div>
     </div>
     
+    <!-- Search: always visible (it used to hide inside Filters) -->
+    <div class="relative mb-4">
+        <label for="filter-search" class="sr-only">Search transactions</label>
+        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-text-muted text-sm pointer-events-none" aria-hidden="true"></i>
+        <input type="search" id="filter-search" enterkeyhint="search"
+               class="w-full border rounded-lg pl-9 pr-4 py-2.5 text-sm bg-white focus:ring-2 focus:ring-primary"
+               placeholder="Search description…"
+               onkeydown="if(event.key==='Enter') applyFilters()"
+               oninput="clearTimeout(window._txSearchT); window._txSearchT = setTimeout(applyFilters, 400)">
+    </div>
+
     <!-- Import context banner (shown when navigating from import page) -->
     <div id="import-context-banner" class="hidden mb-4 rounded-xl border px-4 py-3 flex items-center gap-3 text-sm">
         <i id="import-banner-icon" class="fas fa-arrow-left flex-shrink-0"></i>
@@ -49,15 +61,8 @@
     <div id="filters-panel" class="hidden cg-card rounded-xl p-4 mb-6">
         <!-- Search + quick actions row -->
         <div class="flex flex-wrap gap-3 items-center mb-3">
-            <div class="flex-1 min-w-[180px] relative">
-                <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none"></i>
-                <input type="text" id="filter-search"
-                       class="w-full border rounded-lg pl-9 pr-4 py-2 text-sm focus:ring-2 focus:ring-primary"
-                       placeholder="Search description..."
-                       onkeydown="if(event.key==='Enter') applyFilters()">
-            </div>
             <button onclick="exportCSV()" title="Export CSV" aria-label="Export CSV"
-                    class="bg-green-100 text-green-700 w-10 h-10 rounded-lg hover:bg-green-200 transition flex items-center justify-center flex-shrink-0">
+                    class="bg-green-100 text-income w-10 h-10 rounded-lg hover:bg-green-200 transition flex items-center justify-center flex-shrink-0">
                 <i class="fas fa-download text-sm"></i>
             </button>
             <button id="filter-review-btn" data-active="false" onclick="toggleReviewFilter()"
@@ -69,7 +74,7 @@
             <button id="filter-trash-btn" data-active="false" onclick="toggleTrashMode()"
                     title="Show deleted transactions" aria-label="Trash"
                     class="flex items-center gap-1.5 border rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 transition">
-                <i class="fas fa-trash text-gray-400 text-sm"></i>
+                <i class="fas fa-trash text-text-muted text-sm"></i>
                 <span>Trash</span>
             </button>
         </div>
@@ -90,7 +95,7 @@
                 <div class="flex items-center gap-2">
                     <input type="date" id="filter-start-date"
                            class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary bg-white h-[38px]">
-                    <span class="text-gray-400 text-xs">→</span>
+                    <span class="text-text-muted text-xs">→</span>
                     <input type="date" id="filter-end-date"
                            class="border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary bg-white h-[38px]">
                 </div>
@@ -131,7 +136,7 @@
                     <i class="fas fa-filter"></i>Apply
                 </button>
                 <button onclick="clearFilters()"
-                        class="text-gray-400 hover:text-red-500 text-sm px-2 py-2 transition">
+                        class="text-text-muted hover:text-expense text-sm px-2 py-2 transition">
                     <i class="fas fa-times mr-1"></i>Clear
                 </button>
             </div>
@@ -152,7 +157,7 @@
     </div>
     
     <!-- Trash mode banner -->
-    <div id="trash-mode-banner" class="hidden mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-3 text-sm text-red-800">
+    <div id="trash-mode-banner" class="hidden mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-3 text-sm text-danger-text">
         <i class="fas fa-trash flex-shrink-0"></i>
         <span class="flex-1">You are viewing deleted transactions. Click <strong>Restore</strong> on any row to recover it, or <strong>Delete Forever</strong> to permanently remove it.</span>
         <button onclick="toggleTrashMode()" class="font-medium underline flex-shrink-0 hover:opacity-75 transition">Exit Trash</button>
@@ -194,7 +199,7 @@
         const btn = document.getElementById('filter-trash-btn');
         const banner = document.getElementById('trash-mode-banner');
         if (trashMode) {
-            btn.className = 'flex items-center gap-1.5 border border-red-300 rounded-lg px-3 py-2 text-sm font-medium text-red-700 bg-red-50 hover:bg-red-100 transition';
+            btn.className = 'flex items-center gap-1.5 border border-red-300 rounded-lg px-3 py-2 text-sm font-medium text-expense bg-red-50 hover:bg-red-100 transition';
             banner.classList.remove('hidden');
         } else {
             btn.className = 'flex items-center gap-1.5 border rounded-lg px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 transition';
@@ -218,7 +223,7 @@
             collapseActions();
             deleteWithUndo(row, '/api/transactions/' + t.id, function() {
                 saveFilters(); loadTransactions(); loadMonthlySummary();
-            }, formatDate(t.date) + ' ' + t.category.name, 0);
+            }, formatDate(t.date) + ' ' + t.category.name, 0, '/api/transactions/' + t.id + '/restore');
         }
     }
 
@@ -256,6 +261,8 @@
         newConfirm.addEventListener('click', function() {
             document.getElementById('cascade-modal').classList.add('hidden');
             collapseActions();
+            // Cascade deletes linked records too; restore only brings back the
+            // transaction, so this path stays "delete now" without an Undo.
             deleteWithUndo(row, '/api/transactions/' + t.id, function() {
                 saveFilters(); loadTransactions(); loadMonthlySummary();
             }, formatDate(t.date) + ' ' + t.category.name, 0);
@@ -294,7 +301,7 @@
         while (content.firstChild) content.removeChild(content.firstChild);
 
         const spinner = document.createElement('div');
-        spinner.className = 'py-8 text-center text-gray-400';
+        spinner.className = 'py-8 text-center text-text-muted';
         const spinIco = document.createElement('i');
         spinIco.className = 'fas fa-spinner fa-spin text-2xl';
         spinner.appendChild(spinIco);
@@ -308,7 +315,7 @@
 
             if (!logs.length) {
                 const empty = document.createElement('p');
-                empty.className = 'py-6 text-center text-gray-400 text-sm';
+                empty.className = 'py-6 text-center text-text-muted text-sm';
                 empty.textContent = 'No changes recorded yet.';
                 content.appendChild(empty);
                 return;
@@ -321,7 +328,7 @@
                 const iconWrap = document.createElement('div');
                 iconWrap.className = 'flex-shrink-0 w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center mt-0.5';
                 const ico = document.createElement('i');
-                ico.className = 'fas fa-pen text-xs text-purple-600';
+                ico.className = 'fas fa-pen text-xs text-accent-text';
                 iconWrap.appendChild(ico);
 
                 const info = document.createElement('div');
@@ -335,7 +342,7 @@
                 changeRow.className = 'text-xs text-gray-600 mt-1';
                 if (log.old_value !== null && log.old_value !== undefined) {
                     const oldSpan = document.createElement('span');
-                    oldSpan.className = 'line-through text-gray-400 mr-1';
+                    oldSpan.className = 'line-through text-text-muted mr-1';
                     oldSpan.textContent = log.old_value;
                     changeRow.appendChild(oldSpan);
                     changeRow.appendChild(document.createTextNode('→ '));
@@ -346,7 +353,7 @@
                 changeRow.appendChild(newSpan);
 
                 const timeEl = document.createElement('p');
-                timeEl.className = 'text-xs text-gray-400 mt-0.5';
+                timeEl.className = 'text-xs text-text-muted mt-0.5';
                 timeEl.textContent = new Date(log.changed_at).toLocaleString('vi-VN');
 
                 info.appendChild(fieldBadge);
@@ -359,7 +366,7 @@
         } catch(e) {
             if (content.contains(spinner)) content.removeChild(spinner);
             const err = document.createElement('p');
-            err.className = 'py-6 text-center text-red-500 text-sm';
+            err.className = 'py-6 text-center text-expense text-sm';
             err.textContent = 'Failed to load history.';
             content.appendChild(err);
         }
@@ -652,7 +659,7 @@
 
             if (transactions.length === 0) {
                 const emptyDiv = document.createElement('div');
-                emptyDiv.className = 'py-20 text-center text-gray-400';
+                emptyDiv.className = 'py-20 text-center text-text-muted';
                 const ico = document.createElement('i');
                 ico.className = 'fas fa-receipt text-5xl mb-4 block opacity-30';
                 const msg = document.createElement('p');
@@ -693,10 +700,10 @@
                 const headerTr = document.createElement('div');
                 headerTr.className = 'bg-gray-50 border-t border-b border-gray-100 px-4 py-1.5 flex items-center justify-between';
                 const dateSpan = document.createElement('span');
-                dateSpan.className = 'text-xs font-semibold text-gray-400 uppercase tracking-widest';
+                dateSpan.className = 'text-xs font-semibold text-text-muted uppercase tracking-widest';
                 dateSpan.textContent = formatDate(date);
                 const netSpan = document.createElement('span');
-                netSpan.className = 'text-xs font-semibold ' + (dayNet >= 0 ? 'text-green-600' : 'text-red-500');
+                netSpan.className = 'text-xs font-semibold ' + (dayNet >= 0 ? 'text-income' : 'text-expense');
                 netSpan.textContent = (dayNet >= 0 ? '+' : '') + formatVND(Math.abs(dayNet));
                 headerTr.appendChild(dateSpan);
                 headerTr.appendChild(netSpan);
@@ -736,7 +743,7 @@
                         badge.appendChild(badgeIco);
                         badge.appendChild(document.createTextNode(' Unpaid'));
                     } else {
-                        badge.className = 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700';
+                        badge.className = 'inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-income';
                         badgeIco.className = 'fas fa-check';
                         badge.appendChild(badgeIco);
                         badge.appendChild(document.createTextNode(' Settled'));
@@ -764,7 +771,7 @@
                 if (t.source && t.source !== 'manual') {
                     const srcBadge = document.createElement('span');
                     if (_OCR_SOURCES.has(t.source)) {
-                        srcBadge.className = 'inline-block ml-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-purple-600';
+                        srcBadge.className = 'inline-block ml-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-purple-50 text-accent-text';
                         srcBadge.textContent = 'OCR · ' + t.source.charAt(0).toUpperCase() + t.source.slice(1);
                     } else {
                         srcBadge.className = 'inline-block ml-1 px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-500';
@@ -775,7 +782,7 @@
                 row.appendChild(descDiv);
 
                 const amtSpan = document.createElement('span');
-                amtSpan.className = 'text-sm font-semibold whitespace-nowrap ' + (t.type === 'income' ? 'text-green-600' : 'text-red-600');
+                amtSpan.className = 'text-sm font-semibold whitespace-nowrap ' + (t.type === 'income' ? 'text-income' : 'text-expense');
                 amtSpan.textContent = (t.type === 'income' ? '+' : '-') + formatVND(t.amount);
                 row.appendChild(amtSpan);
 
@@ -791,7 +798,7 @@
                 const net = totalIncome - totalExpense;
                 const netEl = document.getElementById('total-net');
                 netEl.textContent = (net >= 0 ? '+' : '') + formatVND(net);
-                netEl.className = net >= 0 ? 'text-green-700' : 'text-red-700';
+                netEl.className = net >= 0 ? 'text-income' : 'text-expense';
             } else {
                 totalsRow.classList.add('hidden');
             }
@@ -817,8 +824,8 @@
         const text   = document.getElementById('import-banner-text');
         banner.classList.remove('hidden');
         if (mode === 'import_job') {
-            banner.classList.add('bg-green-50', 'border-green-200', 'text-green-800');
-            icon.className = 'fas fa-check-circle flex-shrink-0 text-green-600';
+            banner.classList.add('bg-green-50', 'border-green-200', 'text-success-text');
+            icon.className = 'fas fa-check-circle flex-shrink-0 text-income';
             text.textContent = 'Showing transactions extracted from import job #' + jobId + '.';
         } else {
             banner.classList.add('bg-blue-50', 'border-blue-200', 'text-blue-700');
@@ -889,10 +896,10 @@
         const amtRow = document.createElement('div');
         amtRow.className = 'flex items-center justify-between';
         const amtSpan = document.createElement('span');
-        amtSpan.className = 'text-2xl font-bold ' + (t.type === 'income' ? 'text-green-600' : 'text-red-600');
+        amtSpan.className = 'text-2xl font-bold ' + (t.type === 'income' ? 'text-income' : 'text-expense');
         amtSpan.textContent = (t.type === 'income' ? '+' : '-') + formatVND(t.amount);
         const typeChip = document.createElement('span');
-        typeChip.className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + (t.type === 'income' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700');
+        typeChip.className = 'text-xs px-2.5 py-1 rounded-full font-medium ' + (t.type === 'income' ? 'bg-green-100 text-income' : 'bg-red-100 text-expense');
         typeChip.textContent = t.type === 'income' ? 'Income' : 'Expense';
         amtRow.appendChild(amtSpan);
         amtRow.appendChild(typeChip);
@@ -918,7 +925,7 @@
         const addField = function(label, value) {
             const item = document.createElement('div');
             const lbl = document.createElement('p');
-            lbl.className = 'text-xs text-gray-400 mb-0.5';
+            lbl.className = 'text-xs text-text-muted mb-0.5';
             lbl.textContent = label;
             const val = document.createElement('p');
             val.className = 'text-sm text-gray-700 font-medium';
@@ -965,9 +972,9 @@
         };
 
         if (trashMode) {
-            footer.appendChild(mkBtn('fa-undo', 'Restore', 'text-green-700 bg-white border-green-200 hover:bg-green-50',
+            footer.appendChild(mkBtn('fa-undo', 'Restore', 'text-income bg-white border-green-200 hover:bg-green-50',
                 function() { closeTxDrawer(); restoreTransaction(t.id); }));
-            footer.appendChild(mkBtn('fa-trash', 'Delete Forever', 'text-red-800 bg-white border-red-300 hover:bg-red-50',
+            footer.appendChild(mkBtn('fa-trash', 'Delete Forever', 'text-danger-text bg-white border-red-300 hover:bg-red-50',
                 function() {
                     closeTxDrawer();
                     showConfirm('Permanently delete this transaction? This cannot be undone.', async function() {
@@ -979,10 +986,10 @@
         } else {
             footer.appendChild(mkBtn('fa-edit', 'Edit', 'text-blue-700 bg-white border-blue-200 hover:bg-blue-50',
                 function() { closeTxDrawer(); editTransaction(t.id); }));
-            footer.appendChild(mkBtn('fa-history', 'History', 'text-purple-700 bg-white border-purple-200 hover:bg-purple-50',
+            footer.appendChild(mkBtn('fa-history', 'History', 'text-accent-text bg-white border-purple-200 hover:bg-purple-50',
                 function() { closeTxDrawer(); openHistoryModal(t.id); }));
             if (t.is_advance && !t.advance_settled) {
-                footer.appendChild(mkBtn('fa-check-circle', 'Mark Settled', 'text-green-700 bg-white border-green-200 hover:bg-green-50',
+                footer.appendChild(mkBtn('fa-check-circle', 'Mark Settled', 'text-income bg-white border-green-200 hover:bg-green-50',
                     function() { closeTxDrawer(); settleAdvance(t.id); }));
             }
             if (t.needs_review) {
@@ -994,7 +1001,7 @@
                     function() { closeTxDrawer(); settleMilestone(t); }));
             }
             const isOCR = !!(t.import_job_id) && t.needs_review;
-            footer.appendChild(mkBtn('fa-trash', isOCR ? 'Reject' : 'Delete', 'text-red-700 bg-white border-red-200 hover:bg-red-50',
+            footer.appendChild(mkBtn('fa-trash', isOCR ? 'Reject' : 'Delete', 'text-expense bg-white border-red-200 hover:bg-red-50',
                 function() { closeTxDrawer(); deleteTransactionSafe(t, null); }));
         }
 
@@ -1315,10 +1322,10 @@
     <div class="cg-card rounded-xl shadow-xl max-w-md w-full max-h-[80dvh] flex flex-col">
         <div class="p-4 border-b flex justify-between items-center flex-shrink-0">
             <h3 class="text-base font-bold text-gray-800 flex items-center gap-2">
-                <i class="fas fa-history text-purple-500"></i>
+                <i class="fas fa-history text-accent-text"></i>
                 Change History
             </h3>
-            <button onclick="document.getElementById('history-modal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600" aria-label="Close">
+            <button onclick="document.getElementById('history-modal').classList.add('hidden')" class="text-text-muted hover:text-gray-600" aria-label="Close">
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
@@ -1332,7 +1339,7 @@
         <div id="tx-drawer-banner" class="hidden rounded-t-2xl md:rounded-t-xl"></div>
         <div class="px-4 py-3 border-b flex justify-between items-center flex-shrink-0">
             <h3 class="text-base font-bold text-gray-800">Transaction Details</h3>
-            <button onclick="closeTxDrawer()" class="text-gray-400 hover:text-gray-600" aria-label="Close">
+            <button onclick="closeTxDrawer()" class="text-text-muted hover:text-gray-600" aria-label="Close">
                 <i class="fas fa-times text-xl"></i>
             </button>
         </div>
@@ -1346,7 +1353,7 @@
     <div class="cg-card rounded-xl shadow-xl max-w-md w-full">
         <div class="p-5 border-b flex items-start gap-3">
             <div class="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                <i class="fas fa-exclamation-triangle text-red-600 text-sm"></i>
+                <i class="fas fa-exclamation-triangle text-expense text-sm"></i>
             </div>
             <div>
                 <h3 class="text-base font-semibold text-gray-800">Delete linked transaction?</h3>
@@ -1355,7 +1362,7 @@
         </div>
         <div class="p-5">
             <ul id="cascade-items-list" class="space-y-2 mb-5"></ul>
-            <p class="text-xs text-gray-400 mb-4">The transaction will move to Trash and can be restored within 30 days.</p>
+            <p class="text-xs text-text-muted mb-4">The transaction will move to Trash and can be restored within 30 days.</p>
             <div class="flex gap-3">
                 <button id="cascade-cancel-btn"
                         class="flex-1 px-4 py-2.5 border rounded-lg text-gray-700 hover:bg-gray-50 transition text-sm font-medium">
