@@ -144,6 +144,19 @@ def normalise_description(text: Optional[str]) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def _common_fragment(descriptions: list[str]) -> Optional[str]:
+    """The longest digit-free piece of the first description that every description
+    contains — what a "description contains" rule can match on. The normalised group
+    key can't be used: dropping digits from the middle ("chuyen tien 123 cho") leaves
+    text that isn't a substring of the originals."""
+    lowered = [d.lower() for d in descriptions]
+    pieces = {p.strip(" \t#/:.,-") for p in re.split(r"\d+", lowered[0])}
+    for piece in sorted(pieces, key=lambda p: (-len(p), p)):
+        if len(piece) >= 3 and all(piece in d for d in lowered):
+            return piece
+    return None
+
+
 def suggest_rules(db: Session, min_count: int = 5, limit: int = 5, today: Optional[date] = None) -> list[dict]:
     """Descriptions the user keeps filing under the same category without a rule.
 
@@ -168,15 +181,18 @@ def suggest_rules(db: Session, min_count: int = 5, limit: int = 5, today: Option
 
     rules = load_active_rules(db)
     out = []
-    for pattern, members in groups.items():
+    for members in groups.values():
         if len(members) < min_count:
             continue
         category_id, count = Counter(t.category_id for t in members).most_common(1)[0]
         if count / len(members) < SUGGEST_MIN_PURITY:
             continue
-        if any(_matches(rule, members[0]) for rule in rules):
+        fragment = _common_fragment([t.description for t in members])
+        if fragment is None:
             continue
-        out.append({"pattern": pattern, "category_id": category_id, "count": count})
+        if any(_matches(rule, t) for rule in rules for t in members):
+            continue
+        out.append({"pattern": fragment, "category_id": category_id, "count": count})
 
     out.sort(key=lambda s: (-s["count"], s["pattern"]))
     out = out[:limit]

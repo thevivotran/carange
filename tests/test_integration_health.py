@@ -155,3 +155,67 @@ def test_email_test_endpoint_reports_failure_without_secrets(client):
     r = client.post("/settings/email/test")
     assert r.status_code == 200
     assert "app password" in r.headers.get("hx-trigger", "")
+
+
+def test_email_login_failure_reported_from_worker_status(db_session):
+    """A rejected login writes no log row, only the worker's own status settings."""
+    set_setting(db_session, "imap_user", "a@b.c")
+    set_setting(db_session, "imap_password", "secret")
+    set_setting(db_session, "email_worker_last_ok", (NOW - timedelta(hours=30)).isoformat())
+    set_setting(db_session, "email_worker_last_error", "LoginError: invalid credentials")
+    db_session.commit()
+    _email_log(db_session, "m1", "done", NOW - timedelta(hours=40))
+    h = _by_name(db_session)["email"]
+    assert h["status"] == "error"
+    assert "invalid credentials" in h["last_error"]
+
+
+def test_email_worker_silent_is_a_failure(db_session):
+    set_setting(db_session, "imap_user", "a@b.c")
+    set_setting(db_session, "imap_password", "secret")
+    set_setting(db_session, "email_worker_last_ok", (NOW - timedelta(hours=3)).isoformat())
+    db_session.commit()
+    h = _by_name(db_session)["email"]
+    assert h["status"] == "warning"  # last check 3 h ago: failing, but succeeded within 24 h
+    assert "hasn't checked" in h["last_error"]
+
+
+def test_stuck_pending_jobs_flag_a_down_worker(db_session):
+    db_session.add(
+        ImportJob(
+            filename="x.png",
+            file_path="x.png",
+            image_hash="h1",
+            status=ImportJobStatus.DONE,
+            processed_at=NOW - timedelta(days=3),
+        )
+    )
+    db_session.add(
+        ImportJob(
+            filename="y.png",
+            file_path="y.png",
+            image_hash="h2",
+            status=ImportJobStatus.PENDING,
+            created_at=NOW - timedelta(hours=2),
+        )
+    )
+    db_session.commit()
+    h = _by_name(db_session)["ocr"]
+    assert h["status"] == "error"
+    assert "1 screenshot(s) waiting" in h["last_error"]
+
+
+def test_scheduled_notification_retry_is_not_stuck(db_session):
+    set_setting(db_session, "telegram_bot_token", "t")
+    set_setting(db_session, "telegram_chat_id", "c")
+    db_session.add(
+        NotificationEvent(
+            event_type="x",
+            payload={},
+            status=NotificationEventStatus.PENDING,
+            created_at=NOW - timedelta(hours=2),
+            retry_after=NOW + timedelta(minutes=5),
+        )
+    )
+    db_session.commit()
+    assert _by_name(db_session)["telegram"]["status"] == "ok"

@@ -49,7 +49,8 @@ def next_due_payment(project: FinancialProject):
 
 
 def next_due_payment_overall(db: Session, today: date | None = None) -> dict | None:
-    """The soonest unpaid, dated project payment due today or later, across live projects."""
+    """The soonest unpaid, dated payment across planning/in-progress projects — overdue
+    ones included, since those matter most (``days`` is then negative)."""
     today = today or date.today()
     payment = (
         db.query(ProjectPayment)
@@ -57,8 +58,8 @@ def next_due_payment_overall(db: Session, today: date | None = None) -> dict | N
         .filter(
             ProjectPayment.status == PaymentStatus.PENDING,
             ProjectPayment.due_date.isnot(None),
-            ProjectPayment.due_date >= today,
             FinancialProject.deleted_at.is_(None),
+            FinancialProject.status.in_([ProjectStatus.PLANNING, ProjectStatus.IN_PROGRESS]),
         )
         .order_by(ProjectPayment.due_date.asc(), ProjectPayment.id.asc())
         .first()

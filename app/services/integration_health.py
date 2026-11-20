@@ -26,6 +26,8 @@ from app.models.database import (
 from app.services.settings_service import get_setting
 
 STALE_AFTER = timedelta(hours=24)
+# Work left waiting this long means the worker isn't running (or can't keep up).
+STUCK_AFTER = timedelta(hours=1)
 IMAP_TIMEOUT_SECONDS = 10
 
 
@@ -47,6 +49,26 @@ def _aware(dt):
     if dt is not None and dt.tzinfo is None:
         return dt.replace(tzinfo=timezone.utc)
     return dt
+
+
+def _parse_iso(value: str):
+    try:
+        return datetime.fromisoformat(value) if value else None
+    except ValueError:
+        return None
+
+
+def _stuck(db: Session, model, pending_status, now: datetime, what: str):
+    """(failure_at, message) when items have sat in pending past STUCK_AFTER, else (None, None).
+    A down worker never writes a failed row, so a backlog is the only sign of it."""
+    cutoff = now - STUCK_AFTER
+    query = db.query(model).filter(model.status == pending_status, model.created_at < cutoff)
+    if hasattr(model, "retry_after"):  # a scheduled retry isn't stuck
+        query = query.filter((model.retry_after.is_(None)) | (model.retry_after <= now))
+    count = query.count()
+    if not count:
+        return None, None
+    return now, f"{count} {what} waiting for over an hour — is the worker running?"
 
 
 def _entry(name: str, label: str, configured: bool, success, failure, error, now: datetime) -> dict:
@@ -98,34 +120,46 @@ def get_integration_health(db: Session, now: datetime | None = None) -> list[dic
         .first()
     )
 
+    # The worker's own connection status: a rejected login or unreachable server writes
+    # no log row, only email_worker_last_error / email_worker_last_ok.
+    email_success = _aware(email_ok and (email_ok.processed_at or email_ok.created_at))
+    email_failure = _aware(email_fail and (email_fail.processed_at or email_fail.created_at))
+    email_error = email_fail and email_fail.error_message
+    worker_ok = _aware(_parse_iso(get_setting(db, "email_worker_last_ok", "") or ""))
+    if worker_ok and (not email_success or worker_ok > email_success):
+        email_success = worker_ok
+    worker_error = get_setting(db, "email_worker_last_error", "") or ""
+    if email_configured and worker_error:
+        email_failure, email_error = now, worker_error
+    elif email_configured and worker_ok and now - worker_ok > STUCK_AFTER:
+        email_failure, email_error = now, "The email worker hasn't checked the inbox for over an hour"
+
+    ocr_success = ocr_ok and (ocr_ok.processed_at or ocr_ok.created_at)
+    ocr_failure = ocr_fail and (ocr_fail.processed_at or ocr_fail.created_at)
+    ocr_error = ocr_fail and ocr_fail.error_message
+    stuck_at, stuck_msg = _stuck(db, ImportJob, ImportJobStatus.PENDING, now, "screenshot(s)")
+    if stuck_at:
+        ocr_failure, ocr_error = stuck_at, stuck_msg
+
+    tg_success = tg_ok and (tg_ok.started_at or tg_ok.created_at)
+    tg_failure = tg_fail and (tg_fail.started_at or tg_fail.created_at)
+    tg_error = tg_fail and tg_fail.error_msg
+    stuck_at, stuck_msg = _stuck(db, NotificationEvent, NotificationEventStatus.PENDING, now, "notification(s)")
+    if tg_configured and stuck_at:
+        tg_failure, tg_error = stuck_at, stuck_msg
+
     return [
-        _entry(
-            "email",
-            "Bank email import",
-            email_configured,
-            email_ok and (email_ok.processed_at or email_ok.created_at),
-            email_fail and (email_fail.processed_at or email_fail.created_at),
-            email_fail and email_fail.error_message,
-            now,
-        ),
+        _entry("email", "Bank email import", email_configured, email_success, email_failure, email_error, now),
         _entry(
             "ocr",
             "Screenshot reading (OCR)",
             True,  # uploads always work; the worker either reads them or records why not
-            ocr_ok and (ocr_ok.processed_at or ocr_ok.created_at),
-            ocr_fail and (ocr_fail.processed_at or ocr_fail.created_at),
-            ocr_fail and ocr_fail.error_message,
+            ocr_success,
+            ocr_failure,
+            ocr_error,
             now,
         ),
-        _entry(
-            "telegram",
-            "Telegram notifications",
-            tg_configured,
-            tg_ok and (tg_ok.started_at or tg_ok.created_at),
-            tg_fail and (tg_fail.started_at or tg_fail.created_at),
-            tg_fail and tg_fail.error_msg,
-            now,
-        ),
+        _entry("telegram", "Telegram notifications", tg_configured, tg_success, tg_failure, tg_error, now),
     ]
 
 

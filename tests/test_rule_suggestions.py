@@ -46,6 +46,37 @@ def test_suggests_repeated_consistent_description(db_session, cats):
     assert out == [{"pattern": "grab ride", "category_id": transport.id, "count": 5, "category_name": "Transport"}]
 
 
+def test_suggested_pattern_matches_descriptions_with_digits_in_the_middle(db_session, cats):
+    """The rule saved from a suggestion must match the transactions it came from."""
+    from app.services.rules_service import _matches
+
+    transport, _ = cats
+    for i in range(5):
+        db_session.add(
+            Transaction(
+                date=TODAY - timedelta(days=3),
+                amount=10_000,
+                type=TransactionType.EXPENSE,
+                category_id=transport.id,
+                description=f"CHUYEN TIEN {100 + i} CHO GRAB",
+            )
+        )
+    db_session.commit()
+    [sg] = suggest_rules(db_session, today=TODAY)
+    assert sg["pattern"] == "chuyen tien"  # longest piece every description contains
+    rule = TransactionRule(
+        name="auto", match_field="description", match_op="contains", match_value=sg["pattern"], action_json={}
+    )
+    txs = db_session.query(Transaction).all()
+    assert all(_matches(rule, t) for t in txs)
+
+    # Once that rule exists the suggestion goes away instead of reappearing.
+    rule.action_json = {"set_category_id": transport.id}
+    db_session.add(rule)
+    db_session.commit()
+    assert suggest_rules(db_session, today=TODAY) == []
+
+
 def test_below_threshold_mixed_categories_and_old_ones_not_suggested(db_session, cats):
     transport, food = cats
     _add(db_session, transport, "Grab ride", 4)  # one short

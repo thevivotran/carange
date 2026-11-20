@@ -81,7 +81,6 @@ def test_next_due_payment_overall(db_session):
     )
     db_session.add_all(
         [
-            ProjectPayment(project_id=flat.id, amount=1, due_date=date(2026, 11, 1)),  # past
             ProjectPayment(project_id=flat.id, amount=2, due_date=date(2026, 11, 22), status=PaymentStatus.PAID),
             ProjectPayment(project_id=gone.id, amount=3, due_date=date(2026, 11, 21)),  # deleted project
             ProjectPayment(project_id=car.id, amount=4, due_date=date(2026, 11, 25)),
@@ -92,6 +91,20 @@ def test_next_due_payment_overall(db_session):
     db_session.commit()
     nxt = next_due_payment_overall(db_session, today=today)
     assert nxt["project_name"] == "Car" and float(nxt["amount"]) == 4 and nxt["days"] == 5
+
+    # A cancelled project's instalment never shows; an overdue one on a live project wins.
+    from app.models.database import ProjectStatus
+
+    dropped = _mk_project(db_session, "Dropped")
+    dropped.status = ProjectStatus.CANCELLED
+    db_session.add(ProjectPayment(project_id=dropped.id, amount=7, due_date=date(2026, 11, 21)))
+    db_session.commit()
+    assert next_due_payment_overall(db_session, today=today)["project_name"] == "Car"
+
+    db_session.add(ProjectPayment(project_id=flat.id, amount=1, due_date=date(2026, 11, 1)))
+    db_session.commit()
+    nxt = next_due_payment_overall(db_session, today=today)
+    assert nxt["project_name"] == "Flat" and nxt["days"] == -19
 
 
 def test_dashboard_and_pulse_show_next_payment(client, db_session):

@@ -957,6 +957,8 @@
                 var p = _pendingDeletes[key];
                 delete _pendingDeletes[key];
                 p.timer.cancel();
+                // The delete is sent now, so Undo can no longer cancel it — drop the toast.
+                Alpine.store('toasts').remove(p.timer.toastId);
                 try { fetch(p.url, { method: 'DELETE', keepalive: true }); } catch (e) {}
             });
         }
@@ -983,6 +985,7 @@
                     onUndo();
                 },
             });
+            timer.toastId = toastId;
             return timer;
         }
 

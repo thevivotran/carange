@@ -435,7 +435,7 @@ def integrations_alert(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/email/test")
-async def test_email_connection(request: Request, db: Session = Depends(get_db)):
+def test_email_connection(request: Request, db: Session = Depends(get_db)):
     from app.services.integration_health import check_imap_login
 
     ok, message = check_imap_login(db)
