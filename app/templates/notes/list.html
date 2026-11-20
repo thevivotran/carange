@@ -22,6 +22,8 @@
             <button onclick="filterNotes('general')" id="filter-general" class="filter-btn text-xs px-2.5 py-1 rounded-full border transition">General</button>
         </div>
 
+        <p id="iou-summary" class="hidden mx-3 mt-2 rounded-lg px-3 py-2 text-xs bg-surface-sunken text-secondary"></p>
+
         <div id="notes-list" class="flex-1 overflow-y-auto p-2 pb-24 space-y-1"></div>
     </div>
 
@@ -48,7 +50,7 @@
                     class="flex-1 text-xl font-semibold text-gray-800 bg-transparent border-none outline-none focus-visible:ring-2 focus-visible:ring-brand/40 rounded placeholder-gray-300"
                     oninput="scheduleSave()">
 
-                <select id="note-type" onchange="scheduleSave()"
+                <select id="note-type" aria-label="Note type" onchange="toggleIouPanel(); scheduleSave()"
                     class="text-xs border rounded-full px-3 py-1 text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-brand/40">
                     <option value="general">General</option>
                     <option value="money_owed">Money owed</option>
@@ -59,6 +61,43 @@
                 <button onclick="deleteCurrentNote()" class="text-danger hover:text-danger transition ml-2" title="Delete note">
                     <i class="fas fa-trash text-sm"></i>
                 </button>
+            </div>
+
+            <!-- IOU details — shown for "Money owed" notes -->
+            <div id="iou-panel" class="hidden border-b bg-white px-6 py-4">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label for="iou-counterparty" class="block text-xs font-medium text-gray-600 mb-1">Person</label>
+                        <input id="iou-counterparty" type="text" maxlength="120" oninput="scheduleSave()"
+                               class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/40" placeholder="Who?">
+                    </div>
+                    <div>
+                        <label for="iou-direction" class="block text-xs font-medium text-gray-600 mb-1">Direction</label>
+                        <select id="iou-direction" onchange="scheduleSave()"
+                                class="w-full border rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-brand/40">
+                            <option value="owed_to_us">They owe us</option>
+                            <option value="we_owe">We owe them</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="iou-amount" class="block text-xs font-medium text-gray-600 mb-1">Amount ({{ display_currency | default('VND') }})</label>
+                        <input id="iou-amount" type="number" min="0" data-money oninput="scheduleSave()"
+                               class="w-full border rounded-lg px-3 py-2 text-sm text-right focus:ring-2 focus:ring-brand/40" placeholder="0">
+                    </div>
+                    <div>
+                        <label for="iou-due-date" class="block text-xs font-medium text-gray-600 mb-1">Due date (optional)</label>
+                        <input id="iou-due-date" type="date" onchange="scheduleSave()"
+                               class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand/40">
+                    </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-3 mt-3">
+                    <button id="iou-settle-btn" type="button" onclick="settleCurrentNote()"
+                            class="px-4 py-2 rounded-lg bg-brand-solid text-white text-sm font-semibold hover:bg-brand-solid-hover transition">
+                        <i class="fas fa-check mr-1" aria-hidden="true"></i> Mark settled
+                    </button>
+                    <span id="iou-settled-label" class="hidden text-sm text-success-text"><i class="fas fa-circle-check mr-1" aria-hidden="true"></i><span></span></span>
+                    <span class="text-xs text-muted">Settling opens the add-transaction form so you can log the payment.</span>
+                </div>
             </div>
 
             <textarea id="note-content"
@@ -91,6 +130,55 @@ let activeFilter = null;
 
 const TYPE_LABELS = { money_owed: 'Money owed', general: 'General' };
 const TYPE_COLORS = { money_owed: 'bg-orange-100 text-orange-700', general: 'bg-gray-100 text-gray-600' };
+
+function toggleIouPanel() {
+    const isIou = document.getElementById('note-type').value === 'money_owed';
+    document.getElementById('iou-panel').classList.toggle('hidden', !isIou);
+}
+
+function _showSettled(note) {
+    const label = document.getElementById('iou-settled-label');
+    const btn = document.getElementById('iou-settle-btn');
+    const settled = !!note.settled_at;
+    label.classList.toggle('hidden', !settled);
+    btn.classList.toggle('hidden', settled);
+    if (settled) label.querySelector('span').textContent = 'Settled ' + formatDate(note.settled_at);
+}
+
+async function loadIouSummary() {
+    try {
+        const r = await fetch('/api/notes/summary');
+        if (!r.ok) return;
+        const d = await r.json();
+        const el = document.getElementById('iou-summary');
+        el.classList.toggle('hidden', !d.owed_to_us && !d.we_owe);
+        el.textContent = 'Owed to you ' + formatAmount(d.owed_to_us) + ' · You owe ' + formatAmount(d.we_owe);
+    } catch (e) {}
+}
+
+// Mark settled, then open the add-transaction form pre-filled so the payment is
+// logged through the normal flow (the user picks the category).
+async function settleCurrentNote() {
+    if (!currentNoteId) return;
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; await doSave(); }
+    const r = await fetch('/api/notes/' + currentNoteId + '/settle', { method: 'POST' });
+    if (!r.ok) { showToast('Could not settle this note', 'error'); return; }
+    const note = await r.json();
+    const idx = notes.findIndex(n => n.id === note.id);
+    if (idx !== -1) notes[idx] = note;
+    _showSettled(note);
+    loadIouSummary();
+    renderNoteList();
+    openAddModal();
+    setTimeout(function() {
+        const type = note.direction === 'we_owe' ? 'expense' : 'income';
+        const radio = document.querySelector('input[name="type"][value="' + type + '"]');
+        if (radio) { radio.checked = true; loadCategories(); }
+        if (note.amount) _setTxAmount(note.amount);
+        const desc = document.getElementById('tx-description');
+        if (desc) desc.value = 'Settled: ' + (note.counterparty || note.title);
+    }, 80);
+}
 
 async function loadNotes() {
     try {
@@ -178,6 +266,12 @@ function openNote(id) {
     document.getElementById('note-title').value = note.title;
     document.getElementById('note-content').value = note.content || '';
     document.getElementById('note-type').value = note.type === 'money_owed' ? 'money_owed' : 'general';
+    document.getElementById('iou-counterparty').value = note.counterparty || '';
+    document.getElementById('iou-direction').value = note.direction || 'owed_to_us';
+    document.getElementById('iou-amount').value = note.amount != null ? note.amount : '';
+    document.getElementById('iou-due-date').value = note.due_date || '';
+    _showSettled(note);
+    toggleIouPanel();
     updateMeta(note);
     updateCharCount();
     showEditor();
@@ -230,10 +324,18 @@ async function doSave() {
     const title = document.getElementById('note-title').value.trim() || 'Untitled';
     const content = document.getElementById('note-content').value;
     const type = document.getElementById('note-type').value || null;
+    const payload = { title, content, type };
+    if (type === 'money_owed') {
+        const amt = document.getElementById('iou-amount').value;
+        payload.counterparty = document.getElementById('iou-counterparty').value.trim() || null;
+        payload.direction = document.getElementById('iou-direction').value;
+        payload.amount = amt ? parseFloat(amt) : null;
+        payload.due_date = document.getElementById('iou-due-date').value || null;
+    }
     const res = await fetch('/api/notes/' + currentNoteId, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, content, type })
+        body: JSON.stringify(payload)
     });
     if (res.ok) {
         const updated = await res.json();
@@ -242,6 +344,7 @@ async function doSave() {
         document.getElementById('save-status').textContent = 'Saved';
         updateMeta(updated);
         renderNoteList();
+        loadIouSummary();
         setTimeout(() => { document.getElementById('save-status').textContent = ''; }, 2000);
     }
 }
@@ -282,5 +385,6 @@ async function deleteCurrentNote() {
 }
 
 loadNotes();
+loadIouSummary();
 </script>
 {% endblock %}

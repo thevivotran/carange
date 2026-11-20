@@ -64,6 +64,18 @@
 </div>
 
 <script>
+// Paste a screenshot here and it's sent for OCR straight away; results land in this inbox.
+window.addEventListener('paste', async function(e) {
+    const files = window.imagesFromPaste(e);
+    if (!files.length) return;
+    e.preventDefault();
+    const fd = new FormData();
+    files.forEach(f => fd.append('files', f));
+    const r = await fetch('/api/import/jobs', { method: 'POST', body: fd });
+    if (r.ok) showToast('Screenshot uploaded — it will appear here once it has been read', 'success');
+    else showToast('Upload failed — try the Import page', 'error');
+});
+
 // Values the user may have corrected on a card. Only changed fields are sent.
 function _reviewPayload(row) {
     const payload = {};

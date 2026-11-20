@@ -251,6 +251,9 @@
 
     <section role="tabpanel" id="settings-panel-integrations" aria-labelledby="settings-tab-integrations"
              x-show="tab === 'integrations'" x-cloak class="space-y-4">
+      <div hx-get="/settings/integrations/health" hx-trigger="load" hx-swap="outerHTML">
+        <div class="cg-card rounded-2xl p-6 text-sm text-muted">Checking auto-import status…</div>
+      </div>
       <!-- Email Integration -->
       <div class="cg-card rounded-2xl p-6">
         <div class="flex items-center gap-3 mb-4">
@@ -304,6 +307,10 @@
             <button type="submit"
                     class="px-5 py-2 rounded-xl bg-brand-solid text-white text-sm font-semibold hover:bg-brand-solid-hover transition">
               Save
+            </button>
+            <button type="button" hx-post="/settings/email/test" hx-target="#email-status" hx-swap="innerHTML"
+                    class="px-5 py-2 rounded-xl border border-gray-300 text-sm font-semibold hover:bg-gray-50 transition">
+              Test connection
             </button>
             <span id="email-status"></span>
           </div>

@@ -30,11 +30,11 @@
             <i class="fas fa-cloud-upload-alt text-4xl text-text-muted mb-3"></i>
             <p class="text-gray-500 font-medium">
                 <span class="md:hidden">Tap to choose screenshots</span>
-                <span class="hidden md:inline">Drag &amp; drop screenshots here</span>
+                <span class="hidden md:inline">Drag &amp; drop, paste (Ctrl+V), or click to choose screenshots</span>
             </p>
             <p class="text-text-muted text-sm mt-1">
                 <span class="md:hidden">JPEG, PNG, WebP, HEIC &nbsp;·&nbsp; max 20 MB each</span>
-                <span class="hidden md:inline">or click to browse &nbsp;·&nbsp; JPEG, PNG, WebP, HEIC &nbsp;·&nbsp; max 20 MB each</span>
+                <span class="hidden md:inline">JPEG, PNG, WebP, HEIC &nbsp;·&nbsp; max 20 MB each</span>
             </p>
             <div class="mt-4">
                 <label for="source-hint" class="block text-xs font-medium text-gray-500 mb-1">Source (optional — helps OCR accuracy)</label>
@@ -299,6 +299,14 @@ dropZone.addEventListener('drop', function(e) {
     e.preventDefault();
     dropZone.classList.remove('drag-over');
     stageFiles(Array.from(e.dataTransfer.files));
+});
+// Paste anywhere on the page stages the screenshot like a dropped file.
+window.addEventListener('paste', function(e) {
+    const files = window.imagesFromPaste(e);
+    if (!files.length) return;
+    e.preventDefault();
+    stageFiles(files);
+    showToast(files.length + (files.length === 1 ? ' screenshot' : ' screenshots') + ' pasted — review and upload', 'info');
 });
 fileInput.addEventListener('change', function() {
     stageFiles(Array.from(fileInput.files));

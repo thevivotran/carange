@@ -649,6 +649,7 @@
 
             </nav>
 
+            <div hx-get="/settings/integrations/alert" hx-trigger="load delay:1500ms" hx-swap="outerHTML"></div>
             <div class="px-4 pb-2">
                 {% if current_user %}
                 <a href="/profiles"
@@ -855,6 +856,25 @@
             Alpine.store('confirm').show(message, confirmLabel, confirmClass)
                 .then(function(ok) { if (ok) onConfirm(); });
         }
+
+        // ── Paste a screenshot (Ctrl/⌘+V) ─────────────────────────────────────
+        // Returns the image files on a paste event, renamed so two pastes of
+        // "image.png" don't look like duplicates. Empty when the user is typing
+        // into a field (a normal text paste) or the clipboard has no image.
+        window.imagesFromPaste = function(e) {
+            var t = e.target;
+            if (t && t.closest && t.closest('input, textarea, [contenteditable]')) return [];
+            var items = (e.clipboardData && e.clipboardData.items) || [];
+            var files = [];
+            Array.prototype.forEach.call(items, function(it) {
+                if (it.kind !== 'file' || !/^image\//.test(it.type)) return;
+                var f = it.getAsFile();
+                if (!f) return;
+                var ext = (f.type.split('/')[1] || 'png').replace('jpeg', 'jpg');
+                files.push(new File([f], 'pasted-' + Date.now() + '-' + files.length + '.' + ext, { type: f.type }));
+            });
+            return files;
+        };
 
         // ── List pages: no filter bar while nothing exists yet ─────────────────
         // A grid fragment marks its empty state with data-list-empty only when no

@@ -33,3 +33,11 @@ def test_theme_control_is_a_labelled_switch(client):
     assert 'role="switch"' in html
     assert "Dark mode" in html
     assert "Night Mode" not in html
+
+
+def test_paste_to_import_is_wired_on_import_and_review(client):
+    assert "window.imagesFromPaste = function(e)" in client.get("/").text
+    imp = client.get("/import").text
+    assert "window.addEventListener('paste'" in imp and "stageFiles(files)" in imp
+    rev = client.get("/review").text
+    assert "window.addEventListener('paste'" in rev and "/api/import/jobs" in rev
